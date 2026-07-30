@@ -193,10 +193,16 @@
                 overflow: hidden;
                 box-shadow: 0 24px 60px -32px oklch(0.3 0.05 264 / 0.35);
             }
-            .shot img {
+            .shot img,
+            .shot video {
                 display: block;
                 width: 100%;
                 height: auto;
+            }
+            .shot.film {
+                border-radius: 20px;
+                border-color: color-mix(in oklab, var(--accent) 30%, var(--line));
+                box-shadow: 0 30px 80px -30px oklch(0.4 0.12 264 / 0.5);
             }
             section {
                 padding: 72px 0;
@@ -317,12 +323,18 @@
                     <a class="primary" href="https://workfiledemo.illodev.com">Try the live demo</a>
                     <a href="https://github.com/illodev/workfile">Star on GitHub</a>
                 </div>
-                <div class="shot">
-                    <img
-                        src="./assets/flow.png"
-                        alt="The Workfile Flow board: execution columns with an agent claim active on the card being worked on"
-                        loading="eager"
-                    />
+                <div class="shot film">
+                    <video
+                        autoplay
+                        muted
+                        loop
+                        playsinline
+                        preload="auto"
+                        poster="./assets/demo-poster.jpg"
+                        aria-label="A forty-second tour: the Flow board with two live agent claims, the claim up close in the inspector, the timeline, typed history and unified search"
+                    >
+                        <source src="./assets/workfile-demo.mp4" type="video/mp4" />
+                    </video>
                 </div>
             </div>
 
