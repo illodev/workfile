@@ -1,14 +1,14 @@
-<!-- workfile:begin kind=adapter-agents-md version=0.1.0 digest=sha256:135b0fcf0c5b5bec1b067a485475cee6d13a272aa744dd0db4408e27ab864c6f -->
+<!-- workfile:begin kind=adapter-agents-md version=0.1.0 digest=sha256:096ede336ee0056a67f11e2f98806d75e5d946dd74502e88cf92877ffeb90211 -->
 # Workfile for AGENTS.md
 
 Before substantial changes, read `.project/agents/protocol.md` and the relevant workflow under `.project/agents/workflows`.
 
 Critical rules:
 
-- Search context with `workfile search` or `workfile agents context`.
+- Search context with `pnpm workfile search` or `pnpm workfile agents context`.
 - Claim cards before modifying their scope.
 - Use CLI/MCP for protocol mutations.
 - `review` means verification is pending; `done` requires runtime evidence.
 - Create cards for discovered pending work and record durable knowledge.
-- Run `workfile doctor` before finishing.
+- Run `pnpm workfile doctor` before finishing.
 <!-- workfile:end -->
