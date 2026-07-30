@@ -1,7 +1,7 @@
 ---
 id: T-0030
 title: Restructure the repository into a pnpm monorepo with commit hooks
-status: review
+status: done
 type: task
 priority: high
 area: infra
@@ -32,9 +32,10 @@ The repository publishes `@illodev/workfile` from the root while `@illodev/workf
 - 2026-07-30 22:25Z claude-fable-e341b469 · claimed
 - 2026-07-30 22:25Z claude-fable-e341b469 · claimed
 - 2026-07-30 22:36Z claude-fable-e341b469 · doing → review
+- 2026-07-30 22:44Z claude-fable-e341b469 · review → done
 
 ## Notes
 
 - 2026-07-30 22:36Z claude-fable-e341b469 — Local runtime evidence: full check green from the new layout; packaged-tarball smoke green; npm pack parity 175=175 files, zero diff; plugin build idempotent; doctor 0/0; commitlint verified against real history samples plus rejections; both pre-commit branches exercised; C5 commit itself ran commit-msg and pre-commit live. Pending: CI on the pushed commits and the release.yml packages-loop, provable only at the next tag.
 - 2026-07-30 22:41Z claude-fable-e341b469 — CI evidence on 9fe4bb9: Workfile success, CI success. Dependabot npm run failed with the added /packages/* directory entry — pnpm workspaces must be updated from the root only (the / pass proved sufficient by opening the transformers PR). dependabot.yml reverted to directory: / with the reason recorded.
-
+- 2026-07-30 22:44Z claude-fable-e341b469 — CI evidence on ee519f2: CI success (6-job matrix + smoke + codeql), Workfile success (doctor + agents check via packages/workfile/dist), Dependabot Updates success twice with the root-only config. Combined with the local evidence (pack parity 175=175, tarball smoke, live hooks) this closes the loop; the release.yml packages-loop remains to be proven at the 0.1.4 tag.
