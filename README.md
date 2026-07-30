@@ -340,12 +340,6 @@ Releases publish from CI via npm [trusted publishing](https://docs.npmjs.com/tru
    with pnpm, and publishes with the npm CLI — prereleases (`x.y.z-*`) under the
    `next` dist-tag, stable versions under `latest`.
 
-One-time setup: the very first publish must be manual
-(`npm publish --provenance=false --tag next`, after removing `"private": true`),
-because npm's trusted publisher can only be configured on an existing package.
-After that, register this repository and `release.yml` as the package's trusted
-publisher on npmjs.com.
-
 ## Agent Protocol
 
 Canonical instructions and workflows live under `.project/agents/`. Compact managed blocks
