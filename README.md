@@ -16,7 +16,7 @@ is kept in the browser or in a database.
 repository's own workspace: the real cards, releases, incidents and learnings of
 Workfile's development. Mutations work per browser session and reset on reload.
 
-![The Flow board: execution columns with an agent claim active on the card being worked on](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
+![The Flow board: cards moving through execution states, with pill filters and the inspector rail](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
 
 ## Requirements
 
@@ -492,13 +492,13 @@ areas, change vocabularies and memory collection statuses; these values are not 
 into the views. File links open the local editor, or the repository web UI when the
 server provides a `repoUrl` (as the hosted demo does).
 
-| Explorer with the card drawer | Gantt timeline |
+| Explorer with faceted filters | Gantt timeline |
 | --- | --- |
-| ![Explorer with a card drawer open — claim, scope and metadata](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/explorer.png) | ![Gantt timeline: month scale, status-colored bars and today marker](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/timeline.png) |
+| ![Explorer: the whole corpus as a faceted listing with inline status and priority edits](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/explorer.png) | ![Gantt timeline: month scale, status-colored bars, dependency arcs and today marker](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/timeline.png) |
 
 | History with releases | Memory (dark theme) |
 | --- | --- |
-| ![History: change fragments, cut releases and release preparation](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/history.png) | ![Memory: decisions, learnings, incidents and expiring context](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/memory-dark.png) |
+| ![History: change fragments, the derived changelog and release preparation](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/history.png) | ![Memory: learnings, decisions and incidents as typed collections](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/memory-dark.png) |
 
 ## Development
 
