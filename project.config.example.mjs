@@ -93,6 +93,16 @@ export default defineProject({
 // `defineProjectIntegration`-compatible object; a semantic search provider
 // makes `workfile search`, the HTTP API, the UI and MCP rank hybrid results.
 //
+// The first-party provider runs embeddings on-device — repository content
+// never leaves the machine:
+//
+// import { localSearchIntegration } from "@illodev/workfile-search-local";
+//
+// export const integrations = [localSearchIntegration()];
+// // …and set search.provider above to "local-embeddings".
+//
+// Or bring your own:
+//
 // import { createSemanticSearchProvider } from "@illodev/workfile";
 //
 // export const integrations = [

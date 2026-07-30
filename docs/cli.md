@@ -36,6 +36,11 @@ provider is available. `--json` reports which mode actually ran. Workfile never
 sends repository content to a network service by itself — a provider only runs
 if the repository explicitly declares it.
 
+The first-party provider is
+[`@illodev/workfile-search-local`](../packages/search-local/README.md):
+on-device embeddings via transformers.js, cached by content hash, fully
+offline after the first model download.
+
 ### Query grammar
 
 One grammar, shared by the CLI, the HTTP API, MCP and the interface — the same

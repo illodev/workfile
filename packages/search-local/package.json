@@ -1,0 +1,46 @@
+{
+  "name": "@illodev/workfile-search-local",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local embeddings semantic search provider for Workfile. Models run on-device; repository content never leaves the machine.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/illodev/workfile.git",
+    "directory": "packages/search-local"
+  },
+  "homepage": "https://github.com/illodev/workfile/tree/main/packages/search-local#readme",
+  "bugs": {
+    "url": "https://github.com/illodev/workfile/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "workfile",
+    "semantic-search",
+    "embeddings",
+    "transformers",
+    "onnx",
+    "local-first"
+  ],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.2"
+  }
+}
