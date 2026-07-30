@@ -23,6 +23,7 @@ Exit codes: `3` stale revision · `2` configuration error · `1` validation / no
 workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
+workfile upgrade [--dry-run] [--json]
 workfile ui [--host HOST] [--port PORT]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
@@ -40,6 +41,14 @@ The first-party provider is
 [`@illodev/workfile-search-local`](../packages/search-local/README.md):
 on-device embeddings via transformers.js, cached by content hash, fully
 offline after the first model download.
+
+`upgrade` is the one command to run after bumping `@illodev/workfile`: it
+compares the installed version against the stamp on every managed surface the
+config owns (agent adapters, CI templates, the Claude Code surface) and
+resyncs the ones behind — including surfaces whose *content* is current but
+whose stamp is old, which the staleness checks deliberately ignore. Managed
+blocks whose kind no configured target owns are reported instead of silently
+fossilizing.
 
 ### Query grammar
 

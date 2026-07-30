@@ -50,6 +50,7 @@ import {
     renderChangelog,
     renumberCard,
     reopenCard,
+    runUpgrade,
     runDoctor,
     searchProjectRecords,
     searchProjectRecordsHybrid,
@@ -78,6 +79,9 @@ const USAGE: Record<string, string[]> = {
     ],
     schema: ["workfile schema [--root PATH] [--json]"],
     doctor: ["workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]"],
+    upgrade: [
+        "workfile upgrade [--dry-run] [--json]   # resync every owned surface after a version bump"
+    ],
     version: ["workfile version"],
     ui: ["workfile ui [--host HOST] [--port PORT] [--verbose]"],
     card: [
@@ -192,6 +196,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     schema: [],
     doctor: ["--rebuild-cache", "--severity", "--max-issues", "--fix", "--actor"],
+    upgrade: [],
     version: [],
     ui: ["--host", "--port", "--verbose"],
     card: [
@@ -302,7 +307,14 @@ const COMMAND_FLAGS: Record<string, string[]> = {
  * silently performs the action is worse than no flag at all, so anywhere it is
  * not implemented it is now an error that names the real preview command.
  */
-const DRY_RUN_COMMANDS = new Set(["init", "agents", "ci", "claude", "migrate"]);
+const DRY_RUN_COMMANDS = new Set([
+    "init",
+    "agents",
+    "ci",
+    "claude",
+    "migrate",
+    "upgrade"
+]);
 
 const DRY_RUN_ALTERNATIVE = {
     changelog: "`workfile changelog preview`",
@@ -1651,6 +1663,28 @@ async function main() {
     }
     if (command === "search") {
         await searchCommand(workspace);
+        return;
+    }
+    if (command === "upgrade") {
+        const result = await runUpgrade(workspace, {
+            dryRun: has("--dry-run")
+        });
+        if (has("--json")) return print(result);
+        console.log(
+            `Workfile upgrade → v${result.version}${result.dryRun ? " (dry run)" : ""}`
+        );
+        for (const surface of result.surfaces) {
+            const suffix =
+                surface.status === "synced"
+                    ? ` (${surface.changed} files changed)`
+                    : "";
+            console.log(`  ${surface.status.padEnd(13)} ${surface.id}${suffix}`);
+        }
+        for (const orphan of result.orphans) {
+            console.log(
+                `  ORPHAN        ${orphan.file}: block ${orphan.kind} (v${orphan.version || "?"}) has no owning target — add "${orphan.target}" to the config or remove the block`
+            );
+        }
         return;
     }
     printUsage();
