@@ -18,6 +18,13 @@ Workfile's development. Mutations work per browser session and reset on reload.
 
 ![The Flow board: execution columns with an agent claim active on the card being worked on](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
 
+## Used by
+
+- **Fube** — in production.
+- **Workfile** — this repository runs on its own protocol: the cards, changelog
+  fragments and memory behind every release are the `.project/` you can browse
+  in the [live demo](https://workfile-chi.vercel.app).
+
 ## Requirements
 
 - Node.js 22 or newer.
