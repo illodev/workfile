@@ -1,10 +1,14 @@
 version: 2
 updates:
-    # The root holds only workspace tooling; the published packages declare
-    # @types/node and @huggingface/transformers — everything else is a
-    # devDependency, so an update can break the build but never a consumer.
+    # Root only, on purpose: for a pnpm workspace Dependabot walks
+    # pnpm-workspace.yaml itself and the root lockfile covers every
+    # packages/* manifest. Listing the subdirectories as extra entries makes
+    # the updater fail ("Updating workspaces from inside a workspace
+    # subdirectory is not supported"). Published packages declare @types/node
+    # and @huggingface/transformers; everything else is a devDependency, so
+    # an update can break the build but never a consumer.
     - package-ecosystem: npm
-      directories: ["/", "/packages/*"]
+      directory: "/"
       schedule:
           interval: monthly
       groups:
