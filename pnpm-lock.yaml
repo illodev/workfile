@@ -6,6 +6,7 @@ settings:
 
 overrides:
   sharp: ^0.35.0
+  adm-zip: ^0.6.0
 
 importers:
 
@@ -1349,9 +1350,9 @@ packages:
       babel-plugin-react-compiler:
         optional: true
 
-  adm-zip@0.5.18:
-    resolution: {integrity: sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng==}
-    engines: {node: '>=12.0'}
+  adm-zip@0.6.0:
+    resolution: {integrity: sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==}
+    engines: {node: '>=14.0'}
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -3143,7 +3144,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.2.0(@types/node@26.1.2)(jiti@2.6.1)
 
-  adm-zip@0.5.18: {}
+  adm-zip@0.6.0: {}
 
   ajv@8.20.0:
     dependencies:
@@ -3389,7 +3390,7 @@ snapshots:
 
   onnxruntime-node@1.24.3:
     dependencies:
-      adm-zip: 0.5.18
+      adm-zip: 0.6.0
       global-agent: 3.0.0
       onnxruntime-common: 1.24.3
 
