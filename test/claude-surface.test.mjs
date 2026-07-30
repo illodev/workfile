@@ -195,10 +195,31 @@ test("hooks make the claim executable without slowing the session", async () => 
 
         // The budget is the point: PreToolUse runs before *every* tool call in
         // the session, not only the ones it might block, so the runtime imports
-        // nothing from the package.
+        // nothing from the package. An absolute cap measured that claim badly —
+        // a loaded windows runner spends 700 ms just spawning node, and the cap
+        // tripped on machine weather rather than on a regression. The claim is
+        // relative by nature: the hook must cost what an *empty* node process
+        // costs on the same machine at the same moment, plus a small constant
+        // for reading one cached board file. Importing the package's module
+        // graph in the hook would blow the multiple on any machine, which is
+        // the regression this exists to catch.
+        const p95Of = (values) => {
+            const sorted = [...values].sort((left, right) => left - right);
+            return sorted[Math.floor(sorted.length * 0.95)];
+        };
+        const spawnBare = () =>
+            new Promise((done) => {
+                execFile(process.execPath, ["-e", ""], { cwd: root }, () =>
+                    done()
+                );
+            });
+        const baseline = [];
         const samples = [];
         for (let index = 0; index < 20; index += 1) {
-            const started = Date.now();
+            let started = Date.now();
+            await spawnBare();
+            baseline.push(Date.now() - started);
+            started = Date.now();
             await runHook(
                 "pre-tool-use",
                 {
@@ -210,14 +231,13 @@ test("hooks make the claim executable without slowing the session", async () => 
             );
             samples.push(Date.now() - started);
         }
-        samples.sort((left, right) => left - right);
-        const p95 = samples[Math.floor(samples.length * 0.95)];
-        // Generous against process spawn overhead on a shared runner; the
-        // assertion is "does not read the workspace", which is an order of
-        // magnitude, not a percentage.
+        const p95 = p95Of(samples);
+        const budget = p95Of(baseline) * 3 + 200;
         assert.ok(
-            p95 < 400,
-            `PreToolUse p95 was ${p95}ms; it must not grow with the workspace`
+            p95 < budget,
+            `PreToolUse p95 was ${p95}ms against a ${budget.toFixed(0)}ms ` +
+                "budget (3× an empty node spawn + 200ms); the hook must cost " +
+                "process startup, not the workspace"
         );
 
         // A malformed payload must never break the session it observes.
