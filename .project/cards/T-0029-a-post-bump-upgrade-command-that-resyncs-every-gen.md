@@ -37,3 +37,5 @@ CLAUDE.md adapter sat at 0.1.0 because agents.targets never listed "claude").
 
 - 2026-07-30 — from the Fube upgrade experience; the consumer-side checklist lives in
   Fube's LRN-0017 until this exists.
+- 2026-07-30 21:31Z claude-fable-e341b469 — Another surface for upgrade to own, found while working T-0025: the 0.1.3 bump left plugins/workfile/.claude-plugin/plugin.json and .claude-plugin/marketplace.json at 0.1.2 - the drift test only catches it locally because CI regenerates the plugin before testing (check runs build:plugin). Fixed by hand with build-plugin; workfile upgrade should run or verify the plugin build too.
+

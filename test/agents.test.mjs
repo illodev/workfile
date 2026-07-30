@@ -112,3 +112,64 @@ test("agent context stays bounded and includes related durable knowledge", async
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("syncing over nested-era debris sweeps orphan markers", async () => {
+    const { mergeManagedBlock, renderManagedBlock, sweepOrphanMarkers } =
+        await import("../dist/src/modules/generated/managed-files.js");
+
+    // Unit: ends without a begin are never legitimate content; complete
+    // blocks and the author's prose survive untouched.
+    const block = renderManagedBlock({
+        kind: "demo",
+        version: "0.1.3",
+        body: "Managed body."
+    });
+    const debris = [
+        "<!-- workfile:end -->",
+        "# Prose before.",
+        block.text,
+        "<!-- workfile:end -->",
+        "<!-- workfile:end -->",
+        "Prose after.",
+        "<!-- workfile:end -->"
+    ].join("\n");
+    const swept = sweepOrphanMarkers(debris);
+    assert.equal((swept.match(/workfile:begin/g) || []).length, 1);
+    assert.equal((swept.match(/workfile:end/g) || []).length, 1);
+    assert.match(swept, /# Prose before\./);
+    assert.match(swept, /Prose after\./);
+    const merged = mergeManagedBlock(debris, block);
+    assert.equal((merged.match(/workfile:end/g) || []).length, 1);
+
+    // Integration: the exact upgrade path from the card — a file written by
+    // the nested-marker era, synced over by the current version.
+    const root = await mkdtemp(join(tmpdir(), "workfile-orphans-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const clean = await readFile(join(root, "AGENTS.md"), "utf8");
+        await writeFile(
+            join(root, "AGENTS.md"),
+            `# Team notes\n\nKeep this paragraph.\n\n${clean}\n<!-- workfile:end -->\n<!-- workfile:end -->\n<!-- workfile:end -->\n`
+        );
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const healed = await readFile(join(root, "AGENTS.md"), "utf8");
+        assert.match(healed, /Keep this paragraph\./);
+        assert.equal(
+            (healed.match(/workfile:begin/g) || []).length,
+            (clean.match(/workfile:begin/g) || []).length
+        );
+        assert.equal(
+            (healed.match(/workfile:end/g) || []).length,
+            (clean.match(/workfile:end/g) || []).length
+        );
+
+        const verdict = await checkAgentInstructions(workspace, {
+            targets: ["agents-md"]
+        });
+        assert.equal(verdict.ok, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

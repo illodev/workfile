@@ -41,7 +41,7 @@ export function digestText(value) {
  * carry the author's own prose outside the markers, and that is not ours to
  * discard.
  */
-export function stripManagedMarkers(content) {
+function stripMarkerLines(content) {
     // A byte no marker can contain. A space would not do: the rendered
     // marker already has them, and the first sits inside `<!--`.
     const SLOT = "\u0000";
@@ -56,7 +56,54 @@ export function stripManagedMarkers(content) {
             );
         }
     }
-    return text.trim();
+    return text;
+}
+
+export function stripManagedMarkers(content) {
+    return stripMarkerLines(content).trim();
+}
+
+/** The `[start, end)` span of every complete block, any kind, any style. */
+function completeBlockRanges(content) {
+    const ranges: Array<[number, number]> = [];
+    for (const definition of Object.values(STYLES)) {
+        definition.pattern.lastIndex = 0;
+        let match;
+        while ((match = definition.pattern.exec(content))) {
+            const bodyStart = definition.pattern.lastIndex;
+            const endMarkerIndex = content.indexOf(definition.end, bodyStart);
+            if (endMarkerIndex === -1) continue;
+            const end = endMarkerIndex + definition.end.length;
+            ranges.push([match.index, end]);
+            definition.pattern.lastIndex = end;
+        }
+    }
+    return ranges.sort((left, right) => left[0] - right[0]);
+}
+
+/**
+ * Removes marker lines that sit outside every complete block.
+ *
+ * Skills written by 0.1.0/0.1.1 embedded the protocol's own marker pair in
+ * their body; syncing over such a file replaced up to the FIRST `end` and left
+ * the rest as debris — this repo's own SKILL.md had accumulated seven orphan
+ * `end` lines, invisible to `check`, which only reads the first block. A
+ * marker line is never legitimate user content, so anything outside a
+ * complete block is ours to sweep.
+ */
+export function sweepOrphanMarkers(content) {
+    const text = String(content ?? "");
+    const ranges = completeBlockRanges(text);
+    let cursor = 0;
+    let result = "";
+    for (const [start, end] of ranges) {
+        if (start < cursor) continue;
+        result += stripMarkerLines(text.slice(cursor, start));
+        result += text.slice(start, end);
+        cursor = end;
+    }
+    result += stripMarkerLines(text.slice(cursor));
+    return result;
 }
 
 export function renderManagedBlock({ kind, version, body, style = "html" }) {
@@ -116,7 +163,11 @@ export function findManagedBlock(content, kind, preferredStyle) {
 export function mergeManagedBlock(existing, block, options: any = {}) {
     const current = findManagedBlock(existing, block.kind, block.style);
     if (current) {
-        return `${existing.slice(0, current.start)}${block.text}${existing.slice(current.end)}`;
+        // Swept after the merge so debris from the nested-marker era heals on
+        // the next sync instead of surviving every upgrade.
+        return sweepOrphanMarkers(
+            `${existing.slice(0, current.start)}${block.text}${existing.slice(current.end)}`
+        );
     }
     if (options.requireMarker && existing.trim()) {
         if (!options.force) {

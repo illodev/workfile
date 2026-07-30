@@ -1,12 +1,13 @@
 ---
 id: T-0025
 title: Upgrading over a nested skill leaves orphan end markers behind
-status: backlog
+status: done
 type: bug
 priority: low
 area: core
 created: 2026-07-30
 updated: 2026-07-30
+scope: [src/modules/generated, src/modules/claude, test]
 ---
 ## Context
 
@@ -48,3 +49,11 @@ exactly one begin and one end survive.
 - 2026-07-30 — found while upgrading Fube to 0.1.2; both repos cleaned by hand
   (sed dedup of trailing ends; `claude check` stays current). Same defect family as the
   nesting bug fixed in 9ee0f6c.
+- 2026-07-30 21:32Z claude-fable-e341b469 — Implemented per the card: stripManagedMarkers refactored into stripMarkerLines + trim wrapper; completeBlockRanges + sweepOrphanMarkers in managed-files.ts; mergeManagedBlock sweeps after every replace, healing all three surfaces (agents, ci, claude). Evidence: unit + integration test in agents.test.mjs (nested-era AGENTS.md with three orphan ends heals to exactly one begin/one end, user prose intact, check stays ok); 166/166 tests; strict held. Bonus catch: 0.1.3 plugin manifest drift fixed via build-plugin, noted on T-0029. CHG-0013.
+
+## Activity
+
+- 2026-07-30 21:27Z claude-fable-e341b469 · claimed
+- 2026-07-30 21:32Z claude-fable-e341b469 · doing → done
+- 2026-07-30 21:32Z claude-fable-e341b469 · released
+
