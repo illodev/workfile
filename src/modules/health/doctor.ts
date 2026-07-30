@@ -115,7 +115,7 @@ export async function runDoctor(workspace, options: any = {}) {
             code: "duplicate-record-id",
             id: duplicate.id,
             file: duplicate.paths[0],
-            message: `${duplicate.id} is used by multiple project records`,
+            message: `${duplicate.id} is used by multiple project records. Run \`workfile doctor --fix\` or \`workfile card renumber --duplicates\` to heal card collisions.`,
             details: { paths: duplicate.paths }
         });
     }

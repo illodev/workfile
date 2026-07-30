@@ -762,3 +762,58 @@ export const integrations = [
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("card renumber --duplicates and doctor --fix heal a merged ID collision", async () => {
+    const { card } = await import("./support/workspace.mjs");
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-renumber-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await writeFile(
+            join(root, ".project", "cards", "T-0001-collision.md"),
+            card("T-0001", { created: "2026-07-28" }, "Born on a branch.")
+        );
+        const healed = JSON.parse(
+            (
+                await run([
+                    "card",
+                    "renumber",
+                    "--duplicates",
+                    "--root",
+                    root,
+                    "--actor",
+                    "cli-test",
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(healed.moves.length, 1);
+        assert.equal(healed.moves[0].from, "T-0001");
+
+        await writeFile(
+            join(root, ".project", "cards", "T-0002-collision.md"),
+            card("T-0002", { created: "2026-07-28" }, "Second branch.")
+        );
+        const doctor = JSON.parse(
+            (
+                await run([
+                    "doctor",
+                    "--fix",
+                    "--root",
+                    root,
+                    "--actor",
+                    "cli-test",
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(doctor.fixed.moves.length, 1);
+        assert.equal(doctor.fixed.moves[0].from, "T-0002");
+        assert.ok(
+            !doctor.issues.some(
+                (issue) => issue.code === "duplicate-record-id"
+            )
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

@@ -231,7 +231,7 @@ async function mutateCard(
  * card's whole life, reviewable in a diff. Append-only and chronological, so a
  * merge conflict between two branches resolves by keeping both lines.
  */
-function appendActivityLine(content, entry) {
+export function appendActivityLine(content, entry) {
     const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
     const prefix = content.slice(0, parsed.prefixLength);
     const body = parsed.body.replace(/\s+$/, "");
@@ -249,7 +249,7 @@ function appendActivityLine(content, entry) {
     );
 }
 
-function activityEntry(actor, text, now) {
+export function activityEntry(actor, text, now) {
     const stamp = nowTimestamp(now).slice(0, 16).replace("T", " ");
     return `${stamp}Z ${actor || "unknown"} · ${text}`;
 }

@@ -25,6 +25,7 @@ import {
     createMemoryRecord,
     createRelease,
     graduateLearning,
+    healDuplicateCardIds,
     inspectRepository,
     loadCards,
     readAgentSessions,
@@ -47,6 +48,7 @@ import {
     previewRelease,
     releaseCard,
     renderChangelog,
+    renumberCard,
     reopenCard,
     runDoctor,
     searchProjectRecords,
@@ -75,7 +77,7 @@ const USAGE: Record<string, string[]> = {
         "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]"
     ],
     schema: ["workfile schema [--root PATH] [--json]"],
-    doctor: ["workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache]"],
+    doctor: ["workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]"],
     version: ["workfile version"],
     ui: ["workfile ui [--host HOST] [--port PORT] [--verbose]"],
     card: [
@@ -90,7 +92,9 @@ const USAGE: Record<string, string[]> = {
         "workfile card reopen ID [--status backlog]",
         "workfile card reap [--dry-run] [--older-than HOURS] [--json]",
         "workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]",
-        "workfile card write ID [--body-file FILE]   # or pipe the body on stdin"
+        "workfile card write ID [--body-file FILE]   # or pipe the body on stdin",
+        "workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]",
+        "workfile card renumber --duplicates [--actor ACTOR]   # heal after a merge"
     ],
     doc: [
         "workfile doc list [--query TEXT] [--managed] [--json]",
@@ -187,7 +191,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--no-scripts"
     ],
     schema: [],
-    doctor: ["--rebuild-cache", "--severity", "--max-issues"],
+    doctor: ["--rebuild-cache", "--severity", "--max-issues", "--fix", "--actor"],
     version: [],
     ui: ["--host", "--port", "--verbose"],
     card: [
@@ -213,7 +217,9 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--older-than",
         "--text",
         "--section",
-        "--body-file"
+        "--body-file",
+        "--to",
+        "--duplicates"
     ],
     doc: [
         "--query",
@@ -726,6 +732,38 @@ async function cardCommand(workspace, action) {
             expectedRevision
         });
         return print(has("--json") ? result.card : `${id} noted`);
+    }
+    if (action === "renumber") {
+        const actor = option("--actor") || defaultActor();
+        if (has("--duplicates")) {
+            const result = await healDuplicateCardIds(workspace, { actor });
+            return print(
+                has("--json")
+                    ? result
+                    : result.moves.length
+                      ? result.moves
+                            .map((move) => `${move.from} → ${move.to} (${move.file})`)
+                            .join("\n")
+                      : "no duplicate card IDs"
+            );
+        }
+        const result = await renumberCard(workspace, id, {
+            to: option("--to"),
+            actor
+        });
+        return print(
+            has("--json")
+                ? result
+                : `${result.from} → ${result.id}${
+                      result.rewritten.length
+                          ? ` (${result.rewritten.length} references rewritten)`
+                          : ""
+                  }${
+                      result.review.length
+                          ? `\nreview references in: ${result.review.join(", ")}`
+                          : ""
+                  }`
+        );
     }
     if (action === "write") {
         // Body from a file or stdin rather than an argument: a Markdown body
@@ -1501,6 +1539,18 @@ async function main() {
         if (has("--rebuild-cache")) {
             await clearIndexCache(workspace);
         }
+        let fixed: Awaited<ReturnType<typeof healDuplicateCardIds>> | null =
+            null;
+        if (has("--fix")) {
+            fixed = await healDuplicateCardIds(workspace, {
+                actor: option("--actor") || defaultActor()
+            });
+            if (!has("--json")) {
+                for (const move of fixed.moves) {
+                    console.log(`fixed: ${move.from} → ${move.to} (${move.file})`);
+                }
+            }
+        }
         const report = await runDoctor(workspace);
         // A report that runs to hundreds of lines gets skimmed and then
         // ignored, which costs the warnings that were worth reading.
@@ -1515,7 +1565,11 @@ async function main() {
             ? Math.max(0, Number(option("--max-issues")))
             : shown.length;
         if (has("--json")) {
-            print({ ...report, issues: shown.slice(0, cap) });
+            print({
+                ...report,
+                ...(fixed ? { fixed } : {}),
+                issues: shown.slice(0, cap)
+            });
         } else {
             console.log(
                 `Workfile doctor: ${report.counts.error} errors, ${report.counts.warning} warnings`

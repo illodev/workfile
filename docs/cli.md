@@ -22,7 +22,7 @@ Exit codes: `3` stale revision · `2` configuration error · `1` validation / no
 ```bash
 workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
-workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache]
+workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
 workfile ui [--host HOST] [--port PORT]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
@@ -72,10 +72,20 @@ workfile card transition ID STATUS [--actor ACTOR]
 workfile card archive ID
 workfile card reopen ID [--status backlog]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
+workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
+workfile card renumber --duplicates [--actor ACTOR]
 ```
 
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.
+
+Sequential IDs are allocated per clone, so two branches can create the same
+card ID and git merges both files without a conflict. `card renumber
+--duplicates` (or `doctor --fix`) heals that deterministically: the older card
+keeps the ID, the younger moves to the next free one. When the moved ID was
+unique, every reference inside `.project/` is rewritten; after a collision the
+references are ambiguous by construction, so they are listed under `review`
+instead of being silently repointed.
 
 Filter flags take comma-separated values (`--type bug,task`) and combine with
 AND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for
