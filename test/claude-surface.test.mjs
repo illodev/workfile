@@ -195,30 +195,54 @@ test("hooks make the claim executable without slowing the session", async () => 
 
         // The budget is the point: PreToolUse runs before *every* tool call in
         // the session, not only the ones it might block, so the runtime imports
-        // nothing from the package. An absolute cap measured that claim badly —
-        // a loaded windows runner spends 700 ms just spawning node, and the cap
-        // tripped on machine weather rather than on a regression. The claim is
-        // relative by nature: the hook must cost what an *empty* node process
-        // costs on the same machine at the same moment, plus a small constant
-        // for reading one cached board file. Importing the package's module
-        // graph in the hook would blow the multiple on any machine, which is
-        // the regression this exists to catch.
-        const p95Of = (values) => {
+        // nothing from the package. Absolute caps measured that claim badly —
+        // a loaded windows runner spends 700 ms spawning node, and tripped on
+        // machine weather rather than on a regression. The claim is relative
+        // by nature, so the floor is a stand-in process that pays the same
+        // fixed costs the hook pays — spawn, reading a script file, the stdin
+        // round-trip, a couple of small file reads — and the hook's median
+        // must stay within a small multiple of the floor's median. Importing
+        // the package's module graph in the hook shifts the whole
+        // distribution on any machine, which is what this exists to catch;
+        // medians ignore the single hiccup a shared runner throws in.
+        const floorScript = join(root, "floor.mjs");
+        await writeFile(
+            floorScript,
+            [
+                'import { readFile } from "node:fs/promises";',
+                'import { join } from "node:path";',
+                "let raw = \"\";",
+                'process.stdin.setEncoding("utf8");',
+                'for await (const chunk of process.stdin) raw += chunk;',
+                "JSON.parse(raw || \"{}\");",
+                "await readFile(process.argv[1], \"utf8\");",
+                'await readFile(join(process.cwd(), "package.json"), "utf8").catch(() => "");',
+                ""
+            ].join("\n")
+        );
+        const medianOf = (values) => {
             const sorted = [...values].sort((left, right) => left - right);
-            return sorted[Math.floor(sorted.length * 0.95)];
+            return sorted[Math.floor(sorted.length / 2)];
         };
-        const spawnBare = () =>
+        const runFloor = () =>
             new Promise((done) => {
-                execFile(process.execPath, ["-e", ""], { cwd: root }, () =>
-                    done()
+                const child = execFile(
+                    process.execPath,
+                    [floorScript],
+                    { cwd: root },
+                    () => done()
                 );
+                child.stdin.end(JSON.stringify({ warm: true }));
             });
-        const baseline = [];
+        // One unmeasured pass each, so first-open file scanning on windows
+        // runners lands outside the samples.
+        await runFloor();
+        const floor = [];
         const samples = [];
         for (let index = 0; index < 20; index += 1) {
             let started = Date.now();
-            await spawnBare();
-            baseline.push(Date.now() - started);
+            await runFloor();
+            floor.push(Date.now() - started);
             started = Date.now();
             await runHook(
                 "pre-tool-use",
@@ -231,13 +255,13 @@ test("hooks make the claim executable without slowing the session", async () => 
             );
             samples.push(Date.now() - started);
         }
-        const p95 = p95Of(samples);
-        const budget = p95Of(baseline) * 3 + 200;
+        const median = medianOf(samples);
+        const budget = medianOf(floor) * 2 + 150;
         assert.ok(
-            p95 < budget,
-            `PreToolUse p95 was ${p95}ms against a ${budget.toFixed(0)}ms ` +
-                "budget (3× an empty node spawn + 200ms); the hook must cost " +
-                "process startup, not the workspace"
+            median < budget,
+            `PreToolUse median was ${median}ms against a ${budget.toFixed(0)}ms ` +
+                "budget (2× a stand-in process paying the same fixed costs, " +
+                "+150ms); the hook must cost process startup, not the workspace"
         );
 
         // A malformed payload must never break the session it observes.
