@@ -77,24 +77,24 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
         await buildBenchWorkspace(root, "S");
         const workspace = await loadWorkspace({ root });
         const batches = [];
-        // Windows runners deliver events with multi-hundred-millisecond lag
-        // and the defaults (120 ms quiet, 1 s ceiling) then split one burst
-        // into several batches. The windows are widened until timing noise
-        // cannot reach them: coalescing is the behavior under test, not the
-        // exact latency budget.
+        // Windows runners deliver a burst's events with gaps that were
+        // observed to exceed 850 ms — a 250 ms quiet period still split one
+        // burst into two batches there. Splitting a batch now requires a
+        // full second of silence: coalescing is the behavior under test,
+        // not the latency budget, so the windows are wide on purpose.
         const watcher = createWorkspaceWatcher(workspace, {
             onChange: (change) => batches.push(change),
             resetThreshold: 25,
-            debounceMs: 250,
-            maxDebounceMs: 5000
+            debounceMs: 1000,
+            maxDebounceMs: 10000
         });
-        const nextBatch = async (limit = 5000) => {
+        const nextBatch = async (limit = 10000) => {
             for (let waited = 0; waited < limit && !batches.length; waited += 50) {
                 await sleep(50);
             }
             // The quiet period plus slack, so a straggler event that would
             // have opened a second batch has had its chance to arrive.
-            await sleep(600);
+            await sleep(1600);
         };
 
         const started = await watcher.start();
@@ -122,14 +122,14 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
             // must never surface: every protocol write makes one.
             batches.length = 0;
             await writeFile(join(root, ".project/cards/.abc123.tmp"), "x");
-            await sleep(600);
+            await sleep(1400);
             assert.deepEqual(batches, [], "atomic-write temporaries are noise");
 
             // Neither may the cache, which holds locks that churn on every
             // write, the persisted index, and agent activity. Watching it is a
             // feedback loop, not a source of events.
             await writeFile(join(root, ".project/.cache/scratch.md"), "x");
-            await sleep(600);
+            await sleep(1400);
             assert.deepEqual(batches, [], "the cache is excluded");
 
             // A burst reports once, and past a threshold says "resynchronize"
@@ -141,7 +141,7 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
                     card(`T-95${String(index).padStart(2, "0")}`)
                 );
             }
-            await nextBatch(8000);
+            await nextBatch(15000);
             assert.equal(batches.length, 1, "a burst coalesces into one batch");
             assert.equal(batches[0].type, "reset");
             assert.ok(batches[0].count >= 40);
