@@ -223,7 +223,10 @@ export async function loadChangelog(workspace) {
         releases: releases.sort(
             (left, right) =>
                 String(right.date || "").localeCompare(String(left.date || "")) ||
-                left.id.localeCompare(right.id, undefined, { numeric: true })
+                // Newest first also on ties: two releases cut the same day
+                // rendered oldest-first, which put 0.1.1 above 0.1.2 in the
+                // published CHANGELOG. A higher release id is a later release.
+                right.id.localeCompare(left.id, undefined, { numeric: true })
         ),
         unreadable: [...unreleased.unreadable, ...released.unreadable]
     };

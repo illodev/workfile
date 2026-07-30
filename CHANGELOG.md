@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.2 — 2026-07-30
+
+### Added
+
+- Duplicate card IDs after a merge now heal deterministically (T-0019)
+- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)
+- Semantic search providers now load from project.config.mjs on every surface (T-0020)
+
+### Changed
+
+- Workspace packages version and release in lockstep with the core (T-0022)
+
+### Security
+
+- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)
+
 ## 0.1.1 — 2026-07-30
 
 ### Changed

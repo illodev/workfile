@@ -204,3 +204,36 @@ Broken reference.
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("two releases cut the same day render newest-first", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        await createChangeFragment(workspace, {
+            title: "First change",
+            type: "fixed",
+            area: "billing"
+        });
+        await createRelease(workspace, { version: "0.1.1", date: "2026-07-30" });
+        await createChangeFragment(workspace, {
+            title: "Second change",
+            type: "added",
+            area: "billing"
+        });
+        await createRelease(workspace, { version: "0.1.2", date: "2026-07-30" });
+
+        const loaded = await loadChangelog(workspace);
+        assert.deepEqual(
+            loaded.releases.map((release) => release.version),
+            ["0.1.2", "0.1.1"]
+        );
+
+        const rendered = await renderChangelog(workspace);
+        assert.ok(
+            rendered.indexOf("## 0.1.2") < rendered.indexOf("## 0.1.1"),
+            "newest release must render first"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
