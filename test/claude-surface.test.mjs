@@ -62,16 +62,23 @@ test("the Claude Code surface is generated and verifiable", async () => {
             join(root, ".claude/commands/claim.md"),
             "utf8"
         );
-        assert.match(claim, /allowed-tools: Bash\(workfile card claim \*\)/);
+        // The invocation carries the package manager's prefix. A bare
+        // `workfile` only resolves when the package is installed globally, and
+        // these files are executed verbatim: this fixture has no lockfile, so
+        // detection falls back to npm and the widest-supported `npx` form.
+        assert.match(claim, /allowed-tools: Bash\(npx workfile card claim \*\)/);
+        assert.match(claim, /`npx workfile card claim \$1 --scope \$2`/);
         assert.equal(claim.includes("Bash(project *)"), false);
 
-        // The MCP server is registered, using the binary that actually parses
-        // its flags rather than the multiplexed CLI.
+        // The MCP server is registered through the `mcp` SUBCOMMAND, not the
+        // `workfile-mcp` bin: npx resolves the bin matching the package name
+        // and passes the rest as arguments, so `npx @illodev/workfile
+        // workfile-mcp` prints the help and never starts a server.
         const mcp = JSON.parse(await readFile(join(root, ".mcp.json"), "utf8"));
         assert.deepEqual(mcp.mcpServers["workfile"].args, [
             "-y",
             "@illodev/workfile",
-            "workfile-mcp"
+            "mcp"
         ]);
 
         // Settings are merged, not replaced: the file belongs to the repository.

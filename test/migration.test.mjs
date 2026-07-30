@@ -212,7 +212,7 @@ test("schema migration reports its state and names the repair", async () => {
             () => loadWorkspace({ root }),
             (error) => {
                 assert.equal(error.code, "CONFIG_SCHEMA_MISMATCH");
-                assert.match(error.message, /project migrate schema/);
+                assert.match(error.message, /workfile migrate schema/);
                 return true;
             }
         );

@@ -69,9 +69,9 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Antes de trabajar
 
-1. Busca el trabajo y el conocimiento relacionado con \`workfile search\`.
+1. Busca el trabajo y el conocimiento relacionado con \`${workspace.cli} search\`.
 2. Abre la tarjeta y sus relaciones antes de modificar código sustancial.
-3. Reclama la tarjeta antes de tocar su scope: \`workfile card claim ID --actor ACTOR --scope ruta,ruta\`.
+3. Reclama la tarjeta antes de tocar su scope: \`${workspace.cli} card claim ID --actor ACTOR --scope ruta,ruta\`.
 4. Revisa claims activos y solapamientos de scope. No sobrescribas el trabajo de otro actor.
 5. Carga solo el contexto necesario; evita inyectar toda la memoria del proyecto.
 
@@ -98,7 +98,7 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 ## Al terminar
 
 1. Ejecuta las pruebas y verificaciones relevantes.
-2. Ejecuta \`workfile doctor\`.
+2. Ejecuta \`${workspace.cli} doctor\`.
 3. Deja la tarjeta en \`review\` si falta verificar o desplegar; usa \`done\` solo con evidencia real.
 4. Libera el claim cuando el trabajo activo se detenga.
 5. Registra conocimiento durable y changelog cuando corresponda.
@@ -113,14 +113,14 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Comandos esenciales
 
-\`workfile search "consulta"\`  
-\`workfile agents context --card T-0001\`  
-\`workfile card show T-0001 --json\`  
-\`workfile card claim T-0001 --actor session-id --scope apps/api\`  
-\`workfile card transition T-0001 review --actor session-id\`  
-\`workfile changelog add --title "Cambio" --type changed --area api\`  
-\`workfile memory add decision --title "Decisión" --status accepted\`  
-\`workfile doctor\`
+\`${workspace.cli} search "consulta"\`  
+\`${workspace.cli} agents context --card T-0001\`  
+\`${workspace.cli} card show T-0001 --json\`  
+\`${workspace.cli} card claim T-0001 --actor session-id --scope apps/api\`  
+\`${workspace.cli} card transition T-0001 review --actor session-id\`  
+\`${workspace.cli} changelog add --title "Cambio" --type changed --area api\`  
+\`${workspace.cli} memory add decision --title "Decisión" --status accepted\`  
+\`${workspace.cli} doctor\`
 `;
     }
     return `# Repository operating protocol
@@ -129,9 +129,9 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Before working
 
-1. Search related work and knowledge with \`workfile search\`.
+1. Search related work and knowledge with \`${workspace.cli} search\`.
 2. Read the card and its relationship neighborhood before substantial code changes.
-3. Claim the card before touching its scope: \`workfile card claim ID --actor ACTOR --scope path,path\`.
+3. Claim the card before touching its scope: \`${workspace.cli} card claim ID --actor ACTOR --scope path,path\`.
 4. Inspect active claims and overlapping scopes. Do not overwrite another actor's work.
 5. Load the smallest relevant context; do not inject all workfile memory into every prompt.
 
@@ -158,7 +158,7 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 ## Finishing
 
 1. Run relevant tests and verification.
-2. Run \`workfile doctor\`.
+2. Run \`${workspace.cli} doctor\`.
 3. Keep the card in \`review\` if verification or deployment is pending; use \`done\` only with real evidence.
 4. Release the claim when active work stops.
 5. Record durable knowledge and changelog fragments when appropriate.
@@ -173,14 +173,14 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Essential commands
 
-\`workfile search "query"\`  
-\`workfile agents context --card T-0001\`  
-\`workfile card show T-0001 --json\`  
-\`workfile card claim T-0001 --actor session-id --scope apps/api\`  
-\`workfile card transition T-0001 review --actor session-id\`  
-\`workfile changelog add --title "Change" --type changed --area api\`  
-\`workfile memory add decision --title "Decision" --status accepted\`  
-\`workfile doctor\`
+\`${workspace.cli} search "query"\`  
+\`${workspace.cli} agents context --card T-0001\`  
+\`${workspace.cli} card show T-0001 --json\`  
+\`${workspace.cli} card claim T-0001 --actor session-id --scope apps/api\`  
+\`${workspace.cli} card transition T-0001 review --actor session-id\`  
+\`${workspace.cli} changelog add --title "Change" --type changed --area api\`  
+\`${workspace.cli} memory add decision --title "Decision" --status accepted\`  
+\`${workspace.cli} doctor\`
 `;
 }
 
@@ -190,7 +190,7 @@ function workflowBody(workspace, workflow) {
         "start-work": isEs
             ? `# Empezar trabajo
 
-1. Ejecuta \`workfile agents context --card <ID>\`.
+1. Ejecuta \`${workspace.cli} agents context --card <ID>\`.
 2. Lee la tarjeta, documentación, decisiones, convenciones e incidentes relevantes.
 3. Comprueba claims y scopes solapados.
 4. Reclama la tarjeta con un actor estable para la sesión.
@@ -198,7 +198,7 @@ function workflowBody(workspace, workflow) {
 6. Confirma criterios de aceptación y plan de verificación antes de editar código.`
             : `# Start work
 
-1. Run \`workfile agents context --card <ID>\`.
+1. Run \`${workspace.cli} agents context --card <ID>\`.
 2. Read the card plus relevant docs, decisions, conventions and incidents.
 3. Check active claims and overlapping scopes.
 4. Claim the card with a stable actor identifier for the session.
@@ -211,7 +211,7 @@ function workflowBody(workspace, workflow) {
 2. Actualiza notas y criterios de aceptación con evidencia verificable.
 3. Añade fragmento de changelog si el cambio lo requiere.
 4. Registra decisiones, incidentes o aprendizajes durables.
-5. Ejecuta \`workfile doctor\`.
+5. Ejecuta \`${workspace.cli} doctor\`.
 6. Usa \`review\` si falta despliegue o verificación en ejecución.
 7. Usa \`done\` únicamente cuando el resultado esté verificado en el entorno adecuado.
 8. Libera el claim cuando deje de existir trabajo activo.`
@@ -221,7 +221,7 @@ function workflowBody(workspace, workflow) {
 2. Update notes and acceptance criteria with verifiable evidence.
 3. Add a changelog fragment when required.
 4. Record durable decisions, incidents or learnings.
-5. Run \`workfile doctor\`.
+5. Run \`${workspace.cli} doctor\`.
 6. Use \`review\` when deployment or runtime verification is still pending.
 7. Use \`done\` only after verification in the appropriate environment.
 8. Release the claim when active work stops.`,
@@ -284,24 +284,24 @@ Antes de realizar cambios sustanciales, lee \`${canonical}\` y el workflow aplic
 
 Reglas críticas:
 
-- Busca contexto con \`workfile search\` o \`workfile agents context\`.
+- Busca contexto con \`${workspace.cli} search\` o \`${workspace.cli} agents context\`.
 - Reclama las tarjetas antes de modificar su scope.
 - Usa CLI/MCP para mutaciones del protocolo.
 - \`review\` significa pendiente de verificación; \`done\` exige evidencia en ejecución.
 - Crea tarjetas para trabajo pendiente descubierto y registra conocimiento durable.
-- Ejecuta \`workfile doctor\` antes de terminar.`
+- Ejecuta \`${workspace.cli} doctor\` antes de terminar.`
         : `${header}
 
 Before substantial changes, read \`${canonical}\` and the relevant workflow under \`${relativeLabel(workspace.root, workspace.paths.agentWorkflows)}\`.
 
 Critical rules:
 
-- Search context with \`workfile search\` or \`workfile agents context\`.
+- Search context with \`${workspace.cli} search\` or \`${workspace.cli} agents context\`.
 - Claim cards before modifying their scope.
 - Use CLI/MCP for protocol mutations.
 - \`review\` means verification is pending; \`done\` requires runtime evidence.
 - Create cards for discovered pending work and record durable knowledge.
-- Run \`workfile doctor\` before finishing.`;
+- Run \`${workspace.cli} doctor\` before finishing.`;
     return body;
 }
 

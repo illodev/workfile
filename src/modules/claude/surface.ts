@@ -5,10 +5,20 @@ import { writeFileAtomic } from "../../core/filesystem.js";
 import { exists } from "../../core/fs-utils.js";
 import { ensureWritable } from "../../core/guards.js";
 import {
+    DEFAULT_PACKAGE_MANAGER,
+    cliInvocation
+} from "../../core/package-manager.js";
+import {
     inspectManagedFile,
     renderManagedBlock,
     syncManagedFile
 } from "../generated/managed-files.js";
+
+/**
+ * What the public helpers assume when no workspace is available to detect
+ * from: `npx` is the form every manager understands.
+ */
+const DEFAULT_CLI = cliInvocation(DEFAULT_PACKAGE_MANAGER);
 
 const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../../../package.json", import.meta.url), "utf8")
@@ -22,15 +32,16 @@ const PACKAGE_VERSION = JSON.parse(
  * in someone else's repository grants permissions, and the grant should be no
  * wider than the command needs.
  */
-const COMMANDS = [
+function commandDefinitions(cli) {
+    return [
     {
         name: "next",
         frontmatter: {
             description: "Show the cards that can be started right now",
-            "allowed-tools": "Bash(workfile card list *)"
+            "allowed-tools": `Bash(${cli} card list *)`
         },
         body: [
-            "Run `workfile card list --unclaimed --status next,backlog --limit 10 --json`",
+            "Run `" + cli + " card list --unclaimed --status next,backlog --limit 10 --json`",
             "and show the candidates with their priority and area.",
             "",
             "Do not start work without claiming: `/claim <id>`."
@@ -41,10 +52,10 @@ const COMMANDS = [
         frontmatter: {
             description: "Claim a card before working on it",
             "argument-hint": "[T-0042] [scope,paths]",
-            "allowed-tools": "Bash(workfile card claim *)"
+            "allowed-tools": `Bash(${cli} card claim *)`
         },
         body: [
-            "Claim `$1` with `workfile card claim $1 --scope $2`.",
+            "Claim `$1` with `" + cli + " card claim $1 --scope $2`.",
             "",
             "The scope is the set of paths you intend to modify. It is what stops",
             "two agents from editing the same files, so name it honestly — too",
@@ -60,18 +71,18 @@ const COMMANDS = [
             description: "Finish a card: verify, record, release",
             "argument-hint": "[T-0042]",
             "allowed-tools":
-                "Bash(workfile card transition *), Bash(workfile changelog add *), Bash(workfile doctor *)"
+                `Bash(${cli} card transition *), Bash(${cli} changelog add *), Bash(${cli} doctor *)`
         },
         body: [
             "Close out `$1`:",
             "",
-            "1. `workfile doctor --severity error` must be clean.",
+            "1. `" + cli + " doctor --severity error` must be clean.",
             "2. Add a changelog fragment if the change is user-visible.",
-            "3. `workfile card transition $1 review` — `review` means verification",
+            "3. `" + cli + " card transition $1 review` — `review` means verification",
             "   is pending. Only move to `done` with runtime evidence: a passing",
             "   test, a command whose output you have seen, a screenshot.",
             "",
-            "Record anything durable you learned with `workfile memory add`."
+            "Record anything durable you learned with `" + cli + " memory add`."
         ]
     },
     {
@@ -79,17 +90,18 @@ const COMMANDS = [
         frontmatter: {
             description: "Load the protocol context for a card",
             "argument-hint": "[T-0042]",
-            "allowed-tools": "Bash(workfile agents context *)"
+            "allowed-tools": `Bash(${cli} agents context *)`
         },
         body: [
-            "!`workfile agents context --card $1 --limit 20`",
+            "!`" + cli + " agents context --card $1 --limit 20`",
             "",
             "The bundle above is the relevant slice of the workspace: the card,",
             "its direct relations, active conventions, open incidents and",
             "unexpired context. Read it before touching anything."
         ]
     }
-];
+    ];
+}
 
 function frontmatterBlock(entries) {
     return [
@@ -109,7 +121,7 @@ function commandFile(command) {
  * `.project/agents/protocol.md` is the canonical text; this projects it rather
  * than restating it, so the two cannot drift into disagreeing.
  */
-function skillBody(protocolText) {
+function skillBody(protocolText, cli) {
     return [
         "This repository uses Workfile: Work, Docs, History and Memory",
         "live as Markdown under `.project/`, and the CLI and MCP server are the",
@@ -117,8 +129,8 @@ function skillBody(protocolText) {
         "",
         "Read before writing:",
         "",
-        "- `workfile card list --status doing` — what is already in flight.",
-        "- `workfile agents context --card <id>` — the relevant slice, bounded.",
+        "- `" + cli + " card list --status doing` — what is already in flight.",
+        "- `" + cli + " agents context --card <id>` — the relevant slice, bounded.",
         "",
         "Never edit a file under `.project/` directly. The protocol takes a lock,",
         "checks a revision and validates the result; a raw write skips all three",
@@ -130,12 +142,22 @@ function skillBody(protocolText) {
     ].join("\n");
 }
 
+/**
+ * The MCP server registration.
+ *
+ * `mcp` is the CLI subcommand, NOT the `workfile-mcp` bin. npx resolves the
+ * bin whose name matches the package (`workfile`) and then hands anything that
+ * follows to it as arguments — so `npx @illodev/workfile workfile-mcp` prints
+ * the general help and exits without ever starting a server. Selecting the
+ * dedicated bin would need `npx --package=@illodev/workfile workfile-mcp`;
+ * the subcommand is the shorter form of the same server.
+ */
 function mcpConfiguration() {
     return {
         mcpServers: {
             "workfile": {
                 command: "npx",
-                args: ["-y", "@illodev/workfile", "workfile-mcp"],
+                args: ["-y", "@illodev/workfile", "mcp"],
                 env: {}
             }
         }
@@ -189,24 +211,27 @@ function hooksConfiguration() {
  * `project claude install` writes. A second hand-maintained copy would drift,
  * and the two would start telling agents different things.
  */
-export function claudeCommandFiles() {
-    return COMMANDS.map((command) => ({
+export function claudeCommandFiles(cli = DEFAULT_CLI) {
+    return commandDefinitions(cli).map((command) => ({
         name: command.name,
         content: commandFile(command)
     }));
 }
 
-export function claudeSkillFile(protocolText = "See .project/agents/protocol.md.") {
+export function claudeSkillFile(
+    protocolText = "See .project/agents/protocol.md.",
+    cli = DEFAULT_CLI
+) {
     return `${frontmatterBlock({
         name: "workfile",
         description:
             "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
-    })}\n\n${skillBody(protocolText)}\n`;
+    })}\n\n${skillBody(protocolText, cli)}\n`;
 }
 
 export function claudeArtifacts(workspace) {
     return [
-        ...COMMANDS.map((command) => ({
+        ...commandDefinitions(workspace.cli).map((command) => ({
             id: `command:${command.name}`,
             path: join(".claude", "commands", `${command.name}.md`),
             kind: "claude-command",
@@ -268,7 +293,7 @@ export async function planClaudeSurface(workspace) {
         : "See .project/agents/protocol.md.";
     const files = [];
 
-    for (const command of COMMANDS) {
+    for (const command of commandDefinitions(workspace.cli)) {
         const block = renderManagedBlock({
             kind: `claude-command-${command.name}`,
             version: PACKAGE_VERSION,
@@ -294,7 +319,7 @@ export async function planClaudeSurface(workspace) {
                 name: "workfile",
                 description:
                     "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
-            })}\n\n${skillBody(protocolText)}`,
+            })}\n\n${skillBody(protocolText, workspace.cli)}`,
             style: "html"
         })
     });

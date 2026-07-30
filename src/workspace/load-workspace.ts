@@ -20,6 +20,7 @@ import type {
     ProjectWorkspace
 } from "../types.js";
 import { exists } from "../core/fs-utils.js";
+import { cliInvocation, detectPackageManager } from "../core/package-manager.js";
 
 
 function inside(root, candidate, label) {
@@ -185,7 +186,7 @@ export async function loadWorkspace(
                 // every installed workspace the day SCHEMA_VERSION moves, and
                 // without it the only way out is editing two files by hand.
                 version.schemaVersion < config.schemaVersion
-                    ? `The workspace uses schema ${version.schemaVersion} and this package expects ${config.schemaVersion}. Run \`project migrate schema\` to upgrade it.`
+                    ? `The workspace uses schema ${version.schemaVersion} and this package expects ${config.schemaVersion}. Run \`workfile migrate schema\` to upgrade it.`
                     : `The workspace uses schema ${version.schemaVersion}, newer than this package's ${config.schemaVersion}. Upgrade @illodev/workfile.`,
                 {
                     configSchemaVersion: config.schemaVersion,
@@ -194,6 +195,7 @@ export async function loadWorkspace(
             );
         }
     }
+    const packageManager = await detectPackageManager(root);
     return {
         root,
         configPath,
@@ -201,6 +203,8 @@ export async function loadWorkspace(
         version,
         paths: resolvePaths(root, config),
         schema: effectiveSchema(config),
-        readOnly: Boolean(options.readOnly)
+        readOnly: Boolean(options.readOnly),
+        packageManager,
+        cli: cliInvocation(packageManager)
     };
 }

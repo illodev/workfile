@@ -9,6 +9,7 @@ import { loadWorkspace } from "../../workspace/load-workspace.js";
 import { syncAgentInstructions } from "../agents/index.js";
 import { syncCiTemplates } from "../ci/index.js";
 import { exists } from "../../core/fs-utils.js";
+import { detectPackageManager } from "../../core/package-manager.js";
 import { SCHEMA_VERSION } from "../../config/defaults.js";
 
 const PACKAGE_VERSION = JSON.parse(
@@ -49,19 +50,7 @@ export async function inspectRepository(rootInput) {
             packageJson = null;
         }
     }
-    let packageManager = "npm";
-    for (const [file, manager] of [
-        ["pnpm-lock.yaml", "pnpm"],
-        ["yarn.lock", "yarn"],
-        ["bun.lock", "bun"],
-        ["bun.lockb", "bun"],
-        ["package-lock.json", "npm"]
-    ]) {
-        if (await exists(join(root, file))) {
-            packageManager = manager;
-            break;
-        }
-    }
+    const packageManager = await detectPackageManager(root);
     const appDirs = await directories(join(root, "apps"));
     const packageDirs = await directories(join(root, "packages"));
     const topLevel = await directories(root);

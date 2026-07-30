@@ -1,4 +1,7 @@
-# Workfile
+<p align="center">
+  <a href="https://workfile-chi.vercel.app"><img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/brand/lockup.png" alt="Workfile" width="460"></a>
+</p>
+<p align="center"><em>The repository is the database.</em></p>
 
 `@illodev/workfile` is a repository-native protocol for coordinating **Work, Docs,
 History and durable project Memory** between humans and software agents.

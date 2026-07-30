@@ -12,6 +12,12 @@ export type { ProtocolErrorOptions } from "./errors.js";
 export { ensureWritable } from "./guards.js";
 export { exists } from "./fs-utils.js";
 export {
+    CLI_BIN,
+    DEFAULT_PACKAGE_MANAGER,
+    cliInvocation,
+    detectPackageManager
+} from "./package-manager.js";
+export {
     defaultConcurrency,
     isResourceExhaustion,
     mapWithConcurrency

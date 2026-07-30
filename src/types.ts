@@ -225,6 +225,10 @@ export interface ProjectWorkspace {
     paths: ProjectWorkspacePaths;
     schema: EffectiveProjectSchema;
     readOnly: boolean;
+    /** Detected from the lockfile; drives how generated instructions invoke the CLI. */
+    packageManager: string;
+    /** The command prefix generated instructions use, e.g. `pnpm workfile`. */
+    cli: string;
 }
 
 export interface ProjectDiagnostic {
