@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 — 2026-07-30
+
+### Fixed
+
+- Hybrid search picks provider candidates by lexical relevance, not index order
+- The first embedding pass batches, persists per batch and caps ONNX at half the cores
+- search-local docs teach the guarded config import; first-party provider documented in the README
+
 ## 0.1.2 — 2026-07-30
 
 ### Added
