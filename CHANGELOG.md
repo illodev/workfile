@@ -1,4 +1,13 @@
 # Changelog
 
-Derived output — the source of truth lives in `.project/changelog/`.
-Regenerate with `workfile changelog render --write`.
+## 0.1.1 — 2026-07-30
+
+### Changed
+
+- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)
+
+### Fixed
+
+- Releasing a claim keeps the card status; only doing returns to next (T-0004)
+- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)
+- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)
