@@ -10,7 +10,7 @@ Markdown files in the repository are canonical. The CLI, HTTP API and local UI u
 same core services, collection registry, index and validation rules. No exclusive state
 is kept in the browser or in a database.
 
-> Current implementation: **0.1.0** — first cut under the Workfile name. Work, Docs,
+> Current implementation: **0.1.1** — first cut under the Workfile name. Work, Docs,
 > History and Memory share the common `ProjectRecord` index. The core, CLI, HTTP server and
 > MCP runtime are authored in TypeScript and distributed as compiled ESM with public
 > declarations. The local UI is precompiled and included in the package.
@@ -43,14 +43,14 @@ https://github.com/user-attachments/assets/13da44e5-3829-41c2-9495-f4e9d0948fb8
 
 ## Install
 
-Every `project …` command in this README requires the package to be installed —
+Every `workfile …` command in this README requires the package to be installed —
 `pnpm dlx` / `npx` one-offs run a command and discard the binary afterwards:
 
 ```bash
 pnpm add -D @illodev/workfile     # per repository (recommended)
 pnpm workfile doctor              # dependency bins run through pnpm / npx
 
-pnpm add -g @illodev/workfile     # or globally: `project` lands on your PATH
+pnpm add -g @illodev/workfile     # or globally: `workfile` lands on your PATH
 workfile doctor
 ```
 
