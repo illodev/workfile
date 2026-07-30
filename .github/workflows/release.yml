@@ -15,7 +15,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             # Version comes from the packageManager field in package.json.
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
             # No registry-url here: it would write an _authToken line into
             # .npmrc, and any configured token makes the npm CLI skip the
             # OIDC exchange that trusted publishing requires.
