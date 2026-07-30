@@ -1,0 +1,3 @@
+# Architecture
+
+Golden documentation fixture.

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "workfile": {
+      "command": "npx",
+      "args": ["-y", "@illodev/workfile", "workfile-mcp", "--root", "${CLAUDE_PROJECT_DIR}"],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,15 @@
+version: 2
+updates:
+    # Everything here is a devDependency — the published package declares only
+    # @types/node — so an update can break the build but never a consumer.
+    - package-ecosystem: npm
+      directory: "/"
+      schedule:
+          interval: monthly
+      groups:
+          dev:
+              patterns: ["*"]
+    - package-ecosystem: github-actions
+      directory: "/"
+      schedule:
+          interval: monthly

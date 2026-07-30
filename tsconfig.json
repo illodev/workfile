@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "strict": false,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
+    "useDefineForClassFields": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    // Not for this project's own compilation — `src` and `bin` never import
+    // `@/`. The shadcn CLI resolves its aliases from the *root* tsconfig, and
+    // without this it writes components into a literal `@/` directory beside
+    // `package.json` instead of into `ui/src`.
+    "paths": {
+        "@/*": ["./ui/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "bin/**/*.ts"],
+  "exclude": ["dist", "node_modules", "test", "ui"]
+}

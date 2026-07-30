@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs pre-tool-use"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs post-tool-use",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

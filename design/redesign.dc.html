@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  [data-theme="light"], :root{
+    --bg:oklch(0.985 0.002 264); --surface:oklch(1 0 0); --panel:oklch(0.972 0.003 264);
+    --fg:oklch(0.17 0.01 264); --fg-2:oklch(0.44 0.012 264); --fg-3:oklch(0.6 0.01 264);
+    --line:oklch(0.912 0.005 264); --line-2:oklch(0.945 0.004 264);
+    --accent:oklch(0.48 0.17 264); --accent-fg:oklch(0.99 0 0); --accent-soft:oklch(0.955 0.02 264);
+    --status-backlog:oklch(0.62 0.02 256); --status-next:oklch(0.53 0.19 285);
+    --status-doing:oklch(0.62 0.13 75); --status-review:oklch(0.56 0.2 300);
+    --status-blocked:oklch(0.58 0.22 25); --status-deferred:oklch(0.62 0.02 256);
+    --status-done:oklch(0.55 0.15 152); --status-discarded:oklch(0.58 0.22 25);
+    --priority-critical:oklch(0.5 0.2 20); --priority-high:oklch(0.6 0.16 48);
+    --priority-medium:oklch(0.52 0.18 291); --priority-low:oklch(0.65 0.02 256);
+    --sev-error:oklch(0.55 0.21 25); --sev-warning:oklch(0.6 0.14 75); --sev-info:oklch(0.53 0.14 250);
+    color-scheme:light;
+  }
+  [data-theme="dark"]{
+    --bg:oklch(0.155 0.008 264); --surface:oklch(0.196 0.008 264); --panel:oklch(0.178 0.008 264);
+    --fg:oklch(0.968 0.002 264); --fg-2:oklch(0.74 0.012 264); --fg-3:oklch(0.6 0.012 264);
+    --line:oklch(1 0 0 / 12%); --line-2:oklch(1 0 0 / 7%);
+    --accent:oklch(0.72 0.15 264); --accent-fg:oklch(0.17 0.02 264); --accent-soft:oklch(0.3 0.06 264);
+    --status-backlog:oklch(0.72 0.03 256); --status-next:oklch(0.72 0.16 285);
+    --status-doing:oklch(0.79 0.14 78); --status-review:oklch(0.74 0.17 300);
+    --status-blocked:oklch(0.7 0.19 25); --status-deferred:oklch(0.72 0.03 256);
+    --status-done:oklch(0.72 0.17 152); --status-discarded:oklch(0.7 0.19 25);
+    --priority-critical:oklch(0.68 0.2 22); --priority-high:oklch(0.75 0.16 55);
+    --priority-medium:oklch(0.72 0.16 291); --priority-low:oklch(0.6 0.02 256);
+    --sev-error:oklch(0.7 0.19 25); --sev-warning:oklch(0.79 0.14 78); --sev-info:oklch(0.7 0.13 250);
+    color-scheme:dark;
+  }
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:"Geist",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;text-underline-offset:3px;}
+  *{box-sizing:border-box;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px;border:3px solid transparent;background-clip:content-box;}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="width:1512px;height:982px;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-size:13px;line-height:1.45;overflow:hidden;position:relative">
+
+  <header style="flex:0 0 auto;height:48px;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--surface)">
+    <div style="display:flex;align-items:center;gap:9px;padding-right:14px;border-right:1px solid var(--line);height:26px">
+      <span style="width:14px;height:14px;border-radius:3px;background:var(--accent);display:block"></span>
+      <span style="font-size:13px;font-weight:600;letter-spacing:-0.01em">Project Protocol</span>
+      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px">0.7.0-rc.2</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--fg-2);min-width:0">
+      <span>.project</span><span style="color:var(--fg-3)">/</span>
+      <span>{{ crumbCollection }}</span><span style="color:var(--fg-3)">/</span>
+      <span style="color:var(--fg);font-weight:500">{{ crumbRecord }}</span>
+    </div>
+    <div style="flex:1"></div>
+    <button type="button" onClick="{{ openPalette }}" style="display:flex;align-items:center;gap:8px;width:280px;height:30px;padding:0 8px 0 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--fg-2);font:inherit;font-size:12px;cursor:pointer;text-align:left" style-hover="border-color:var(--accent)">
+      <span style="display:inline-flex;width:13px;height:13px" dangerouslySetInnerHTML="{{ searchIcon }}"></span>
+      <span style="flex:1">Buscar en 1.244 registros…</span>
+      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;border:1px solid var(--line);border-radius:4px;padding:1px 4px">⌘K</span>
+    </button>
+    <div style="display:flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--line);border-radius:7px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--sev-warning)"></span>doctor 0E · 32W · 10I
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--line);border-radius:7px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--status-done)"></span>sse live · 2 agentes
+    </div>
+    <button type="button" onClick="{{ toggleTheme }}" title="Tema" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--fg-2);cursor:pointer" style-hover="color:var(--fg)">
+      <span style="display:inline-flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ themeIcon }}"></span>
+    </button>
+    <button type="button" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 11px 0 9px;border:0;border-radius:7px;background:var(--accent);color:var(--accent-fg);font:inherit;font-size:12px;font-weight:500;cursor:pointer">
+      <span style="display:inline-flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ plusIcon }}"></span>Nueva card
+    </button>
+  </header>
+
+  <div style="flex:1;display:flex;min-height:0">
+
+    <nav style="width:214px;flex:0 0 214px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;padding:10px 0">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:1px;padding:0 8px 14px">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3);padding:6px 8px 5px">{{ group.label }}</div>
+          <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="5">
+            <button type="button" onClick="{{ item.select }}" style="position:relative;display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border:0;border-radius:6px;background:{{ item.bg }};color:{{ item.fg }};font:inherit;font-size:13px;font-weight:{{ item.weight }};cursor:pointer;text-align:left;width:100%" style-hover="background:var(--panel)">
+              <span style="position:absolute;left:0;top:7px;bottom:7px;width:2px;border-radius:2px;background:{{ item.bar }}"></span>
+              <span style="display:inline-flex;width:14px;height:14px;flex:0 0 14px;color:{{ item.iconColor }}" dangerouslySetInnerHTML="{{ item.icon }}"></span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.label }}</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ item.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="flex:1"></div>
+      <div style="padding:10px 16px 2px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:5px">
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">~/project-protocol/.project</span>
+        <span style="font-size:11px;color:var(--fg-2)">Markdown es la fuente. Sin base de datos.</span>
+      </div>
+    </nav>
+
+    <section style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)">
+
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-bottom:1px solid var(--line)">
+        <span style="font-size:13px;font-weight:600">{{ viewTitle }}</span>
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ viewMeta }}</span>
+        <div style="flex:1"></div>
+        <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="4">
+          <button type="button" onClick="{{ chip.toggle }}" style="display:flex;align-items:center;gap:6px;height:26px;padding:0 9px;border:1px solid {{ chip.border }};border-radius:6px;background:{{ chip.bg }};color:{{ chip.fg }};font:inherit;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;cursor:pointer">
+            {{ chip.label }}<span style="color:var(--fg-3)">{{ chip.value }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isExplorer }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="width:186px;flex:0 0 186px;border-right:1px solid var(--line);padding:14px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+            <sc-for list="{{ facets }}" as="facet" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">{{ facet.label }}</span>
+                <sc-for list="{{ facet.rows }}" as="row" hint-placeholder-count="4">
+                  <div style="display:flex;flex-direction:column;gap:3px;padding:2px 0">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                      <span style="flex:1;color:var(--fg-2)">{{ row.label }}</span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ row.count }}</span>
+                    </span>
+                    <span style="height:3px;border-radius:2px;background:var(--line-2);overflow:hidden;display:block">
+                      <span style="display:block;height:3px;width:{{ row.width }};background:{{ row.color }}"></span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;min-width:0;overflow:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <th style="text-align:left;padding:8px 10px 8px 14px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);white-space:nowrap;background:var(--surface)">id</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">título · fichero</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">estado</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">prio</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">tipo</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">área</th>
+                  <th style="text-align:left;padding:8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);background:var(--surface)">enlaces</th>
+                  <th style="text-align:left;padding:8px 14px 8px 10px;font-family:'Geist Mono',ui-monospace,monospace;font-weight:400;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);white-space:nowrap;background:var(--surface)">actualizado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ cards }}" as="card" hint-placeholder-count="14">
+                  <tr onClick="{{ card.select }}" style="border-bottom:1px solid var(--line-2);cursor:pointer;background:{{ card.rowBg }}" style-hover="background:var(--panel)">
+                    <td style="padding:0 10px 0 14px;height:{{ rowHeight }};font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--fg-2);white-space:nowrap;border-left:2px solid {{ card.rowBar }}">{{ card.id }}</td>
+                    <td style="padding:0 10px;max-width:520px">
+                      <span style="display:flex;align-items:baseline;gap:8px;min-width:0">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">{{ card.title }}</span>
+                        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);white-space:nowrap">{{ card.claimLabel }}</span>
+                      </span>
+                    </td>
+                    <td style="padding:0 10px;white-space:nowrap">
+                      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:{{ card.statusColor }}">
+                        <span style="width:6px;height:6px;border-radius:1px;background:{{ card.statusColor }}"></span>{{ card.status }}
+                      </span>
+                    </td>
+                    <td style="padding:0 10px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:{{ card.priorityColor }};white-space:nowrap">{{ card.priority }}</td>
+                    <td style="padding:0 10px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ card.type }}</td>
+                    <td style="padding:0 10px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ card.area }}</td>
+                    <td style="padding:0 10px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ card.links }}</td>
+                    <td style="padding:0 14px 0 10px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3);white-space:nowrap">{{ card.updated }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFlow }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;gap:12px;padding:14px;overflow-x:auto;min-height:0">
+          <sc-for list="{{ flowColumns }}" as="column" hint-placeholder-count="6">
+            <div style="width:268px;flex:0 0 268px;display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-top:2px solid {{ column.color }};border-radius:0 0 8px 8px;background:var(--surface)">
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-2)">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:{{ column.color }};flex:1">{{ column.status }}</span>
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ column.count }}</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px;padding:10px;overflow-y:auto">
+                <sc-for list="{{ column.cards }}" as="card" hint-placeholder-count="2">
+                  <div onClick="{{ card.select }}" style="border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:9px 10px;display:flex;flex-direction:column;gap:7px;cursor:pointer" style-hover="border-color:var(--accent)">
+                    <span style="display:flex;align-items:center;gap:7px">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ card.id }}</span>
+                      <span style="flex:1"></span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ card.priorityColor }}">{{ card.priority }}</span>
+                    </span>
+                    <span style="font-size:12.5px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ card.title }}</span>
+                    <span style="display:flex;align-items:center;gap:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">
+                      <span>{{ card.area }}</span><span>·</span><span>{{ card.type }}</span>
+                      <sc-if value="{{ card.claimed }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex;align-items:center;gap:5px;margin-left:auto;color:var(--status-doing)">
+                          <span style="width:5px;height:5px;border-radius:50%;background:var(--status-doing)"></span>{{ card.claimShort }}
+                        </span>
+                      </sc-if>
+                    </span>
+                    <sc-if value="{{ card.hasScope }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);border-top:1px dashed var(--line);padding-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">scope {{ card.scope }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ column.more }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3);padding:4px 2px">+{{ column.moreCount }} más</span>
+                </sc-if>
+                <sc-if value="{{ column.empty }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3);padding:8px 2px">sin cards</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTriage }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;overflow-y:auto">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface)">
+            <span style="flex:1;height:3px;border-radius:2px;background:var(--line-2);display:block;max-width:340px"><span style="display:block;height:3px;width:22%;background:var(--accent);border-radius:2px"></span></span>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">2 de 9 procesadas</span>
+          </div>
+          <div style="padding:28px 34px;max-width:820px">
+            <div style="display:flex;align-items:center;gap:9px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">
+              <span>T-0091</span><span style="color:var(--fg-3)">·</span>
+              <span style="color:var(--status-backlog)">backlog</span><span style="color:var(--fg-3)">·</span>
+              <span>core</span><span style="color:var(--fg-3)">·</span><span>feature</span>
+            </div>
+            <h2 style="margin:12px 0 4px;font-size:26px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;text-wrap:pretty">Un solo motor de consulta para las cuatro superficies</h2>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">.project/cards/T-0091-un-solo-motor-de-consulta-para-las-cuatro-superfic.md</span>
+            <p style="margin:22px 0 0;font-size:14px;line-height:1.65;color:var(--fg-2);max-width:66ch;text-wrap:pretty">Cards, docs, changelog y memory resuelven filtros, orden y paginación cada una a su manera: el CLI filtra en memoria después de leer el directorio entero, la API v2 acepta parámetros que el índice ignora y la UI vuelve a filtrar en el cliente. La misma consulta devuelve tres resultados distintos según por dónde entres.</p>
+            <p style="margin:14px 0 0;font-size:14px;line-height:1.65;color:var(--fg-2);max-width:66ch;text-wrap:pretty">Un motor único sobre <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">ProjectRecord</span> con el contrato de lista compartido: mismos operadores, mismo orden estable, misma proyección de campos.</p>
+            <div style="display:flex;gap:8px;margin-top:30px;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap">
+              <sc-for list="{{ triageActions }}" as="action" hint-placeholder-count="6">
+                <button type="button" style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;border:1px solid {{ action.border }};border-radius:7px;background:var(--surface);color:{{ action.fg }};font:inherit;font-size:12.5px;cursor:pointer" style-hover="border-color:var(--accent)">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);border:1px solid var(--line);border-radius:4px;padding:0 4px">{{ action.key }}</span>{{ action.label }}
+                </button>
+              </sc-for>
+            </div>
+            <span style="display:block;margin-top:14px;font-size:12px;color:var(--fg-3)">Cada decisión escribe el frontmatter de la card en disco al instante. El atajo funciona mientras el foco esté fuera de un formulario.</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isEpics }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:14px">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ epics }}" as="epic" hint-placeholder-count="5">
+              <div onClick="{{ epic.select }}" style="border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:13px 14px;display:flex;flex-direction:column;gap:10px;cursor:pointer" style-hover="border-color:var(--accent)">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ epic.id }}</span>
+                  <span style="flex:1;font-size:14px;font-weight:600;letter-spacing:-0.01em">{{ epic.title }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:{{ epic.statusColor }}">{{ epic.status }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ epic.ratio }}</span>
+                </div>
+                <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line-2)">
+                  <sc-for list="{{ epic.segments }}" as="segment" hint-placeholder-count="3">
+                    <span style="display:block;height:6px;width:{{ segment.width }};background:{{ segment.color }}"></span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:14px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);flex-wrap:wrap">
+                  <sc-for list="{{ epic.legend }}" as="entry" hint-placeholder-count="3">
+                    <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:1px;background:{{ entry.color }}"></span>{{ entry.label }}</span>
+                  </sc-for>
+                  <span style="margin-left:auto">{{ epic.area }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow:auto">
+          <div style="display:flex;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0">
+            <span style="width:300px;flex:0 0 300px;padding:8px 14px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-3);border-right:1px solid var(--line)">card</span>
+            <sc-for list="{{ timelineDays }}" as="day" hint-placeholder-count="8">
+              <span style="flex:1;padding:8px 0;text-align:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ day.color }};border-right:1px solid var(--line-2)">{{ day.label }}</span>
+            </sc-for>
+          </div>
+          <sc-for list="{{ timelineRows }}" as="row" hint-placeholder-count="10">
+            <div onClick="{{ row.select }}" style="display:flex;align-items:center;border-bottom:1px solid var(--line-2);cursor:pointer" style-hover="background:var(--panel)">
+              <span style="width:300px;flex:0 0 300px;display:flex;align-items:center;gap:8px;padding:0 14px;height:34px;border-right:1px solid var(--line)">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2);flex:0 0 auto;white-space:nowrap">{{ row.id }}</span>
+                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px">{{ row.title }}</span>
+              </span>
+              <span style="flex:1;position:relative;height:34px;display:block">
+                <span style="position:absolute;left:{{ row.left }};width:{{ row.width }};top:11px;height:12px;border-radius:3px;background:{{ row.color }};display:block"></span>
+                <span style="position:absolute;left:71.4%;top:0;bottom:0;width:1px;background:var(--sev-error);opacity:0.55;display:block"></span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDocs }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="width:290px;flex:0 0 290px;border-right:1px solid var(--line);overflow-y:auto;padding:12px 8px">
+            <sc-for list="{{ docGroups }}" as="group" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:1px;padding-bottom:14px">
+                <span style="display:flex;align-items:center;gap:7px;padding:6px 8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3)">
+                  <span style="color:var(--fg-2)">{{ group.label }}</span><span>{{ group.count }}</span>
+                </span>
+                <sc-for list="{{ group.docs }}" as="doc" hint-placeholder-count="4">
+                  <button type="button" onClick="{{ doc.select }}" style="display:flex;flex-direction:column;gap:2px;padding:7px 9px;border:0;border-radius:6px;background:{{ doc.bg }};color:var(--fg);font:inherit;text-align:left;cursor:pointer;width:100%" style-hover="background:var(--panel)">
+                    <span style="display:flex;align-items:center;gap:7px;width:100%">
+                      <span style="flex:1;font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ doc.title }}</span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ doc.statusColor }}">{{ doc.status }}</span>
+                    </span>
+                    <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">{{ doc.path }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-width:0;overflow-y:auto;padding:26px 34px">
+            <div style="display:flex;align-items:center;gap:9px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">
+              <span>DOC-0001</span><span style="color:var(--fg-3)">·</span><span>runbook</span><span style="color:var(--fg-3)">·</span>
+              <span style="color:var(--status-done)">current</span><span style="color:var(--fg-3)">·</span><span>gestionado</span>
+            </div>
+            <h2 style="margin:12px 0 6px;font-size:26px;font-weight:600;letter-spacing:-0.02em">Release runbook</h2>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">.project/docs/DOC-0001-release-runbook.md</span>
+            <div style="display:flex;gap:8px;margin:18px 0 0;flex-wrap:wrap">
+              <sc-for list="{{ docMeta }}" as="meta" hint-placeholder-count="4">
+                <span style="display:flex;flex-direction:column;gap:2px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);min-width:120px">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:0.07em;text-transform:uppercase;color:var(--fg-3)">{{ meta.label }}</span>
+                  <span style="font-size:12.5px">{{ meta.value }}</span>
+                </span>
+              </sc-for>
+            </div>
+            <div style="margin-top:18px;padding:10px 12px;border-left:2px solid var(--sev-warning);background:var(--panel);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--fg-2)">
+              Revisión pendiente: <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px">reviewed</span> es anterior al último cambio de <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px">release.yml</span>.
+            </div>
+            <div style="margin-top:26px;max-width:70ch;font-size:14px;line-height:1.7;color:var(--fg-2)">
+              <h3 style="margin:0 0 10px;font-size:15px;font-weight:600;color:var(--fg)">El circuito</h3>
+              <ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:7px">
+                <li>Cortar el changelog: <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">project changelog release &lt;version&gt;</span> y <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">render --write</span>.</li>
+                <li>Versionar y etiquetar: <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">npm version &lt;version&gt;</span>, luego <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">git push --tags</span>.</li>
+                <li>El workflow verifica que el tag coincide con package.json, ejecuta <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">check:release</span> y publica por OIDC.</li>
+              </ol>
+              <p style="margin:16px 0 0">Las prereleases van al dist-tag <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">next</span>; las estables a <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px">latest</span>. No hay token de npm en el repositorio.</p>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isMemory }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;gap:12px;padding:14px;overflow-x:auto;min-height:0">
+          <sc-for list="{{ memoryLanes }}" as="lane" hint-placeholder-count="5">
+            <div style="width:272px;flex:0 0 272px;display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:8px;background:var(--surface)">
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-2)">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--accent)">{{ lane.prefix }}</span>
+                <span style="flex:1;font-size:12.5px;font-weight:600">{{ lane.label }}</span>
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ lane.count }}</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px;padding:10px;overflow-y:auto">
+                <sc-for list="{{ lane.records }}" as="record" hint-placeholder-count="3">
+                  <div onClick="{{ record.select }}" style="border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:9px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer" style-hover="border-color:var(--accent)">
+                    <span style="display:flex;align-items:center;gap:7px">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ record.id }}</span>
+                      <span style="flex:1"></span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ record.statusColor }}">{{ record.status }}</span>
+                    </span>
+                    <span style="font-size:12.5px;line-height:1.4;font-weight:500;text-wrap:pretty">{{ record.title }}</span>
+                    <sc-if value="{{ record.hasNote }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3);border-top:1px dashed var(--line);padding-top:6px">{{ record.note }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="width:400px;flex:0 0 400px;border-right:1px solid var(--line);overflow-y:auto;padding:14px">
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft)">
+              <span style="flex:1;display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:12.5px;font-weight:600">3 fragmentos sin publicar</span>
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-2)">siguiente: 0.7.0 · semver</span>
+              </span>
+              <button type="button" style="height:28px;padding:0 10px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font:inherit;font-size:12px;font-weight:500;cursor:pointer">Preparar release</button>
+            </div>
+            <sc-for list="{{ historyGroups }}" as="group" hint-placeholder-count="3">
+              <div style="padding-top:16px;display:flex;flex-direction:column;gap:6px">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">{{ group.label }}</span>
+                <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="3">
+                  <div onClick="{{ item.select }}" style="display:flex;flex-direction:column;gap:4px;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);cursor:pointer" style-hover="border-color:var(--accent)">
+                    <span style="display:flex;align-items:center;gap:8px">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ item.id }}</span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:{{ item.typeColor }}">{{ item.type }}</span>
+                      <span style="flex:1"></span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">{{ item.right }}</span>
+                    </span>
+                    <span style="font-size:12.5px;line-height:1.4;text-wrap:pretty">{{ item.title }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-width:0;overflow-y:auto;padding:20px 24px">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+              <span style="font-size:13px;font-weight:600">Changelog derivado</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">visibility public · CHANGELOG.md</span>
+              <span style="flex:1"></span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);border:1px solid var(--line);border-radius:5px;padding:2px 7px">render --write</span>
+            </div>
+            <pre style="margin:16px 0 0;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;color:var(--fg-2);white-space:pre-wrap">{{ changelogPreview }}</pre>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isHealth }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:14px">
+          <div style="display:flex;gap:10px">
+            <sc-for list="{{ healthCounts }}" as="count" hint-placeholder-count="3">
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px;padding:13px 14px;border:1px solid var(--line);border-left:2px solid {{ count.color }};border-radius:8px;background:var(--surface)">
+                <span style="display:flex;align-items:baseline;gap:8px">
+                  <span style="font-size:26px;font-weight:600;letter-spacing:-0.02em;color:{{ count.color }}">{{ count.value }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">{{ count.label }}</span>
+                </span>
+                <span style="font-size:12px;color:var(--fg-3)">{{ count.hint }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 2px 8px">
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-2)">agrupado por código · 100 cards, 12 docs, 27 memory, 91 changelog</span>
+            <span style="flex:1"></span>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3)">project doctor --json</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ healthGroups }}" as="group" hint-placeholder-count="4">
+              <div style="border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line-2)">
+                  <span style="width:7px;height:7px;border-radius:1px;background:{{ group.color }}"></span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11.5px;color:var(--fg)">{{ group.code }}</span>
+                  <span style="flex:1;font-size:12.5px;color:var(--fg-2)">{{ group.summary }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--fg-3)">{{ group.count }}</span>
+                </div>
+                <sc-for list="{{ group.issues }}" as="issue" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line-2)">
+                    <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--accent);width:82px;flex:0 0 82px">{{ issue.ref }}</span>
+                    <span style="flex:1;font-size:12.5px;color:var(--fg-2)">{{ issue.message }}</span>
+                    <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px">{{ issue.file }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+
+    <aside style="width:376px;flex:0 0 376px;border-left:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;border-bottom:1px solid var(--line)">
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">inspector</span>
+        <span style="flex:1"></span>
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);border:1px solid var(--line);border-radius:5px;padding:1px 6px">{{ record.revision }}</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 14px 22px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:7px;flex:0 0 auto">
+          <span style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px">
+            <span style="color:var(--accent)">{{ record.id }}</span>
+            <span style="color:var(--fg-3)">{{ record.kind }}</span>
+            <span style="flex:1"></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;color:{{ record.statusColor }}"><span style="width:6px;height:6px;border-radius:1px;background:{{ record.statusColor }}"></span>{{ record.status }}</span>
+          </span>
+          <span style="font-size:17px;font-weight:600;line-height:1.3;letter-spacing:-0.01em;text-wrap:pretty">{{ record.title }}</span>
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);word-break:break-all">{{ record.path }}</span>
+        </div>
+
+        <div style="display:flex;gap:7px;flex-wrap:wrap;flex:0 0 auto">
+          <button type="button" style="height:28px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="border-color:var(--accent)">Abrir fichero</button>
+          <button type="button" style="height:28px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="border-color:var(--accent)">Reclamar</button>
+          <button type="button" style="height:28px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="border-color:var(--accent)">Transicionar →</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:7px;overflow:hidden;flex:0 0 auto">
+          <sc-for list="{{ record.meta }}" as="field" hint-placeholder-count="6">
+            <span style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;background:var(--surface)">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:0.07em;text-transform:uppercase;color:var(--fg-3)">{{ field.label }}</span>
+              <span style="font-size:12.5px;color:{{ field.color }}">{{ field.value }}</span>
+            </span>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;flex:0 0 auto">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">referencias salientes</span>
+          <sc-for list="{{ record.outgoing }}" as="link" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg)">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--accent);width:74px;flex:0 0 74px">{{ link.id }}</span>
+              <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)">{{ link.title }}</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">{{ link.relation }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;flex:0 0 auto">
+          <span style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">
+            backlinks<span style="color:var(--fg-2)">{{ record.incomingTotal }}</span>
+          </span>
+          <sc-for list="{{ record.incoming }}" as="link" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg)">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--accent);width:74px;flex:0 0 74px">{{ link.id }}</span>
+              <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)">{{ link.title }}</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">{{ link.relation }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;flex:0 0 auto">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">actividad</span>
+          <sc-for list="{{ record.activity }}" as="entry" hint-placeholder-count="3">
+            <div style="display:flex;gap:9px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);line-height:1.6">
+              <span style="width:74px;flex:0 0 74px">{{ entry.when }}</span>
+              <span style="flex:1;color:var(--fg-2)">{{ entry.what }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line);flex:0 0 auto">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">cuerpo</span>
+          <p style="margin:0;font-size:12.5px;line-height:1.65;color:var(--fg-2);text-wrap:pretty">{{ record.body }}</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <sc-if value="{{ showLedger }}" hint-placeholder-val="{{ true }}">
+  <footer style="flex:0 0 auto;height:30px;display:flex;align-items:center;gap:12px;padding:0 14px;border-top:1px solid var(--line);background:var(--surface);font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--fg-3);overflow:hidden">
+    <span style="display:inline-flex;align-items:center;gap:6px;color:var(--status-doing)"><span style="width:6px;height:6px;border-radius:50%;background:var(--status-doing)"></span>agent-56a30d1b</span>
+    <span>claim T-0100 · scope ui/src · 14m</span>
+    <span style="color:var(--line)">|</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;color:var(--status-review)"><span style="width:6px;height:6px;border-radius:50%;background:var(--status-review)"></span>agent-9f12c4e2</span>
+    <span>write .project/cards/T-0085-editor-de-cuerpo-markdown-en-la-ui-con-codemirror-.md</span>
+    <span style="flex:1"></span>
+    <span>index 1.244 registros · rebuild 41ms</span>
+  </footer>
+  </sc-if>
+
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePalette }}" style="position:absolute;inset:0;background:oklch(0.15 0.01 264 / 45%);display:flex;align-items:flex-start;justify-content:center;padding-top:110px">
+      <div style="width:620px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 24px 60px oklch(0.15 0.01 264 / 28%);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:0 14px;height:46px;border-bottom:1px solid var(--line)">
+          <span style="display:inline-flex;width:15px;height:15px;color:var(--fg-3)" dangerouslySetInnerHTML="{{ searchIcon }}"></span>
+          <span style="flex:1;font-size:14px;color:var(--fg)">claim<span style="opacity:0.4">|</span></span>
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">esc</span>
+        </div>
+        <div style="max-height:400px;overflow-y:auto;padding:8px">
+          <sc-for list="{{ paletteGroups }}" as="group" hint-placeholder-count="3">
+            <div style="padding:6px 0">
+              <span style="display:block;padding:4px 8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-3)">{{ group.label }}</span>
+              <sc-for list="{{ group.hits }}" as="hit" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:6px;background:{{ hit.bg }}" style-hover="background:var(--panel)">
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--accent);width:78px;flex:0 0 78px">{{ hit.id }}</span>
+                  <span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ hit.title }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">{{ hit.meta }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:9px 14px;border-top:1px solid var(--line);font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--fg-3)">
+          <span>↑↓ navegar</span><span>↵ abrir</span><span>⌘↵ abrir fichero</span><span style="flex:1"></span><span>búsqueda léxica local · 0 red</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1512,&quot;height&quot;:982},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;\&quot;light\&quot; | \&quot;dark\&quot;&quot;,&quot;section&quot;:&quot;Apariencia&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compacta&quot;,&quot;cómoda&quot;],&quot;default&quot;:&quot;compacta&quot;,&quot;tsType&quot;:&quot;\&quot;compacta\&quot; | \&quot;cómoda\&quot;&quot;,&quot;section&quot;:&quot;Apariencia&quot;},&quot;showLedger&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Agentes&quot;}}">
+const I = (body) => ({ __html: '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>' });
+const ICONS = {
+  table: I('<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>'),
+  listChecks: I('<path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>'),
+  columns3: I('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>'),
+  kanban: I('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>'),
+  calendar: I('<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>'),
+  book: I('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>'),
+  bulb: I('<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>'),
+  fileDiff: I('<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M9 10h6"/><path d="M12 13V7"/><path d="M9 17h6"/>'),
+  shield: I('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'),
+  search: I('<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>'),
+  plus: I('<path d="M5 12h14"/><path d="M12 5v14"/>'),
+  moon: I('<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>'),
+  sun: I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>')
+};
+
+const SC = (status) => "var(--status-" + status + ")";
+const PC = (priority) => "var(--priority-" + priority + ")";
+
+// Cards: real records of this repository, at the 0.7.0 cut.
+const CARDS = [
+  ["T-0100", "Replace the shadcn coexistence layer with a real migration", "doing", "task", "high", "ui", "2026-07-30", "agent-56a30d1b", "ui/src", 6],
+  ["T-0085", "Editor de cuerpo Markdown en la UI con CodeMirror 6", "doing", "feature", "high", "ui", "2026-07-30", "agent-9f12c4e2", "ui/src/components", 4],
+  ["T-0099", "El build de la demo en Vercel falla: pnpm no materializa tslib", "review", "bug", "high", "infra", "2026-07-30", "", "", 3],
+  ["T-0089", "El renderer Markdown tiene huecos visibles y se reparsea en cada render", "review", "bug", "medium", "ui", "2026-07-30", "", "", 2],
+  ["T-0014", "0.7.0 stable release", "next", "feature", "high", "core", "2026-07-30", "", "", 9],
+  ["T-0082", "Plugin y marketplace de Claude Code publicados desde este repo", "next", "feature", "high", "mcp", "2026-07-30", "", "", 4],
+  ["T-0096", "El build de demo comparte outDir con el de producción", "blocked", "bug", "low", "infra", "2026-07-30", "", "", 2],
+  ["T-0091", "Un solo motor de consulta para las cuatro superficies", "backlog", "feature", "medium", "core", "2026-07-29", "", "", 3],
+  ["T-0090", "Wiki-links [[ID]] de punta a punta", "backlog", "feature", "medium", "core", "2026-07-29", "", "", 2],
+  ["T-0071", "Extraer un TreeView reutilizable desde RecordTree", "backlog", "task", "low", "ui", "2026-07-29", "", "", 1],
+  ["T-0068", "Gantt con zoom, agrupación y dependencias visibles", "deferred", "feature", "low", "ui", "2026-07-29", "", "", 2],
+  ["T-0015", "Split core, UI and MCP into workspace packages", "discarded", "task", "low", "infra", "2026-07-28", "", "", 1],
+  ["T-0098", "Migrar inputs, selects, overlays y vistas de dominio a shadcn", "done", "task", "medium", "ui", "2026-07-30", "", "", 3],
+  ["T-0088", "Cablear la edición de docs, memory y changelog en la UI", "done", "task", "high", "ui", "2026-07-30", "", "", 4],
+  ["T-0087", "El 409 debe devolver el registro actual y ofrecer merge a tres bandas", "done", "feature", "high", "core", "2026-07-30", "", "", 3],
+  ["T-0086", "Editor de propiedades del frontmatter dirigido por el schema", "done", "feature", "high", "ui", "2026-07-30", "", "", 3],
+  ["T-0084", "El doctor no puede ser una puerta que siempre está roja", "done", "bug", "medium", "core", "2026-07-30", "", "", 2],
+  ["T-0081", "Hooks: convertir el claim en un guardarraíl ejecutable", "done", "feature", "high", "mcp", "2026-07-30", "", "", 5],
+  ["T-0078", "Derivar el actor del entorno para que reclamar no tenga fricción", "done", "task", "high", "core", "2026-07-30", "", "", 3],
+  ["T-0076", "patchCardBody y appendCardNote: escribir el cuerpo de una card", "done", "feature", "high", "core", "2026-07-30", "", "", 2],
+  ["T-0075", "project_card_release no existe en MCP aunque el protocolo lo exige", "done", "bug", "high", "mcp", "2026-07-30", "", "", 2],
+  ["T-0072", "Tools MCP de listado: un agente no puede ver el tablero", "done", "feature", "critical", "mcp", "2026-07-30", "", "", 4],
+  ["T-0070", "Paleta de comandos ⌘K sobre el índice unificado", "done", "feature", "medium", "ui", "2026-07-30", "", "", 2],
+  ["T-0042", "searchScore tokeniza el cuerpo de cada registro en cada consulta", "done", "bug", "critical", "search", "2026-07-29", "", "", 3]
+];
+
+const RECORDS = {
+  "T-0100": {
+    id: "T-0100", kind: "card", status: "doing", statusColor: SC("doing"), revision: "sha256:9c41…",
+    title: "Replace the shadcn coexistence layer with a real migration",
+    path: ".project/cards/T-0100-replace-the-shadcn-coexistence-layer-with-a-real-m.md",
+    meta: [["tipo", "task"], ["prioridad", "high", PC("high")], ["área", "ui"], ["esfuerzo", "L"],
+      ["creada", "2026-07-30"], ["actualizada", "2026-07-30"], ["claim", "agent-56a30d1b", SC("doing")], ["scope", "ui/src"]],
+    outgoing: [["ADR-0009", "Adopt shadcn/ui with its own appearance, style radix-rhea", "decision"],
+      ["T-0023", "Design system: migración a shadcn/ui", "parent"],
+      ["CONV-0003", "En filas de tabla se usa native-select", "convention"],
+      ["PATH-0007", "docs/ui.md", "source"]],
+    incoming: [["CHG-0082", "The local UI is rebuilt on shadcn/ui", "changelog"],
+      ["LRN-0008", "El CLI de shadcn instala sus dependencias en dependencies", "learning"],
+      ["T-0098", "Migrar inputs, selects, overlays y vistas de dominio", "supersedes"]],
+    incomingTotal: "3 de 3",
+    activity: [["hace 14m", "claim tomado por agent-56a30d1b · lease 30m"],
+      ["hace 12m", "cuerpo reescrito · +58 −12 líneas"],
+      ["hace 3m", "escritura en ui/src/styles.css · 3.372 → 321 líneas"]],
+    body: "Ambas cards anteriores se cerraron como done y ninguna lo estaba: 36 <button> nativos, 21 <select> nativos y 3.372 líneas del design system a mano seguían intactos. La causa no fue negligencia, fue ADR-0005: el CSS sin capa gana la cascada siempre, así que una vista conservaba su aspecto hasta que alguien borraba sus reglas a mano."
+  },
+  "T-0014": {
+    id: "T-0014", kind: "card", status: "next", statusColor: SC("next"), revision: "sha256:1af7…",
+    title: "0.7.0 stable release",
+    path: ".project/cards/T-0014-0-7-0-stable-release.md",
+    meta: [["tipo", "feature"], ["prioridad", "high", PC("high")], ["área", "core"], ["milestone", "0.7.0"],
+      ["creada", "2026-07-29"], ["actualizada", "2026-07-30"], ["claim", "libre"], ["depende de", "3 cards"]],
+    outgoing: [["DOC-0001", "Release runbook", "runbook"], ["REL-0002", "0.7.0-rc.2 · License fix", "previous"],
+      ["CTX-0001", "RC phase: latest tracks the newest RC", "context"], ["T-0100", "Replace the shadcn coexistence layer", "depends"]],
+    incoming: [["CHG-0080", "changelog release ignored --dry-run", "changelog"], ["T-0001", "0.7.0 TypeScript release candidate", "parent"]],
+    incomingTotal: "2 de 2",
+    activity: [["ayer", "creada desde project card create"], ["hace 6h", "milestone 0.7.0 asignado"], ["hace 20m", "3 fragmentos sin publicar en cola"]],
+    body: "Cortar el changelog, versionar, etiquetar y dejar que el workflow publique por OIDC. El primer publish manual ya está hecho, así que trusted publishing está configurado: las prereleases van a next y esta estable a latest."
+  },
+  "DOC-0001": {
+    id: "DOC-0001", kind: "doc", status: "current", statusColor: SC("done"), revision: "sha256:5b20…",
+    title: "Release runbook", path: ".project/docs/DOC-0001-release-runbook.md",
+    meta: [["kind", "runbook"], ["estado", "current"], ["gestionado", "sí"], ["owners", "core"],
+      ["revisado", "2026-07-29"], ["tamaño", "4,1 kB"], ["frescura", "review pendiente", "var(--sev-warning)"], ["scope", ".github/workflows"]],
+    outgoing: [["LRN-0001", "setup-node registry-url writes an _authToken", "learning"],
+      ["LRN-0003", "The first npm publish assigns latest regardless of --tag", "learning"],
+      ["INC-0001", "Release workflow failed three times", "incident"]],
+    incoming: [["T-0014", "0.7.0 stable release", "runbook"], ["T-0010", "First npm publish: 0.7.0-rc.1 and rc.2", "runbook"]],
+    incomingTotal: "2 de 2",
+    activity: [["2026-07-29", "creado tras INC-0001"], ["2026-07-29", "revisado por core"], ["hoy", "doctor marca review stale"]],
+    body: "El circuito completo de publicación: cortar el changelog, versionar y etiquetar, y dejar que el workflow verifique el tag contra package.json antes de publicar con provenance."
+  },
+  "ADR-0009": {
+    id: "ADR-0009", kind: "memory · decision", status: "accepted", statusColor: SC("done"), revision: "sha256:77e1…",
+    title: "Adopt shadcn/ui with its own appearance, style radix-rhea, and delete the legacy design system",
+    path: ".project/memory/decisions/ADR-0009-adopt-shadcn-ui-with-its-own-appearance-style-radix-rhea-and-delete-th.md",
+    meta: [["colección", "decisions"], ["estado", "accepted"], ["deciders", "core, ui"], ["supersede", "ADR-0005"],
+      ["creada", "2026-07-30"], ["actualizada", "2026-07-30"], ["confianza", "—"], ["scope", "ui/src"]],
+    outgoing: [["ADR-0005", "Migrar el design system a shadcn/ui con coexistencia por capas", "supersedes"],
+      ["CONV-0003", "En filas de tabla se usa native-select", "graduated"]],
+    incoming: [["T-0100", "Replace the shadcn coexistence layer with a real migration", "decision"],
+      ["CHG-0082", "The local UI is rebuilt on shadcn/ui", "decision"]],
+    incomingTotal: "2 de 2",
+    activity: [["hace 5h", "propuesta"], ["hace 4h", "aceptada · ADR-0005 marcada superseded"]],
+    body: "Adoptar el sistema con su propia apariencia en lugar de neutralizarla. Coexistir por capas hacía que adoptar un design system no cambiara nada: la decisión estaba diseñada para que la interfaz no cambiase, que es lo contrario de para qué se adopta."
+  },
+  "REL-0003": {
+    id: "REL-0003", kind: "release", status: "cortada", statusColor: SC("done"), revision: "sha256:0d3c…",
+    title: "0.7.0", path: ".project/changelog/releases/0-7-0/REL-0003-0-7-0.md",
+    meta: [["versión", "0.7.0"], ["estrategia", "semver"], ["fecha", "2026-07-30"], ["fragmentos", "77"],
+      ["visibilidad", "public"], ["commit", "—"], ["cards", "68"], ["áreas", "6"]],
+    outgoing: [["CHG-0064", "Add a command palette over the unified search endpoint", "fragment"],
+      ["CHG-0072", "Use the accent for the primary action", "fragment"],
+      ["CHG-0074", "strictNullChecks enforced on the core through a ratchet", "fragment"]],
+    incoming: [["T-0014", "0.7.0 stable release", "release"]],
+    incomingTotal: "1 de 1",
+    activity: [["hace 1h", "77 fragmentos consumidos y movidos bajo la release"], ["hace 1h", "CHANGELOG.md renderizado"]],
+    body: "La release consume los fragmentos seleccionados, los mueve bajo su directorio y crea el registro canónico REL-0003. El changelog público es salida derivada, nunca la fuente."
+  }
+};
+
+const CHANGELOG = "## 0.7.0 — 2026-07-30\n\n### Added\n- Add a command palette over the unified search endpoint\n- Watch the workspace and stream changes over server-sent events\n- Add listing tools and project_next, and halve the MCP wire format\n- Edit frontmatter as typed properties, including keys the schema does not know\n- Record protocol milestones in a durable Activity block on each card\n\n### Changed\n- Replace the index TTL with filesystem revalidation\n- Boot the UI from the v2 API and give card listing the list contract\n- Load views on demand and prefetch them on hover\n- Unify eight badge implementations into one pill\n\n### Fixed\n- Make the browser Back button navigate instead of leaving the app\n- Separate semantic, priority and surface colours that shared values\n- Report unfixable links in indexed documents as warnings, not errors\n\n### Security\n- Serve uploaded assets as inert attachments and refuse executable types";
+
+class Component extends DCLogic {
+  state = { view: "explorer", theme: null, selected: "T-0100", palette: false, chip: "" };
+
+  componentDidMount() {
+    this._onKey = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        this.setState((s) => ({ palette: !s.palette }));
+      } else if (event.key === "Escape") this.setState({ palette: false });
+    };
+    document.addEventListener("keydown", this._onKey);
+  }
+  componentWillUnmount() { document.removeEventListener("keydown", this._onKey); }
+
+  select(id) { this.setState({ selected: RECORDS[id] ? id : this.state.selected }); }
+
+  renderVals() {
+    const { view, selected, palette } = this.state;
+    const theme = this.state.theme ?? this.props.theme ?? "light";
+    const dark = theme === "dark";
+    const compact = (this.props.density ?? "compacta") === "compacta";
+
+    const nav = [
+      ["Work", [["explorer", "Explorer", ICONS.table, "24"], ["triage", "Triage", ICONS.listChecks, "9"],
+        ["flow", "Flow", ICONS.columns3, "12"], ["epics", "Epics", ICONS.kanban, "7"], ["timeline", "Timeline", ICONS.calendar, "24"]]],
+      ["Knowledge", [["docs", "Docs", ICONS.book, "12"], ["memory", "Memory", ICONS.bulb, "27"]]],
+      ["Project", [["history", "History", ICONS.fileDiff, "91"], ["health", "Health", ICONS.shield, "42"]]]
+    ];
+
+    const cards = CARDS.map(([id, title, status, type, priority, area, updated, claim, scope, links]) => ({
+      id, title, status, type, priority, area, updated, links: links + " ↔",
+      statusColor: SC(status), priorityColor: PC(priority),
+      claimLabel: claim ? "· " + claim : "",
+      claimShort: claim ? claim.slice(6, 14) : "", claimed: !!claim,
+      scope, hasScope: !!scope,
+      rowBg: selected === id ? "var(--panel)" : "transparent",
+      rowBar: selected === id ? "var(--accent)" : "transparent",
+      select: () => this.select(id)
+    }));
+
+    const statuses = ["backlog", "next", "doing", "review", "blocked", "deferred", "done", "discarded"];
+    const facetRows = (values, key, color) => {
+      const counts = values.map((value) => ({ value, n: cards.filter((card) => card[key] === value).length }));
+      const max = Math.max.apply(null, counts.map((entry) => entry.n).concat([1]));
+      return counts.filter((entry) => entry.n > 0).map((entry) => ({
+        label: entry.value, count: entry.n,
+        width: Math.round((entry.n / max) * 100) + "%",
+        color: color ? color(entry.value) : "var(--accent)"
+      }));
+    };
+
+    const titles = {
+      explorer: ["Explorer", "24 cards · 1.244 registros indexados · orden id ↓"],
+      triage: ["Triage", "9 en cola · atajos de teclado · escribe en disco"],
+      flow: ["Flow", "12 cards en estados de ejecución · 1 conflicto de scope"],
+      epics: ["Epics", "7 épicas · 68 hijas"],
+      timeline: ["Timeline", "24 cards con fechas · escala por día · hoy 30 jul"],
+      docs: ["Docs", "2 gestionados · 10 indexados · 1 aviso de frescura"],
+      memory: ["Memory", "27 registros · 5 colecciones · 2 en borrador"],
+      history: ["History", "3 fragmentos sin publicar · 3 releases"],
+      health: ["Health", "0 errores · 32 avisos · 10 infos · 30 jul 04:04"]
+    };
+
+    const chipDefs = {
+      explorer: [["estado", "todos"], ["área", "todas"], ["tipo", "todos"], ["cerradas", "sí"]],
+      flow: [["backlog+deferred", "sí"], ["solo reclamadas", "no"]],
+      triage: [["cola", "backlog+ideas"]],
+      epics: [["ordenar", "progreso"]],
+      timeline: [["escala", "día"], ["agrupar", "área"]],
+      docs: [["kind", "todos"], ["frescura", "avisos"]],
+      memory: [["ciclo de vida", "avisos"], ["colección", "todas"]],
+      history: [["visibilidad", "public"], ["estado", "sin publicar"]],
+      health: [["severidad", "todas"], ["archivadas", "no"]]
+    };
+    const chips = (chipDefs[view] || []).map(([label, value]) => ({
+      label, value: " " + value,
+      border: this.state.chip === label ? "var(--accent)" : "var(--line)",
+      bg: this.state.chip === label ? "var(--accent-soft)" : "var(--surface)",
+      fg: "var(--fg-2)",
+      toggle: () => this.setState((s) => ({ chip: s.chip === label ? "" : label }))
+    }));
+
+    const record = RECORDS[selected] || RECORDS["T-0100"];
+
+    const epicDefs = [
+      ["T-0023", "Design system: migración a shadcn/ui", "done", "ui", 18, 0, 0],
+      ["T-0021", "Rendimiento end-to-end: índice, API y cliente", "done", "core", 14, 0, 1],
+      ["T-0024", "Superficie de agentes: MCP, Claude Code y actividad viva", "doing", "mcp", 9, 2, 1],
+      ["T-0025", "Edición desde la interfaz: Markdown y metadatos", "doing", "ui", 5, 1, 2],
+      ["T-0020", "Endurecer el servidor local", "done", "core", 7, 0, 0],
+      ["T-0022", "Reactividad contra los ficheros reales", "done", "core", 6, 0, 1],
+      ["T-0001", "0.7.0 TypeScript release candidate", "next", "core", 11, 1, 3]
+    ];
+
+    const timeline = cards.slice(0, 12).map((card, index) => {
+      const left = [4, 10, 16, 22, 28, 34, 41, 47, 53, 59, 65, 71][index];
+      const width = [22, 18, 14, 12, 24, 20, 10, 16, 12, 9, 14, 11][index];
+      return { id: card.id, title: card.title, color: card.statusColor, left: left + "%", width: width + "%", select: card.select };
+    });
+
+    return {
+      theme,
+      showLedger: this.props.showLedger ?? true,
+      crumbCollection: record.id.startsWith("DOC-") || record.id.startsWith("PATH-") ? "docs"
+        : record.id.startsWith("CHG-") || record.id.startsWith("REL-") ? "changelog"
+        : record.id.startsWith("T-") ? "cards" : "memory",
+      crumbRecord: record.id,
+      searchIcon: ICONS.search, plusIcon: ICONS.plus, themeIcon: dark ? ICONS.sun : ICONS.moon,
+      toggleTheme: () => this.setState({ theme: dark ? "light" : "dark" }),
+      openPalette: () => this.setState({ palette: true }),
+      closePalette: () => this.setState({ palette: false }),
+      paletteOpen: palette,
+
+      navGroups: nav.map(([label, items]) => ({
+        label,
+        items: items.map(([value, itemLabel, icon, count]) => {
+          const active = view === value;
+          return {
+            label: itemLabel, icon, count,
+            bg: active ? "var(--panel)" : "transparent",
+            fg: active ? "var(--fg)" : "var(--fg-2)",
+            weight: active ? "600" : "400",
+            bar: active ? "var(--accent)" : "transparent",
+            iconColor: active ? "var(--accent)" : "var(--fg-3)",
+            select: () => this.setState({ view: value, chip: "" })
+          };
+        })
+      })),
+
+      viewTitle: titles[view][0], viewMeta: titles[view][1], chips,
+      isExplorer: view === "explorer", isFlow: view === "flow", isTriage: view === "triage",
+      isEpics: view === "epics", isTimeline: view === "timeline", isDocs: view === "docs",
+      isMemory: view === "memory", isHistory: view === "history", isHealth: view === "health",
+
+      cards, rowHeight: compact ? "34px" : "42px",
+      facets: [
+        { label: "estado", rows: facetRows(statuses, "status", SC) },
+        { label: "prioridad", rows: facetRows(["critical", "high", "medium", "low"], "priority", PC) },
+        { label: "área", rows: facetRows(["core", "ui", "infra", "mcp", "search", "docs"], "area", null) },
+        { label: "tipo", rows: facetRows(["epic", "feature", "bug", "task", "docs", "chore"], "type", null) }
+      ],
+
+      flowColumns: ["backlog", "next", "doing", "review", "blocked", "deferred"].map((status) => {
+        const all = cards.filter((card) => card.status === status);
+        const shown = all.slice(0, 4);
+        return {
+          status, color: SC(status), count: status === "backlog" ? all.length + 2 : all.length,
+          cards: shown, empty: all.length === 0,
+          more: status === "backlog", moreCount: 2
+        };
+      }),
+
+      triageActions: [["1", "critical", PC("critical")], ["2", "high", PC("high")], ["3", "medium", PC("medium")],
+        ["N", "a next", SC("next")], ["D", "diferir", SC("deferred")], ["X", "descartar", SC("discarded")]]
+        .map(([key, label, fg]) => ({ key, label, fg, border: "var(--line)" })),
+
+      epics: epicDefs.map(([id, title, status, area, done, doing, rest]) => {
+        const total = done + doing + rest;
+        return {
+          id, title, status, area, statusColor: SC(status), ratio: done + "/" + total,
+          select: () => this.select(id),
+          segments: [
+            { width: Math.round((done / total) * 100) + "%", color: SC("done") },
+            { width: Math.round((doing / total) * 100) + "%", color: SC("doing") },
+            { width: Math.round((rest / total) * 100) + "%", color: "var(--line)" }
+          ],
+          legend: [{ label: done + " done", color: SC("done") }, { label: doing + " doing", color: SC("doing") }, { label: rest + " abiertas", color: "var(--fg-3)" }]
+        };
+      }),
+
+      timelineDays: ["26 jul", "27", "28", "29", "30 · hoy", "31", "1 ago", "2"].map((label, index) => ({
+        label, color: index === 4 ? "var(--sev-error)" : "var(--fg-3)"
+      })),
+      timelineRows: timeline,
+
+      docGroups: [
+        { label: ".project/docs · gestionados", count: "2", docs: [
+          ["DOC-0001", "Release runbook", "current", ".project/docs/DOC-0001-release-runbook.md", SC("done")],
+          ["DOC-0002", "Demo mode architecture", "current", ".project/docs/DOC-0002-demo-mode-architecture.md", SC("done")]
+        ]},
+        { label: "indexados · solo lectura", count: "10", docs: [
+          ["PATH-0001", "Project Protocol", "indexed", "README.md", SC("backlog")],
+          ["PATH-0002", "The normative specification", "indexed", "docs/SPEC.md", SC("backlog")],
+          ["PATH-0003", "CLI reference", "indexed", "docs/cli.md", SC("backlog")],
+          ["PATH-0004", "HTTP API", "indexed", "docs/http-api.md", SC("backlog")],
+          ["PATH-0005", "MCP contract", "indexed", "docs/mcp.md", SC("backlog")],
+          ["PATH-0006", "Security", "indexed", "docs/security.md", SC("backlog")],
+          ["PATH-0007", "The interface", "indexed", "docs/ui.md", SC("backlog")],
+          ["PATH-0008", "Getting started", "indexed", "docs/getting-started.md", SC("backlog")]
+        ]}
+      ].map((group) => ({
+        label: group.label, count: group.count,
+        docs: group.docs.map(([id, title, status, path, statusColor]) => ({
+          id, title, status, path, statusColor,
+          bg: selected === id ? "var(--panel)" : "transparent",
+          select: () => this.select(id)
+        }))
+      })),
+      docMeta: [["kind", "runbook"], ["estado", "current"], ["revisado", "2026-07-29"], ["owners", "core"], ["backlinks", "2"]]
+        .map(([label, value]) => ({ label, value })),
+
+      memoryLanes: [
+        ["LRN", "Learnings", [["LRN-0001", "setup-node registry-url writes an _authToken that hijacks OIDC", "active", "confianza high · ci · 3 ocurrencias"],
+          ["LRN-0008", "El CLI de shadcn instala sus dependencias en dependencies por defecto", "active", "confianza high · graduada a CONV-0003"],
+          ["LRN-0005", "fs.watch recursivo bloquea el event loop cientos de ms al montarse", "active", "confianza high · core"]]],
+        ["ADR", "Decisions", [["ADR-0009", "Adopt shadcn/ui with its own appearance, style radix-rhea", "accepted", "supersede ADR-0005"],
+          ["ADR-0005", "Migrar el design system a shadcn/ui con coexistencia por capas", "superseded", "superseded por ADR-0009"],
+          ["ADR-0001", "Markdown files in the repository are canonical", "accepted", ""]]],
+        ["INC", "Incidents", [["INC-0001", "Release workflow failed three times before the first CI publish", "resolved", "severity medium · 3 acciones correctivas"]]],
+        ["CONV", "Conventions", [["CONV-0003", "En filas de tabla se usa native-select, nunca un select con portal", "draft", "sin owner asignado"],
+          ["CONV-0002", "El watcher nunca mira .project/.cache: es exclude duro", "draft", "sin owner asignado"],
+          ["CONV-0001", "Conventional commits with module scopes", "active", ""]]],
+        ["CTX", "Context", [["CTX-0001", "RC phase: latest tracks the newest RC until 0.7.0", "active", "expira 2026-09-30"]]]
+      ].map(([prefix, label, records]) => ({
+        prefix, label, count: records.length,
+        records: records.map(([id, title, status, note]) => ({
+          id, title, status, note, hasNote: !!note,
+          statusColor: status === "active" || status === "accepted" || status === "resolved" ? SC("done")
+            : status === "draft" ? SC("doing") : SC("backlog"),
+          select: () => this.select(id)
+        }))
+      })),
+
+      historyGroups: [
+        { label: "sin publicar · 3", items: [
+          ["CHG-0082", "The local UI is rebuilt on shadcn/ui", "changed", "ui", SC("review")],
+          ["CHG-0081", "El build de la demo en Vercel vuelve a compilar", "fixed", "infra", SC("doing")],
+          ["CHG-0080", "changelog release ignored --dry-run and cut the release anyway", "fixed", "core", SC("doing")]
+        ]},
+        { label: "releases · 3", items: [
+          ["REL-0003", "0.7.0", "release", "77 fragmentos · 2026-07-30", SC("done")],
+          ["REL-0002", "License fix · 0.7.0-rc.2", "release", "1 fragmento · 2026-07-29", SC("done")],
+          ["REL-0001", "TypeScript release candidate · 0.7.0-rc.1", "release", "5 fragmentos · 2026-07-29", SC("done")]
+        ]}
+      ].map((group) => ({
+        label: group.label,
+        items: group.items.map(([id, title, type, right, typeColor]) => ({
+          id, title, type, right, typeColor, select: () => this.select(id)
+        }))
+      })),
+      changelogPreview: CHANGELOG,
+
+      healthCounts: [
+        { value: "0", label: "errores", hint: "el doctor no bloquea el release", color: SC("done") },
+        { value: "32", label: "avisos", hint: "instrucciones de agente y ciclo de vida", color: "var(--sev-warning)" },
+        { value: "10", label: "infos", hint: "frescura y enlaces sugeridos", color: "var(--sev-info)" }
+      ],
+      healthGroups: [
+        { code: "agent-instructions-missing", color: "var(--sev-warning)", count: "6", summary: "bloques generados ausentes o sin sincronizar",
+          issues: [["AGENTS.md", "Generated agent instructions are missing", "AGENTS.md"],
+            ["protocol.md", "Generated agent instructions are missing", ".project/agents/protocol.md"],
+            ["start-work", "Generated agent instructions are missing", ".project/agents/workflows/start-work.md"]] },
+        { code: "context-lifecycle-missing", color: "var(--sev-warning)", count: "1", summary: "context activo sin expires ni review_after",
+          issues: [["CTX-0001", "Active context should define expires or review_after", ".project/memory/context/CTX-0001-rc-phase-latest-tracks…md"]] },
+        { code: "doc-review-stale", color: "var(--sev-info)", count: "2", summary: "reviewed anterior al último cambio del scope",
+          issues: [["DOC-0001", "Reviewed 2026-07-29 predates changes in .github/workflows", ".project/docs/DOC-0001-release-runbook.md"]] },
+        { code: "convention-owner-missing", color: "var(--sev-warning)", count: "2", summary: "convención en draft sin owner",
+          issues: [["CONV-0002", "Draft convention has no owner", ".project/memory/conventions/CONV-0002-el-watcher-nunca-mira…md"],
+            ["CONV-0003", "Draft convention has no owner", ".project/memory/conventions/CONV-0003-en-filas-de-tabla…md"]] }
+      ].map((group) => ({
+        code: group.code, color: group.color, count: group.count, summary: group.summary,
+        issues: group.issues.map(([ref, message, file]) => ({ ref, message, file }))
+      })),
+
+      paletteGroups: [
+        { label: "cards", hits: [["T-0100", "Replace the shadcn coexistence layer with a real migration", "doing · claim 14m"],
+          ["T-0077", "El claim es un flag, no un lease: sin heartbeat ni expiración", "done · core"],
+          ["T-0078", "Derivar el actor del entorno para que reclamar no tenga fricción", "done · core"]] },
+        { label: "memory", hits: [["ADR-0007", "Actividad de agentes en dos niveles: cache efímero y bloque durable", "accepted"],
+          ["CONV-0001", "Conventional commits with module scopes", "active"]] },
+        { label: "history", hits: [["CHG-0049", "Record protocol milestones in a durable Activity block on each card", "0.7.0"]] }
+      ].map((group, groupIndex) => ({
+        label: group.label,
+        hits: group.hits.map(([id, title, meta], index) => ({
+          id, title, meta, bg: groupIndex === 0 && index === 0 ? "var(--panel)" : "transparent"
+        }))
+      })),
+
+      record: {
+        id: record.id, kind: record.kind, status: record.status, statusColor: record.statusColor,
+        title: record.title, path: record.path, revision: record.revision, body: record.body,
+        incomingTotal: record.incomingTotal,
+        meta: record.meta.map(([label, value, color]) => ({ label, value, color: color || "var(--fg)" })),
+        outgoing: record.outgoing.map(([id, title, relation]) => ({ id, title, relation })),
+        incoming: record.incoming.map(([id, title, relation]) => ({ id, title, relation })),
+        activity: record.activity.map(([when, what]) => ({ when, what }))
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

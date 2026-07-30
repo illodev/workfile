@@ -1,0 +1,520 @@
+import demoData from "./demo-data.json";
+
+import type { ProjectApi } from "./api";
+import type {
+    ActivitySnapshot,
+    ChangeRecord,
+    DocumentRecord,
+    HealthReport,
+    SearchHit,
+    HistoryRecord,
+    MemoryRecord,
+    RecordsResponse,
+    ReleasePreview,
+    ReleaseRecord,
+    Task,
+    TaskPatch,
+    TaskResponse
+} from "./types";
+
+interface DemoData {
+    tasks: TaskResponse;
+    health: HealthReport;
+    activity: ActivitySnapshot;
+    docs: RecordsResponse<DocumentRecord>;
+    changelog: RecordsResponse<HistoryRecord>;
+    memory: RecordsResponse<MemoryRecord>;
+    changelogRender: { public: string; internal: string };
+}
+
+/** The demo replays a workspace snapshot entirely in memory: mutations
+ *  work for the session and reset on reload. Shapes mirror the HTTP
+ *  server responses the regular build talks to. */
+const state = /* @__PURE__ */ structuredClone(
+    demoData
+) as unknown as DemoData;
+
+const wait = (ms = 120) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const clone = <T>(value: T): T => structuredClone(value);
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const revision = () =>
+    `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+function nextId(prefix: string, existing: Iterable<string>) {
+    let max = 0;
+    for (const id of existing) {
+        const match = id.match(new RegExp(`^${prefix}-(\\d+)$`));
+        if (match) max = Math.max(max, Number(match[1]));
+    }
+    return `${prefix}-${String(max + 1).padStart(4, "0")}`;
+}
+
+function matches(query: string, ...haystacks: Array<string | undefined>) {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return haystacks.some((value) => value?.toLowerCase().includes(needle));
+}
+
+function applyChanges<T extends object>(
+    target: T,
+    changes: Record<string, unknown>
+) {
+    const record = target as Record<string, unknown>;
+    for (const [key, value] of Object.entries(changes)) {
+        if (value == null) delete record[key];
+        else record[key] = value;
+    }
+    record.updated = today();
+    record.revision = revision();
+}
+
+function findTask(id: string): Task {
+    const task = state.tasks.tasks.find((item) => item.id === id);
+    if (!task) throw new Error(`Unknown card ${id}`);
+    return task;
+}
+
+const isChange = (record: HistoryRecord): record is ChangeRecord =>
+    record.kind === "change";
+
+function unreleasedChanges() {
+    return state.changelog.records.filter(
+        (record): record is ChangeRecord => isChange(record) && !record.released
+    );
+}
+
+function groupFragments(fragments: ChangeRecord[]) {
+    const order = state.tasks.schema.changelog.types;
+    return order
+        .map((type) => ({
+            type,
+            fragments: fragments.filter((fragment) => fragment.type === type)
+        }))
+        .filter((group) => group.fragments.length > 0);
+}
+
+const heading = (type: string) =>
+    type.charAt(0).toUpperCase() + type.slice(1);
+
+function renderGroups(fragments: ChangeRecord[]) {
+    return groupFragments(fragments)
+        .map((group) =>
+            [
+                `### ${heading(group.type)}`,
+                "",
+                ...group.fragments.map(
+                    (fragment) => `- ${fragment.title} (${fragment.id})`
+                )
+            ].join("\n")
+        )
+        .join("\n\n");
+}
+
+export const demoApi: ProjectApi = {
+    tasks: async () => {
+        await wait();
+        return clone(state.tasks);
+    },
+    health: async () => {
+        await wait();
+        return clone(state.health);
+    },
+    activity: async () => {
+        await wait();
+        return clone(state.activity);
+    },
+    /**
+     * Cross-collection search over the snapshot.
+     *
+     * The palette used to call `/api/v2/search` directly, which in a static
+     * build is a 404 the catch swallowed — so the one control that searches
+     * everything at once returned nothing, quietly, in the demo that exists to
+     * show it off. This ranks the same four collections the server does:
+     * an id match first, then a title prefix, then any substring.
+     */
+    search: async (term: string, limit = 8) => {
+        await wait(60);
+        const needle = term.trim().toLowerCase();
+        if (!needle) return { records: [], total: 0 };
+        const pools: Array<[string, Array<Record<string, unknown>>]> = [
+            ["card", state.tasks.tasks as unknown as Array<Record<string, unknown>>],
+            ["doc", state.docs.records as unknown as Array<Record<string, unknown>>],
+            ["change", state.changelog.records as unknown as Array<Record<string, unknown>>],
+            ["memory", state.memory.records as unknown as Array<Record<string, unknown>>]
+        ];
+        const scored: Array<{ score: number; hit: SearchHit }> = [];
+        for (const [kind, records] of pools) {
+            for (const record of records) {
+                const id = String(record.id ?? "");
+                const title = String(record.title ?? "");
+                const haystack = `${id} ${title}`.toLowerCase();
+                if (!haystack.includes(needle)) continue;
+                const score = id.toLowerCase() === needle
+                    ? 100
+                    : id.toLowerCase().includes(needle)
+                      ? 50
+                      : title.toLowerCase().startsWith(needle)
+                        ? 25
+                        : 10;
+                scored.push({
+                    score,
+                    hit: {
+                        id,
+                        kind,
+                        title,
+                        status: record.status as string | undefined,
+                        area: record.area as string | undefined,
+                        path: String(record.path ?? record.file ?? "")
+                    }
+                });
+            }
+        }
+        scored.sort(
+            (left, right) =>
+                right.score - left.score || left.hit.id.localeCompare(right.hit.id)
+        );
+        return {
+            records: scored.slice(0, limit).map((entry) => entry.hit),
+            total: scored.length
+        };
+    },
+    docs: async (query = "") => {
+        await wait();
+        const records = state.docs.records.filter((record) =>
+            matches(query, record.title, record.body, record.path, record.id)
+        );
+        return clone({ records, total: records.length });
+    },
+    document: async (id: string) => {
+        await wait();
+        const record = state.docs.records.find((item) => item.id === id);
+        if (!record) throw new Error(`Unknown document ${id}`);
+        return clone({ record });
+    },
+    changelog: async (
+        query = "",
+        options: { state?: string; visibility?: string } = {}
+    ) => {
+        await wait();
+        let records = state.changelog.records;
+        if (options.state === "unreleased")
+            records = records.filter(
+                (record) => isChange(record) && !record.released
+            );
+        else if (options.state === "released")
+            records = records.filter(
+                (record) => !isChange(record) || record.released
+            );
+        if (options.visibility)
+            records = records.filter(
+                (record) =>
+                    isChange(record) &&
+                    record.visibility === options.visibility
+            );
+        records = records.filter((record) =>
+            matches(query, record.title, record.body, record.id)
+        );
+        return clone({ records, total: records.length });
+    },
+    createChange: async (input: Record<string, unknown>) => {
+        await wait();
+        const record = {
+            id: nextId(
+                "CHG",
+                state.changelog.records.map((item) => item.id)
+            ),
+            kind: "change",
+            recordType: "change",
+            title: String(input.title || "Untitled change"),
+            type: String(input.type || "changed"),
+            area: String(input.area || "general"),
+            visibility: String(input.visibility || "public"),
+            released: false,
+            body: String(input.body || ""),
+            path: "",
+            file: "",
+            revision: revision(),
+            created: today(),
+            updated: today(),
+            outgoing: [],
+            incoming: [],
+            issues: []
+        } as unknown as ChangeRecord;
+        record.path = `.project/changelog/unreleased/${record.id}.md`;
+        record.file = record.path;
+        state.changelog.records.unshift(record);
+        state.changelog.total = state.changelog.records.length;
+        return clone({ record });
+    },
+    patchChange: async (id: string, changes: Record<string, unknown>) => {
+        await wait();
+        const record = state.changelog.records.find(
+            (item): item is ChangeRecord => isChange(item) && item.id === id
+        );
+        if (!record) throw new Error(`Unknown change ${id}`);
+        applyChanges(record, changes);
+        return clone({ record });
+    },
+    releasePreview: async (input: Record<string, unknown> = {}) => {
+        await wait();
+        const requested = Array.isArray(input.fragments)
+            ? new Set(input.fragments as string[])
+            : null;
+        const fragments = unreleasedChanges().filter(
+            (fragment) => !requested || requested.has(fragment.id)
+        );
+        const markdown = `## Unreleased\n\n${renderGroups(fragments)}`;
+        return clone({
+            fragments,
+            groups: groupFragments(fragments),
+            markdown
+        }) as ReleasePreview;
+    },
+    createRelease: async (input: Record<string, unknown>) => {
+        await wait();
+        const version = String(input.version || "").trim();
+        if (!version) throw new Error("A release version is required");
+        const ids = Array.isArray(input.fragmentIds)
+            ? (input.fragmentIds as string[])
+            : [];
+        const fragments = unreleasedChanges().filter((fragment) =>
+            ids.includes(fragment.id)
+        );
+        if (!fragments.length)
+            throw new Error("No unreleased fragments selected");
+        const record = {
+            id: nextId(
+                "REL",
+                state.changelog.records.map((item) => item.id)
+            ),
+            kind: "release",
+            recordType: "release",
+            title: String(input.title || `v${version}`),
+            version,
+            date: today(),
+            fragments: fragments.map((fragment) => fragment.id),
+            body: renderGroups(fragments),
+            path: "",
+            file: "",
+            revision: revision(),
+            created: today(),
+            updated: today(),
+            outgoing: [],
+            incoming: [],
+            issues: []
+        } as unknown as ReleaseRecord;
+        record.path = `.project/changelog/releases/${record.id}.md`;
+        record.file = record.path;
+        for (const fragment of fragments) {
+            fragment.released = true;
+            fragment.releaseIds = [record.id];
+        }
+        state.changelog.records.unshift(record);
+        state.changelog.total = state.changelog.records.length;
+        return clone({ record, fragments });
+    },
+    renderedChangelog: async (visibility = "public") => {
+        await wait();
+        const releases = state.changelog.records.filter(
+            (record): record is ReleaseRecord => record.kind === "release"
+        );
+        const visible = (fragment: ChangeRecord) =>
+            visibility === "internal" || fragment.visibility === "public";
+        const sections: string[] = ["# Changelog"];
+        const unreleased = unreleasedChanges().filter(visible);
+        if (unreleased.length)
+            sections.push(`## Unreleased\n\n${renderGroups(unreleased)}`);
+        for (const release of releases) {
+            const fragments = state.changelog.records.filter(
+                (record): record is ChangeRecord =>
+                    isChange(record) &&
+                    (record.releaseIds || []).includes(release.id) &&
+                    visible(record)
+            );
+            sections.push(
+                `## ${release.version} — ${release.date}\n\n${renderGroups(fragments)}`
+            );
+        }
+        return { visibility, content: sections.join("\n\n") };
+    },
+    memory: async (
+        query = "",
+        options: { collection?: string; status?: string } = {}
+    ) => {
+        await wait();
+        const records = state.memory.records.filter(
+            (record) =>
+                (!options.collection ||
+                    record.collection === options.collection) &&
+                (!options.status || record.status === options.status) &&
+                matches(query, record.title, record.body, record.id)
+        );
+        return clone({ records, total: records.length });
+    },
+    createMemory: async (input: Record<string, unknown>) => {
+        await wait();
+        const collection = String(input.collection || "learnings");
+        const schema = state.tasks.schema.memory.collections.find(
+            (item) => item.id === collection
+        );
+        if (!schema) throw new Error(`Unknown collection ${collection}`);
+        const record = {
+            id: nextId(
+                schema.idPrefix,
+                state.memory.records.map((item) => item.id)
+            ),
+            kind: "memory",
+            recordType: schema.singular,
+            collection,
+            title: String(input.title || `Untitled ${schema.singular}`),
+            status: String(input.status || schema.statuses[0]),
+            body: String(input.body || ""),
+            path: "",
+            file: "",
+            revision: revision(),
+            created: today(),
+            updated: today(),
+            outgoing: [],
+            incoming: [],
+            issues: []
+        } as unknown as MemoryRecord;
+        for (const key of ["category", "confidence", "severity", "expires"])
+            if (input[key])
+                (record as unknown as Record<string, unknown>)[key] =
+                    input[key];
+        record.path = `.project/memory/${collection}/${record.id}.md`;
+        record.file = record.path;
+        state.memory.records.unshift(record);
+        state.memory.total = state.memory.records.length;
+        return clone({ record });
+    },
+    patchDocument: async (id: string, changes: Record<string, unknown>) => {
+        await wait();
+        const record = state.docs.records.find((item) => item.id === id);
+        if (!record) throw new Error(`Unknown document ${id}`);
+        applyChanges(record, changes);
+        return clone({ record });
+    },
+    patchMemory: async (id: string, changes: Record<string, unknown>) => {
+        await wait();
+        const record = state.memory.records.find((item) => item.id === id);
+        if (!record) throw new Error(`Unknown memory record ${id}`);
+        applyChanges(record, changes);
+        return clone({ record });
+    },
+    graduateMemory: async (id: string, targets: string[]) => {
+        await wait();
+        const record = state.memory.records.find((item) => item.id === id);
+        if (!record) throw new Error(`Unknown memory record ${id}`);
+        record.status = "graduated";
+        record.graduated_to = targets;
+        applyChanges(record, {});
+        return clone({ record });
+    },
+    supersedeMemory: async (id: string, replacementId: string) => {
+        await wait();
+        const record = state.memory.records.find((item) => item.id === id);
+        if (!record) throw new Error(`Unknown memory record ${id}`);
+        const replacement = state.memory.records.find(
+            (item) => item.id === replacementId
+        );
+        if (!replacement)
+            throw new Error(`Unknown replacement record ${replacementId}`);
+        record.status = "superseded";
+        record.superseded_by = [replacementId];
+        replacement.supersedes = [
+            ...new Set([...(replacement.supersedes || []), id])
+        ];
+        applyChanges(record, {});
+        return clone({ record });
+    },
+    patch: async (id: string, changes: TaskPatch) => {
+        await wait();
+        const task = findTask(id);
+        applyChanges(task, changes as Record<string, unknown>);
+        return clone({ ok: true as const, task });
+    },
+    bulkPatch: async (ids: string[], changes: TaskPatch) => {
+        await wait();
+        const results = [];
+        for (const id of ids) {
+            try {
+                applyChanges(findTask(id), changes as Record<string, unknown>);
+                results.push({ id, ok: true });
+            } catch (error) {
+                results.push({
+                    id,
+                    ok: false,
+                    error: {
+                        code: "CARD_PATCH_FAILED",
+                        message:
+                            error instanceof Error ? error.message : String(error)
+                    }
+                });
+            }
+        }
+        const updated = results.filter((entry) => entry.ok).length;
+        return {
+            ok: updated === ids.length,
+            updated,
+            failed: ids.length - updated,
+            results
+        };
+    },
+    create: async (input: Record<string, unknown>) => {
+        await wait();
+        const id = nextId(
+            "T",
+            state.tasks.tasks.map((task) => task.id)
+        );
+        const slug =
+            String(input.title || "card")
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 40) || "card";
+        const task = {
+            id,
+            file: `.project/cards/${id}-${slug}.md`,
+            title: String(input.title || "Untitled card"),
+            status: "backlog",
+            type: String(input.type || "task"),
+            priority: String(input.priority || "medium"),
+            area: String(input.area || "general"),
+            body: String(input.body || ""),
+            archived: false,
+            created: today(),
+            updated: today(),
+            revision: revision()
+        } as unknown as Task;
+        const extra = task as unknown as Record<string, unknown>;
+        for (const key of [
+            "effort",
+            "parent",
+            "milestone",
+            "source",
+            "tags",
+            "scope"
+        ]) {
+            const value = input[key];
+            if (Array.isArray(value) ? value.length : value)
+                extra[key] = value;
+        }
+        state.tasks.tasks.push(task);
+        return { id, file: task.file, revision: task.revision };
+    },
+    archive: async (id: string, archived: boolean) => {
+        await wait();
+        // Mirrors the HTTP client: `archived` is the card's current state.
+        findTask(id).archived = !archived;
+        return { ok: true as const };
+    },
+    upload: async () => {
+        await wait();
+        throw new Error("File uploads are not available in the demo");
+    }
+};

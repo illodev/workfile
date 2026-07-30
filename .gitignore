@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.project/.cache/
+*.log
+artifacts/
+
+# Fixtures are real workspaces, so running against them writes a real cache.
+test/fixtures/**/.cache/

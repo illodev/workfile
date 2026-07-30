@@ -1,0 +1,13 @@
+# Workspace root of its own, on purpose.
+#
+# The board is an internal dev tool and must never move the toolchain of the
+# production apps. pnpm resolves the workspace root by walking up until it finds
+# a pnpm-workspace.yaml, so this file stops the search here: installing the
+# board writes its own node_modules and its own lockfile, and the monorepo
+# resolution (apps/*, packages/*) is left untouched.
+#
+# Install:  pnpm install --dir .planning/backlog/board
+packages: []
+
+# Same rationale as the root workspace: never auto-install before `pnpm run`.
+verifyDepsBeforeRun: false

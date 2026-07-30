@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --background:oklch(1 0 0); --foreground:oklch(0.145 0 0);
+    --muted:oklch(0.97 0 0); --muted-foreground:oklch(0.556 0 0);
+    --border:oklch(0.922 0 0); --input:oklch(0.922 0 0);
+    --primary:oklch(0.205 0 0); --primary-foreground:oklch(0.985 0 0);
+    --sidebar:oklch(0.985 0 0); --sidebar-accent:oklch(0.97 0 0);
+    --accent:oklch(0.97 0 0); --ring:oklch(0.708 0 0);
+    --status-backlog:oklch(0.62 0.02 256); --status-next:oklch(0.53 0.19 285);
+    --status-doing:oklch(0.62 0.13 75); --status-review:oklch(0.56 0.2 300);
+    --status-blocked:oklch(0.58 0.22 25); --status-done:oklch(0.55 0.15 152);
+    --priority-critical:oklch(0.5 0.2 20); --priority-high:oklch(0.6 0.16 48);
+    --priority-medium:oklch(0.52 0.18 291); --priority-low:oklch(0.65 0.02 256);
+    --radius:0.625rem;
+  }
+  body{margin:0;background:var(--background);color:var(--foreground);font-family:"Geist",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  a{color:var(--foreground);text-decoration:underline;text-underline-offset:4px;}
+  a:hover{text-decoration:none;}
+  *{box-sizing:border-box;}
+</style>
+</helmet>
+
+<div style="display:flex;height:900px;width:1440px;font-size:14px;line-height:1.5;background:var(--background)">
+
+  <aside style="width:256px;flex:0 0 256px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column">
+    <div style="padding:12px 12px 4px">
+      <div style="display:flex;flex-direction:column;gap:2px;padding:4px 8px">
+        <span style="font-size:14px;font-weight:600;letter-spacing:-0.01em">Project Protocol</span>
+        <span style="font-size:12px;color:var(--muted-foreground)">1 open · 100 total</span>
+      </div>
+    </div>
+    <nav style="flex:1;display:flex;flex-direction:column;gap:16px;padding:8px">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="padding:6px 8px;font-size:12px;font-weight:500;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.04em">{{ group.label }}</div>
+          <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+            <button type="button" onClick="{{ item.select }}" style="display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--foreground);font:inherit;font-size:14px;cursor:pointer;text-align:left" style-hover="background:var(--sidebar-accent)" data-active="{{ item.active }}">
+              <span style="display:inline-flex;width:16px;height:16px;flex:0 0 16px;color:var(--muted-foreground)" dangerouslySetInnerHTML="{{ item.icon }}"></span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--border)">
+      <span style="display:inline-flex;width:16px;height:16px;color:var(--muted-foreground)" dangerouslySetInnerHTML="{{ moonIcon }}"></span>
+      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted-foreground)">0.7.0-rc.2</span>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex:0 0 auto">
+      <div style="position:relative;flex:1;min-width:0;max-width:420px">
+        <span style="position:absolute;left:9px;top:8px;width:16px;height:16px;color:var(--muted-foreground)" dangerouslySetInnerHTML="{{ searchIcon }}"></span>
+        <input type="text" placeholder="Search id, title, tags — or area:billing, -type:idea" style="width:100%;height:32px;padding:0 10px 0 31px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:inherit;font-size:14px;outline:none">
+      </div>
+      <sc-for list="{{ filterSelects }}" as="filter" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:14px;white-space:nowrap;background:var(--background)">
+          <span>{{ filter.label }}: all</span>
+          <span style="color:var(--muted-foreground);font-size:11px">▾</span>
+        </div>
+      </sc-for>
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap;cursor:default">
+        <span style="width:16px;height:16px;border:1px solid var(--input);border-radius:4px;background:var(--background)"></span>Ideas
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap;cursor:default">
+        <span style="width:16px;height:16px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);display:inline-flex;align-items:center;justify-content:center;font-size:11px">✓</span>Closed
+      </label>
+      <button type="button" style="height:32px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--foreground);font:inherit;font-size:14px;cursor:pointer" style-hover="background:var(--accent)">Reset</button>
+      <button type="button" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:0;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap">
+        <span style="display:inline-flex;width:16px;height:16px" dangerouslySetInnerHTML="{{ plusIcon }}"></span>New card
+      </button>
+    </div>
+
+    <sc-if value="{{ isExplorer }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;display:flex;min-height:0;overflow:hidden">
+        <div style="width:270px;flex:0 0 270px;border-right:1px solid var(--border);padding:16px;overflow-y:auto">
+          <div style="display:flex;align-items:baseline;gap:8px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+            <span style="font-size:28px;font-weight:600;letter-spacing:-0.02em">{{ rowCount }}</span>
+            <span style="font-size:14px;color:var(--muted-foreground)">matching cards</span>
+          </div>
+          <sc-for list="{{ facets }}" as="facet" hint-placeholder-count="4">
+            <div style="padding:16px 0;border-bottom:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:500;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.04em;padding-bottom:8px">{{ facet.label }}</div>
+              <sc-for list="{{ facet.rows }}" as="row" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;justify-content:space-between;height:28px;font-size:14px">
+                  <span>{{ row.label }}</span>
+                  <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--muted-foreground)">{{ row.count }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex:1;min-width:0;overflow:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="width:40px;padding:10px 0 10px 16px"><span style="display:inline-block;width:16px;height:16px;border:1px solid var(--input);border-radius:4px"></span></th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground);white-space:nowrap">ID ↓</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Title</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Status</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Priority</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Type</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Area</th>
+                <th style="text-align:left;padding:10px 12px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground)">Epic</th>
+                <th style="text-align:left;padding:10px 16px 10px 0;font-weight:500;font-size:13px;color:var(--muted-foreground);white-space:nowrap">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ cards }}" as="card" hint-placeholder-count="12">
+                <tr style="border-bottom:1px solid var(--border)" style-hover="background:var(--muted)">
+                  <td style="padding:8px 0 8px 16px"><span style="display:inline-block;width:16px;height:16px;border:1px solid var(--input);border-radius:4px"></span></td>
+                  <td style="padding:8px 12px 8px 0;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;white-space:nowrap">{{ card.id }}</td>
+                  <td style="padding:8px 12px 8px 0;max-width:520px">
+                    <span style="display:flex;align-items:center;gap:8px">
+                      <span style="width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:{{ card.statusColor }}"></span>
+                      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ card.title }}</span>
+                    </span>
+                  </td>
+                  <td style="padding:8px 12px 8px 0">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:6px;font-size:13px;border:1px solid {{ card.statusBorder }};background:{{ card.statusBg }};color:{{ card.statusColor }}">
+                      {{ card.status }}<span style="font-size:10px;opacity:0.7">▾</span>
+                    </span>
+                  </td>
+                  <td style="padding:8px 12px 8px 0">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:28px;font-size:13px">{{ card.priority }}<span style="font-size:10px;color:var(--muted-foreground)">▾</span></span>
+                  </td>
+                  <td style="padding:8px 12px 8px 0;color:var(--muted-foreground)">{{ card.type }}</td>
+                  <td style="padding:8px 12px 8px 0;color:var(--muted-foreground)">{{ card.area }}</td>
+                  <td style="padding:8px 12px 8px 0;color:var(--muted-foreground)">{{ card.epic }}</td>
+                  <td style="padding:8px 16px 8px 0;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--muted-foreground);white-space:nowrap">{{ card.updated }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isFlow }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:16px;font-weight:600">Active flow</span>
+            <span style="font-size:14px;color:var(--muted-foreground)">1 card across execution states</span>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:14px">
+            <span style="width:16px;height:16px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);display:inline-flex;align-items:center;justify-content:center;font-size:11px">✓</span>Include backlog &amp; deferred
+          </label>
+        </div>
+        <div style="flex:1;display:flex;gap:16px;padding:16px;overflow-x:auto;min-height:0">
+          <sc-for list="{{ flowColumns }}" as="column" hint-placeholder-count="5">
+            <div style="width:280px;flex:0 0 280px;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;background:var(--sidebar);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)">
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ column.color }}"></span>
+                <span style="flex:1;font-size:14px;font-weight:600">{{ column.status }}</span>
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--muted-foreground)">{{ column.count }}</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:12px;min-height:120px">
+                <sc-if value="{{ column.empty }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted-foreground)">No cards</div>
+                </sc-if>
+                <sc-for list="{{ column.cards }}" as="card" hint-placeholder-count="2">
+                  <div style="border:1px solid var(--border);border-left:3px solid {{ card.statusColor }};border-radius:8px;background:var(--background);padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+                    <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--muted-foreground)">{{ card.id }}</span>
+                    <span style="font-size:14px;font-weight:600;line-height:1.35;text-wrap:pretty">{{ card.title }}</span>
+                    <span style="display:flex;flex-wrap:wrap;gap:6px">
+                      <sc-for list="{{ card.tags }}" as="tag" hint-placeholder-count="2">
+                        <span style="padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--muted-foreground)">{{ tag }}</span>
+                      </sc-for>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const I = (body) => ({ __html: '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>' });
+
+const ICONS = {
+  table: I('<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>'),
+  listChecks: I('<path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>'),
+  columns3: I('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>'),
+  kanban: I('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>'),
+  calendar: I('<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>'),
+  book: I('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>'),
+  bulb: I('<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>'),
+  fileDiff: I('<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M9 10h6"/><path d="M12 13V7"/><path d="M9 17h6"/>'),
+  shield: I('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'),
+  search: I('<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>'),
+  plus: I('<path d="M5 12h14"/><path d="M12 5v14"/>'),
+  moon: I('<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>')
+};
+
+const STATUS_COLOR = {
+  backlog: "var(--status-backlog)", next: "var(--status-next)", doing: "var(--status-doing)",
+  review: "var(--status-review)", blocked: "var(--status-blocked)", deferred: "var(--status-backlog)",
+  done: "var(--status-done)", discarded: "var(--status-blocked)"
+};
+
+const CARDS = [
+  ["T-0100", "Replace the shadcn coexistence layer with a real migration", "done", "task", "high", "ui", "2026-07-30"],
+  ["T-0099", "El build de la demo en Vercel falla: pnpm no materializa tslib", "done", "bug", "high", "infra", "2026-07-30"],
+  ["T-0098", "Migrar inputs, selects, overlays y vistas de dominio a shadcn", "done", "task", "medium", "ui", "2026-07-30"],
+  ["T-0096", "El build de demo comparte outDir con el de producción", "done", "bug", "low", "infra", "2026-07-30"],
+  ["T-0095", "Cero observabilidad en el servidor y un error post-arranque se traga", "done", "task", "medium", "core", "2026-07-30"],
+  ["T-0094", "Las superficies grandes son las peor cubiertas y la UI no tiene tests", "done", "task", "medium", "infra", "2026-07-30"],
+  ["T-0093", "CI: un solo SO, una sola versión de Node, sin lint ni escaneo", "done", "task", "medium", "infra", "2026-07-30"],
+  ["T-0089", "El renderer Markdown tiene huecos visibles y se reparsea en cada render", "done", "bug", "medium", "ui", "2026-07-30"],
+  ["T-0088", "Cablear la edición de docs, memory y changelog en la UI", "done", "task", "high", "ui", "2026-07-30"],
+  ["T-0087", "El 409 debe devolver el registro actual y ofrecer merge a tres bandas", "done", "feature", "high", "core", "2026-07-30"],
+  ["T-0086", "Editor de propiedades del frontmatter dirigido por el schema", "done", "feature", "high", "ui", "2026-07-30"],
+  ["T-0085", "Editor de cuerpo Markdown en la UI con CodeMirror 6", "done", "feature", "high", "ui", "2026-07-30"],
+  ["T-0084", "El doctor no puede ser una puerta que siempre está roja", "done", "bug", "medium", "core", "2026-07-30"],
+  ["T-0081", "Hooks: convertir el claim en un guardarraíl ejecutable", "done", "feature", "high", "mcp", "2026-07-30"],
+  ["T-0078", "Derivar el actor del entorno para que reclamar no tenga fricción", "done", "task", "high", "core", "2026-07-30"],
+  ["T-0076", "patchCardBody y appendCardNote: escribir el cuerpo de una card", "done", "feature", "high", "core", "2026-07-30"],
+  ["T-0075", "project_card_release no existe en MCP aunque el protocolo lo exige", "done", "bug", "high", "mcp", "2026-07-30"],
+  ["T-0072", "Tools MCP de listado: un agente no puede ver el tablero", "done", "feature", "critical", "mcp", "2026-07-30"],
+  ["T-0070", "Paleta de comandos ⌘K sobre el índice unificado", "done", "feature", "medium", "ui", "2026-07-30"],
+  ["T-0067", "Kanban con dnd-kit, operable con teclado", "done", "feature", "medium", "ui", "2026-07-30"],
+  ["T-0042", "searchScore tokeniza el cuerpo de cada registro en cada consulta", "done", "bug", "critical", "search", "2026-07-29"],
+  ["T-0023", "Design system: migración a shadcn/ui", "done", "epic", "high", "ui", "2026-07-30"],
+  ["T-0014", "0.7.0 stable release", "next", "feature", "high", "core", "2026-07-30"]
+];
+
+class Component extends DCLogic {
+  state = { view: "explorer" };
+
+  renderVals() {
+    const view = this.state.view;
+    const nav = [
+      ["Work", [["explorer", "Explorer", ICONS.table], ["triage", "Triage", ICONS.listChecks], ["flow", "Flow", ICONS.columns3], ["epics", "Epics", ICONS.kanban], ["timeline", "Timeline", ICONS.calendar]]],
+      ["Knowledge", [["docs", "Docs", ICONS.book], ["memory", "Memory", ICONS.bulb]]],
+      ["Project", [["history", "History", ICONS.fileDiff], ["health", "Health", ICONS.shield]]]
+    ];
+
+    const cards = CARDS.map(([id, title, status, type, priority, area, updated]) => ({
+      id, title, status, type, priority, area, updated, epic: "—",
+      statusColor: STATUS_COLOR[status],
+      statusBg: "color-mix(in oklab, " + STATUS_COLOR[status] + " 10%, var(--background))",
+      statusBorder: "color-mix(in oklab, " + STATUS_COLOR[status] + " 28%, var(--border))"
+    }));
+
+    const count = (key, value) => cards.filter((card) => card[key] === value).length;
+    const facetRows = (key, values) => values.map((value) => ({ label: value, count: count(key, value) })).filter((row) => row.count > 0);
+
+    return {
+      navGroups: nav.map(([label, items]) => ({
+        label,
+        items: items.map(([value, itemLabel, icon]) => ({
+          label: itemLabel, icon, active: view === value ? "true" : "false",
+          select: () => this.setState({ view: value })
+        }))
+      })),
+      moonIcon: ICONS.moon, searchIcon: ICONS.search, plusIcon: ICONS.plus,
+      filterSelects: [{ label: "Status" }, { label: "Area" }, { label: "Type" }, { label: "Priority" }],
+      isExplorer: view !== "flow",
+      isFlow: view === "flow",
+      cards,
+      rowCount: cards.length,
+      facets: [
+        { label: "Status", rows: facetRows("status", ["backlog", "next", "doing", "review", "blocked", "deferred", "done", "discarded"]) },
+        { label: "Priority", rows: facetRows("priority", ["critical", "high", "medium", "low"]) },
+        { label: "Type", rows: facetRows("type", ["epic", "idea", "feature", "bug", "task", "audit", "docs", "chore"]) },
+        { label: "Area", rows: facetRows("area", ["core", "ui", "infra", "mcp", "search", "docs"]) }
+      ],
+      flowColumns: ["backlog", "next", "doing", "review", "blocked", "deferred"].map((status) => {
+        const columnCards = cards.filter((card) => card.status === status).map((card) => ({
+          ...card, tags: [card.area, card.type]
+        }));
+        return { status, color: STATUS_COLOR[status], count: columnCards.length, cards: columnCards, empty: columnCards.length === 0 };
+      })
+    };
+  }
+}
+
+</script>
+</body>
+</html>

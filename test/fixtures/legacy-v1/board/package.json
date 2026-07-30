@@ -1,0 +1,26 @@
+{
+    "name": "@fube/backlog-board",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Local backlog board: HTTP API over the MD cards plus a Vite/React UI.",
+    "scripts": {
+        "build": "vite build --config vite.config.mjs",
+        "start": "pnpm run build && node server.mjs",
+        "typecheck": "tsc -p ui/tsconfig.json",
+        "doctor": "node doctor.mjs",
+        "test": "node --test backlog-lib.test.mjs"
+    },
+    "dependencies": {
+        "@primer/octicons-react": "19.29.2",
+        "react": "19.2.6",
+        "react-dom": "19.2.6"
+    },
+    "devDependencies": {
+        "@types/react": "19.2.15",
+        "@types/react-dom": "19.2.3",
+        "@vitejs/plugin-react": "6.0.2",
+        "typescript": "6.0.3",
+        "vite": "8.0.0"
+    }
+}

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+jobs:
+    check:
+        # Windows and macOS are supported by the code — `prepare-bin.mjs` and
+        # `package-smoke.mjs` both branch on `win32` — and were never exercised,
+        # so the branches were untested by construction. The suite takes ~15 s,
+        # so the matrix is close to free.
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+                node: [22, 24]
+        steps:
+            - uses: actions/checkout@v4
+            # Version comes from the packageManager field in package.json.
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node }}
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            # Full gate: clean build (core + UI), API/UI typechecks and tests.
+            - run: pnpm run check
+            # The hosted demo build must keep compiling too.
+            - run: pnpm run build:demo
+
+    smoke:
+        # Packs the real tarball and installs it in a clean consumer. Only worth
+        # running once: it is the slowest job and platform-independent.
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm run build
+            - run: pnpm run smoke:package
+
+    codeql:
+        # The package holds unauthenticated read and write access to a
+        # repository when `workfile ui` runs, so a static pass is worth its
+        # minutes.
+        runs-on: ubuntu-latest
+        permissions:
+            security-events: write
+            actions: read
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+            - uses: github/codeql-action/init@v3
+              with:
+                  languages: javascript-typescript
+            - uses: github/codeql-action/analyze@v3
