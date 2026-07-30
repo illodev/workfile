@@ -17,7 +17,9 @@ import {
     pruneAgentSessions,
     readAgentSessions,
     recordAgentSignal,
-    runDoctor
+    releaseCard,
+    runDoctor,
+    transitionCard
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -166,6 +168,60 @@ test("session records are bounded and prunable", async () => {
             remaining.map((entry) => entry.sessionId),
             ["sess-busy"]
         );
+    } finally {
+        await cleanup();
+    }
+});
+
+// Releasing a claim rewrote the card to `next` unconditionally, so the natural
+// order of finishing — transition to done, then let go of the claim — silently
+// demoted the card it had just closed. Nobody noticed until a board showed a
+// finished release back in the queue (T-0004).
+test("releasing a claim keeps the status the card already reached", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-release-"
+    });
+    try {
+        const finished = await createCard(workspace, {
+            title: "Finished",
+            area: "api"
+        });
+        await claimCard(workspace, finished.id, { actor: "agent-a" });
+        await transitionCard(workspace, finished.id, "done", {
+            actor: "agent-a"
+        });
+        const released = await releaseCard(workspace, finished.id, {
+            actor: "agent-a"
+        });
+        assert.equal(released.card.status, "done", "done survives the release");
+        assert.ok(!released.card.claimed_by);
+
+        // `doing` is the one status that cannot outlive its claimant: active
+        // work with nobody on it is a contradiction, so it returns to `next`.
+        const active = await createCard(workspace, {
+            title: "Active",
+            area: "api"
+        });
+        await claimCard(workspace, active.id, { actor: "agent-a" });
+        await transitionCard(workspace, active.id, "doing", {
+            actor: "agent-a"
+        });
+        const back = await releaseCard(workspace, active.id, {
+            actor: "agent-a"
+        });
+        assert.equal(back.card.status, "next");
+
+        // An explicit target still wins over both defaults.
+        const parked = await createCard(workspace, {
+            title: "Parked",
+            area: "api"
+        });
+        await claimCard(workspace, parked.id, { actor: "agent-a" });
+        const blocked = await releaseCard(workspace, parked.id, {
+            actor: "agent-a",
+            status: "blocked"
+        });
+        assert.equal(blocked.card.status, "blocked");
     } finally {
         await cleanup();
     }

@@ -408,7 +408,7 @@ export async function claimCard(
 export async function releaseCard(
     workspace,
     id,
-    { actor, status = "next", force = false, expectedRevision }: any = {}
+    { actor, status, force = false, expectedRevision }: any = {}
 ) {
     const loaded = await loadCards(workspace);
     const snapshot = locateUniqueCard(loaded.cards, id);
@@ -418,10 +418,16 @@ export async function releaseCard(
             "A released card cannot remain doing."
         );
     }
+    // Without an explicit target the card keeps the status it already has:
+    // releasing the claim on a card just transitioned to done must not
+    // silently demote it. Only `doing` cannot survive a release — active
+    // work without a claimant is a contradiction — so it becomes `next`.
+    const resolved =
+        status || (snapshot.status === "doing" ? "next" : snapshot.status);
     return mutateCard(
         workspace,
         id,
-        { status, claimed_by: null, claimed_at: null },
+        { status: resolved, claimed_by: null, claimed_at: null },
         {
             expectedRevision,
             transformContent: trailEnabled(workspace)

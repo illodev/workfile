@@ -576,7 +576,7 @@ const TOOL_DEFINITIONS = [
                 requiredString(args.id, "id"),
                 {
                     actor: actorFor(context, args.actor),
-                    status: optionalString(args.status) || "next",
+                    status: optionalString(args.status),
                     force: args.force === true,
                     reason: optionalString(args.reason),
                     expectedRevision: optionalString(args.expectedRevision)

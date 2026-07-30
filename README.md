@@ -12,11 +12,11 @@ is kept in the browser or in a database.
 > MCP runtime are authored in TypeScript and distributed as compiled ESM with public
 > declarations. The local UI is precompiled and included in the package.
 
-**[Try the live demo](https://workfile-ochre.vercel.app)** — it replays this
+**[Try the live demo](https://workfile-chi.vercel.app)** — it replays this
 repository's own workspace: the real cards, releases, incidents and learnings of
 Workfile's development. Mutations work per browser session and reset on reload.
 
-![The Flow board: cards moving through execution states, with pill filters and the inspector rail](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
+![The Flow board: execution columns with an agent claim active on the card being worked on](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
 
 ## Requirements
 
@@ -492,9 +492,9 @@ areas, change vocabularies and memory collection statuses; these values are not 
 into the views. File links open the local editor, or the repository web UI when the
 server provides a `repoUrl` (as the hosted demo does).
 
-| Explorer with faceted filters | Gantt timeline |
+| Explorer with the inspector open | Gantt timeline |
 | --- | --- |
-| ![Explorer: the whole corpus as a faceted listing with inline status and priority edits](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/explorer.png) | ![Gantt timeline: month scale, status-colored bars, dependency arcs and today marker](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/timeline.png) |
+| ![Explorer with a card selected — claim, scope and metadata in the inspector](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/explorer.png) | ![Gantt timeline: month scale, status-colored bars, dependency arcs and today marker](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/timeline.png) |
 
 | History with releases | Memory (dark theme) |
 | --- | --- |

@@ -771,7 +771,7 @@ async function cardCommand(workspace, action) {
     if (action === "release") {
         const result = await releaseCard(workspace, id, {
             actor: option("--actor"),
-            status: option("--status") || "next",
+            status: option("--status"),
             force: has("--force"),
             expectedRevision
         });
