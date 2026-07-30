@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const pkg = JSON.parse(
@@ -40,15 +40,36 @@ test("only build output and documentation are published", () => {
     ]);
 });
 
-// A `postinstall` would run on every consumer's machine. The package has no
-// reason to execute anything at install time, and adding one silently would
-// undo the guarantee the entry above is protecting.
-test("nothing runs on install", () => {
-    for (const hook of ["preinstall", "install", "postinstall"]) {
-        assert.equal(
-            pkg.scripts?.[hook],
-            undefined,
-            `${hook} would execute on every consumer's machine`
+// A `postinstall` would run on every consumer's machine. No published package
+// has any reason to execute anything at install time, and adding one silently
+// would undo the guarantee the entry above is protecting. `prepare` is on the
+// list too: it fires when someone installs a package straight from git.
+test("nothing runs on install", async () => {
+    const packagesRoot = new URL("../../", import.meta.url);
+    for (const entry of await readdir(packagesRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const manifest = JSON.parse(
+            await readFile(
+                new URL(`${entry.name}/package.json`, packagesRoot),
+                "utf8"
+            )
         );
+        for (const hook of ["preinstall", "install", "postinstall", "prepare"]) {
+            assert.equal(
+                manifest.scripts?.[hook],
+                undefined,
+                `${manifest.name}: ${hook} would execute on every consumer's machine`
+            );
+        }
     }
+});
+
+// The workspace root is the one manifest allowed an install-time script —
+// `prepare: husky` wires the git hooks — and that is acceptable precisely
+// because `private: true` keeps it off the registry forever.
+test("the workspace root can never reach a consumer", async () => {
+    const root = JSON.parse(
+        await readFile(new URL("../../../package.json", import.meta.url), "utf8")
+    );
+    assert.equal(root.private, true);
 });

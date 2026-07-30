@@ -10,6 +10,21 @@ overrides:
 importers:
 
   .:
+    devDependencies:
+      '@illodev/workfile':
+        specifier: workspace:*
+        version: link:packages/workfile
+      playwright:
+        specifier: ^1.62.0
+        version: 1.62.0
+
+  packages/search-local:
+    dependencies:
+      '@huggingface/transformers':
+        specifier: ^3.5.2
+        version: 3.8.1
+
+  packages/workfile:
     dependencies:
       '@types/node':
         specifier: 26.1.2
@@ -33,9 +48,6 @@ importers:
       lucide-react:
         specifier: ^1.27.0
         version: 1.28.0(react@19.2.8)
-      playwright:
-        specifier: ^1.62.0
-        version: 1.62.0
       radix-ui:
         specifier: ^1.6.7
         version: 1.6.7(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -51,12 +63,6 @@ importers:
       vite:
         specifier: 8.2.0
         version: 8.2.0(@types/node@26.1.2)
-
-  packages/search-local:
-    dependencies:
-      '@huggingface/transformers':
-        specifier: ^3.5.2
-        version: 3.8.1(@types/node@26.1.2)
 
 packages:
 
@@ -1704,12 +1710,12 @@ snapshots:
 
   '@huggingface/jinja@0.5.9': {}
 
-  '@huggingface/transformers@3.8.1(@types/node@26.1.2)':
+  '@huggingface/transformers@3.8.1':
     dependencies:
       '@huggingface/jinja': 0.5.9
       onnxruntime-node: 1.21.0
       onnxruntime-web: 1.22.0-dev.20250409-89f8206ba4
-      sharp: 0.35.3(@types/node@26.1.2)
+      sharp: 0.35.3
     transitivePeerDependencies:
       - '@types/node'
 
@@ -3065,7 +3071,7 @@ snapshots:
     dependencies:
       type-fest: 0.13.1
 
-  sharp@0.35.3(@types/node@26.1.2):
+  sharp@0.35.3:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -3096,7 +3102,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.3
       '@img/sharp-win32-ia32': 0.35.3
       '@img/sharp-win32-x64': 0.35.3
-      '@types/node': 26.1.2
 
   source-map-js@1.2.1: {}
 

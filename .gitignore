@@ -5,4 +5,4 @@ dist/
 artifacts/
 
 # Fixtures are real workspaces, so running against them writes a real cache.
-test/fixtures/**/.cache/
+packages/workfile/test/fixtures/**/.cache/

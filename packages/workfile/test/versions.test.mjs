@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 const execute = promisify(execFile);
-const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 test("workspace packages stay version-locked to the root", async () => {
     // The same check the release workflow runs; failing here stops the drift

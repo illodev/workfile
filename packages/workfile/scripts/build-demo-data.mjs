@@ -10,7 +10,9 @@ import { loadWorkspace } from "../dist/src/index.js";
 import { createProjectServer } from "../dist/src/server/http.js";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
-const ROOT = resolve(HERE, "..");
+// The snapshot source is the MONOREPO root: .project/ stays at the top of
+// the repository, not inside this package.
+const ROOT = resolve(HERE, "../../..");
 const OUT = resolve(HERE, "../ui/src/demo-data.json");
 
 async function main() {

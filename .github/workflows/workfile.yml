@@ -26,6 +26,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build:core
       - name: Validate repository protocol
-        run: node ./dist/bin/workfile.js doctor --json
+        run: node ./packages/workfile/dist/bin/workfile.js doctor --json
       - name: Check generated agent instructions
-        run: node ./dist/bin/workfile.js agents check --json
+        run: node ./packages/workfile/dist/bin/workfile.js agents check --json

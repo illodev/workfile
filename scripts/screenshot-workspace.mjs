@@ -5,7 +5,7 @@ import {
     createChangeFragment,
     createRelease,
     loadWorkspace
-} from "../dist/src/index.js";
+} from "../packages/workfile/dist/src/index.js";
 
 /**
  * The workspace the screenshots are taken of.

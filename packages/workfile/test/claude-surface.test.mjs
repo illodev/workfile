@@ -364,11 +364,14 @@ test("the skill embeds the protocol without nesting its markers", async () => {
 // for byte for the runtime, because a hook that behaves differently depending
 // on how it was installed is the worst kind of bug to chase.
 test("the distributable plugin cannot drift from the generated surface", async () => {
-    const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+    const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+    // The plugin and the marketplace live at the monorepo root, two levels
+    // above the package that generates their contents.
+    const repoRoot = resolve(packageRoot, "../..");
     const pluginRoot = join(repoRoot, "plugins/workfile");
 
     const [source, packaged] = await Promise.all([
-        readFile(join(repoRoot, "src/runtime/claude/hooks.mjs"), "utf8"),
+        readFile(join(packageRoot, "src/runtime/claude/hooks.mjs"), "utf8"),
         readFile(join(pluginRoot, "runtime/hooks.mjs"), "utf8")
     ]);
     assert.equal(
@@ -388,7 +391,7 @@ test("the distributable plugin cannot drift from the generated surface", async (
     // Version drift is silent and confusing: a plugin that reports an older
     // version than the package it wraps sends people to the wrong changelog.
     const pkg = JSON.parse(
-        await readFile(join(repoRoot, "package.json"), "utf8")
+        await readFile(join(packageRoot, "package.json"), "utf8")
     );
     const manifest = JSON.parse(
         await readFile(join(pluginRoot, ".claude-plugin/plugin.json"), "utf8")

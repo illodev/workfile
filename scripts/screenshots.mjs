@@ -6,7 +6,7 @@ import {
     loadWorkspace,
     recordAgentSignal,
     startProjectServer
-} from "../dist/src/index.js";
+} from "../packages/workfile/dist/src/index.js";
 
 /**
  * Screenshots of every view, in both themes.

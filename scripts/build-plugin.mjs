@@ -18,12 +18,12 @@ const version = JSON.parse(
 
 await mkdir(new URL("runtime/", plugin), { recursive: true });
 await cp(
-    new URL("src/runtime/claude/hooks.mjs", root),
+    new URL("packages/workfile/src/runtime/claude/hooks.mjs", root),
     new URL("runtime/hooks.mjs", plugin)
 );
 
 const { claudeCommandFiles, claudeSkillFile } = await import(
-    new URL("dist/src/modules/claude/index.js", root).href
+    new URL("packages/workfile/dist/src/modules/claude/index.js", root).href
 );
 
 await mkdir(new URL("commands/", plugin), { recursive: true });

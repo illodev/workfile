@@ -46,8 +46,8 @@ jobs:
                       *-*) DIST_TAG=next ;;
                       *) DIST_TAG=latest ;;
                   esac
-                  npm publish --tag "$DIST_TAG"
-                  # Workspace packages ship with the same version and tag.
+                  # The root is a private workspace shell; everything
+                  # publishable lives under packages/, in version lockstep.
                   # Each needs this repo registered as its trusted publisher.
                   for package in packages/*/; do
                       (cd "$package" && npm publish --tag "$DIST_TAG")

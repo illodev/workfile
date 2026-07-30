@@ -8,7 +8,7 @@ import {
     loadWorkspace,
     recordAgentSignal,
     startProjectServer
-} from "../dist/src/index.js";
+} from "../packages/workfile/dist/src/index.js";
 
 /**
  * A scripted tour of the interface, recorded as video.

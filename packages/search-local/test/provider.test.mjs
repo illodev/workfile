@@ -8,7 +8,7 @@ import { localSearchIntegration } from "../index.js";
 import {
     defineProjectIntegration,
     searchProjectRecordsHybrid
-} from "../../../dist/src/index.js";
+} from "../../workfile/dist/src/index.js";
 
 /**
  * Deterministic stand-in for the model: axis 0 is "fruit", axis 1 is
