@@ -357,7 +357,7 @@ unresolved incidents and non-expired context instead of loading all workfile mem
 Workfile includes a local, dependency-free MCP server using UTF-8,
 newline-delimited JSON-RPC over stdio. It delegates every operation to the same core
 services used by the CLI and HTTP API, speaks both the modern (`2026-07-28`) and legacy
-(`2025-11-25`) protocol revisions, and exposes 22 tools, four resources and three
+(`2025-11-25`) protocol revisions, and exposes 30 tools, four resources and three
 prompts. Mutation tools disappear entirely in `--read-only` mode.
 
 ```bash
@@ -366,8 +366,18 @@ workfile mcp inspect --json
 workfile mcp config --read-only --json
 ```
 
-The full contract — tool inventory, resources, prompts and process hygiene — is
-documented in [`docs/mcp.md`](docs/mcp.md).
+For Claude Code the same surface ships as a plugin — the MCP server plus
+`/claim`, `/context`, `/next` and `/done` commands, a skill, and hooks that
+turn card claims into an executable guard rail — with no generated files
+committed to the repository:
+
+```
+/plugin marketplace add illodev/workfile
+/plugin install workfile@illodev
+```
+
+The full contract — tool inventory, resources, prompts, process hygiene and the
+plugin's surface — is documented in [`docs/mcp.md`](docs/mcp.md).
 
 ## Search integrations
 

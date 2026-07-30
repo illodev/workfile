@@ -93,6 +93,22 @@ The plugin registers the MCP server with `--root ${CLAUDE_PROJECT_DIR}` and
 resolves its hooks through `${CLAUDE_PLUGIN_ROOT}`, so it works without the
 package being a dependency of the repository at all.
 
+The server is only half of it; the rest is session-side:
+
+- **Slash commands** — `/claim` (claim a card with an honest scope),
+  `/context` (the bounded context bundle for a card), `/next` (unclaimed
+  candidates worth starting) and `/done` (verify, record, release).
+- **A skill** that teaches the session the one non-negotiable rule: records
+  under `.project/` change through the CLI or MCP tools, never through a raw
+  file edit that would skip the lock, the revision check and validation.
+- **Hooks** that make claims an executable guard rail rather than prose:
+  `SessionStart` rebuilds the claims board and announces which cards are
+  being worked on and by whom; `PreToolUse` asks — never denies — before an
+  edit that lands inside another actor's claimed scope or touches a protocol
+  record directly; an async `PostToolUse` appends each edit to
+  `.project/.cache/events.jsonl`, which is what the UI's presence indicators
+  read.
+
 Both forms exist on purpose. A plugin's `settings.json` accepts only `agent` and
 `subagentStatusLine`, so anything else has to be generated locally; and a
 generator alone means every version bump leaves the written files behind, which
@@ -110,7 +126,7 @@ The server is dual-era:
 - **Legacy `2025-11-25`** and earlier declared revisions — the
   `initialize` / `notifications/initialized` lifecycle for existing hosts.
 
-## Tools (22)
+## Tools (30)
 
 Read-only:
 
@@ -121,12 +137,17 @@ Read-only:
 | `project_get_record` | Any record by stable ID |
 | `project_doctor` | Full health diagnostics |
 | `project_agent_context` | Bounded, prioritized context for a card |
+| `project_next` | Unclaimed, prioritized candidates to start now |
+| `project_card_list` | Cards filtered by status, area, type or claim |
+| `project_doc_list` | Documents with status and folder |
+| `project_changelog_list` | Change fragments and cut releases |
+| `project_memory_list` | Memory records per collection |
 
 Mutations (absent in `--read-only` mode; rejected with `MCP_SERVER_READ_ONLY`):
 
 | Domain | Tools |
 | --- | --- |
-| Work | `project_card_create`, `project_card_patch`, `project_card_claim`, `project_card_transition`, `project_card_archive`, `project_card_reopen` |
+| Work | `project_card_create`, `project_card_patch`, `project_card_write`, `project_card_note`, `project_card_claim`, `project_card_release`, `project_card_transition`, `project_card_archive`, `project_card_reopen` |
 | Docs | `project_doc_create`, `project_doc_move`, `project_doc_patch` |
 | History | `project_changelog_add`, `project_changelog_patch`, `project_changelog_preview`, `project_changelog_release` |
 | Memory | `project_memory_add`, `project_memory_patch`, `project_memory_graduate`, `project_memory_supersede` |

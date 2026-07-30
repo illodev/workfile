@@ -17,3 +17,6 @@ scope: [test, src/core/watcher.ts, .github/workflows]
 - 2026-07-30 14:45Z claude-fable-e341b469 · released
 - 2026-07-30 14:49Z claude-fable-e341b469 · next → done
 
+## Notes
+
+- 2026-07-30 15:23Z claude-fable-e341b469 — Evidencia runtime: 0.1.0 publicado en npm como latest con provenance (run 30552784741); matriz CI 3 SO x 2 node, smoke y CodeQL en verde; workflow Workfile verde compilando desde el arbol.

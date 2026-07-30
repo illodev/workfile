@@ -15,3 +15,6 @@ scope: [scripts, .github/media, README.md]
 - 2026-07-30 15:00Z claude-fable-e341b469 · doing → done
 - 2026-07-30 15:00Z claude-fable-e341b469 · released
 
+## Notes
+
+- 2026-07-30 15:23Z claude-fable-e341b469 — screenshots.mjs escenifica claim agent:claude con señal de sesion, restaura updated para mantener la card en encuadre y abre el inspector en explorer; imagenes verificadas visualmente en .github/media.
