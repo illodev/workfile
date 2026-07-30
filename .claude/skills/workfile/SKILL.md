@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-skill version=0.1.1 digest=sha256:bee43b72e05816ae79aea06fa5e6d97382d25ac79605dcff235bc4bda8e14415 -->
+<!-- workfile:begin kind=claude-skill version=0.1.2 digest=sha256:bee43b72e05816ae79aea06fa5e6d97382d25ac79605dcff235bc4bda8e14415 -->
 ---
 name: workfile
 description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
@@ -77,11 +77,4 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 `pnpm workfile changelog add --title "Change" --type changed --area api`  
 `pnpm workfile memory add decision --title "Decision" --status accepted`  
 `pnpm workfile doctor`
-<!-- workfile:end -->
-<!-- workfile:end -->
-<!-- workfile:end -->
-<!-- workfile:end -->
-<!-- workfile:end -->
-<!-- workfile:end -->
-<!-- workfile:end -->
 <!-- workfile:end -->
