@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-command-claim version=0.1.2 digest=sha256:71792291180e6ac360b4608379bad262853128c4a110810b1453013bb12b85f7 -->
+<!-- workfile:begin kind=claude-command-claim version=0.1.3 digest=sha256:71792291180e6ac360b4608379bad262853128c4a110810b1453013bb12b85f7 -->
 ---
 description: Claim a card before working on it
 argument-hint: [T-0042] [scope,paths]

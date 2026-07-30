@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-command-done version=0.1.2 digest=sha256:99c1db5622419c15a03fd4b36985340c89e5dc3e507d9a96f2189f5b70689440 -->
+<!-- workfile:begin kind=claude-command-done version=0.1.3 digest=sha256:99c1db5622419c15a03fd4b36985340c89e5dc3e507d9a96f2189f5b70689440 -->
 ---
 description: Finish a card: verify, record, release
 argument-hint: [T-0042]

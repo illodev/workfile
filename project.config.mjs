@@ -12,6 +12,9 @@ export default {
         releaseStrategy: "semver"
     },
     agents: {
-        targets: ["agents-md"]
+        // "claude" owns the adapter block CLAUDE.md has carried since 0.1.0 —
+        // without it here, no sync ever refreshes that block and its stamp
+        // fossilizes at whatever version wrote it last.
+        targets: ["agents-md", "claude"]
     }
 };
