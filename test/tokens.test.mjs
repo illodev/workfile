@@ -113,18 +113,19 @@ test("one pill, not eight", async () => {
     // And no view carries a stylesheet of its own: styles.css is the only
     // .css file the interface has.
     const { readdir } = await import("node:fs/promises");
+    const { join, relative, sep } = await import("node:path");
     const base = fileURLToPath(new URL("../ui/src/", import.meta.url));
     const stray = [];
     async function walk(dir) {
         for (const entry of await readdir(dir, { withFileTypes: true })) {
-            const path = `${dir}/${entry.name}`;
+            const path = join(dir, entry.name);
             if (entry.isDirectory()) await walk(path);
             else if (entry.name.endsWith(".css")) stray.push(path);
         }
     }
-    await walk(base.replace(/\/$/, ""));
+    await walk(base);
     assert.deepEqual(
-        stray.map((name) => name.slice(base.length)),
+        stray.map((name) => relative(base, name).split(sep).join("/")),
         ["styles.css"],
         "the stylesheet is singular on purpose"
     );

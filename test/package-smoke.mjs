@@ -114,7 +114,7 @@ try {
         consumer,
         "node_modules",
         "@illodev",
-        "project"
+        "workfile"
     );
     assert.equal(
         await exists(join(installedRoot, "dist", "ui", "index.html")),
@@ -180,7 +180,7 @@ void provider;
         consumer,
         "node_modules",
         ".bin",
-        process.platform === "win32" ? "project.cmd" : "project"
+        process.platform === "win32" ? "workfile.cmd" : "workfile"
     );
     const version = await run(project, ["version"], consumer);
     assert.equal(version.stdout.trim(), packageJson.version);

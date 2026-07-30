@@ -1,4 +1,4 @@
-import { watch } from "node:fs";
+import { realpath, watch } from "node:fs";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
@@ -87,6 +87,13 @@ export function createWorkspaceWatcher(
     let firstPendingAt = 0;
     let closed = false;
     let mode = "watch";
+    // The canonical spelling of the root, resolved in `start`. Watching the
+    // path as given is not safe: on Windows a root reached through an 8.3
+    // short name (RUNNER~1 in a runner's TEMP) aborts the whole process when
+    // an event arrives, because libuv asserts the event path is prefixed by
+    // the watched path; on macOS `tmpdir()` says /var while FSEvents answer
+    // for /private/var.
+    let watchRoot = workspace.root;
 
     function flush() {
         timer = null;
@@ -115,7 +122,7 @@ export function createWorkspaceWatcher(
 
     function watchDirectory(relativeDirectory) {
         if (closed || watchers.has(relativeDirectory)) return;
-        const absolute = resolve(workspace.root, relativeDirectory);
+        const absolute = resolve(watchRoot, relativeDirectory);
         let handle;
         try {
             handle = watch(absolute, { persistent: false }, (_event, name) => {
@@ -148,7 +155,7 @@ export function createWorkspaceWatcher(
     async function adopt(parent) {
         let entries;
         try {
-            entries = await readdir(resolve(workspace.root, parent), {
+            entries = await readdir(resolve(watchRoot, parent), {
                 withFileTypes: true
             });
         } catch {
@@ -180,7 +187,7 @@ export function createWorkspaceWatcher(
         // start is observable: a concurrent recursive copy would `readdir` the
         // probe and then `lstat` it after deletion, failing with ENOENT. The
         // file is five bytes in a gitignored cache and gets overwritten.
-        const probeDirectory = join(workspace.paths.cache, "watch");
+        const probeDirectory = resolve(watchRoot, cacheRoot, "watch");
         const probePath = join(probeDirectory, "probe");
         return new Promise<boolean>((resolveProbe) => {
             let handle;
@@ -189,8 +196,11 @@ export function createWorkspaceWatcher(
                 handle?.close();
                 resolveProbe(result);
             };
+            // Deliberately referenced: the watch handle is non-persistent, so
+            // in an otherwise idle process an unref'd timeout leaves nothing
+            // holding the event loop, and the probe's promise is abandoned
+            // rather than resolved. Held at most 500 ms and cleared on answer.
             const timeout = setTimeout(() => done(false), 500);
-            timeout.unref?.();
             void (async () => {
                 try {
                     await mkdir(probeDirectory, { recursive: true });
@@ -215,12 +225,17 @@ export function createWorkspaceWatcher(
             return watchers.size;
         },
         async start() {
+            watchRoot = await new Promise((done) =>
+                realpath.native(workspace.root, (error, canonical) =>
+                    done(error ? workspace.root : canonical)
+                )
+            );
             if (!(await probe())) {
                 mode = "unavailable";
                 return { mode, watchedDirectories: 0 };
             }
             const directories = await collectDirectories(
-                workspace.root,
+                watchRoot,
                 include,
                 exclude,
                 maxDirectories
