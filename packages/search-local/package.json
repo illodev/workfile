@@ -45,6 +45,6 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.5.2"
+    "@huggingface/transformers": "^4.2.0"
   }
 }
