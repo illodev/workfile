@@ -68,6 +68,9 @@ test("read payloads stay within their byte budgets", async () => {
 
 // An empty query scores nothing, so tokenizing every body to reach that
 // conclusion was pure waste — and `doc list` and `memory list` both do it.
+// The guard counts body reads instead of comparing wall-clock samples: a
+// timing ratio between two single-digit-millisecond runs loses a coin toss
+// to any GC pause on a shared CI runner (T-0032).
 test("an empty query does not tokenize record bodies", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-emptyq-"));
     try {
@@ -75,25 +78,40 @@ test("an empty query does not tokenize record bodies", async () => {
         const workspace = await loadWorkspace({ root });
         const index = await buildProjectIndex(workspace);
 
-        const time = (query) => {
-            const started = performance.now();
-            for (let run = 0; run < 5; run += 1) {
-                searchProjectRecords(index.records, query, { limit: 20 });
-            }
-            return performance.now() - started;
-        };
+        // Fresh copies shed the cached tokens (the cache symbol is
+        // non-enumerable, so the spread drops it); the proxy then makes every
+        // body access observable. Tokenization cannot happen without one.
+        let bodyReads = 0;
+        const records = index.records.map((record) => {
+            return new Proxy(
+                { ...record },
+                {
+                    get(target, property, receiver) {
+                        if (property === "body") bodyReads += 1;
+                        return Reflect.get(target, property, receiver);
+                    }
+                }
+            );
+        });
 
-        // Warm the token cache so the comparison is about the empty-query path
-        // and not about who ran first.
-        time("billing");
-        const empty = time("");
-        const terms = time("billing retry");
-
-        // Generous on purpose: the assertion is "does not scan every body",
-        // which is an order of magnitude, not a percentage.
+        // Assembling the returned page spreads each of the `limit` records
+        // once, so a handful of body reads is legitimate. Tokenizing would
+        // read every body in the corpus — two orders of magnitude more.
+        assert.ok(index.records.length > 100, "bench corpus too small to discriminate");
+        searchProjectRecords(records, "", { limit: 20 });
+        const emptyReads = bodyReads;
         assert.ok(
-            empty < terms * 2,
-            `empty query took ${empty.toFixed(1)}ms against ${terms.toFixed(1)}ms for a real one`
+            emptyReads <= 40,
+            `an empty query read ${emptyReads} bodies — that is a corpus scan, not page assembly`
+        );
+
+        // Control: a real query over the same records (no postings attached,
+        // so every record is scored) must tokenize the corpus — proving the
+        // counter can actually see what the assertion above forbids.
+        searchProjectRecords(records, "billing retry", { limit: 20 });
+        assert.ok(
+            bodyReads - emptyReads > index.records.length / 2,
+            "the counter never observed corpus-wide tokenization"
         );
     } finally {
         await rm(root, { recursive: true, force: true });
