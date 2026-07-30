@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-07-30T22:33:20.372Z",
+    "generatedAt": "2026-07-30T23:25:39.388Z",
     "tasks": {
         "repoRoot": "/demo/workfile",
         "projectName": "Workfile",
@@ -737,17 +737,15 @@
             {
                 "file": "T-0030-restructure-the-repository-into-a-pnpm-monorepo-wi.md",
                 "archived": false,
-                "body": "## Intent\n\nThe repository publishes `@illodev/workfile` from the root while `@illodev/workfile-search-local` lives under `packages/` — an asymmetry that complicates organisation and blocks install-time tooling (a root `prepare` hook would today ship to every consumer). Restructure into a full pnpm monorepo: the core moves to `packages/workfile` (npm name unchanged), the root becomes a private workspace shell that keeps `version` as the lockstep source of truth. Add husky + commitlint (house narrative style, not Conventional Commits) and `workfile doctor --severity error` as the pre-commit gate — the protocol guarding its own repository.\n\n## Decisions (user-approved)\n\n- Layout: `packages/workfile` holds src/, bin/, ui/, test/, docs/, tsconfigs, strict baseline, vite config and its core-coupled scripts. Repo-level `scripts/` keeps sync-workspace-versions, build-plugin, screenshots, screenshot-workspace, demo-video. `plugins/`, `.claude-plugin/`, `site/`, `design/`, `.project/` stay at root.\n- commitlint: custom rules — header ≤ 100 chars, opens with uppercase or digit (version-bump commits like `0.1.4`), no trailing period, blank line before body. No `extends`.\n- Hooks: commit-msg → commitlint; pre-commit → doctor (loud skip when dist is missing, never auto-build). No pre-push.\n- The `.mjs → .ts` script/test migration is deliberately out of scope; carded separately.\n\n## Acceptance criteria\n\n- Published surface parity: `npm pack --dry-run` file list from `packages/workfile` matches the pre-move root baseline (175 files) plus the package README and LICENSE.\n- `pnpm run check`, `build:demo`, `smoke:package`, `build:plugin` idempotence, and doctor all green from the new layout; strict baseline byte-identical.\n- `release.yml` publishes only `packages/*/` (root is private); `ci.yml` needs zero changes because root scripts delegate.\n- commitlint accepts real history samples (\"Upgrade: …\", \"0.1.2\", \"README: …\", \"T-0022 done: …\") and rejects lowercase openers, >100-char headers and body without leading blank.\n\n## Activity\n\n- 2026-07-30 22:25Z claude-fable-e341b469 · claimed\n- 2026-07-30 22:25Z claude-fable-e341b469 · claimed",
+                "body": "## Intent\n\nThe repository publishes `@illodev/workfile` from the root while `@illodev/workfile-search-local` lives under `packages/` — an asymmetry that complicates organisation and blocks install-time tooling (a root `prepare` hook would today ship to every consumer). Restructure into a full pnpm monorepo: the core moves to `packages/workfile` (npm name unchanged), the root becomes a private workspace shell that keeps `version` as the lockstep source of truth. Add husky + commitlint (house narrative style, not Conventional Commits) and `workfile doctor --severity error` as the pre-commit gate — the protocol guarding its own repository.\n\n## Decisions (user-approved)\n\n- Layout: `packages/workfile` holds src/, bin/, ui/, test/, docs/, tsconfigs, strict baseline, vite config and its core-coupled scripts. Repo-level `scripts/` keeps sync-workspace-versions, build-plugin, screenshots, screenshot-workspace, demo-video. `plugins/`, `.claude-plugin/`, `site/`, `design/`, `.project/` stay at root.\n- commitlint: custom rules — header ≤ 100 chars, opens with uppercase or digit (version-bump commits like `0.1.4`), no trailing period, blank line before body. No `extends`.\n- Hooks: commit-msg → commitlint; pre-commit → doctor (loud skip when dist is missing, never auto-build). No pre-push.\n- The `.mjs → .ts` script/test migration is deliberately out of scope; carded separately.\n\n## Acceptance criteria\n\n- Published surface parity: `npm pack --dry-run` file list from `packages/workfile` matches the pre-move root baseline (175 files) plus the package README and LICENSE.\n- `pnpm run check`, `build:demo`, `smoke:package`, `build:plugin` idempotence, and doctor all green from the new layout; strict baseline byte-identical.\n- `release.yml` publishes only `packages/*/` (root is private); `ci.yml` needs zero changes because root scripts delegate.\n- commitlint accepts real history samples (\"Upgrade: …\", \"0.1.2\", \"README: …\", \"T-0022 done: …\") and rejects lowercase openers, >100-char headers and body without leading blank.\n\n## Activity\n\n- 2026-07-30 22:25Z claude-fable-e341b469 · claimed\n- 2026-07-30 22:25Z claude-fable-e341b469 · claimed\n- 2026-07-30 22:36Z claude-fable-e341b469 · doing → review\n- 2026-07-30 22:44Z claude-fable-e341b469 · review → done\n\n## Notes\n\n- 2026-07-30 22:36Z claude-fable-e341b469 — Local runtime evidence: full check green from the new layout; packaged-tarball smoke green; npm pack parity 175=175 files, zero diff; plugin build idempotent; doctor 0/0; commitlint verified against real history samples plus rejections; both pre-commit branches exercised; C5 commit itself ran commit-msg and pre-commit live. Pending: CI on the pushed commits and the release.yml packages-loop, provable only at the next tag.\n- 2026-07-30 22:41Z claude-fable-e341b469 — CI evidence on 9fe4bb9: Workfile success, CI success. Dependabot npm run failed with the added /packages/* directory entry — pnpm workspaces must be updated from the root only (the / pass proved sufficient by opening the transformers PR). dependabot.yml reverted to directory: / with the reason recorded.\n- 2026-07-30 22:44Z claude-fable-e341b469 — CI evidence on ee519f2: CI success (6-job matrix + smoke + codeql), Workfile success (doctor + agents check via packages/workfile/dist), Dependabot Updates success twice with the root-only config. Combined with the local evidence (pack parity 175=175, tarball smoke, live hooks) this closes the loop; the release.yml packages-loop remains to be proven at the 0.1.4 tag.\n- 2026-07-30 23:12Z claude-fable-e341b469 — Final pending evidence closed: Release run on the moved v0.1.4 tag succeeded end to end — private root skipped, the packages/*/ loop published @illodev/workfile@0.1.4 and @illodev/workfile-search-local@0.1.4 via OIDC trusted publishing (npm view confirms both). First failed attempt was the audit gate doing its job (T-0033, adm-zip).",
                 "id": "T-0030",
                 "title": "Restructure the repository into a pnpm monorepo with commit hooks",
-                "status": "doing",
+                "status": "done",
                 "type": "task",
                 "priority": "high",
                 "area": "infra",
                 "created": "2026-07-30",
                 "updated": "2026-07-30",
-                "claimed_by": "claude-fable-e341b469",
-                "claimed_at": "2026-07-30T22:25:19.902Z",
                 "scope": [
                     "package.json",
                     "packages/",
@@ -760,26 +758,87 @@
                     ".gitignore",
                     "README.md"
                 ],
-                "revision": "sha256:8f53483fd0553a24276b17b2861a39589f8c5ae4f901af9f931bc949e0349521",
+                "revision": "sha256:2c6b3b10b8c0b84e606bdfa5ad35c23f4e057b9f31d6292d47572411f5603377",
+                "assets": []
+            },
+            {
+                "file": "T-0031-migrate-repository-scripts-and-tests-from-mjs-to-t.md",
+                "archived": false,
+                "body": "## Intent\n\n`.mjs` is not mandatory: Node >= 22.18 strips types by default (`node --test test/*.test.ts`, `node scripts/foo.ts` run without a build step), and `engines` already demands `>=22` while CI pins 22/24. Migrating the 11 repo/package scripts and 40+ test files to TypeScript buys typing where bugs actually hide — path plumbing and fixture builders.\n\n## Constraints\n\n- Erasable syntax only (no enums, no namespaces, no parameter properties) — that is what the default stripping supports.\n- `src/runtime/claude/hooks.mjs` stays `.mjs` on purpose: it must not import the package and prepare-bin copies it byte for byte.\n- Do it AFTER the monorepo restructure (T-0030) so every path only changes once.\n\n## Known exact-name references to update (located during T-0030)\n\n- Root + package `package.json`: every `node ./scripts/*.mjs` invocation and the `node --test test/*.test.mjs` globs.\n- `.github/workflows/release.yml`: `node ./scripts/sync-workspace-versions.mjs --check`.\n- Test imports of scripts: `budgets/events/search.test.mjs` and `test/support/workspace.mjs` import `scripts/bench-workspace.mjs`; `versions.test.mjs` spawns `sync-workspace-versions.mjs`.\n- Assertion strings that NAME files: `claude-surface.test.mjs` (\"run `node scripts/build-plugin.mjs`\"), messages inside `strict-ratchet.mjs` and `sync-workspace-versions.mjs`.\n- Docs: `docs/mcp.md`, `docs/ui.md` name script/test files; README development section.\n\n## Activity\n\n- 2026-07-30 23:21Z claude-fable-e341b469 · claimed\n- 2026-07-30 23:21Z claude-fable-e341b469 · claimed",
+                "id": "T-0031",
+                "title": "Migrate repository scripts and tests from .mjs to TypeScript",
+                "status": "doing",
+                "type": "task",
+                "priority": "medium",
+                "area": "infra",
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "claimed_by": "claude-fable-e341b469",
+                "claimed_at": "2026-07-30T23:21:19.251Z",
+                "scope": [
+                    "scripts/",
+                    "packages/workfile/scripts/",
+                    "packages/workfile/test/",
+                    "packages/search-local/test/",
+                    "package.json",
+                    "packages/workfile/package.json",
+                    "packages/search-local/package.json",
+                    ".github/workflows/release.yml",
+                    "packages/workfile/tsconfig.strict.json"
+                ],
+                "revision": "sha256:67a11faff303b2de8fb4524bde5a68b3546a2d9b4e1dc0096cd6d640a95332c2",
+                "assets": []
+            },
+            {
+                "file": "T-0032-budgets-the-empty-query-guard-flakes-on-shared-run.md",
+                "archived": false,
+                "body": "## Evidence\n\n`check (macos-latest, 22)` on 788da4c: \"empty query took 38.3ms against 5.9ms for a real one\" — `test/budgets.test.mjs` (\"an empty query does not tokenize record bodies\") asserts `empty < terms * 2` over two ~6ms wall-clock samples of 5 runs each. On a shared runner one GC pause or scheduler hiccup inside the empty pass breaks the ratio; the identical suite passed on the same code in the five sibling matrix jobs and on the two previous pushes. First observed flake since the test landed.\n\n## Fix direction\n\nThe invariant is behavioral, not temporal: an empty query must not tokenize record bodies. Assert THAT — count tokenizations (inject a counter or expose an instrumentation hook on the tokenizer the way the search provider tests inject a fake embedder) and require zero body tokenizations for the empty query. Keep a timing ratio only if it demotes to a logged observation. Wall-clock ratios of single-digit-millisecond samples do not belong in CI assertions.\n\n## Activity\n\n- 2026-07-30 23:16Z claude-fable-e341b469 · claimed\n- 2026-07-30 23:16Z claude-fable-e341b469 · claimed\n- 2026-07-30 23:20Z claude-fable-e341b469 · doing → done\n\n## Notes\n\n- 2026-07-30 23:20Z claude-fable-e341b469 — Fixed by counting instead of timing: fresh record copies (spread drops the non-enumerable token cache) wrapped in a body-read-counting Proxy. Empty query reads exactly limit bodies (page assembly at records/index.ts:852), asserted <= 40; the control query without postings forces a corpus scan (> N/2 reads). Deterministic — no clocks left. Bonus insight the timing test could never show: the 20 reads it always had were result shaping, not tokenization. 9/9 locally.",
+                "id": "T-0032",
+                "title": "Budgets: the empty-query guard flakes on shared runners, assert behavior",
+                "status": "done",
+                "type": "bug",
+                "priority": "medium",
+                "area": "core",
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "scope": [
+                    "packages/workfile/test/budgets.test.mjs"
+                ],
+                "revision": "sha256:e26e9f8638c0a8d6971d28ac2b1bd1405e4cfdb8dbf173b4508b5b5356020aae",
+                "assets": []
+            },
+            {
+                "file": "T-0033-security-adm-zip-overridden-to-0-6-clearing-the-on.md",
+                "archived": false,
+                "body": "## Evidence\n\nThe v0.1.4 Release run failed at `pnpm audit --audit-level=high`: GHSA-xcpc-8h2w-3j85 (adm-zip <0.6.0, 4GB allocation on a crafted ZIP) arrived transitively via `@huggingface/transformers@4.2.0 → onnxruntime-node → adm-zip` after the Dependabot major merge. Every test had already passed — the audit gate did exactly its job, before publish.\n\n## Fix\n\nRoot `pnpm.overrides` gains `\"adm-zip\": \"^0.6.0\"`, the same mechanism T-0023 used for sharp. Verified locally: `pnpm audit --audit-level=high` reports no known vulnerabilities, and the real-model smoke still loads onnxruntime and ranks cross-lingually (warm 6ms). The v0.1.4 tag was moved to the fixed commit — nothing had been published under it.\n\n## Activity\n\n- 2026-07-30 23:10Z claude-fable-e341b469 · backlog → done",
+                "id": "T-0033",
+                "title": "Security: adm-zip overridden to 0.6, clearing the onnxruntime advisory",
+                "status": "done",
+                "type": "task",
+                "priority": "high",
+                "area": "infra",
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "revision": "sha256:2c62efb86d06a8f3d4705fd792e2aec8a613d8ef3332cc6995539c2bbd196b4f",
                 "assets": []
             }
         ],
         "repoUrl": "https://github.com/illodev/workfile"
     },
     "health": {
-        "generatedAt": "2026-07-30T22:33:20.461Z",
-        "cards": 30,
+        "generatedAt": "2026-07-30T23:25:39.456Z",
+        "cards": 33,
         "modules": {
-            "cards": 30,
+            "cards": 33,
             "docs": 10,
             "managedDocs": 0,
             "indexedDocs": 10,
-            "changes": 14,
-            "unreleasedChanges": 2,
-            "releases": 3,
-            "memory": 3,
+            "changes": 15,
+            "unreleasedChanges": 0,
+            "releases": 4,
+            "memory": 4,
             "learnings": 1,
-            "decisions": 1,
+            "decisions": 2,
             "incidents": 0,
             "conventions": 1,
             "context": 0
@@ -793,31 +852,30 @@
         "issues": []
     },
     "activity": {
-        "generatedAt": "2026-07-30T22:33:20.470Z",
+        "generatedAt": "2026-07-30T23:25:39.463Z",
         "sessions": [],
         "claims": [
             {
-                "id": "T-0030",
-                "title": "Restructure the repository into a pnpm monorepo with commit hooks",
+                "id": "T-0031",
+                "title": "Migrate repository scripts and tests from .mjs to TypeScript",
                 "status": "doing",
                 "area": "infra",
                 "scope": [
-                    "package.json",
-                    "packages/",
                     "scripts/",
-                    ".github/",
-                    ".husky/",
-                    "commitlint.config.mjs",
-                    "project.config.mjs",
-                    "vercel.json",
-                    ".gitignore",
-                    "README.md"
+                    "packages/workfile/scripts/",
+                    "packages/workfile/test/",
+                    "packages/search-local/test/",
+                    "package.json",
+                    "packages/workfile/package.json",
+                    "packages/search-local/package.json",
+                    ".github/workflows/release.yml",
+                    "packages/workfile/tsconfig.strict.json"
                 ],
                 "claim": {
                     "by": "claude-fable-e341b469",
-                    "at": "2026-07-30T22:25:19.902Z",
-                    "ageMs": 480568,
-                    "ageHours": 0.13,
+                    "at": "2026-07-30T23:21:19.251Z",
+                    "ageMs": 260212,
+                    "ageHours": 0.07,
                     "sessionId": null,
                     "state": "held"
                 }
@@ -1179,13 +1237,13 @@
                 "title": "MCP server",
                 "path": "packages/workfile/docs/mcp.md",
                 "file": "mcp.md",
-                "body": "# MCP server\n\nWorkfile includes a local, dependency-free MCP server speaking UTF-8,\nnewline-delimited JSON-RPC over stdio. Every operation delegates to the same core\nservices used by the CLI and HTTP API.\n\n```bash\nworkfile mcp                    # serve over stdio\nworkfile-mcp --root /path/to/repository\nworkfile mcp --read-only        # mutation tools removed from tools/list\nworkfile mcp inspect --json     # tool/resource/prompt inventory\nworkfile mcp config --json      # portable client process configuration\n```\n\n## Reading the workspace\n\n`project_card_list`, `project_doc_list`, `project_changelog_list` and\n`project_memory_list` answer \"what is in here\" without needing a search query.\nThey take filters (`status`, `area`, `type`, `priority`, `parent`, `claimedBy`,\n`unclaimed`, `tags`, `updatedSince`) and return a compact row per record — no\nMarkdown body, no `revision`.\n\n`project_next` answers the question an agent actually has: which cards can be\nstarted now. It excludes epics and anything with unmet dependencies, puts work\nalready claimed by the caller first, and attaches the reason each candidate\nqualified.\n\nListings deliberately omit `revision`. Writing needs a read-then-write —\n`project_get_record` returns the current revision, which `expectedRevision`\nthen guards — and carrying a possibly-stale one in a list only invites a\nconflict.\n\nEvery result carries the data once, in `structuredContent`; `content` is a\none-line summary rather than a second copy of the payload. When a result would\nexceed `maxToolResultBytes` it is truncated with a `truncated` marker instead of\nfailing the call, because a get-by-id has no query to narrow.\n\n## Claude Code integration\n\n```bash\nproject claude install     # generate the surface into the repository\nproject claude check       # report drift, exit 1 when anything is stale\n```\n\n`install` writes, as managed blocks that a resync updates without touching\nanything around them:\n\n| File | What it does |\n| --- | --- |\n| `.mcp.json` | Registers `workfile-mcp` — the binary that parses its own flags |\n| `.claude/commands/{next,claim,done,context}.md` | Slash commands over one CLI call each |\n| `.claude/skills/workfile/SKILL.md` | Projects `.project/agents/protocol.md` rather than restating it |\n| `.claude/settings.json` | Three hooks |\n\n**`SessionStart`** injects the board once — cards in flight, who holds them,\nwhich paths they cover — so a session begins informed without reading a record.\nOnce per session, not per prompt: per-prompt injection accumulates in the\nwindow.\n\n**`PreToolUse`** on `Edit|Write|NotebookEdit` compares the target path against\nthe scope of cards claimed by *other* actors and answers `ask` with the card and\nthe actor named. It also asks when something writes a `.project/` record\ndirectly, because that skips the lock, the revision check and validation.\n\nIt asks; it never denies. A guard rail that blocks too much gets switched off,\nand then it protects nothing.\n\n**`PostToolUse`** appends one line to `.project/.cache/activity/events.jsonl`,\nasynchronously.\n\nThe hook runtime (`dist/src/runtime/claude/hooks.mjs`) imports nothing from this\npackage. `src/index.js` re-exports thirteen modules and several read\n`package.json` at load, and `PreToolUse` runs before *every* tool call in the\nsession — not only the ones it might block. A test pins its p95.\n\nGenerated files grant permissions in someone else's repository, so\n`allowed-tools` names the exact subcommand (`Bash(workfile card claim *)`), never\n`Bash(project *)`. `.claude/settings.json` and `.mcp.json` are merged, not\nreplaced: a ledger in `.project/generated/claude-code.json` records which keys\nare generated so removing one later actually removes it.\n\n### Installing as a plugin\n\nThe same surface is distributed as a Claude Code plugin, for repositories that\nwould rather not have generated files committed:\n\n```\n/plugin marketplace add illodev/workfile\n/plugin install workfile@illodev\n```\n\nThe plugin registers the MCP server with `--root ${CLAUDE_PROJECT_DIR}` and\nresolves its hooks through `${CLAUDE_PLUGIN_ROOT}`, so it works without the\npackage being a dependency of the repository at all.\n\nThe server is only half of it; the rest is session-side:\n\n- **Slash commands** — `/claim` (claim a card with an honest scope),\n  `/context` (the bounded context bundle for a card), `/next` (unclaimed\n  candidates worth starting) and `/done` (verify, record, release).\n- **A skill** that teaches the session the one non-negotiable rule: records\n  under `.project/` change through the CLI or MCP tools, never through a raw\n  file edit that would skip the lock, the revision check and validation.\n- **Hooks** that make claims an executable guard rail rather than prose:\n  `SessionStart` rebuilds the claims board and announces which cards are\n  being worked on and by whom; `PreToolUse` asks — never denies — before an\n  edit that lands inside another actor's claimed scope or touches a protocol\n  record directly; an async `PostToolUse` appends each edit to\n  `.project/.cache/events.jsonl`, which is what the UI's presence indicators\n  read.\n\nBoth forms exist on purpose. A plugin's `settings.json` accepts only `agent` and\n`subagentStatusLine`, so anything else has to be generated locally; and a\ngenerator alone means every version bump leaves the written files behind, which\nis the trap `T-0018` recorded. `scripts/build-plugin.mjs` assembles the plugin\nfrom the same functions `project claude install` uses, and a test asserts the\npackaged runtime is byte-identical to the source — a hook that behaves\ndifferently depending on how it was installed is a bug nobody would find.\n\n## Protocol revisions\n\nThe server is dual-era:\n\n- **Modern `2026-07-28`** — stateless per-request `_meta`, `server/discover`,\n  `resultType` and cache metadata.\n- **Legacy `2025-11-25`** and earlier declared revisions — the\n  `initialize` / `notifications/initialized` lifecycle for existing hosts.\n\n## Tools (30)\n\nRead-only:\n\n| Tool | Purpose |\n| --- | --- |\n| `project_workspace` | Workspace, config and module overview |\n| `project_search` | Unified weighted search across all collections |\n| `project_get_record` | Any record by stable ID |\n| `project_doctor` | Full health diagnostics |\n| `project_agent_context` | Bounded, prioritized context for a card |\n| `project_next` | Unclaimed, prioritized candidates to start now |\n| `project_card_list` | Cards filtered by status, area, type or claim |\n| `project_doc_list` | Documents with status and folder |\n| `project_changelog_list` | Change fragments and cut releases |\n| `project_memory_list` | Memory records per collection |\n\nMutations (absent in `--read-only` mode; rejected with `MCP_SERVER_READ_ONLY`):\n\n| Domain | Tools |\n| --- | --- |\n| Work | `project_card_create`, `project_card_patch`, `project_card_write`, `project_card_note`, `project_card_claim`, `project_card_release`, `project_card_transition`, `project_card_archive`, `project_card_reopen` |\n| Docs | `project_doc_create`, `project_doc_move`, `project_doc_patch` |\n| History | `project_changelog_add`, `project_changelog_patch`, `project_changelog_preview`, `project_changelog_release` |\n| Memory | `project_memory_add`, `project_memory_patch`, `project_memory_graduate`, `project_memory_supersede` |\n\nTool descriptions carry read-only, destructive and idempotency annotations.\n\n## Resources and prompts\n\n- **Resources:** `project://workspace`, `project://health`, `project://protocol`,\n  `project://record/{id}`.\n- **Prompts:** `start-work`, `finish-work`, `record-knowledge`.\n\n## Process hygiene\n\nstdout is reserved exclusively for MCP messages; diagnostics go to stderr.\n`workfile mcp config` emits the Node executable, the **`workfile-mcp` binary**,\nworkspace root, preferred protocol revision and optional `--read-only` flag, so\nhosts can build their own client configuration — client-specific files stay\noutside the canonical repository protocol.\n\nIt names the dedicated binary rather than `workfile mcp` on purpose: the\nmultiplexed CLI takes the third argument as a subcommand, so a `--root` in that\nposition is not a flag it can parse. `test/mcp.test.mjs` spawns exactly what the\nhelper returns and drives a handshake through it, so the emitted command cannot\ndrift into being unrunnable again.",
+                "body": "# MCP server\n\nWorkfile includes a local, dependency-free MCP server speaking UTF-8,\nnewline-delimited JSON-RPC over stdio. Every operation delegates to the same core\nservices used by the CLI and HTTP API.\n\n```bash\nworkfile mcp                    # serve over stdio\nworkfile-mcp --root /path/to/repository\nworkfile mcp --read-only        # mutation tools removed from tools/list\nworkfile mcp inspect --json     # tool/resource/prompt inventory\nworkfile mcp config --json      # portable client process configuration\n```\n\n## Reading the workspace\n\n`project_card_list`, `project_doc_list`, `project_changelog_list` and\n`project_memory_list` answer \"what is in here\" without needing a search query.\nThey take filters (`status`, `area`, `type`, `priority`, `parent`, `claimedBy`,\n`unclaimed`, `tags`, `updatedSince`) and return a compact row per record — no\nMarkdown body, no `revision`.\n\n`project_next` answers the question an agent actually has: which cards can be\nstarted now. It excludes epics and anything with unmet dependencies, puts work\nalready claimed by the caller first, and attaches the reason each candidate\nqualified.\n\nListings deliberately omit `revision`. Writing needs a read-then-write —\n`project_get_record` returns the current revision, which `expectedRevision`\nthen guards — and carrying a possibly-stale one in a list only invites a\nconflict.\n\nEvery result carries the data once, in `structuredContent`; `content` is a\none-line summary rather than a second copy of the payload. When a result would\nexceed `maxToolResultBytes` it is truncated with a `truncated` marker instead of\nfailing the call, because a get-by-id has no query to narrow.\n\n## Claude Code integration\n\n```bash\nproject claude install     # generate the surface into the repository\nproject claude check       # report drift, exit 1 when anything is stale\n```\n\n`install` writes, as managed blocks that a resync updates without touching\nanything around them:\n\n| File | What it does |\n| --- | --- |\n| `.mcp.json` | Registers `workfile-mcp` — the binary that parses its own flags |\n| `.claude/commands/{next,claim,done,context}.md` | Slash commands over one CLI call each |\n| `.claude/skills/workfile/SKILL.md` | Projects `.project/agents/protocol.md` rather than restating it |\n| `.claude/settings.json` | Three hooks |\n\n**`SessionStart`** injects the board once — cards in flight, who holds them,\nwhich paths they cover — so a session begins informed without reading a record.\nOnce per session, not per prompt: per-prompt injection accumulates in the\nwindow.\n\n**`PreToolUse`** on `Edit|Write|NotebookEdit` compares the target path against\nthe scope of cards claimed by *other* actors and answers `ask` with the card and\nthe actor named. It also asks when something writes a `.project/` record\ndirectly, because that skips the lock, the revision check and validation.\n\nIt asks; it never denies. A guard rail that blocks too much gets switched off,\nand then it protects nothing.\n\n**`PostToolUse`** appends one line to `.project/.cache/activity/events.jsonl`,\nasynchronously.\n\nThe hook runtime (`dist/src/runtime/claude/hooks.mjs`) imports nothing from this\npackage. `src/index.js` re-exports thirteen modules and several read\n`package.json` at load, and `PreToolUse` runs before *every* tool call in the\nsession — not only the ones it might block. A test pins its p95.\n\nGenerated files grant permissions in someone else's repository, so\n`allowed-tools` names the exact subcommand (`Bash(workfile card claim *)`), never\n`Bash(project *)`. `.claude/settings.json` and `.mcp.json` are merged, not\nreplaced: a ledger in `.project/generated/claude-code.json` records which keys\nare generated so removing one later actually removes it.\n\n### Installing as a plugin\n\nThe same surface is distributed as a Claude Code plugin, for repositories that\nwould rather not have generated files committed:\n\n```\n/plugin marketplace add illodev/workfile\n/plugin install workfile@illodev\n```\n\nThe plugin registers the MCP server with `--root ${CLAUDE_PROJECT_DIR}` and\nresolves its hooks through `${CLAUDE_PLUGIN_ROOT}`, so it works without the\npackage being a dependency of the repository at all.\n\nThe server is only half of it; the rest is session-side:\n\n- **Slash commands** — `/claim` (claim a card with an honest scope),\n  `/context` (the bounded context bundle for a card), `/next` (unclaimed\n  candidates worth starting) and `/done` (verify, record, release).\n- **A skill** that teaches the session the one non-negotiable rule: records\n  under `.project/` change through the CLI or MCP tools, never through a raw\n  file edit that would skip the lock, the revision check and validation.\n- **Hooks** that make claims an executable guard rail rather than prose:\n  `SessionStart` rebuilds the claims board and announces which cards are\n  being worked on and by whom; `PreToolUse` asks — never denies — before an\n  edit that lands inside another actor's claimed scope or touches a protocol\n  record directly; an async `PostToolUse` appends each edit to\n  `.project/.cache/events.jsonl`, which is what the UI's presence indicators\n  read.\n\nBoth forms exist on purpose. A plugin's `settings.json` accepts only `agent` and\n`subagentStatusLine`, so anything else has to be generated locally; and a\ngenerator alone means every version bump leaves the written files behind, which\nis the trap `T-0018` recorded. `scripts/build-plugin.ts` assembles the plugin\nfrom the same functions `project claude install` uses, and a test asserts the\npackaged runtime is byte-identical to the source — a hook that behaves\ndifferently depending on how it was installed is a bug nobody would find.\n\n## Protocol revisions\n\nThe server is dual-era:\n\n- **Modern `2026-07-28`** — stateless per-request `_meta`, `server/discover`,\n  `resultType` and cache metadata.\n- **Legacy `2025-11-25`** and earlier declared revisions — the\n  `initialize` / `notifications/initialized` lifecycle for existing hosts.\n\n## Tools (30)\n\nRead-only:\n\n| Tool | Purpose |\n| --- | --- |\n| `project_workspace` | Workspace, config and module overview |\n| `project_search` | Unified weighted search across all collections |\n| `project_get_record` | Any record by stable ID |\n| `project_doctor` | Full health diagnostics |\n| `project_agent_context` | Bounded, prioritized context for a card |\n| `project_next` | Unclaimed, prioritized candidates to start now |\n| `project_card_list` | Cards filtered by status, area, type or claim |\n| `project_doc_list` | Documents with status and folder |\n| `project_changelog_list` | Change fragments and cut releases |\n| `project_memory_list` | Memory records per collection |\n\nMutations (absent in `--read-only` mode; rejected with `MCP_SERVER_READ_ONLY`):\n\n| Domain | Tools |\n| --- | --- |\n| Work | `project_card_create`, `project_card_patch`, `project_card_write`, `project_card_note`, `project_card_claim`, `project_card_release`, `project_card_transition`, `project_card_archive`, `project_card_reopen` |\n| Docs | `project_doc_create`, `project_doc_move`, `project_doc_patch` |\n| History | `project_changelog_add`, `project_changelog_patch`, `project_changelog_preview`, `project_changelog_release` |\n| Memory | `project_memory_add`, `project_memory_patch`, `project_memory_graduate`, `project_memory_supersede` |\n\nTool descriptions carry read-only, destructive and idempotency annotations.\n\n## Resources and prompts\n\n- **Resources:** `project://workspace`, `project://health`, `project://protocol`,\n  `project://record/{id}`.\n- **Prompts:** `start-work`, `finish-work`, `record-knowledge`.\n\n## Process hygiene\n\nstdout is reserved exclusively for MCP messages; diagnostics go to stderr.\n`workfile mcp config` emits the Node executable, the **`workfile-mcp` binary**,\nworkspace root, preferred protocol revision and optional `--read-only` flag, so\nhosts can build their own client configuration — client-specific files stay\noutside the canonical repository protocol.\n\nIt names the dedicated binary rather than `workfile mcp` on purpose: the\nmultiplexed CLI takes the third argument as a subcommand, so a `--root` in that\nposition is not a flag it can parse. `test/mcp.test.ts` spawns exactly what the\nhelper returns and drives a handshake through it, so the emitted command cannot\ndrift into being unrunnable again.",
                 "managed": false,
                 "documentKind": "reference",
                 "status": "current",
-                "modifiedAt": "2026-07-30T15:22:29.499Z",
-                "sizeBytes": 8292,
-                "revision": "sha256:f3d4f6b732280715dec05ec06d1e6ddb2e09a10dc986a3e2f296970b57164966",
+                "modifiedAt": "2026-07-30T23:22:26.510Z",
+                "sizeBytes": 8290,
+                "revision": "sha256:197347d8de24d2c1af5357b39a6aa814cb057a0c78e1b20e04edab00b43636a8",
                 "metadata": {},
                 "recordType": "reference",
                 "outgoing": [
@@ -1529,13 +1587,13 @@
                 "title": "The interface",
                 "path": "packages/workfile/docs/ui.md",
                 "file": "ui.md",
-                "body": "# The interface\n\nThe UI is a React application in `ui/`, compiled by Vite into `dist/ui` and\nserved by the same `node:http` server that answers the API. It ships\nprecompiled: `files` publishes `dist`, so nothing the interface is built with\nreaches a consumer's `node_modules`.\n\n## Zero runtime dependencies is a published guarantee\n\n`dependencies` is exactly `@types/node`, and it is there only because the\npublished `.d.ts` files reference `node:` types. React, Radix, Tailwind and\nLucide are all `devDependencies`.\n\nThis is enforced, not documented and hoped for. `test/dependencies.test.mjs`\nasserts the exact contents of `dependencies`, and also that there are no\n`peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install\nhooks that would smuggle a tree in past that check.\n\nThe guard exists because `shadcn add` writes its imports into `dependencies` by\ndefault. One un-corrected run would publish Radix, Lucide and CVA into every\nconsumer's install, and nothing about the repository would look wrong. Install\nwhat a component needs yourself, with `-D`, before running `add`.\n\n`pnpm run smoke:package` goes further: it packs the tarball, installs it in a\nclean consumer, and checks that React is absent from the resulting tree.\n\n## Two design systems, on purpose\n\nThe interface is migrating to [shadcn/ui](https://ui.shadcn.com) on a Radix\nbase (`ADR-0005`). During the migration both systems are live at once, and the\narrangement in `ui/src/styles.css` is what keeps that from being painful:\n\n- Everything from the framework — Preflight, the theme, the utilities — is\n  declared **inside a layer**.\n- The original hand-written design system is **unlayered**.\n\nUnlayered CSS beats layered CSS in the cascade regardless of specificity. A\nview nobody has touched therefore keeps its original appearance with no\n`!important` anywhere, and migrating a component means deleting its legacy\nrules rather than fighting them.\n\nThe same fact has a sharp edge: a legacy **element** selector will silently\noutrank a migrated component. `button { color: inherit }` did exactly that, and\nthe first shadcn button rendered with body-text colour on a near-black\nbackground. `test/design-system.test.mjs` fails if a bare `button` rule that\nsets a contested property does not exclude `[data-slot=\"button\"]`.\n\n### Things that are specific to this build\n\n- **`1rem` is 14px.** `:root` sets `font: 14px/1.5` for density, so every size\n  token in the registry lands 12.5% smaller than upstream designed it — `h-8`\n  is 28px here, not 32. The components sit correctly in this interface; the\n  numbers just cannot be compared against shadcn's own documentation directly.\n- **Themes switch on `data-theme`, not `.dark`.** The registry assumes the\n  class. `styles.css` declares both, otherwise generated components stay in\n  their light palette while the page around them goes dark, with no error.\n- **Registry tokens carry an `--sh-` prefix.** The two systems share the names\n  `--radius`, `--border`, `--accent` and `--muted`, and `--muted` is a text\n  colour in one and a surface in the other. `@theme inline` maps `--color-*` at\n  the prefixed sources, so registry components work untouched.\n- **Radii come from this project's scale** (4/6/8/12), not the registry's\n  single `--radius`. One scale, rather than two that nearly agree.\n- **Preflight's losses are given back explicitly.** The reset strips heading\n  weight and list markers, and the design system was written on top of browser\n  defaults — so importing it flattened every heading that had not named a\n  weight and unstyled every rendered Markdown list.\n\n### Where components live\n\n- `ui/src/components/ui/` is the registry. Generated, replaced wholesale by\n  `shadcn add`, never hand-edited — a local change there is discarded by the\n  next `add`, silently.\n- `ui/src/components/domain/` is the opposite: the virtual table, the kanban,\n  the Gantt and the record tree. The registry does not provide these and never\n  will; they carry this project's own decisions about how work is displayed.\n- Everything else in `ui/src/components/` is application glue — the drawer, the\n  editors, the palette — assembled from both.\n\n`test/design-system.test.mjs` fails if a registry file imports from `domain/`.\n\n### Adding a component\n\n```sh\npnpm dlx shadcn@latest add dialog\npnpm add -D <whatever it pulled in>   # never plain `add`\nnode --test test/dependencies.test.mjs\n```\n\nThe CLI resolves `@/` from the **root** `tsconfig.json`, not `ui/tsconfig.json`.\nWithout the `paths` entry there it writes components into a literal `@/`\ndirectory beside `package.json`.\n\n## Demo builds\n\n`pnpm run build:demo` produces `dist/demo`, a static bundle that replays a\nsnapshot of this repository's own workspace with in-memory mutations. It has no\nserver behind it, so **every view must reach the network through `ui/src/api.ts`**.\nA component calling `fetch` directly gets a 404 that its own catch swallows, and\nthe feature is simply absent from the hosted demo — which is how the presence\nstrip and the command palette were both silently dead there.\n`test/demo-parity.test.mjs` fails if any view does this.",
+                "body": "# The interface\n\nThe UI is a React application in `ui/`, compiled by Vite into `dist/ui` and\nserved by the same `node:http` server that answers the API. It ships\nprecompiled: `files` publishes `dist`, so nothing the interface is built with\nreaches a consumer's `node_modules`.\n\n## Zero runtime dependencies is a published guarantee\n\n`dependencies` is exactly `@types/node`, and it is there only because the\npublished `.d.ts` files reference `node:` types. React, Radix, Tailwind and\nLucide are all `devDependencies`.\n\nThis is enforced, not documented and hoped for. `test/dependencies.test.ts`\nasserts the exact contents of `dependencies`, and also that there are no\n`peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install\nhooks that would smuggle a tree in past that check.\n\nThe guard exists because `shadcn add` writes its imports into `dependencies` by\ndefault. One un-corrected run would publish Radix, Lucide and CVA into every\nconsumer's install, and nothing about the repository would look wrong. Install\nwhat a component needs yourself, with `-D`, before running `add`.\n\n`pnpm run smoke:package` goes further: it packs the tarball, installs it in a\nclean consumer, and checks that React is absent from the resulting tree.\n\n## Two design systems, on purpose\n\nThe interface is migrating to [shadcn/ui](https://ui.shadcn.com) on a Radix\nbase (`ADR-0005`). During the migration both systems are live at once, and the\narrangement in `ui/src/styles.css` is what keeps that from being painful:\n\n- Everything from the framework — Preflight, the theme, the utilities — is\n  declared **inside a layer**.\n- The original hand-written design system is **unlayered**.\n\nUnlayered CSS beats layered CSS in the cascade regardless of specificity. A\nview nobody has touched therefore keeps its original appearance with no\n`!important` anywhere, and migrating a component means deleting its legacy\nrules rather than fighting them.\n\nThe same fact has a sharp edge: a legacy **element** selector will silently\noutrank a migrated component. `button { color: inherit }` did exactly that, and\nthe first shadcn button rendered with body-text colour on a near-black\nbackground. `test/design-system.test.ts` fails if a bare `button` rule that\nsets a contested property does not exclude `[data-slot=\"button\"]`.\n\n### Things that are specific to this build\n\n- **`1rem` is 14px.** `:root` sets `font: 14px/1.5` for density, so every size\n  token in the registry lands 12.5% smaller than upstream designed it — `h-8`\n  is 28px here, not 32. The components sit correctly in this interface; the\n  numbers just cannot be compared against shadcn's own documentation directly.\n- **Themes switch on `data-theme`, not `.dark`.** The registry assumes the\n  class. `styles.css` declares both, otherwise generated components stay in\n  their light palette while the page around them goes dark, with no error.\n- **Registry tokens carry an `--sh-` prefix.** The two systems share the names\n  `--radius`, `--border`, `--accent` and `--muted`, and `--muted` is a text\n  colour in one and a surface in the other. `@theme inline` maps `--color-*` at\n  the prefixed sources, so registry components work untouched.\n- **Radii come from this project's scale** (4/6/8/12), not the registry's\n  single `--radius`. One scale, rather than two that nearly agree.\n- **Preflight's losses are given back explicitly.** The reset strips heading\n  weight and list markers, and the design system was written on top of browser\n  defaults — so importing it flattened every heading that had not named a\n  weight and unstyled every rendered Markdown list.\n\n### Where components live\n\n- `ui/src/components/ui/` is the registry. Generated, replaced wholesale by\n  `shadcn add`, never hand-edited — a local change there is discarded by the\n  next `add`, silently.\n- `ui/src/components/domain/` is the opposite: the virtual table, the kanban,\n  the Gantt and the record tree. The registry does not provide these and never\n  will; they carry this project's own decisions about how work is displayed.\n- Everything else in `ui/src/components/` is application glue — the drawer, the\n  editors, the palette — assembled from both.\n\n`test/design-system.test.ts` fails if a registry file imports from `domain/`.\n\n### Adding a component\n\n```sh\npnpm dlx shadcn@latest add dialog\npnpm add -D <whatever it pulled in>   # never plain `add`\nnode --test test/dependencies.test.ts\n```\n\nThe CLI resolves `@/` from the **root** `tsconfig.json`, not `ui/tsconfig.json`.\nWithout the `paths` entry there it writes components into a literal `@/`\ndirectory beside `package.json`.\n\n## Demo builds\n\n`pnpm run build:demo` produces `dist/demo`, a static bundle that replays a\nsnapshot of this repository's own workspace with in-memory mutations. It has no\nserver behind it, so **every view must reach the network through `ui/src/api.ts`**.\nA component calling `fetch` directly gets a 404 that its own catch swallows, and\nthe feature is simply absent from the hosted demo — which is how the presence\nstrip and the command palette were both silently dead there.\n`test/demo-parity.test.ts` fails if any view does this.",
                 "managed": false,
                 "documentKind": "reference",
                 "status": "current",
-                "modifiedAt": "2026-07-30T03:33:39.236Z",
-                "sizeBytes": 5165,
-                "revision": "sha256:478c7da8049cd51caf53b6306d10f2c53cbf49f88d57fbc1edede3250fa448a9",
+                "modifiedAt": "2026-07-30T23:22:26.516Z",
+                "sizeBytes": 5160,
+                "revision": "sha256:32fcbf297d28a13ab2e7ebf14cf164cd3488962d454a36e39438a6df4f69b9c9",
                 "metadata": {},
                 "recordType": "reference",
                 "outgoing": [
@@ -1850,6 +1908,66 @@
                 "searchScore": 0
             },
             {
+                "id": "REL-0004",
+                "kind": "release",
+                "recordType": "release",
+                "title": "Monorepo, commit hooks and the post-bump upgrade command",
+                "path": ".project/changelog/releases/0-1-4/REL-0004-0-1-4.md",
+                "file": "REL-0004-0-1-4.md",
+                "body": "",
+                "version": "0.1.4",
+                "date": "2026-07-30",
+                "fragments": [
+                    "CHG-0013",
+                    "CHG-0014",
+                    "CHG-0015"
+                ],
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "revision": "sha256:e4942add48360a87cfc34ec2688a8ecc4565e1ca04ac115193e119919960065e",
+                "metadata": {
+                    "id": "REL-0004",
+                    "title": "Monorepo, commit hooks and the post-bump upgrade command",
+                    "version": "0.1.4",
+                    "date": "2026-07-30",
+                    "fragments": [
+                        "CHG-0013",
+                        "CHG-0014",
+                        "CHG-0015"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "CHG-0013",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "Syncing over nested-era files sweeps orphan managed markers",
+                        "path": ".project/changelog/releases/0-1-4/fragments/CHG-0013-syncing-over-nested-era-files-sweeps-orphan-managed-markers.md"
+                    },
+                    {
+                        "id": "CHG-0014",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "workfile upgrade: one command resyncs every generated surface after a bump",
+                        "path": ".project/changelog/releases/0-1-4/fragments/CHG-0014-workfile-upgrade-one-command-resyncs-every-generated-surface-after-a-b.md"
+                    },
+                    {
+                        "id": "CHG-0015",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "The repository becomes a pnpm monorepo with commit hooks",
+                        "path": ".project/changelog/releases/0-1-4/fragments/CHG-0015-the-repository-becomes-a-pnpm-monorepo-with-commit-hooks.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
                 "id": "CHG-0002",
                 "kind": "change",
                 "recordType": "fixed",
@@ -2076,13 +2194,13 @@
                 "kind": "change",
                 "recordType": "fixed",
                 "title": "Syncing over nested-era files sweeps orphan managed markers",
-                "path": ".project/changelog/unreleased/CHG-0013-syncing-over-nested-era-files-sweeps-orphan-managed-markers.md",
+                "path": ".project/changelog/releases/0-1-4/fragments/CHG-0013-syncing-over-nested-era-files-sweeps-orphan-managed-markers.md",
                 "file": "CHG-0013-syncing-over-nested-era-files-sweeps-orphan-managed-markers.md",
                 "body": "Files written by 0.1.0/0.1.1 embedded the protocol's own marker pair; upgrading over them left orphan workfile:end lines that no tool ever removed (this repo's own SKILL.md had seven, invisible to check). mergeManagedBlock now sweeps marker lines outside every complete block after each merge, so the next sync heals the debris on any surface — agents, ci or claude.",
                 "type": "fixed",
                 "area": "core",
                 "visibility": "public",
-                "released": false,
+                "released": true,
                 "cards": [
                     "T-0025"
                 ],
@@ -2101,6 +2219,9 @@
                     "created": "2026-07-30",
                     "updated": "2026-07-30"
                 },
+                "releaseIds": [
+                    "REL-0004"
+                ],
                 "outgoing": [
                     {
                         "id": "T-0025",
@@ -2111,13 +2232,19 @@
                         "path": ".project/cards/T-0025-upgrading-over-a-nested-skill-leaves-orphan-end-ma.md"
                     }
                 ],
-                "incomingTotal": 1,
+                "incomingTotal": 2,
                 "incoming": [
                     {
                         "id": "T-0025",
                         "relation": "mention",
                         "kind": "card",
                         "title": "Upgrading over a nested skill leaves orphan end markers behind"
+                    },
+                    {
+                        "id": "REL-0004",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Monorepo, commit hooks and the post-bump upgrade command"
                     }
                 ],
                 "issues": [],
@@ -2213,6 +2340,46 @@
                         "relation": "reference",
                         "kind": "release",
                         "title": "Workfile 0.1.1"
+                    }
+                ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "CHG-0015",
+                "kind": "change",
+                "recordType": "changed",
+                "title": "The repository becomes a pnpm monorepo with commit hooks",
+                "path": ".project/changelog/releases/0-1-4/fragments/CHG-0015-the-repository-becomes-a-pnpm-monorepo-with-commit-hooks.md",
+                "file": "CHG-0015-the-repository-becomes-a-pnpm-monorepo-with-commit-hooks.md",
+                "body": "The core package moved whole into `packages/workfile`; the workspace root is now a private shell that keeps the version as the lockstep source and delegates every script. The published npm surface is unchanged — the pack file list is identical before and after. husky arrives with commitlint (house narrative style, custom rules, no Conventional Commits) and `workfile doctor --severity error` as the pre-commit gate. release.yml now publishes only the `packages/*` loop; ci.yml needed zero changes.",
+                "type": "changed",
+                "area": "infra",
+                "visibility": "internal",
+                "released": true,
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "revision": "sha256:afb96c4e8fc9d6898d1ce5db5bd4779380c07ec2e464a659ad5a3cec767ee4eb",
+                "metadata": {
+                    "id": "CHG-0015",
+                    "title": "The repository becomes a pnpm monorepo with commit hooks",
+                    "type": "changed",
+                    "area": "infra",
+                    "visibility": "internal",
+                    "created": "2026-07-30",
+                    "updated": "2026-07-30"
+                },
+                "releaseIds": [
+                    "REL-0004"
+                ],
+                "outgoing": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "REL-0004",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Monorepo, commit hooks and the post-bump upgrade command"
                     }
                 ],
                 "issues": [],
@@ -2441,13 +2608,13 @@
                 "kind": "change",
                 "recordType": "added",
                 "title": "workfile upgrade: one command resyncs every generated surface after a bump",
-                "path": ".project/changelog/unreleased/CHG-0014-workfile-upgrade-one-command-resyncs-every-generated-surface-after-a-b.md",
+                "path": ".project/changelog/releases/0-1-4/fragments/CHG-0014-workfile-upgrade-one-command-resyncs-every-generated-surface-after-a-b.md",
                 "file": "CHG-0014-workfile-upgrade-one-command-resyncs-every-generated-surface-after-a-b.md",
                 "body": "A version bump used to demand a litany nobody remembered (agents sync, ci sync, claude install) while every check stayed green - the stamp is provenance, deliberately outside the staleness decision. workfile upgrade compares the installed version against the stamp on every surface the config owns, resyncs the ones behind (including content-current files whose stamp is old - the CI template pins the package version in its npx commands, so that case was never cosmetic), and reports managed blocks whose kind no configured target owns instead of letting them fossilize.",
                 "type": "added",
                 "area": "core",
                 "visibility": "public",
-                "released": false,
+                "released": true,
                 "cards": [
                     "T-0029"
                 ],
@@ -2466,6 +2633,9 @@
                     "created": "2026-07-30",
                     "updated": "2026-07-30"
                 },
+                "releaseIds": [
+                    "REL-0004"
+                ],
                 "outgoing": [
                     {
                         "id": "T-0029",
@@ -2476,8 +2646,15 @@
                         "path": ".project/cards/T-0029-a-post-bump-upgrade-command-that-resyncs-every-gen.md"
                     }
                 ],
-                "incomingTotal": 0,
-                "incoming": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "REL-0004",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Monorepo, commit hooks and the post-bump upgrade command"
+                    }
+                ],
                 "issues": [],
                 "searchScore": 0
             },
@@ -2537,13 +2714,40 @@
                 "searchScore": 0
             }
         ],
-        "total": 17,
+        "total": 19,
         "offset": 0,
         "limit": 500,
         "view": "full"
     },
     "memory": {
         "records": [
+            {
+                "id": "ADR-0002",
+                "kind": "memory",
+                "recordType": "decisions",
+                "collection": "decisions",
+                "title": "Monorepo layout: private workspace root, published surface unchanged",
+                "path": ".project/memory/decisions/ADR-0002-monorepo-layout-private-workspace-root-published-surface-unchanged.md",
+                "file": "ADR-0002-monorepo-layout-private-workspace-root-published-surface-unchanged.md",
+                "body": "## Context\n\nThe core published from the repository root while `@illodev/workfile-search-local` lived under `packages/` — an asymmetry with a concrete cost: the root manifest was simultaneously the published package and the workspace shell, so an install-time `prepare` hook (needed for husky) would have shipped to every consumer, and `dependencies.test.mjs` rightly forbade it.\n\n## Decision\n\nThe repository is a pnpm workspace with a **private root**. The root manifest keeps exactly three responsibilities: the `version` field every published package syncs to (lockstep via the `npm version` hook and `scripts/sync-workspace-versions.mjs`), workspace-wide tooling (husky, commitlint, playwright, the sharp override), and delegator scripts under the names CI and the docs already call. Everything publishable lives under `packages/`, each manifest with `publishConfig` and its own trusted-publisher registration; `release.yml` publishes only the `packages/*` loop.\n\nRepository layout and npm packaging are independent decisions: the published surface stays one core package plus optional provider packages (SPEC 6.1). Provider packages are not a split of the core — they exist to keep heavy optional dependencies away from consumers who did not opt in.\n\n## Consequences\n\n- The pack file list was byte-identical across the move (175 files) — verified with `npm pack --dry-run` before and after.\n- `dist/` stays a sibling of the package manifest, so every `package.json` climb inside `src/` and the strict-ratchet baseline survived unedited.\n- The root can now run install-time tooling forever guarded by the extended dependencies test: no `packages/*` manifest may declare install hooks, and the root must stay `private: true`.\n- The tag-time publish path changes shape; it is fully proven only at the next release tag.",
+                "status": "accepted",
+                "created": "2026-07-30",
+                "updated": "2026-07-30",
+                "revision": "sha256:7a3441f560c9badef3e53b7dba9860f787a301931ec0adc1aa3bd0f63d4669f2",
+                "metadata": {
+                    "id": "ADR-0002",
+                    "title": "Monorepo layout: private workspace root, published surface unchanged",
+                    "status": "accepted",
+                    "created": "2026-07-30",
+                    "updated": "2026-07-30"
+                },
+                "outgoing": [],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "lifecycleIssues": [],
+                "searchScore": 0
+            },
             {
                 "id": "LRN-0001",
                 "kind": "memory",
@@ -2653,13 +2857,13 @@
                 "searchScore": 0
             }
         ],
-        "total": 3,
+        "total": 4,
         "offset": 0,
         "limit": 500,
         "view": "full"
     },
     "changelogRender": {
-        "public": "# Changelog\n\n## Unreleased\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
-        "internal": "# Changelog\n\n\n"
+        "public": "# Changelog\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
+        "internal": "# Changelog\n\n## 0.1.4 — 2026-07-30\n\n### Changed\n\n- The repository becomes a pnpm monorepo with commit hooks\n"
     }
 }

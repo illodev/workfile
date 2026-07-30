@@ -377,14 +377,14 @@ test("the distributable plugin cannot drift from the generated surface", async (
     assert.equal(
         packaged,
         source,
-        "run `node scripts/build-plugin.mjs`: the packaged hook runtime is stale"
+        "run `node scripts/build-plugin.ts`: the packaged hook runtime is stale"
     );
 
     for (const command of claudeCommandFiles()) {
         assert.equal(
             await readFile(join(pluginRoot, `commands/${command.name}.md`), "utf8"),
             command.content,
-            `run \`node scripts/build-plugin.mjs\`: commands/${command.name}.md is stale`
+            `run \`node scripts/build-plugin.ts\`: commands/${command.name}.md is stale`
         );
     }
 

@@ -36,7 +36,7 @@ jobs:
                       exit 1
                   fi
                   # Workspace packages ride the same version, always.
-                  node ./scripts/sync-workspace-versions.mjs --check
+                  node ./scripts/sync-workspace-versions.ts --check
             # Build + typechecks + tests + audit + packaged-tarball smoke.
             - run: pnpm run check:release
             - name: Publish to npm

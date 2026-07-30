@@ -61,7 +61,7 @@ test("MCP exposes tools, resources and prompts over the shared project core", as
         const names = tools.result.tools.map((tool) => tool.name);
 
         // The whole published tool surface, asserted here in the FAST suite.
-        // `package-smoke.mjs` checks it too, but that one only runs from
+        // `package-smoke.ts` checks it too, but that one only runs from
         // `check:release`, so adding a tool used to go green on the pull
         // request and blow up at publish time — which is exactly what happened
         // when `project_doc_move` landed. This is the same assertion one gate

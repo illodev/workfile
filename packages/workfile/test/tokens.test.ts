@@ -139,7 +139,7 @@ test("test workspaces are disposed of", async () => {
     const { readdir, readFile: read } = await import("node:fs/promises");
     const testDir = fileURLToPath(new URL("../test/", import.meta.url));
     const files = (await readdir(testDir)).filter((name) =>
-        name.endsWith(".test.mjs")
+        name.endsWith(".test.ts")
     );
 
     for (const name of files) {

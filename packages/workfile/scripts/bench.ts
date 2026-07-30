@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildBenchWorkspace } from "./bench-workspace.mjs";
+import { buildBenchWorkspace } from "./bench-workspace.ts";
 import {
     buildProjectIndex,
     loadCards,

@@ -14,7 +14,7 @@ export const api: ProjectApi =
  *
  * It rides the same inlined flag as the API selection, so the constant folds
  * away entirely in a production build and survives minification in a demo one.
- * `scripts/prepare-bin.mjs` greps `dist/ui` for it: publishing a demo bundle as
+ * `scripts/prepare-bin.ts` greps `dist/ui` for it: publishing a demo bundle as
  * the real UI would show every user a snapshot of someone else's workspace,
  * and nothing about the file would look wrong.
  */

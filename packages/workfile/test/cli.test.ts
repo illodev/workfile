@@ -764,7 +764,7 @@ export const integrations = [
 });
 
 test("card renumber --duplicates and doctor --fix heal a merged ID collision", async () => {
-    const { card } = await import("./support/workspace.mjs");
+    const { card } = await import("./support/workspace.ts");
     const root = await mkdtemp(join(tmpdir(), "workfile-cli-renumber-"));
     try {
         await cp(fixture, root, { recursive: true });

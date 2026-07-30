@@ -42,7 +42,7 @@
     "provenance": true
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0"

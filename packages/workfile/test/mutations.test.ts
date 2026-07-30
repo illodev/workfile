@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createTestWorkspace } from "./support/workspace.mjs";
+import { createTestWorkspace } from "./support/workspace.ts";
 
 import {
     ConflictError,

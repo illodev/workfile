@@ -75,7 +75,7 @@ test("the demo snapshot carries every collection the adapter reads", async () =>
     for (const key of read) {
         assert.ok(
             key in snapshot,
-            `api.demo.ts reads state.${key}, which build-demo-data.mjs never writes`
+            `api.demo.ts reads state.${key}, which build-demo-data.ts never writes`
         );
     }
 });

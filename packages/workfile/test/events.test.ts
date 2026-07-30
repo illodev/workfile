@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildBenchWorkspace } from "../scripts/bench-workspace.mjs";
+import { buildBenchWorkspace } from "../scripts/bench-workspace.ts";
 import {
     createWorkspaceWatcher,
     loadWorkspace,

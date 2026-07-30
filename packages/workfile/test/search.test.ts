@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildBenchWorkspace } from "../scripts/bench-workspace.mjs";
+import { buildBenchWorkspace } from "../scripts/bench-workspace.ts";
 import {
     buildProjectIndex,
     createSemanticSearchProvider,

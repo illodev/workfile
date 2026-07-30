@@ -9,7 +9,7 @@ import {
     renumberCard,
     runDoctor
 } from "../dist/src/index.js";
-import { card, createTestWorkspace } from "./support/workspace.mjs";
+import { card, createTestWorkspace } from "./support/workspace.ts";
 
 test("renumbering a unique card rewrites every reference inside the protocol root", async () => {
     const { root, workspace, cleanup } = await createTestWorkspace();

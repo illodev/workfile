@@ -52,7 +52,7 @@ for (const entry of entries) {
 
 if (drift.length) {
     console.error(
-        `Workspace versions drifted from the root:\n  ${drift.join("\n  ")}\nRun \`node ./scripts/sync-workspace-versions.mjs\` to align them.`
+        `Workspace versions drifted from the root:\n  ${drift.join("\n  ")}\nRun \`node ./scripts/sync-workspace-versions.ts\` to align them.`
     );
     process.exit(1);
 }

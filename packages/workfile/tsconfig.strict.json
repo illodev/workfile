@@ -2,6 +2,23 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "noEmit": true,
-        "strictNullChecks": true
-    }
+        "strictNullChecks": true,
+        // Scripts and tests import each other with explicit .ts extensions,
+        // which is exactly what Node's type stripping executes.
+        "allowImportingTsExtensions": true,
+        // The repo-level scripts sit two directories up; harmless under
+        // noEmit, and without it tsc refuses the program before checking it.
+        "rootDir": "../.."
+    },
+    // Wider than the build on purpose: the ratchet also holds scripts and
+    // tests (this package's and the repo-level ones) to "only improves".
+    // Tests type-resolve against ../dist declarations, so build first.
+    "include": [
+        "src/**/*.ts",
+        "bin/**/*.ts",
+        "scripts/**/*.ts",
+        "test/**/*.ts",
+        "../../scripts/*.ts"
+    ],
+    "exclude": ["dist", "node_modules", "ui"]
 }

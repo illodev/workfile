@@ -63,7 +63,7 @@ try {
     baseline = JSON.parse(await readFile(baselinePath, "utf8"));
 } catch {
     console.error(
-        "strict-baseline.json is missing. Run `node scripts/strict-ratchet.mjs --update`."
+        "strict-baseline.json is missing. Run `node scripts/strict-ratchet.ts --update`."
     );
     process.exit(1);
 }
@@ -102,7 +102,7 @@ if (regressions.length) {
 if (improvements.length) {
     console.error("strictNullChecks improved; re-record the baseline:\n");
     for (const entry of improvements) console.error(`  ${entry}`);
-    console.error("\n  node scripts/strict-ratchet.mjs --update");
+    console.error("\n  node scripts/strict-ratchet.ts --update");
     process.exit(1);
 }
 

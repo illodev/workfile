@@ -1,7 +1,7 @@
 import { mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { buildScreenshotWorkspace } from "./screenshot-workspace.mjs";
+import { buildScreenshotWorkspace } from "./screenshot-workspace.ts";
 import {
     loadWorkspace,
     recordAgentSignal,

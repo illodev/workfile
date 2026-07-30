@@ -85,22 +85,22 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "clean": "node ./scripts/clean.mjs",
-    "build:core": "tsc -p tsconfig.json && node ./scripts/prepare-bin.mjs",
+    "clean": "node ./scripts/clean.ts",
+    "build:core": "tsc -p tsconfig.json && node ./scripts/prepare-bin.ts",
     "typecheck:api": "tsc -p test/types/tsconfig.json",
-    "strict": "node ./scripts/strict-ratchet.mjs",
-    "test": "pnpm run build:core && pnpm run typecheck:api && node --test test/*.test.mjs",
+    "strict": "node ./scripts/strict-ratchet.ts",
+    "test": "pnpm run build:core && pnpm run typecheck:api && node --test test/*.test.ts",
     "doctor": "node ./dist/bin/workfile.js doctor",
     "schema": "node ./dist/bin/workfile.js schema",
     "serve": "node ./dist/bin/workfile.js ui",
     "build:ui": "vite build --config vite.config.mjs",
     "typecheck:ui": "tsc -p ui/tsconfig.json",
-    "demo:data": "pnpm run build:core && node ./scripts/build-demo-data.mjs",
+    "demo:data": "pnpm run build:core && node ./scripts/build-demo-data.ts",
     "build:demo": "pnpm run demo:data && vite build --config vite.config.mjs --mode demo",
     "build": "pnpm run clean && pnpm run build:core && pnpm run typecheck:ui && pnpm run build:ui",
     "prepack": "pnpm run build",
-    "smoke:package": "node ./test/package-smoke.mjs",
-    "bench": "node ./scripts/bench.mjs"
+    "smoke:package": "node ./test/package-smoke.ts",
+    "bench": "node ./scripts/bench.ts"
   },
   "engines": {
     "node": ">=22"

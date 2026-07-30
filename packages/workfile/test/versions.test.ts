@@ -13,7 +13,7 @@ test("workspace packages stay version-locked to the root", async () => {
     await assert.doesNotReject(() =>
         execute(
             process.execPath,
-            ["./scripts/sync-workspace-versions.mjs", "--check"],
+            ["./scripts/sync-workspace-versions.ts", "--check"],
             { cwd: repoRoot }
         )
     );

@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { readJsonc } from "./support/jsonc.mjs";
+import { readJsonc } from "./support/jsonc.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 

@@ -11,7 +11,7 @@ reaches a consumer's `node_modules`.
 published `.d.ts` files reference `node:` types. React, Radix, Tailwind and
 Lucide are all `devDependencies`.
 
-This is enforced, not documented and hoped for. `test/dependencies.test.mjs`
+This is enforced, not documented and hoped for. `test/dependencies.test.ts`
 asserts the exact contents of `dependencies`, and also that there are no
 `peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install
 hooks that would smuggle a tree in past that check.
@@ -42,7 +42,7 @@ rules rather than fighting them.
 The same fact has a sharp edge: a legacy **element** selector will silently
 outrank a migrated component. `button { color: inherit }` did exactly that, and
 the first shadcn button rendered with body-text colour on a near-black
-background. `test/design-system.test.mjs` fails if a bare `button` rule that
+background. `test/design-system.test.ts` fails if a bare `button` rule that
 sets a contested property does not exclude `[data-slot="button"]`.
 
 ### Things that are specific to this build
@@ -76,14 +76,14 @@ sets a contested property does not exclude `[data-slot="button"]`.
 - Everything else in `ui/src/components/` is application glue — the drawer, the
   editors, the palette — assembled from both.
 
-`test/design-system.test.mjs` fails if a registry file imports from `domain/`.
+`test/design-system.test.ts` fails if a registry file imports from `domain/`.
 
 ### Adding a component
 
 ```sh
 pnpm dlx shadcn@latest add dialog
 pnpm add -D <whatever it pulled in>   # never plain `add`
-node --test test/dependencies.test.mjs
+node --test test/dependencies.test.ts
 ```
 
 The CLI resolves `@/` from the **root** `tsconfig.json`, not `ui/tsconfig.json`.
@@ -98,4 +98,4 @@ server behind it, so **every view must reach the network through `ui/src/api.ts`
 A component calling `fetch` directly gets a 404 that its own catch swallows, and
 the feature is simply absent from the hosted demo — which is how the presence
 strip and the command palette were both silently dead there.
-`test/demo-parity.test.mjs` fails if any view does this.
+`test/demo-parity.test.ts` fails if any view does this.

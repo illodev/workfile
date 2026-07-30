@@ -112,7 +112,7 @@ The server is only half of it; the rest is session-side:
 Both forms exist on purpose. A plugin's `settings.json` accepts only `agent` and
 `subagentStatusLine`, so anything else has to be generated locally; and a
 generator alone means every version bump leaves the written files behind, which
-is the trap `T-0018` recorded. `scripts/build-plugin.mjs` assembles the plugin
+is the trap `T-0018` recorded. `scripts/build-plugin.ts` assembles the plugin
 from the same functions `project claude install` uses, and a test asserts the
 packaged runtime is byte-identical to the source — a hook that behaves
 differently depending on how it was installed is a bug nobody would find.
@@ -170,6 +170,6 @@ outside the canonical repository protocol.
 
 It names the dedicated binary rather than `workfile mcp` on purpose: the
 multiplexed CLI takes the third argument as a subcommand, so a `--root` in that
-position is not a flag it can parse. `test/mcp.test.mjs` spawns exactly what the
+position is not a flag it can parse. `test/mcp.test.ts` spawns exactly what the
 helper returns and drives a handshake through it, so the emitted command cannot
 drift into being unrunnable again.
