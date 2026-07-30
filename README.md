@@ -10,10 +10,11 @@ Markdown files in the repository are canonical. The CLI, HTTP API and local UI u
 same core services, collection registry, index and validation rules. No exclusive state
 is kept in the browser or in a database.
 
-> Current implementation: **0.1.1** — first cut under the Workfile name. Work, Docs,
-> History and Memory share the common `ProjectRecord` index. The core, CLI, HTTP server and
-> MCP runtime are authored in TypeScript and distributed as compiled ESM with public
-> declarations. The local UI is precompiled and included in the package.
+> Current implementation: **0.1.2** — Work, Docs, History and Memory share the common
+> `ProjectRecord` index. The core, CLI, HTTP server and MCP runtime are authored in
+> TypeScript and distributed as compiled ESM with public declarations. The local UI is
+> precompiled and included in the package, and semantic search runs on-device through
+> the optional `@illodev/workfile-search-local` workspace package.
 
 **[Try the live demo](https://workfiledemo.illodev.com)** — it replays this
 repository's own workspace: the real cards, releases, incidents and learnings of
