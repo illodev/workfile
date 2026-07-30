@@ -1,7 +1,7 @@
 ---
 id: T-0028
 title: search-local saturates the machine embedding large corpora
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
@@ -44,3 +44,8 @@ opt-in in the config (`WORKFILE_SEMANTIC=1`), defaulting to lexical.
 
 - 2026-07-30 — found on Fube right after wiring the provider; the workspace deactivated
   semantic search by default until this is fixed. Related: T-0027 (candidate slice).
+- 2026-07-30 21:01Z claude-opus-2167a9c2 — 2026-07-30 — Fixed in 8d158d9. T-0026: guarded import taught in the search-local README, the root README's new first-party section and the example config. T-0027: provider candidates are lexical hits first, filler after, with a test planting the only match beyond the cap. T-0028: numThreads (default half the cores), per-batch cache persistence proven by a kill-mid-pass test, stderr progress. Suites 165/165. Ships with the next release; done when a consumer workspace verifies it.
+
+## Activity
+
+- 2026-07-30 21:01Z unknown · backlog → review
