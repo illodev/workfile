@@ -1,7 +1,7 @@
 ---
 id: T-0013
 title: "Scripted demo video: staged cursor tour over the curated workspace"
-status: next
+status: done
 type: feature
 priority: medium
 area: docs
@@ -17,6 +17,7 @@ scope: [scripts/demo-video.mjs]
 - 2026-07-30 17:54Z claude-fable-e341b469 · released
 - 2026-07-30 18:10Z claude-fable-e341b469 · claimed
 - 2026-07-30 18:10Z claude-fable-e341b469 · released
+- 2026-07-30 18:11Z claude-fable-e341b469 · next → done
 
 ## Notes
 
