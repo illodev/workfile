@@ -1,0 +1,10 @@
+# Protocol gate: the workspace must be coherent before it can be committed.
+# The doctor needs the built CLI, and a fresh clone has no dist yet; forcing
+# a build into every commit would make committing cost a compile, so the gate
+# skips loudly instead — CI runs the same doctor unconditionally.
+bin="packages/workfile/dist/bin/workfile.js"
+if [ ! -f "$bin" ]; then
+    echo "pre-commit: $bin missing; skipping doctor (pnpm run build:core enables it)" >&2
+    exit 0
+fi
+node "$bin" doctor --severity error
