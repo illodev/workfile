@@ -12,6 +12,7 @@ import {
     claimCard,
     createCard,
     loadWorkspace,
+    syncAgentInstructions,
     syncClaudeSurface
 } from "../dist/src/index.js";
 
@@ -313,6 +314,45 @@ test("generated invocations carry the detected package manager", async () => {
         } finally {
             await rm(bare, { recursive: true, force: true });
         }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// The skill embeds the canonical protocol, and the protocol is itself a
+// managed file. Carrying its markers across nested one block inside another:
+// the reader stops at the inner `end`, digests a truncated body, and the file
+// reported stale on every check with no edit that could settle it.
+test("the skill embeds the protocol without nesting its markers", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-nest-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+
+        // Sync the agent files first so protocol.md exists WITH its markers —
+        // that is the input that used to poison the skill.
+        await syncAgentInstructions(workspace);
+        const protocol = await readFile(workspace.paths.agentProtocol, "utf8");
+        assert.match(protocol, /workfile:begin kind=canonical-agent-protocol/);
+
+        await syncClaudeSurface(workspace);
+        const skill = await readFile(
+            join(root, ".claude/skills/workfile/SKILL.md"),
+            "utf8"
+        );
+
+        // Exactly one block: its own. No inner markers came along.
+        assert.equal(skill.match(/workfile:begin/g).length, 1);
+        assert.equal(skill.match(/workfile:end/g).length, 1);
+        assert.match(skill, /kind=claude-skill/);
+        assert.equal(skill.includes("canonical-agent-protocol"), false);
+
+        // The protocol's own text still made it across.
+        assert.match(skill, /Estados de Work|Work statuses/);
+
+        // And the check settles, which is the whole point.
+        const after = await checkClaudeSurface(workspace);
+        assert.equal(after.ok, true, JSON.stringify(after.files));
     } finally {
         await rm(root, { recursive: true, force: true });
     }

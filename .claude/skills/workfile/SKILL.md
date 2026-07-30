@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-skill version=0.1.0 digest=sha256:4f9eef658b8caee9dd843b0db71952a23314567d5bf8a71f975ac61dd5fd7ed2 -->
+<!-- workfile:begin kind=claude-skill version=0.1.1 digest=sha256:bee43b72e05816ae79aea06fa5e6d97382d25ac79605dcff235bc4bda8e14415 -->
 ---
 name: workfile
 description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
@@ -19,16 +19,15 @@ and silently corrupts the record for everyone else.
 
 ---
 
-<!-- workfile:begin kind=canonical-agent-protocol version=0.1.0 digest=sha256:07fc2bdac33946b0ed6f9df340eba056669a026f16562837617898eee5297e63 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
 
 ## Before working
 
-1. Search related work and knowledge with `workfile search`.
+1. Search related work and knowledge with `pnpm workfile search`.
 2. Read the card and its relationship neighborhood before substantial code changes.
-3. Claim the card before touching its scope: `workfile card claim ID --actor ACTOR --scope path,path`.
+3. Claim the card before touching its scope: `pnpm workfile card claim ID --actor ACTOR --scope path,path`.
 4. Inspect active claims and overlapping scopes. Do not overwrite another actor's work.
 5. Load the smallest relevant context; do not inject all workfile memory into every prompt.
 
@@ -55,7 +54,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 ## Finishing
 
 1. Run relevant tests and verification.
-2. Run `workfile doctor`.
+2. Run `pnpm workfile doctor`.
 3. Keep the card in `review` if verification or deployment is pending; use `done` only with real evidence.
 4. Release the claim when active work stops.
 5. Record durable knowledge and changelog fragments when appropriate.
@@ -70,14 +69,14 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 
 ## Essential commands
 
-`workfile search "query"`  
-`workfile agents context --card T-0001`  
-`workfile card show T-0001 --json`  
-`workfile card claim T-0001 --actor session-id --scope apps/api`  
-`workfile card transition T-0001 review --actor session-id`  
-`workfile changelog add --title "Change" --type changed --area api`  
-`workfile memory add decision --title "Decision" --status accepted`  
-`workfile doctor`
+`pnpm workfile search "query"`  
+`pnpm workfile agents context --card T-0001`  
+`pnpm workfile card show T-0001 --json`  
+`pnpm workfile card claim T-0001 --actor session-id --scope apps/api`  
+`pnpm workfile card transition T-0001 review --actor session-id`  
+`pnpm workfile changelog add --title "Change" --type changed --area api`  
+`pnpm workfile memory add decision --title "Decision" --status accepted`  
+`pnpm workfile doctor`
 <!-- workfile:end -->
 <!-- workfile:end -->
 <!-- workfile:end -->

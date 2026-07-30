@@ -20,8 +20,43 @@ const STYLES = Object.freeze({
 });
 
 
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function digestText(value) {
     return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+/**
+ * Drops the marker lines, keeping everything between and around them.
+ *
+ * Needed whenever a managed file's bytes are embedded inside another managed
+ * block. Markers do not nest: `findManagedBlock` scans forward for the first
+ * `end`, so an inner one closes the outer block early. The reader then digests
+ * a truncated body, it never matches what was written, and the file reports
+ * stale on every check with no edit that can fix it.
+ *
+ * Stripping lines rather than extracting the block on purpose — a file may
+ * carry the author's own prose outside the markers, and that is not ours to
+ * discard.
+ */
+export function stripManagedMarkers(content) {
+    // A byte no marker can contain. A space would not do: the rendered
+    // marker already has them, and the first sits inside `<!--`.
+    const SLOT = "\u0000";
+    let text = String(content ?? "");
+    for (const style of Object.values(STYLES)) {
+        const begin = escapeRegExp(style.begin(SLOT)).replace(SLOT, "[^\\n]*");
+        const end = escapeRegExp(style.end);
+        for (const marker of [begin, end]) {
+            text = text.replace(
+                new RegExp(`^[ \\t]*${marker}[ \\t]*\\r?\\n?`, "gm"),
+                ""
+            );
+        }
+    }
+    return text.trim();
 }
 
 export function renderManagedBlock({ kind, version, body, style = "html" }) {

@@ -11,6 +11,7 @@ import {
 import {
     inspectManagedFile,
     renderManagedBlock,
+    stripManagedMarkers,
     syncManagedFile
 } from "../generated/managed-files.js";
 
@@ -288,8 +289,12 @@ async function mergeJson(path, generated, ledgerKeys) {
 
 export async function planClaudeSurface(workspace) {
     const protocolPath = workspace.paths.agentProtocol;
+    // The protocol is itself a managed file, so its bytes carry markers. They
+    // are stripped before the text is embedded: nesting one managed block
+    // inside another makes the reader stop at the inner `end`, and the skill
+    // then reports stale forever with no edit that can settle it.
     const protocolText = (await exists(protocolPath))
-        ? await readFile(protocolPath, "utf8")
+        ? stripManagedMarkers(await readFile(protocolPath, "utf8"))
         : "See .project/agents/protocol.md.";
     const files = [];
 
