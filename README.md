@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://workfile-chi.vercel.app"><img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/brand/lockup.png" alt="Workfile" width="460"></a>
+  <a href="https://workfiledemo.illodev.com"><img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/brand/lockup.png" alt="Workfile" width="460"></a>
 </p>
 <p align="center"><em>The repository is the database.</em></p>
 
@@ -15,7 +15,7 @@ is kept in the browser or in a database.
 > MCP runtime are authored in TypeScript and distributed as compiled ESM with public
 > declarations. The local UI is precompiled and included in the package.
 
-**[Try the live demo](https://workfile-chi.vercel.app)** — it replays this
+**[Try the live demo](https://workfiledemo.illodev.com)** — it replays this
 repository's own workspace: the real cards, releases, incidents and learnings of
 Workfile's development. Mutations work per browser session and reset on reload.
 
@@ -26,7 +26,7 @@ Workfile's development. Mutations work per browser session and reset on reload.
 - **Fube** — in production.
 - **Workfile** — this repository runs on its own protocol: the cards, changelog
   fragments and memory behind every release are the `.project/` you can browse
-  in the [live demo](https://workfile-chi.vercel.app).
+  in the [live demo](https://workfiledemo.illodev.com).
 
 ## Requirements
 

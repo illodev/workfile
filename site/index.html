@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="color-scheme" content="light dark" />
+        <title>Workfile — The repository is the database</title>
+        <meta
+            name="description"
+            content="Work, Docs, History and durable Memory as versioned Markdown — for humans and AI agents working in the same codebase. Local UI, CLI, HTTP API and MCP server."
+        />
+        <link rel="canonical" href="https://workfile.illodev.com" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Workfile — The repository is the database" />
+        <meta
+            property="og:description"
+            content="Work, Docs, History and durable Memory as versioned Markdown — for humans and AI agents working in the same codebase."
+        />
+        <meta property="og:image" content="https://workfile.illodev.com/assets/social.png" />
+        <meta property="og:url" content="https://workfile.illodev.com" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>"
+        />
+        <style>
+            @font-face {
+                font-family: "Geist Variable";
+                font-style: normal;
+                font-weight: 100 900;
+                font-display: swap;
+                src: url(./assets/geist-latin-wght-normal.woff2) format("woff2-variations");
+            }
+            @font-face {
+                font-family: "Geist Mono Variable";
+                font-style: normal;
+                font-weight: 100 900;
+                font-display: swap;
+                src: url(./assets/geist-mono-latin-wght-normal.woff2) format("woff2-variations");
+            }
+            :root {
+                --bg: oklch(0.985 0.002 264);
+                --bg-2: oklch(0.965 0.004 264);
+                --fg: oklch(0.17 0.01 264);
+                --dim: oklch(0.45 0.015 264);
+                --line: oklch(0.9 0.006 264);
+                --accent: #3149d4;
+                --accent-fg: #ffffff;
+                --accent-soft: oklch(0.955 0.02 264);
+                --card: #ffffff;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: oklch(0.155 0.008 264);
+                    --bg-2: oklch(0.19 0.01 264);
+                    --fg: oklch(0.968 0.002 264);
+                    --dim: oklch(0.7 0.01 264);
+                    --line: oklch(0.28 0.012 264);
+                    --accent: oklch(0.72 0.15 264);
+                    --accent-fg: oklch(0.17 0.02 264);
+                    --accent-soft: oklch(0.3 0.06 264);
+                    --card: oklch(0.19 0.01 264);
+                }
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                font-family: "Geist Variable", system-ui, -apple-system, sans-serif;
+                background: var(--bg);
+                color: var(--fg);
+                line-height: 1.55;
+                -webkit-font-smoothing: antialiased;
+            }
+            code,
+            pre,
+            .mono {
+                font-family: "Geist Mono Variable", ui-monospace, monospace;
+            }
+            .wrap {
+                max-width: 1060px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }
+            header {
+                position: sticky;
+                top: 0;
+                backdrop-filter: blur(10px);
+                background: color-mix(in oklab, var(--bg) 82%, transparent);
+                border-bottom: 1px solid var(--line);
+                z-index: 10;
+            }
+            .nav {
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                height: 58px;
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 650;
+                font-size: 17px;
+                letter-spacing: -0.01em;
+                color: var(--fg);
+                text-decoration: none;
+                margin-right: auto;
+            }
+            .brand svg {
+                width: 26px;
+                height: 26px;
+            }
+            .nav a:not(.brand) {
+                color: var(--dim);
+                text-decoration: none;
+                font-size: 14px;
+            }
+            .nav a:not(.brand):hover {
+                color: var(--fg);
+            }
+            .hero {
+                padding: 92px 0 56px;
+                text-align: center;
+            }
+            .hero h1 {
+                font-size: clamp(34px, 6vw, 58px);
+                line-height: 1.06;
+                letter-spacing: -0.03em;
+                font-weight: 700;
+            }
+            .hero h1 em {
+                font-style: normal;
+                color: var(--accent);
+            }
+            .hero p.sub {
+                margin: 18px auto 0;
+                max-width: 620px;
+                color: var(--dim);
+                font-size: 18px;
+            }
+            .install {
+                margin: 30px auto 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                border: 1px solid var(--line);
+                background: var(--card);
+                border-radius: 10px;
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+            .install button {
+                border: 0;
+                background: var(--accent);
+                color: var(--accent-fg);
+                border-radius: 7px;
+                padding: 6px 12px;
+                font: inherit;
+                font-size: 13px;
+                cursor: pointer;
+            }
+            .cta {
+                margin-top: 22px;
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .cta a {
+                text-decoration: none;
+                font-size: 14.5px;
+                padding: 9px 18px;
+                border-radius: 8px;
+                border: 1px solid var(--line);
+                color: var(--fg);
+            }
+            .cta a.primary {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--accent-fg);
+            }
+            .shot {
+                margin: 54px auto 0;
+                max-width: 980px;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 24px 60px -32px oklch(0.3 0.05 264 / 0.35);
+            }
+            .shot img {
+                display: block;
+                width: 100%;
+                height: auto;
+            }
+            section {
+                padding: 72px 0;
+            }
+            section.alt {
+                background: var(--bg-2);
+                border-block: 1px solid var(--line);
+            }
+            h2 {
+                font-size: 28px;
+                letter-spacing: -0.02em;
+                text-align: center;
+            }
+            .lead {
+                text-align: center;
+                color: var(--dim);
+                max-width: 640px;
+                margin: 10px auto 0;
+            }
+            .grid {
+                margin-top: 40px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 16px;
+            }
+            .tile {
+                border: 1px solid var(--line);
+                background: var(--card);
+                border-radius: 12px;
+                padding: 20px;
+            }
+            .tile h3 {
+                font-size: 16px;
+                margin-bottom: 6px;
+            }
+            .tile p {
+                color: var(--dim);
+                font-size: 14.5px;
+            }
+            .tile .k {
+                display: inline-block;
+                font-family: "Geist Mono Variable", monospace;
+                font-size: 11.5px;
+                color: var(--accent);
+                background: var(--accent-soft);
+                border-radius: 5px;
+                padding: 2px 8px;
+                margin-bottom: 10px;
+            }
+            pre.block {
+                margin: 26px auto 0;
+                max-width: 560px;
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 18px 20px;
+                font-size: 13.5px;
+                line-height: 1.9;
+                overflow-x: auto;
+            }
+            pre.block b {
+                color: var(--accent);
+                font-weight: 500;
+            }
+            pre.block span {
+                color: var(--dim);
+            }
+            .foot {
+                border-top: 1px solid var(--line);
+                padding: 28px 0;
+                display: flex;
+                gap: 18px;
+                align-items: center;
+                justify-content: center;
+                color: var(--dim);
+                font-size: 13.5px;
+                flex-wrap: wrap;
+            }
+            .foot a {
+                color: var(--dim);
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="wrap nav">
+                <a class="brand" href="/">
+                    <svg viewBox="0 0 96 96" fill="none" aria-hidden="true">
+                        <rect x="10" y="10" width="76" height="76" rx="22" stroke="#3149D4" stroke-width="8" />
+                        <line x1="30" y1="36" x2="66" y2="36" stroke="#3149D4" stroke-width="8" stroke-linecap="round" />
+                        <line x1="42" y1="48" x2="66" y2="48" stroke="#3149D4" stroke-width="8" stroke-linecap="round" />
+                        <line x1="30" y1="60" x2="66" y2="60" stroke="#3149D4" stroke-width="8" stroke-linecap="round" />
+                    </svg>
+                    Workfile
+                </a>
+                <a href="https://workfiledemo.illodev.com">Demo</a>
+                <a href="https://github.com/illodev/workfile/tree/main/docs">Docs</a>
+                <a href="https://www.npmjs.com/package/@illodev/workfile">npm</a>
+                <a href="https://github.com/illodev/workfile">GitHub</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="wrap hero">
+                <h1>The repository<br />is <em>the database</em>.</h1>
+                <p class="sub">
+                    Work, Docs, History and durable Memory as versioned Markdown —
+                    for humans and AI agents working in the same codebase. No SaaS,
+                    no lock-in, nothing your repository doesn't already have.
+                </p>
+                <div class="install">
+                    <code id="cmd">npx @illodev/workfile init</code>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy',1200)})">
+                        Copy
+                    </button>
+                </div>
+                <div class="cta">
+                    <a class="primary" href="https://workfiledemo.illodev.com">Try the live demo</a>
+                    <a href="https://github.com/illodev/workfile">Star on GitHub</a>
+                </div>
+                <div class="shot">
+                    <img
+                        src="./assets/flow.png"
+                        alt="The Workfile Flow board: execution columns with an agent claim active on the card being worked on"
+                        loading="eager"
+                    />
+                </div>
+            </div>
+
+            <section>
+                <div class="wrap">
+                    <h2>Four domains, one protocol</h2>
+                    <p class="lead">
+                        Every record is a Markdown file with frontmatter, validated and
+                        indexed. The CLI, the local UI, the HTTP API and the MCP server
+                        all speak through the same core.
+                    </p>
+                    <div class="grid">
+                        <div class="tile">
+                            <span class="k">.project/cards</span>
+                            <h3>Work</h3>
+                            <p>Cards with states, priorities, dependencies, epics and a Gantt — plus claims that say who is on it and over which paths.</p>
+                        </div>
+                        <div class="tile">
+                            <span class="k">docs/</span>
+                            <h3>Docs</h3>
+                            <p>Managed or merely indexed documentation, with backlinks, freshness warnings and broken-link diagnosis.</p>
+                        </div>
+                        <div class="tile">
+                            <span class="k">.project/changelog</span>
+                            <h3>History</h3>
+                            <p>Structured change fragments that cut into releases and render your public CHANGELOG.md.</p>
+                        </div>
+                        <div class="tile">
+                            <span class="k">.project/memory</span>
+                            <h3>Memory</h3>
+                            <p>Decisions, learnings, incidents and expiring context — the knowledge that otherwise dies in chat threads.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="alt">
+                <div class="wrap">
+                    <h2>Built for agents, honest for humans</h2>
+                    <p class="lead">
+                        An agent that discovers context, claims its scope, records what
+                        it learned and ships a changelog fragment — because the protocol
+                        makes that the path of least resistance.
+                    </p>
+                    <div class="grid">
+                        <div class="tile">
+                            <span class="k">30 tools</span>
+                            <h3>MCP server</h3>
+                            <p>Local, dependency-free, stdio. Search, bounded context, mutations with revisions — read-only mode included.</p>
+                        </div>
+                        <div class="tile">
+                            <span class="k">claims</span>
+                            <h3>Executable guard rails</h3>
+                            <p>Claims live in frontmatter. Hooks turn them into a real barrier: editing another actor's scope asks first.</p>
+                        </div>
+                        <div class="tile">
+                            <span class="k">AGENTS.md</span>
+                            <h3>Generated instructions</h3>
+                            <p>One canonical protocol, synchronized for Claude Code, Cursor and Copilot — never hand-drifted.</p>
+                        </div>
+                    </div>
+                    <pre class="block"><span># Claude Code</span>
+<b>/plugin</b> marketplace add illodev/workfile
+<b>/plugin</b> install workfile@illodev</pre>
+                </div>
+            </section>
+
+            <section>
+                <div class="wrap">
+                    <h2>From zero to protocol in one command</h2>
+                    <pre class="block"><span># scaffold .project/, agent instructions and CI</span>
+<b>npx</b> @illodev/workfile init
+
+<span># the local board over your Markdown</span>
+<b>workfile</b> ui
+
+<span># everything an agent needs to start</span>
+<b>workfile</b> agents context --card T-0001</pre>
+                    <div class="shot">
+                        <img
+                            src="./assets/history.png"
+                            alt="History view: change fragments, the derived changelog and release preparation"
+                            loading="lazy"
+                        />
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="foot">
+            <span>MIT © illodev</span>
+            <a href="https://github.com/illodev/workfile">GitHub</a>
+            <a href="https://www.npmjs.com/package/@illodev/workfile">npm</a>
+            <a href="https://workfiledemo.illodev.com">Demo</a>
+            <a href="https://github.com/illodev/workfile/tree/main/docs">Docs</a>
+        </footer>
+    </body>
+</html>
