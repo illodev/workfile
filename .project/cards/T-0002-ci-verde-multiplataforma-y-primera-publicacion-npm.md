@@ -1,6 +1,6 @@
 ---
 id: T-0002
-title: CI verde multiplataforma y primera publicación npm 0.1.0
+title: Cross-platform CI green and first npm release 0.1.0
 status: done
 type: task
 priority: high

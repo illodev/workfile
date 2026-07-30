@@ -1,6 +1,6 @@
 ---
 id: CHG-0001
-title: El watcher sobrevive rutas cortas 8.3 de Windows y procesos ociosos en macOS
+title: The watcher survives Windows 8.3 short paths and idle macOS processes
 type: fixed
 area: core
 visibility: public

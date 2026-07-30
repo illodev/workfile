@@ -1,6 +1,6 @@
 ---
 id: CHG-0002
-title: release de un claim conserva el estado de la card; solo doing vuelve a next
+title: Releasing a claim keeps the card status; only doing returns to next
 type: fixed
 area: core
 visibility: public

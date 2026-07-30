@@ -1,6 +1,6 @@
 ---
 id: T-0005
-title: Documentar el plugin de Claude Code y corregir el inventario MCP (30 tools)
+title: Document the Claude Code plugin and fix the MCP inventory (30 tools)
 status: done
 type: task
 priority: medium

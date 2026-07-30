@@ -1,6 +1,6 @@
 ---
 id: CHG-0004
-title: "Un scope escalar ya no revienta el board: las claves de lista se normalizan en toda mutación"
+title: "A scalar scope no longer crashes the board: list keys normalize in every mutation"
 type: fixed
 area: ui
 visibility: public

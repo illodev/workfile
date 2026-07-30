@@ -1,6 +1,6 @@
 ---
 id: T-0004
-title: card release degrada una card done a next salvo que se pase --status
+title: card release demotes a done card to next unless --status is passed
 status: done
 type: bug
 priority: medium

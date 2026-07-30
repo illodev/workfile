@@ -1,11 +1,8 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { buildBenchWorkspace } from "./bench-workspace.mjs";
+import { buildScreenshotWorkspace } from "./screenshot-workspace.mjs";
 import {
-    claimCard,
-    loadCards,
     loadWorkspace,
     recordAgentSignal,
     startProjectServer
@@ -49,38 +46,16 @@ try {
 }
 
 const root = fileURLToPath(new URL("../artifacts/screenshot-workspace/", import.meta.url));
-await buildBenchWorkspace(root, "M");
+// The curated corpus already carries its claims; the session signal is what
+// upgrades agent:claude's claim from "held" to visibly live in the frame.
+const { signalCardId, inspectCardId } = await buildScreenshotWorkspace(root);
 const workspace = await loadWorkspace({ root });
-
-// The bench corpus is deterministic but lifeless: nothing is ever claimed, so
-// the one thing that distinguishes this board from a generic kanban — visible
-// agent presence — never made it into a picture. Stage exactly one: an agent
-// holding the newest `doing` card, with a session signal so the claim reads
-// as live work rather than a stale flag.
-const staged = (await loadCards(workspace)).cards
-    .filter((card) => card.status === "doing")
-    .sort((a, b) => b.id.localeCompare(a.id))[0];
-await claimCard(workspace, staged.id, {
-    actor: "agent:claude",
-    scope: ["src/core"]
-});
 await recordAgentSignal(workspace, {
     sessionId: "session-staged",
     actor: "agent:claude",
-    cardId: staged.id,
-    files: ["src/core/watcher.ts"]
+    cardId: signalCardId,
+    files: ["src/modules/records/index.ts"]
 });
-// The claim stamped `updated` with today, which re-sorts the card out of the
-// frame the screenshot wants it in. This is staging of a synthetic corpus,
-// not a real mutation: put the original date back by hand.
-const stagedPath = join(root, ".project/cards", staged.file);
-await writeFile(
-    stagedPath,
-    (await readFile(stagedPath, "utf8")).replace(
-        /^updated: .*$/m,
-        `updated: ${staged.updated}`
-    )
-);
 
 const server = await startProjectServer(workspace, { port: 0 });
 
@@ -108,7 +83,7 @@ try {
             // the staged card so claim, scope and metadata are in frame.
             if (view === "explorer") {
                 await page
-                    .getByText(staged.id, { exact: true })
+                    .getByText(signalCardId, { exact: true })
                     .first()
                     .click()
                     .catch(() => undefined);

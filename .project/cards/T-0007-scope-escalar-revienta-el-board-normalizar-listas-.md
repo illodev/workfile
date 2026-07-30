@@ -1,6 +1,6 @@
 ---
 id: T-0007
-title: "Scope escalar revienta el board: normalizar listas en mutaciones y demo"
+title: "A scalar scope crashes the board: normalize list keys in mutations and demo"
 status: done
 type: bug
 priority: high

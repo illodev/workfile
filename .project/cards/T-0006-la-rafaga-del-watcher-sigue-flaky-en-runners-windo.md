@@ -1,6 +1,6 @@
 ---
 id: T-0006
-title: La rafaga del watcher sigue flaky en runners Windows con quiet period de 250ms
+title: Watcher burst still flaky on Windows runners with a 250 ms quiet period
 status: done
 type: bug
 priority: medium

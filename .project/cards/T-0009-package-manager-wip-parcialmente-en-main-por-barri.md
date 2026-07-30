@@ -1,6 +1,6 @@
 ---
 id: T-0009
-title: "package-manager: WIP parcialmente en main por barrido accidental (fba27ff)"
+title: "package-manager: WIP partially on main after an accidental sweep (fba27ff)"
 status: backlog
 type: task
 priority: high

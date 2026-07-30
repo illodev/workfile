@@ -1,6 +1,6 @@
 ---
 id: T-0003
-title: "Escenificar capturas del README: claim de agente activo y drawer abierto"
+title: "Stage README screenshots: active agent claim and open inspector"
 status: done
 type: task
 priority: low
