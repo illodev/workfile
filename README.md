@@ -405,6 +405,43 @@ Lexical search remains deterministic and local. Hosts may inject an optional sem
 provider programmatically; Workfile never selects a vendor or sends repository
 content over the network by itself.
 
+### First-party: local embeddings
+
+`@illodev/workfile-search-local` runs embeddings on-device (transformers.js,
+ONNX on CPU, `Xenova/multilingual-e5-small` quantized) — repository content
+never leaves the machine. Declare it in `project.config.mjs` with a **guarded
+import**, because the config must also load where the package cannot resolve
+(the generated CI job runs `npx` on a clean clone):
+
+```js
+export const integrations = await (async () => {
+    try {
+        const { localSearchIntegration } = await import(
+            "@illodev/workfile-search-local"
+        );
+        return [localSearchIntegration()];
+    } catch {
+        return []; // package absent: search stays lexical
+    }
+})();
+
+export default {
+    // …
+    search: { provider: "local-embeddings" }
+};
+```
+
+Know the cost model before wiring it: the **first** hybrid search embeds every
+uncached candidate record — minutes of sustained CPU on a few-thousand-record
+workspace, triggered by whichever surface searches first (CLI, board UI, or
+the MCP server an agent loads). The provider caps ONNX at half the cores by
+default, persists per batch so an interrupted pass resumes instead of
+restarting, and reports progress on stderr; sizing `search.maxProviderRecords`
+to your corpus makes every record eligible. Details and options in
+[`packages/search-local/README.md`](packages/search-local/README.md).
+
+### Bring your own
+
 ```js
 import {
     createSemanticSearchProvider,

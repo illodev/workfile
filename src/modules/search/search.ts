@@ -101,13 +101,39 @@ export async function searchProjectRecordsHybrid(
         lexical.records.map((record) => [record.id, Number(record.searchScore) || 0])
     );
     const maximumLexical = Math.max(0, ...lexicalScores.values());
-    const providerCandidates = candidates.slice(
-        0,
-        Math.max(1, Math.min(5000, Number(maxProviderRecords) || 500))
+    // The cap selects by RELEVANCE, not index order. A plain slice(0, N) sent
+    // the provider the first N records of the corpus regardless of the query —
+    // on a ~3,800-record workspace with the default cap, 87% of the corpus was
+    // silently invisible to the semantic layer, which defeats the one query it
+    // exists for. Lexical hits go first (the ranking is already computed);
+    // whatever cap room remains is filled with the rest in index order, so a
+    // cap at corpus size still means "everything".
+    const providerCap = Math.max(
+        1,
+        Math.min(5000, Number(maxProviderRecords) || 500)
     );
+    let providerCandidates = candidates;
+    if (candidates.length > providerCap) {
+        const byId = new Map(candidates.map((record) => [record.id, record]));
+        const picked: ProjectRecord[] = [];
+        const seen = new Set<string>();
+        for (const ranked of lexical.records) {
+            if (picked.length >= providerCap) break;
+            const record = byId.get(ranked.id);
+            if (record) {
+                picked.push(record);
+                seen.add(ranked.id);
+            }
+        }
+        for (const record of candidates) {
+            if (picked.length >= providerCap) break;
+            if (!seen.has(record.id)) picked.push(record);
+        }
+        providerCandidates = picked;
+    }
     const providerResult = await provider.search({
         query: String(query),
-        limit: Math.min(limit, maxProviderRecords),
+        limit: Math.min(limit, providerCap),
         records: providerCandidates.map((record) => ({
             id: record.id,
             kind: record.kind,

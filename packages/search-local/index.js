@@ -1,9 +1,34 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { availableParallelism, homedir } from "node:os";
 import { join } from "node:path";
 
 const DEFAULT_MODEL = "Xenova/multilingual-e5-small";
+
+/**
+ * Half the machine by default, never all of it. The first pass over a real
+ * workspace embeds thousands of records, and ONNX left to its own devices
+ * takes every core for however long that lasts — on one consumer machine it
+ * took the graphical session down. Search being slower is recoverable;
+ * a frozen desktop is not.
+ */
+const DEFAULT_THREADS = Math.max(
+    1,
+    Math.floor((availableParallelism?.() || 4) / 2)
+);
+
+/** Below this many missing records the pass is quick enough to stay silent. */
+const PROGRESS_THRESHOLD = 64;
+
+function defaultProgress({ done, total }) {
+    // stderr on purpose: stdout belongs to CLI results and, under MCP, to the
+    // JSON-RPC stream — a progress line there would corrupt the protocol.
+    process.stderr.write(
+        done === 0
+            ? `[workfile-search-local] embedding ${total} records (first pass; cached afterwards)\n`
+            : `[workfile-search-local] ${done}/${total}\n`
+    );
+}
 
 function contentHash(model, text) {
     return createHash("sha256").update(model).update("\n").update(text).digest("hex");
@@ -78,11 +103,17 @@ function createEmbeddingCache(cacheDir, model) {
     };
 }
 
-async function loadTransformersEmbedder(model, dtype) {
+async function loadTransformersEmbedder(model, dtype, numThreads) {
     const { pipeline } = await import("@huggingface/transformers");
     // Quantized by default: on CPU q8 is several times faster than fp32 and
     // the retrieval quality difference is noise at this scale.
-    const extractor = await pipeline("feature-extraction", model, { dtype });
+    const extractor = await pipeline("feature-extraction", model, {
+        dtype,
+        session_options: {
+            intraOpNumThreads: numThreads,
+            interOpNumThreads: 1
+        }
+    });
     return async (texts) => {
         const output = await extractor(texts, {
             pooling: "mean",
@@ -95,10 +126,21 @@ async function loadTransformersEmbedder(model, dtype) {
 /**
  * A Workfile integration whose semantic search runs entirely on-device.
  *
- * Declare it in `project.config.mjs`:
+ * Declare it in `project.config.mjs` with a GUARDED import — a bare
+ * `import ... from "@illodev/workfile-search-local"` resolves from the config
+ * file, so the config only loads with `node_modules` present, and the
+ * generated CI job runs `npx` on a clean clone:
  *
- *     import { localSearchIntegration } from "@illodev/workfile-search-local";
- *     export const integrations = [localSearchIntegration()];
+ *     export const integrations = await (async () => {
+ *         try {
+ *             const { localSearchIntegration } = await import(
+ *                 "@illodev/workfile-search-local"
+ *             );
+ *             return [localSearchIntegration()];
+ *         } catch {
+ *             return []; // package absent: search degrades to lexical
+ *         }
+ *     })();
  *
  * The model is downloaded once on first use (to the transformers.js cache) and
  * everything afterwards is offline. Repository content never leaves the
@@ -111,14 +153,20 @@ export function localSearchIntegration(options = {}) {
         dtype = "q8",
         cacheDir = join(homedir(), ".cache", "workfile", "embeddings"),
         passageChars = 2000,
-        embedder = null
+        embedder = null,
+        /** ONNX intra-op threads. Default: half the cores, never all. */
+        numThreads = DEFAULT_THREADS,
+        /** Records embedded per model call; the cache persists after each batch. */
+        batchSize = 32,
+        /** ({done, total}) => void. Default writes to stderr for large passes. */
+        onProgress = null
     } = options;
     const cache = createEmbeddingCache(cacheDir, model);
     let embedderPromise = null;
     const resolveEmbedder = () => {
         embedderPromise ||= embedder
             ? Promise.resolve(embedder)
-            : loadTransformersEmbedder(model, dtype);
+            : loadTransformersEmbedder(model, dtype, numThreads);
         return embedderPromise;
     };
 
@@ -143,15 +191,48 @@ export function localSearchIntegration(options = {}) {
                     if (!vectors[i]) missing.push(i);
                 }
                 if (missing.length) {
-                    const embedded = await embed(
-                        missing.map((i) =>
-                            passageText(records[i], passageChars)
-                        )
-                    );
-                    missing.forEach((recordIndex, embeddedIndex) => {
-                        vectors[recordIndex] = embedded[embeddedIndex];
-                        cache.set(keys[recordIndex], embedded[embeddedIndex]);
-                    });
+                    // Batched, persisted per batch, with a progress signal.
+                    // One giant embed() call had three failure modes at once:
+                    // nothing hit disk until the very end (a killed pass lost
+                    // every vector), nothing reported progress, and the event
+                    // loop starved for minutes. A workspace-sized first pass
+                    // must be interruptible and resumable, not a leap of faith.
+                    const chunk = Math.max(1, Math.floor(batchSize) || 32);
+                    const report =
+                        onProgress ||
+                        (missing.length >= PROGRESS_THRESHOLD
+                            ? defaultProgress
+                            : null);
+                    report?.({ done: 0, total: missing.length });
+                    for (
+                        let start = 0;
+                        start < missing.length;
+                        start += chunk
+                    ) {
+                        const slice = missing.slice(start, start + chunk);
+                        const embedded = await embed(
+                            slice.map((i) =>
+                                passageText(records[i], passageChars)
+                            )
+                        );
+                        slice.forEach((recordIndex, embeddedIndex) => {
+                            vectors[recordIndex] = embedded[embeddedIndex];
+                            cache.set(
+                                keys[recordIndex],
+                                embedded[embeddedIndex]
+                            );
+                        });
+                        await cache.persist();
+                        report?.({
+                            done: Math.min(
+                                start + chunk,
+                                missing.length
+                            ),
+                            total: missing.length
+                        });
+                        // Let timers, signals and the host breathe between batches.
+                        await new Promise((resolve) => setImmediate(resolve));
+                    }
                 }
                 const [queryVector] = await embed([`query: ${text}`]);
 

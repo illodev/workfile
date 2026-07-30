@@ -103,11 +103,19 @@ export default {
 // makes `workfile search`, the HTTP API, the UI and MCP rank hybrid results.
 //
 // The first-party provider runs embeddings on-device — repository content
-// never leaves the machine:
+// never leaves the machine. Guard the import for the same reason this file is
+// a plain object: the config must load where the package cannot resolve.
 //
-// import { localSearchIntegration } from "@illodev/workfile-search-local";
-//
-// export const integrations = [localSearchIntegration()];
+// export const integrations = await (async () => {
+//     try {
+//         const { localSearchIntegration } = await import(
+//             "@illodev/workfile-search-local"
+//         );
+//         return [localSearchIntegration()];
+//     } catch {
+//         return []; // package absent: search stays lexical
+//     }
+// })();
 // // …and set search.provider above to "local-embeddings".
 //
 // Or bring your own:

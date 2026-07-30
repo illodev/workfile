@@ -41,6 +41,54 @@ test("hybrid search accepts an injected semantic provider without network coupli
     assert.ok(received.records.every((record) => "body" in record));
 });
 
+// The provider cap used to slice(0, N) the corpus in index order, so a record
+// beyond position N was invisible to the semantic layer no matter how relevant
+// — on a real ~3,800-record workspace, 87% of the corpus. Candidates must be
+// chosen by lexical relevance first, index order only as filler.
+test("the provider cap keeps lexically relevant records, wherever they live", async () => {
+    const records = [];
+    for (let i = 0; i < 60; i += 1) {
+        records.push({
+            id: `T-${String(i).padStart(4, "0")}`,
+            kind: "card",
+            recordType: "card",
+            title: `Filler record number ${i}`,
+            path: `cards/filler-${i}.md`,
+            body: "Nothing relevant here.",
+            tags: []
+        });
+    }
+    // The only record matching the query sits far beyond the cap.
+    records[55].title = "Verifactu hash chain tiebreaker";
+    records[55].body = "Two registrations in the same second share a hash.";
+
+    let received = null;
+    const provider = createSemanticSearchProvider({
+        id: "cap-probe",
+        async search(input) {
+            received = input;
+            return [];
+        }
+    });
+    await searchProjectRecordsHybrid(records, "verifactu hash", {
+        provider,
+        maxProviderRecords: 10,
+        limit: 5
+    });
+    assert.equal(received.records.length, 10, "the cap itself still holds");
+    assert.ok(
+        received.records.some((record) => record.id === "T-0055"),
+        "the lexical hit beyond the cap reaches the provider"
+    );
+    // And with room to spare, everything goes.
+    await searchProjectRecordsHybrid(records, "verifactu hash", {
+        provider,
+        maxProviderRecords: 100,
+        limit: 5
+    });
+    assert.equal(received.records.length, 60);
+});
+
 test("hybrid search remains deterministic lexical search without a provider", async () => {
     const workspace = await loadWorkspace({ root: fixture });
     const index = await buildProjectIndex(workspace);

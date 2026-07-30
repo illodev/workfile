@@ -118,6 +118,88 @@ test("an edited record re-embeds while untouched ones stay cached", async () => 
     }
 });
 
+// The first pass over a workspace embeds thousands of records. It used to be
+// one giant embed() call with a single persist at the very end — a killed
+// process lost every vector. Batches must land on disk as they complete.
+test("an interrupted pass keeps every completed batch on disk", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "workfile-embeddings-"));
+    try {
+        const corpus = Array.from({ length: 6 }, (_, i) => ({
+            id: `T-${i}`,
+            title: i < 4 ? `Fruit basket ${i}` : `Apple crate ${i}`,
+            body: "text"
+        }));
+        // Fails on the third passage batch: batches 1 and 2 (4 records)
+        // complete, records 5 and 6 never embed.
+        let passageBatches = 0;
+        const flaky = async (texts) => {
+            if (texts.some((text) => text.startsWith("passage:"))) {
+                passageBatches += 1;
+                if (passageBatches === 3) throw new Error("killed mid-pass");
+            }
+            return texts.map(() => [1, 0]);
+        };
+        const integration = localSearchIntegration({
+            embedder: flaky,
+            cacheDir,
+            batchSize: 2
+        });
+        await assert.rejects(
+            integration.semanticSearchProvider.search({
+                query: "fruit",
+                records: corpus
+            }),
+            /killed mid-pass/
+        );
+
+        // A fresh instance resumes: only the two lost records re-embed.
+        const resumed = fakeEmbedder();
+        const revived = localSearchIntegration({
+            embedder: resumed,
+            cacheDir,
+            batchSize: 2
+        });
+        await revived.semanticSearchProvider.search({
+            query: "fruit",
+            records: corpus
+        });
+        const passages = resumed.calls.filter((texts) =>
+            texts.some((text) => text.startsWith("passage:"))
+        );
+        assert.equal(
+            passages.flat().length,
+            2,
+            "only the records the interrupted pass lost are re-embedded"
+        );
+    } finally {
+        await rm(cacheDir, { recursive: true, force: true });
+    }
+});
+
+test("large passes report progress; small ones stay silent", async () => {
+    const seen = [];
+    const integration = localSearchIntegration({
+        embedder: fakeEmbedder(),
+        cacheDir: null,
+        batchSize: 2,
+        onProgress: (state) => seen.push({ ...state })
+    });
+    await integration.semanticSearchProvider.search({
+        query: "fruit",
+        records: Array.from({ length: 5 }, (_, i) => ({
+            id: `T-${i}`,
+            title: `Record ${i}`,
+            body: "text"
+        }))
+    });
+    assert.deepEqual(seen, [
+        { done: 0, total: 5 },
+        { done: 2, total: 5 },
+        { done: 4, total: 5 },
+        { done: 5, total: 5 }
+    ]);
+});
+
 test("plugs into the core registry and hybrid ranking end to end", async () => {
     const integration = defineProjectIntegration(
         localSearchIntegration({ embedder: fakeEmbedder(), cacheDir: null })

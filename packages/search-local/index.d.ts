@@ -18,6 +18,12 @@ export interface LocalSearchOptions {
     passageChars?: number;
     /** Injectable embedding function (tests, custom backends). Must return one L2-normalized vector per text. */
     embedder?: ((texts: string[]) => Promise<number[][]>) | null;
+    /** ONNX intra-op threads. Default: half the machine's cores, never all of them. */
+    numThreads?: number;
+    /** Records embedded per model call; the cache persists after each batch. Default 32. */
+    batchSize?: number;
+    /** Progress callback for embedding passes. Default writes to stderr when 64+ records are missing. */
+    onProgress?: ((state: { done: number; total: number }) => void) | null;
 }
 
 export interface LocalSearchIntegration {
