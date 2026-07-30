@@ -23,10 +23,18 @@ Workfile's development. Mutations work per browser session and reset on reload.
 
 ## Used by
 
-- **Fube** — in production.
-- **Workfile** — this repository runs on its own protocol: the cards, changelog
-  fragments and memory behind every release are the `.project/` you can browse
-  in the [live demo](https://workfiledemo.illodev.com).
+<table>
+  <tr>
+    <td align="center" width="260">
+      <img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/logos/fube.svg" alt="Fube" height="42"><br>
+      <sub>In production</sub>
+    </td>
+    <td align="center" width="260">
+      <img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/brand/logo.svg" alt="Workfile" height="42"><br>
+      <sub><b>Workfile</b> — dogfooding: every release is planned and recorded in this repo's own <a href="https://workfiledemo.illodev.com"><code>.project/</code></a></sub>
+    </td>
+  </tr>
+</table>
 
 ## Requirements
 

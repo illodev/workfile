@@ -1,7 +1,7 @@
 ---
 id: T-0008
 title: "Brand: used-by in README, logo, banner and landing"
-status: next
+status: done
 type: feature
 priority: medium
 area: docs
@@ -14,8 +14,12 @@ scope: [README.md, .github/media, site]
 - 2026-07-30 15:48Z claude-fable-e341b469 · claimed
 - 2026-07-30 16:01Z claude-fable-e341b469 · claimed
 - 2026-07-30 16:19Z claude-fable-e341b469 · released
+- 2026-07-30 16:41Z claude-fable-e341b469 · claimed
+- 2026-07-30 16:41Z claude-fable-e341b469 · doing → done
+- 2026-07-30 16:41Z claude-fable-e341b469 · released
 
 ## Notes
 
 - 2026-07-30 15:55Z claude-fable-e341b469 — Assets de marca en .github/media/brand (logo.svg vectorizado a mano, lockup, marks claro/oscuro, social 1280x640); cabecera del README con lockup y favicon SVG de la UI. Pendiente: logo de Fube, subir social preview en Settings, landing.
 - 2026-07-30 16:04Z claude-fable-e341b469 — Landing en site/ (estatica, tokens propios, claro/oscuro, OG completo) publicada; README y homepage del repo apuntan a los dominios illodev.com. Pendiente: proyecto Vercel para site/, social preview manual, logo de Fube.
+- 2026-07-30 16:41Z claude-fable-e341b469 — Landing live at workfile.illodev.com (user-verified; static vercel.json in site/). Used-by strip with Fube logo (single-color #E5644D, works on both themes) and the Workfile mark. Social banner refreshed to the cleaner generation, resized to 1280x640, feeding both the GitHub social preview and the landing og:image. Remaining single click: upload social.png in repo Settings.
