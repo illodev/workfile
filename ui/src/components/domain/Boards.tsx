@@ -189,7 +189,7 @@ function TaskTile({
                     </span>
                 ) : null}
             </span>
-            {task.scope?.length ? (
+            {Array.isArray(task.scope) && task.scope.length ? (
                 <span className="tile-note truncate">
                     scope {task.scope.join(" · ")}
                 </span>

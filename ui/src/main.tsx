@@ -549,7 +549,10 @@ function App() {
     );
     const scopeConflicts = useMemo(() => {
         const doing = tasks.filter(
-            (task) => task.status === "doing" && task.scope?.length
+            (task) =>
+                task.status === "doing" &&
+                Array.isArray(task.scope) &&
+                task.scope.length
         );
         const pairs: string[] = [];
         const overlaps = (left: string, right: string) => {

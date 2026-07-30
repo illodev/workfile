@@ -59,6 +59,19 @@ function matches(query: string, ...haystacks: Array<string | undefined>) {
     return haystacks.some((value) => value?.toLowerCase().includes(needle));
 }
 
+// Mirrors the server rule: list-typed keys accept the scalar a client may
+// send, because a string's `.length` passes every render guard and its
+// missing `.join` takes the whole view down.
+const LIST_KEYS = new Set(["tags", "depends", "scope", "related", "cards"]);
+
+function asList(value: unknown): string[] {
+    if (Array.isArray(value)) return value.map(String);
+    return String(value)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
 function applyChanges<T extends object>(
     target: T,
     changes: Record<string, unknown>
@@ -66,7 +79,7 @@ function applyChanges<T extends object>(
     const record = target as Record<string, unknown>;
     for (const [key, value] of Object.entries(changes)) {
         if (value == null) delete record[key];
-        else record[key] = value;
+        else record[key] = LIST_KEYS.has(key) ? asList(value) : value;
     }
     record.updated = today();
     record.revision = revision();
@@ -502,7 +515,7 @@ export const demoApi: ProjectApi = {
         ]) {
             const value = input[key];
             if (Array.isArray(value) ? value.length : value)
-                extra[key] = value;
+                extra[key] = LIST_KEYS.has(key) ? asList(value) : value;
         }
         state.tasks.tasks.push(task);
         return { id, file: task.file, revision: task.revision };

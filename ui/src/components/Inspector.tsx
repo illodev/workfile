@@ -332,7 +332,9 @@ function CardInspector({
         ...(task.due ? [{ label: "due", value: task.due }] : []),
         {
             label: "scope",
-            value: task.scope?.length ? task.scope.join(", ") : "—"
+            value: Array.isArray(task.scope) && task.scope.length
+                ? task.scope.join(", ")
+                : "—"
         },
         { label: "parent", value: task.parent || "—" },
         {

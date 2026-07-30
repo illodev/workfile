@@ -11,6 +11,7 @@ import {
     ConflictError,
     archiveCard,
     claimCard,
+    createCard,
     loadCards,
     loadWorkspace,
     patchCard,
@@ -113,5 +114,36 @@ test("archived cards reopen into the live directory", async () => {
         assert.equal(archived.card.archived, true);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+// A client sent `scope: "src/core"` where an array was meant. The written
+// scalar was survivable — the next read re-parses it as a list — but the
+// mutation's response handed the interface a string whose `.length` passed
+// the render guard and whose `.join` crashed the whole board (T-0007).
+test("list-typed card fields accept the scalar clients actually send", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Scalar lists",
+            area: "api",
+            scope: "src/core,ui",
+            tags: "one"
+        });
+        assert.deepEqual(created.card.scope, ["src/core", "ui"]);
+        assert.deepEqual(created.card.tags, ["one"]);
+
+        const patched = await patchCard(workspace, created.id, {
+            scope: "un/solo/path"
+        });
+        assert.deepEqual(patched.card.scope, ["un/solo/path"]);
+
+        const claimed = await claimCard(workspace, created.id, {
+            actor: "agent-a",
+            scope: "src/api"
+        });
+        assert.deepEqual(claimed.card.scope, ["src/api"]);
+    } finally {
+        await cleanup();
     }
 });

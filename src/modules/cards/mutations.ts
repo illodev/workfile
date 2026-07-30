@@ -109,6 +109,27 @@ function cardLockPath(workspace, id) {
     return join(workspace.paths.cache, "locks", "cards", `${id}.lock`);
 }
 
+/**
+ * List-typed keys accept the scalar clients actually send. An HTTP claim or
+ * patch has carried `scope: "src/core"` where an array was meant; the written
+ * scalar is survivable — the next read re-parses it as a list — but the
+ * mutation's own response would hand the UI a string whose `.length` passes
+ * every render guard and whose `.join` does not exist.
+ */
+function normalizeListValues(values) {
+    if (!values) return values;
+    const normalized = { ...values };
+    for (const key of CARD_LIST_KEYS) {
+        const value = normalized[key];
+        if (value == null || Array.isArray(value)) continue;
+        normalized[key] = String(value)
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+    return normalized;
+}
+
 async function mutateCard(
     workspace,
     id,
@@ -123,6 +144,7 @@ async function mutateCard(
     }: any = {}
 ) {
     ensureWritable(workspace);
+    changes = normalizeListValues(changes);
     return withFileLock(
         cardLockPath(workspace, id),
         async () => {
@@ -242,6 +264,7 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
     if (!input?.title?.trim()) {
         throw new ValidationError("CARD_TITLE_REQUIRED", "title is required.");
     }
+    input = normalizeListValues(input);
     const area = input.area || workspace.config.cards.areas[0];
     const timestamp = nowTimestamp(now);
     const date = timestamp.slice(0, 10);
