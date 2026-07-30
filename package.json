@@ -86,6 +86,7 @@
   },
   "scripts": {
     "clean": "node ./scripts/clean.mjs",
+    "version": "node ./scripts/sync-workspace-versions.mjs && git add packages/*/package.json",
     "build:core": "tsc -p tsconfig.json && node ./scripts/prepare-bin.mjs",
     "typecheck:api": "tsc -p test/types/tsconfig.json",
     "strict": "node ./scripts/strict-ratchet.mjs",

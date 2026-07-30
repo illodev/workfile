@@ -35,6 +35,8 @@ jobs:
                       echo "Tag v$TAG does not match package version $VERSION" >&2
                       exit 1
                   fi
+                  # Workspace packages ride the same version, always.
+                  node ./scripts/sync-workspace-versions.mjs --check
             # Build + typechecks + tests + audit + packaged-tarball smoke.
             - run: pnpm run check:release
             - name: Publish to npm
@@ -45,3 +47,8 @@ jobs:
                       *) DIST_TAG=latest ;;
                   esac
                   npm publish --tag "$DIST_TAG"
+                  # Workspace packages ship with the same version and tag.
+                  # Each needs this repo registered as its trusted publisher.
+                  for package in packages/*/; do
+                      (cd "$package" && npm publish --tag "$DIST_TAG")
+                  done

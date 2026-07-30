@@ -339,9 +339,12 @@ Releases publish from CI via npm [trusted publishing](https://docs.npmjs.com/tru
 
 1. Cut the changelog: `workfile changelog release <version>` and `workfile changelog render --write`.
 2. Bump and tag: `npm version <version>` then `git push && git push --tags`.
-3. The `Release` workflow verifies the tag matches `package.json`, runs
-   `check:release` (build, typechecks, tests, audit and a packaged-tarball smoke)
-   with pnpm, and publishes with the npm CLI — prereleases (`x.y.z-*`) under the
+   The version hook carries every `packages/*` package inside the same bump —
+   workspace packages always ship the core's version.
+3. The `Release` workflow verifies the tag matches `package.json` (and that no
+   workspace version drifted), runs `check:release` (build, typechecks, tests,
+   audit and a packaged-tarball smoke) with pnpm, and publishes the core and
+   every workspace package with the npm CLI — prereleases (`x.y.z-*`) under the
    `next` dist-tag, stable versions under `latest`.
 
 ## Agent Protocol
