@@ -13,11 +13,13 @@ import {
 /**
  * A scripted tour of the interface, recorded as video.
  *
- * Same curated corpus as the screenshots, driven by a staged pointer: video
- * recordings never capture the OS cursor, so one is injected into the page
- * and follows the real mouse events Playwright dispatches. Captions live in
- * the frame because the audience watches muted. The output is the source for
- * launch posts — regenerate it after a redesign the same way the stills are.
+ * Same curated corpus as the screenshots, staged like a product film: the app
+ * runs inside an injected browser-window frame over a gradient backdrop, a
+ * pointer follows the real mouse events Playwright dispatches (recordings
+ * never capture the OS cursor), and "camera" pushes are CSS transforms on the
+ * framed window — the presence bar with two live agent locks gets the
+ * closest shot. Captions live in the frame because launch-post audiences
+ * watch muted. Regenerate after a redesign the same way the stills are.
  */
 
 const exec = promisify(execFile);
@@ -45,45 +47,96 @@ await recordAgentSignal(workspace, {
 });
 const server = await startProjectServer(workspace, { port: 0 });
 
-// Installed via init script so an in-tour navigation cannot lose the pointer.
+// Installed via init script so an in-tour navigation cannot lose the stage.
 const overlay = () => {
     const install = () => {
-        if (document.getElementById("demo-cursor")) return;
+        if (document.getElementById("demo-stage")) return;
+        const app = document.getElementById("root");
+        if (!app) {
+            setTimeout(install, 30);
+            return;
+        }
+
+        // The stage: gradient backdrop, a browser-window chrome, and the app
+        // scaled into it. Fixed elements inside the app become relative to
+        // the transformed content box, which conveniently keeps the app's own
+        // overlays (the palette) inside the frame.
+        const K = 0.85;
+        const stage = document.createElement("div");
+        stage.id = "demo-stage";
+        stage.innerHTML =
+            '<div id="demo-window">' +
+            '<div id="demo-topbar">' +
+            '<span class="demo-dot" style="background:#FF5F57"></span>' +
+            '<span class="demo-dot" style="background:#FEBC2E"></span>' +
+            '<span class="demo-dot" style="background:#28C840"></span>' +
+            '<span id="demo-url">workfile.illodev.com</span>' +
+            "</div>" +
+            '<div id="demo-content"><div id="demo-scaler"></div></div>' +
+            "</div>";
+        const style = document.createElement("style");
+        style.textContent = `
+            #demo-stage { position: fixed; inset: 0; z-index: 2147483000;
+                display: flex; align-items: center; justify-content: center;
+                background: radial-gradient(1300px 850px at 68% 12%, #2a3161 0%, #14172a 55%, #0b0d17 100%); }
+            #demo-window { border-radius: 14px; overflow: hidden;
+                box-shadow: 0 40px 90px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.08);
+                transform-origin: 0 0;
+                transition: transform 950ms cubic-bezier(.45,0,.18,1); }
+            #demo-topbar { height: 38px; background: #E9EAEF; display: flex;
+                align-items: center; gap: 8px; padding: 0 14px; position: relative; }
+            .demo-dot { width: 12px; height: 12px; border-radius: 50%; }
+            #demo-url { position: absolute; left: 50%; transform: translateX(-50%);
+                background: #fff; color: #4a4d57; border-radius: 6px;
+                font: 500 12.5px/1 system-ui, sans-serif; padding: 6px 40px; }
+            #demo-content { width: ${1440 * K}px; height: ${900 * K}px; overflow: hidden; }
+            #demo-scaler { width: 1440px; height: 900px;
+                transform: scale(${K}); transform-origin: 0 0; }
+            @keyframes demo-pulse { from { transform: scale(.5); opacity: .9 }
+                to { transform: scale(2); opacity: 0 } }
+        `;
+        document.head.append(style);
+        document.body.append(stage);
+        stage.querySelector("#demo-scaler").append(app);
+
         const cursor = document.createElement("div");
         cursor.id = "demo-cursor";
         cursor.innerHTML =
-            '<svg width="22" height="22" viewBox="0 0 24 24">' +
-            '<path d="M4 2 L20 13 L13 14 L17 21.5 L14.2 23 L10.5 15.4 L4 20 Z" ' +
-            'fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+            '<svg width="26" height="26" viewBox="0 0 24 24">' +
+            '<path d="M6.6 2.6 L6.6 18.9 L10.6 15.3 L12.9 20.9 L15.9 19.6 L13.5 14.1 L18.7 13.7 Z" ' +
+            'fill="#101321" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
         Object.assign(cursor.style, {
             position: "fixed",
             left: "0px",
             top: "0px",
             zIndex: "2147483647",
             pointerEvents: "none",
-            filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))"
+            transition: "opacity 350ms ease, scale 120ms ease",
+            filter: "drop-shadow(0 2px 5px rgba(0,0,0,.5))"
         });
         const caption = document.createElement("div");
         caption.id = "demo-caption";
         Object.assign(caption.style, {
             position: "fixed",
             left: "50%",
-            bottom: "30px",
+            bottom: "26px",
             transform: "translateX(-50%)",
             zIndex: "2147483646",
             pointerEvents: "none",
-            background: "rgba(15,17,24,0.92)",
+            background: "rgba(16,19,33,0.9)",
+            border: "1px solid rgba(255,255,255,.14)",
             color: "#fff",
-            font: "500 17px/1.45 system-ui, -apple-system, sans-serif",
+            font: "500 17.5px/1.45 system-ui, -apple-system, sans-serif",
             letterSpacing: "-0.01em",
-            padding: "11px 20px",
-            borderRadius: "11px",
+            padding: "11px 22px",
+            borderRadius: "12px",
             opacity: "0",
             transition: "opacity 280ms ease",
-            maxWidth: "78%",
+            maxWidth: "76%",
             textAlign: "center"
         });
         document.body.append(cursor, caption);
+
         document.addEventListener(
             "mousemove",
             (event) => {
@@ -95,35 +148,56 @@ const overlay = () => {
         document.addEventListener(
             "mousedown",
             (event) => {
+                cursor.style.scale = "0.82";
                 const pulse = document.createElement("div");
                 Object.assign(pulse.style, {
                     position: "fixed",
-                    left: `${event.clientX - 14}px`,
-                    top: `${event.clientY - 14}px`,
-                    width: "28px",
-                    height: "28px",
+                    left: `${event.clientX - 15}px`,
+                    top: `${event.clientY - 15}px`,
+                    width: "30px",
+                    height: "30px",
                     borderRadius: "50%",
-                    border: "2.5px solid #3149D4",
+                    border: "3px solid #6f86ff",
                     zIndex: "2147483645",
                     pointerEvents: "none",
-                    animation: "demo-pulse 450ms ease-out forwards"
+                    animation: "demo-pulse 480ms ease-out forwards"
                 });
                 document.body.append(pulse);
-                setTimeout(() => pulse.remove(), 500);
+                setTimeout(() => pulse.remove(), 520);
             },
             true
         );
-        const style = document.createElement("style");
-        style.textContent =
-            "@keyframes demo-pulse { from { transform: scale(.5); opacity: .9 } " +
-            "to { transform: scale(1.9); opacity: 0 } }";
-        document.head.append(style);
+        document.addEventListener(
+            "mouseup",
+            () => {
+                cursor.style.scale = "1";
+            },
+            true
+        );
+
         window.__caption = (text) => {
             caption.style.opacity = "0";
             setTimeout(() => {
-                caption.textContent = text;
-                caption.style.opacity = "1";
+                if (text) {
+                    caption.textContent = text;
+                    caption.style.opacity = "1";
+                }
             }, 300);
+        };
+        window.__cursor = (visible) => {
+            cursor.style.opacity = visible ? "1" : "0";
+        };
+        // Camera: center (tx, ty) — screen coordinates at rest — at scale s.
+        const frame = stage.querySelector("#demo-window");
+        let rest = null;
+        window.__zoomTo = (tx, ty, s) => {
+            if (!rest) rest = frame.getBoundingClientRect();
+            const dx = innerWidth / 2 - rest.left - s * (tx - rest.left);
+            const dy = innerHeight / 2 - rest.top - s * (ty - rest.top);
+            frame.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+        };
+        window.__zoomOut = () => {
+            frame.style.transform = "";
         };
     };
     if (document.body) install();
@@ -142,11 +216,14 @@ const context = await browser.newContext({
 const page = await context.newPage();
 await page.addInitScript(overlay);
 
-async function glide(target, pause = 400) {
+async function center(target) {
     const box = await target.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
-        steps: 48
-    });
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+async function glide(target, pause = 350) {
+    const { x, y } = await center(target);
+    await page.mouse.move(x, y, { steps: 52 });
     await sleep(pause);
 }
 
@@ -160,70 +237,105 @@ async function caption(text, hold = 0) {
     if (hold) await sleep(hold);
 }
 
-const snap = (name) =>
-    page.screenshot({ path: `${outDir}${name}.png` });
+// A camera push: the pointer steps out of frame, the window drives in on the
+// target, the caption lands, and the shot pulls back before the next action.
+async function punchIn(point, scale, text, hold) {
+    await page.evaluate(() => window.__cursor(false));
+    await page.evaluate(
+        ({ x, y, s }) => window.__zoomTo(x, y, s),
+        { x: point.x, y: point.y, s: scale }
+    );
+    await sleep(1050);
+    if (text) await caption(text, hold);
+    await page.evaluate(() => {
+        window.__caption("");
+        window.__zoomOut();
+    });
+    await sleep(1050);
+    await page.evaluate(() => window.__cursor(true));
+}
+
+const snap = (name) => page.screenshot({ path: `${outDir}${name}.png` });
 
 try {
     const nav = page.locator('nav[aria-label="Primary"]');
 
-    // Flow: the board, two live claims in the presence bar.
+    // Open on the board.
     await page.goto(`${server.url}/?view=flow`, { waitUntil: "networkidle" });
     await sleep(900);
     await caption(
         "Work, docs, history and memory — versioned Markdown in your repo",
-        2800
+        2500
     );
-    await caption(
-        "Two agents are on this board right now — claims are part of the protocol",
-        500
-    );
-    await glide(page.getByText(signalCardId, { exact: true }).first(), 700);
+
+    // The essential shot: two agents holding scoped locks, live.
+    const presence = await center(page.getByText("agent:claude").last());
     await snap("scene1-flow");
+    await punchIn(
+        { x: presence.x + 210, y: presence.y - 80 },
+        2.2,
+        "Two agents are working right now — each holding a file-scope lock",
+        3000
+    );
+
+    // The claimed card, then its claim up close.
+    await glide(page.getByText(signalCardId, { exact: true }).first(), 500);
+    await click();
+    await sleep(950);
+    const claim = await center(page.getByText("claim", { exact: true }).first());
+    await snap("scene2-inspector");
+    await punchIn(
+        { x: claim.x + 90, y: claim.y + 30 },
+        2.1,
+        "An agent holds this card — explicit scope, live session",
+        2700
+    );
+
+    // Timeline, with a lighter push over the arcs.
+    await glide(nav.getByText("Timeline", { exact: true }), 300);
     await click();
     await sleep(1000);
-    await caption("An agent holds this card — with an explicit file scope", 2500);
-    await snap("scene2-inspector");
-
-    // Timeline: spans and dependency arcs.
-    await glide(nav.getByText("Timeline", { exact: true }), 350);
-    await click();
-    await sleep(1100);
-    await caption(
-        "Scheduled spans and dependencies, straight from frontmatter",
-        800
-    );
-    await page.mouse.move(980, 540, { steps: 70 });
-    await sleep(1600);
     await snap("scene3-timeline");
+    await punchIn(
+        { x: 760, y: 480 },
+        1.45,
+        "Scheduled spans and dependencies, straight from frontmatter",
+        2400
+    );
 
-    // History: fragments and the release button.
-    await glide(nav.getByText("History", { exact: true }), 350);
+    // History: fragments become releases.
+    await glide(nav.getByText("History", { exact: true }), 300);
     await click();
-    await sleep(1100);
-    await caption("Changes are typed fragments — releases cut themselves", 900);
-    await glide(page.getByText("Prepare release").first(), 1500);
+    await sleep(1000);
+    const release = await center(page.getByText("Prepare release").first());
     await snap("scene4-history");
+    await punchIn(
+        { x: release.x, y: release.y + 20 },
+        1.9,
+        "Changes are typed fragments — releases cut themselves",
+        2500
+    );
 
-    // Search: one grammar across every collection.
-    await glide(page.locator(".searchbtn"), 300);
+    // One search across every collection.
+    await glide(page.locator(".searchbtn"), 250);
     await click();
-    await caption("One search across everything", 350);
-    await page.keyboard.type("watcher", { delay: 135 });
-    await sleep(2000);
+    await caption("One search across everything", 300);
+    await page.keyboard.type("watcher", { delay: 120 });
+    await sleep(1700);
     await snap("scene5-search");
     await page.keyboard.press("Escape");
     await sleep(400);
 
-    // Close where it started, with the call to action.
-    await glide(nav.getByText("Flow", { exact: true }), 300);
+    // Close where it started, camera settling out.
+    await glide(nav.getByText("Flow", { exact: true }), 250);
     await click();
-    await sleep(900);
+    await sleep(800);
     await caption(
         "The repository is the database — npx @illodev/workfile init",
         3400
     );
     await snap("scene6-close");
-    await sleep(700);
+    await sleep(600);
 } finally {
     const video = page.video();
     await page.close();
