@@ -1,6 +1,6 @@
 {
   "name": "@illodev/workfile",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",
