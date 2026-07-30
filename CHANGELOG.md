@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.4 — 2026-07-30
+
+### Added
+
+- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)
+
+### Fixed
+
+- Syncing over nested-era files sweeps orphan managed markers (T-0025)
+
 ## 0.1.3 — 2026-07-30
 
 ### Fixed
