@@ -228,6 +228,52 @@ test("hooks make the claim executable without slowing the session", async () => 
     }
 });
 
+// The generated files are executed verbatim by a session, so the invocation
+// has to work in the repository that receives them. A bare `workfile` only
+// resolves from a global install; a repository that keeps the package as a
+// devDependency needs its manager's prefix, and which prefix that is comes
+// from the lockfile rather than from a guess.
+test("generated invocations carry the detected package manager", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-pm-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await writeFile(join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+
+        const workspace = await loadWorkspace({ root });
+        assert.equal(workspace.packageManager, "pnpm");
+        assert.equal(workspace.cli, "pnpm workfile");
+
+        await syncClaudeSurface(workspace);
+        const next = await readFile(
+            join(root, ".claude/commands/next.md"),
+            "utf8"
+        );
+        assert.match(next, /allowed-tools: Bash\(pnpm workfile card list \*\)/);
+        assert.match(next, /`pnpm workfile card list --unclaimed/);
+
+        // The skill teaches the same form, so the session is not told two
+        // different things depending on which file it happens to read.
+        const skill = await readFile(
+            join(root, ".claude/skills/workfile/SKILL.md"),
+            "utf8"
+        );
+        assert.match(skill, /`pnpm workfile card list --status doing`/);
+
+        // And a repository with no lockfile still gets something that runs.
+        const bare = await mkdtemp(join(tmpdir(), "workfile-pm-npm-"));
+        try {
+            await cp(fixture, bare, { recursive: true });
+            const fallback = await loadWorkspace({ root: bare });
+            assert.equal(fallback.packageManager, "npm");
+            assert.equal(fallback.cli, "npx workfile");
+        } finally {
+            await rm(bare, { recursive: true, force: true });
+        }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 // The plugin ships a second copy of the runtime and the commands. A copy is
 // exactly how two things start telling agents different stories, so the build
 // derives both from the same source and this asserts they still match — byte

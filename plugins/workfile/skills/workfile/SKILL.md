@@ -9,8 +9,8 @@ only supported way to change them.
 
 Read before writing:
 
-- `workfile card list --status doing` — what is already in flight.
-- `workfile agents context --card <id>` — the relevant slice, bounded.
+- `npx workfile card list --status doing` — what is already in flight.
+- `npx workfile agents context --card <id>` — the relevant slice, bounded.
 
 Never edit a file under `.project/` directly. The protocol takes a lock,
 checks a revision and validates the result; a raw write skips all three

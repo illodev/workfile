@@ -1,11 +1,11 @@
-<!-- workfile:begin kind=claude-command-context version=0.7.0-rc.4 digest=sha256:571709220a7229576e13ec15d2eddf88641002f0baad78d83ba21d0436d942aa -->
+<!-- workfile:begin kind=claude-command-context version=0.1.0 digest=sha256:1f6e0e751347297735f95bce3b0b72ccb6755b481cb8baca163d733799f93058 -->
 ---
 description: Load the protocol context for a card
 argument-hint: [T-0042]
-allowed-tools: Bash(workfile agents context *)
+allowed-tools: Bash(pnpm workfile agents context *)
 ---
 
-!`workfile agents context --card $1 --limit 20`
+!`pnpm workfile agents context --card $1 --limit 20`
 
 The bundle above is the relevant slice of the workspace: the card,
 its direct relations, active conventions, open incidents and

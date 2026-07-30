@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-skill version=0.7.0-rc.4 digest=sha256:c953e3a2b0cff14f5cc2f4fba418bcfba39048df4014b228efdccece2dd67933 -->
+<!-- workfile:begin kind=claude-skill version=0.1.0 digest=sha256:4f9eef658b8caee9dd843b0db71952a23314567d5bf8a71f975ac61dd5fd7ed2 -->
 ---
 name: workfile
 description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
@@ -10,8 +10,8 @@ only supported way to change them.
 
 Read before writing:
 
-- `workfile card list --status doing` — what is already in flight.
-- `workfile agents context --card <id>` — the relevant slice, bounded.
+- `pnpm workfile card list --status doing` — what is already in flight.
+- `pnpm workfile agents context --card <id>` — the relevant slice, bounded.
 
 Never edit a file under `.project/` directly. The protocol takes a lock,
 checks a revision and validates the result; a raw write skips all three
@@ -19,7 +19,7 @@ and silently corrupts the record for everyone else.
 
 ---
 
-<!-- workfile:begin kind=canonical-agent-protocol version=0.7.0-rc.4 digest=sha256:61354d4b0d9a178259c76612248717694d1f227429e8ea8bdfc0669d041f3e57 -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.1.0 digest=sha256:07fc2bdac33946b0ed6f9df340eba056669a026f16562837617898eee5297e63 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -78,5 +78,11 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 `workfile changelog add --title "Change" --type changed --area api`  
 `workfile memory add decision --title "Decision" --status accepted`  
 `workfile doctor`
+<!-- workfile:end -->
+<!-- workfile:end -->
+<!-- workfile:end -->
+<!-- workfile:end -->
+<!-- workfile:end -->
+<!-- workfile:end -->
 <!-- workfile:end -->
 <!-- workfile:end -->
