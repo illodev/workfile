@@ -706,3 +706,59 @@ test("--dry-run is refused where it is not implemented", async () => {
 
     assert.match(source, /assertDryRunSupported\(command\);/);
 });
+
+test("search is lexical by default and hybrid when the config declares a provider", async () => {
+    const lexical = JSON.parse(
+        (await run(["search", "example", "--root", fixture, "--json"])).stdout
+    );
+    assert.equal(lexical.mode, "lexical");
+
+    await assert.rejects(
+        run(["search", "example", "--root", fixture, "--mode", "hybrid"]),
+        (error) => error.stderr.includes("SEARCH_PROVIDER_UNAVAILABLE")
+    );
+
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-search-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await writeFile(
+            join(root, "project.config.mjs"),
+            `export default {
+    schemaVersion: 2,
+    name: "CLI search",
+    cards: { areas: ["api", "web", "infra", "docs"] }
+};
+
+export const integrations = [
+    {
+        id: "cli-search",
+        semanticSearchProvider: {
+            id: "cli-search",
+            async search({ records }) {
+                return records
+                    .filter((record) => record.id === "T-0002")
+                    .map((record) => ({ id: record.id, score: 1 }));
+            }
+        }
+    }
+];
+`
+        );
+        const hybrid = JSON.parse(
+            (
+                await run([
+                    "search",
+                    "semantic-only-query",
+                    "--root",
+                    root,
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(hybrid.mode, "hybrid");
+        assert.equal(hybrid.provider, "cli-search");
+        assert.equal(hybrid.records[0].id, "T-0002");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

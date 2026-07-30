@@ -8,7 +8,14 @@ import {
 import { ConfigError } from "../core/errors.js";
 import type { ProjectConfig } from "../types.js";
 
-function issue(code, path, message) {
+interface ConfigIssue {
+    severity: "error";
+    code: string;
+    path: string;
+    message: string;
+}
+
+function issue(code: string, path: string, message: string): ConfigIssue {
     return { severity: "error", code, path, message };
 }
 
@@ -22,7 +29,12 @@ function duplicateValues(values) {
     return [...duplicates];
 }
 
-function validateStringList(issues, values, path, { required = true }: any = {}) {
+function validateStringList(
+    issues: ConfigIssue[],
+    values,
+    path,
+    { required = true }: any = {}
+) {
     if (!Array.isArray(values)) {
         issues.push(issue("CONFIG_LIST_INVALID", path, `${path} must be an array`));
         return;
@@ -51,7 +63,7 @@ function validateStringList(issues, values, path, { required = true }: any = {})
     }
 }
 
-function validatePrefix(issues, value, path, code) {
+function validatePrefix(issues: ConfigIssue[], value, path, code) {
     if (!/^[A-Z][A-Z0-9]{0,7}$/.test(String(value || ""))) {
         issues.push(
             issue(
@@ -64,7 +76,7 @@ function validatePrefix(issues, value, path, code) {
 }
 
 export function validateProjectConfig(config: any) {
-    const issues = [];
+    const issues: ConfigIssue[] = [];
     if (config.schemaVersion !== SCHEMA_VERSION) {
         issues.push(
             issue(
@@ -412,6 +424,19 @@ export function validateProjectConfig(config: any) {
             issue("CONFIG_SEARCH_REQUIRED", "search", "search must be an object")
         );
     } else {
+        if (
+            config.search.provider !== null &&
+            (typeof config.search.provider !== "string" ||
+                !config.search.provider.trim())
+        ) {
+            issues.push(
+                issue(
+                    "CONFIG_SEARCH_PROVIDER_INVALID",
+                    "search.provider",
+                    "search.provider must be null or a non-empty integration id"
+                )
+            );
+        }
         if (
             !Number.isFinite(config.search.semanticWeight) ||
             config.search.semanticWeight < 0 ||

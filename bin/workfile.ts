@@ -20,6 +20,7 @@ import {
     claimCard,
     createCard,
     createChangeFragment,
+    createIntegrationRegistry,
     createManagedDocument,
     createMemoryRecord,
     createRelease,
@@ -49,6 +50,7 @@ import {
     reopenCard,
     runDoctor,
     searchProjectRecords,
+    searchProjectRecordsHybrid,
     startProjectServer,
     startMcpStdioServer,
     syncAgentInstructions,
@@ -140,7 +142,7 @@ const USAGE: Record<string, string[]> = {
         "workfile mcp config [--read-only] [--json]"
     ],
     search: [
-        "workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--json]"
+        "workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]"
     ]
 };
 
@@ -274,7 +276,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     claude: [],
     migrate: ["--source", "--mode"],
     mcp: [],
-    search: ["--kind", "--limit", "--query"]
+    search: ["--kind", "--limit", "--query", "--mode"]
 };
 
 /**
@@ -1387,10 +1389,34 @@ async function migrationCommand(workspace, action) {
 
 async function searchCommand(workspace) {
     const query = (subcommand() ?? "") || option("--query") || "";
+    const mode = option("--mode") || "auto";
+    if (!["auto", "lexical", "hybrid"].includes(mode)) {
+        throw new ValidationError(
+            "CLI_OPTION_INVALID",
+            `--mode must be auto, lexical or hybrid; got: ${mode}`
+        );
+    }
+    const provider =
+        mode === "lexical"
+            ? null
+            : createIntegrationRegistry(
+                  workspace.integrations || []
+              ).semanticSearchProvider(
+                  workspace.config.search.provider || undefined
+              );
+    if (mode === "hybrid" && !provider) {
+        throw new ValidationError(
+            "SEARCH_PROVIDER_UNAVAILABLE",
+            "No integration offers a semantic search provider. Declare one via `export const integrations = [...]` in project.config.mjs."
+        );
+    }
     const index = await buildProjectIndex(workspace);
-    const result = searchProjectRecords(index.records, query, {
+    const result = await searchProjectRecordsHybrid(index.records, query, {
+        provider,
         kinds: listOption("--kind") || [],
-        limit: Number(option("--limit") || 100)
+        limit: Number(option("--limit") || 100),
+        semanticWeight: workspace.config.search.semanticWeight,
+        maxProviderRecords: workspace.config.search.maxProviderRecords
     });
     if (has("--json")) return print(result);
     for (const record of result.records) {

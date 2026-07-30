@@ -80,7 +80,30 @@ export default defineProject({
         resourcePageSize: 100
     },
     search: {
+        // Preferred integration id for semantic search; null picks the first
+        // declared integration that offers one.
+        provider: null,
         semanticWeight: 0.35,
         maxProviderRecords: 500
     }
 });
+
+// Integrations are declared as a named export because they can carry
+// functions, which do not survive the config merge. Each entry is a
+// `defineProjectIntegration`-compatible object; a semantic search provider
+// makes `workfile search`, the HTTP API, the UI and MCP rank hybrid results.
+//
+// import { createSemanticSearchProvider } from "@illodev/workfile";
+//
+// export const integrations = [
+//     {
+//         id: "my-embeddings",
+//         title: "My embeddings provider",
+//         semanticSearchProvider: createSemanticSearchProvider({
+//             id: "my-embeddings",
+//             async search({ query, records }) {
+//                 return records.map(({ id }) => ({ id, score: 0 }));
+//             }
+//         })
+//     }
+// ];

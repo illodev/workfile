@@ -113,6 +113,8 @@ export interface ProjectMcpConfig {
 }
 
 export interface ProjectSearchConfig {
+    /** Preferred integration id for semantic search; null uses the first one that offers it. */
+    provider: string | null;
     semanticWeight: number;
     maxProviderRecords: number;
 }
@@ -229,6 +231,12 @@ export interface ProjectWorkspace {
     packageManager: string;
     /** The command prefix generated instructions use, e.g. `pnpm workfile`. */
     cli: string;
+    /**
+     * Integrations declared by the config module's named `integrations` export.
+     * A named export because `defineProject` deep-clones the default export,
+     * and functions do not survive `structuredClone`.
+     */
+    integrations: readonly ProjectIntegration[];
 }
 
 export interface ProjectDiagnostic {

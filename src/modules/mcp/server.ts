@@ -246,7 +246,9 @@ export function inspectMcpServer(workspace, options: any = {}) {
     const tools = inspectMcpTools();
     const integrationRegistry =
         options.integrationRegistry ||
-        createIntegrationRegistry(options.integrations || []);
+        createIntegrationRegistry(
+            options.integrations || workspace.integrations || []
+        );
     return {
         protocolVersion: MCP_PROTOCOL_VERSION,
         legacyProtocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
@@ -275,7 +277,10 @@ export function inspectMcpServer(workspace, options: any = {}) {
         ],
         prompts: listMcpPrompts().prompts.map((prompt) => prompt.name),
         semanticSearch: Boolean(
-            options.searchProvider || integrationRegistry.semanticSearchProvider()
+            options.searchProvider ||
+                integrationRegistry.semanticSearchProvider(
+                    workspace.config.search.provider || undefined
+                )
         ),
         integrations: integrationRegistry.list()
     };
@@ -284,7 +289,9 @@ export function inspectMcpServer(workspace, options: any = {}) {
 export function createMcpProtocolServer(workspace, options: any = {}) {
     const integrationRegistry =
         options.integrationRegistry ||
-        createIntegrationRegistry(options.integrations || []);
+        createIntegrationRegistry(
+            options.integrations || workspace.integrations || []
+        );
     const state = {
         initialized: false,
         clientInitialized: false,
@@ -296,7 +303,10 @@ export function createMcpProtocolServer(workspace, options: any = {}) {
         workspace,
         readOnly: Boolean(options.readOnly || workspace.readOnly),
         searchProvider:
-            options.searchProvider || integrationRegistry.semanticSearchProvider(),
+            options.searchProvider ||
+            integrationRegistry.semanticSearchProvider(
+                workspace.config.search.provider || undefined
+            ),
         integrationRegistry,
         // Filled in when a client identifies itself, so mutations can be
         // attributed without the caller inventing an actor name.

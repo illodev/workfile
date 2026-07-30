@@ -203,6 +203,7 @@ export const DEFAULT_CONFIG = Object.freeze({
         maxToolResultBytes: 512 * 1024
     },
     search: {
+        provider: null,
         semanticWeight: 0.35,
         maxProviderRecords: 500
     },

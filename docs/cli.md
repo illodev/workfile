@@ -24,8 +24,17 @@ workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache]
 workfile ui [--host HOST] [--port PORT]
-workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--json]
+workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
+
+`search` is lexical by default and becomes hybrid automatically when
+`project.config.mjs` declares an integration with a semantic search provider
+(`export const integrations = [...]`; `search.provider` selects one by id when
+several are declared). `--mode lexical` opts out for a run; `--mode hybrid`
+fails with `SEARCH_PROVIDER_UNAVAILABLE` instead of silently degrading when no
+provider is available. `--json` reports which mode actually ran. Workfile never
+sends repository content to a network service by itself — a provider only runs
+if the repository explicitly declares it.
 
 ### Query grammar
 

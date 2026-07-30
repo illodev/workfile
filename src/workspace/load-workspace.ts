@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { defineProject } from "../config/define-project.js";
+import { defineProjectIntegration } from "../modules/integrations/registry.js";
 import { ConfigError } from "../core/errors.js";
 import { containedPath } from "../core/paths.js";
 import {
@@ -121,6 +122,7 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
             resourcePageSize: config.mcp.resourcePageSize
         },
         search: {
+            provider: config.search.provider,
             semanticWeight: config.search.semanticWeight,
             maxProviderRecords: config.search.maxProviderRecords
         },
@@ -168,12 +170,26 @@ export async function loadWorkspace(
         ? inside(root, options.configPath, "configPath")
         : resolve(root, "project.config.mjs");
     let raw: Record<string, unknown> = {};
+    let declaredIntegrations: unknown = [];
     if (await exists(configPath)) {
         const url = pathToFileURL(configPath);
         url.searchParams.set("project_protocol_reload", String(Date.now()));
         const module = await import(url.href);
         raw = module.default || {};
+        declaredIntegrations = module.integrations ?? [];
     }
+    if (!Array.isArray(declaredIntegrations)) {
+        throw new ConfigError(
+            "CONFIG_INTEGRATIONS_INVALID",
+            "The config module's `integrations` export must be an array of integration definitions.",
+            { configPath }
+        );
+    }
+    // Validated here so a typo fails on load with the config file named, not
+    // deep inside whichever surface first builds a registry.
+    const integrations = Object.freeze(
+        declaredIntegrations.map((candidate) => defineProjectIntegration(candidate))
+    );
     const config = defineProject(raw);
     const versionPath = resolve(root, config.storage.root, "VERSION");
     let version: any = null;
@@ -205,6 +221,7 @@ export async function loadWorkspace(
         schema: effectiveSchema(config),
         readOnly: Boolean(options.readOnly),
         packageManager,
-        cli: cliInvocation(packageManager)
+        cli: cliInvocation(packageManager),
+        integrations
     };
 }

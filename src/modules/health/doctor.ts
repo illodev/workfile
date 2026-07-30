@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { checkAgentInstructions } from "../agents/index.js";
 import { diagnoseCards } from "../cards/index.js";
 import { checkCiTemplates } from "../ci/index.js";
+import { createIntegrationRegistry } from "../integrations/registry.js";
 import { buildProjectIndex } from "../records/public.js";
 import { exists } from "../../core/fs-utils.js";
 import { lockIsStale } from "../../core/locks.js";
@@ -84,13 +85,30 @@ export async function runDoctor(workspace, options: any = {}) {
     if (workspace.config.ci.enabled && workspace.config.ci.targets.length) {
         reports.push(await checkCiTemplates(workspace));
     }
-    if (options.integrationRegistry) {
-        reports.push(
-            ...(await options.integrationRegistry.healthReports(workspace, index))
-        );
-    }
+    const integrationRegistry =
+        options.integrationRegistry ||
+        createIntegrationRegistry(workspace.integrations || []);
+    reports.push(...(await integrationRegistry.healthReports(workspace, index)));
 
     const issues = reports.flatMap((report) => report.issues);
+    if (
+        workspace.config.search.provider &&
+        !integrationRegistry.semanticSearchProvider(
+            workspace.config.search.provider
+        )
+    ) {
+        issues.push({
+            severity: "warning",
+            code: "search-provider-unresolved",
+            message: `search.provider is "${workspace.config.search.provider}", but no declared integration with that id offers semantic search. Search runs lexical-only.`,
+            details: {
+                provider: workspace.config.search.provider,
+                integrations: integrationRegistry
+                    .list()
+                    .map((integration) => integration.id)
+            }
+        });
+    }
     for (const duplicate of index.duplicates) {
         issues.push({
             severity: "error",

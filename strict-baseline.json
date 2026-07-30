@@ -1,6 +1,5 @@
 {
     "bin/workfile.ts": 18,
-    "src/config/validate-config.ts": 37,
     "src/core/frontmatter.ts": 28,
     "src/core/glob.ts": 3,
     "src/core/watcher.ts": 3,

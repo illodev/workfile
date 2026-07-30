@@ -143,9 +143,13 @@ GET  /api/v2/workspace
 GET  /api/v2/schema
 GET  /api/v2/health
 GET  /api/v2/records?q=&kind=&limit=&offset=
-GET  /api/v2/search?q=&kind=&limit=&offset=
+GET  /api/v2/search?q=&kind=&limit=&offset=&mode=
 GET  /api/v2/records/:id
 ```
+
+`/search` consults the semantic provider declared in `project.config.mjs`
+(when there is one) and returns `mode: "hybrid"` with per-record
+`semanticScore`; `?mode=lexical` opts out. `/records` is always lexical.
 
 ## Work
 
