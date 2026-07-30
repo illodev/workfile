@@ -19,7 +19,7 @@ is kept in the browser or in a database.
 repository's own workspace: the real cards, releases, incidents and learnings of
 Workfile's development. Mutations work per browser session and reset on reload.
 
-![The Flow board: execution columns with an agent claim active on the card being worked on](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/flow.png)
+[![Watch the 40-second tour: the Flow board with two live agent claims, the inspector, the timeline, typed history and unified search](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/demo-thumb.jpg)](https://workfile.illodev.com)
 
 ## Used by
 
