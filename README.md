@@ -114,12 +114,16 @@ project.config.mjs
 └── .cache/
 ```
 
-Minimal configuration:
+Minimal configuration — a plain object, not `defineProject(...)`. The loader
+applies `defineProject` itself, and an import here is a bare specifier the file
+can only resolve with `node_modules` present, which breaks the two consumers
+that run without one: a `pnpm dlx`-initialized workspace before the package is
+installed, and the generated CI job's `npx` run on a clean clone. The JSDoc
+annotation keeps editor typing without a runtime import:
 
 ```js
-import { defineProject } from "@illodev/workfile";
-
-export default defineProject({
+/** @type {import("@illodev/workfile").ProjectConfigInput} */
+export default {
     schemaVersion: 2,
     name: "My project",
     language: "es",
@@ -160,7 +164,7 @@ export default defineProject({
         semanticWeight: 0.35,
         maxProviderRecords: 500
     }
-});
+};
 ```
 
 Project-specific areas, paths and vocabularies are resolved at runtime and exposed through

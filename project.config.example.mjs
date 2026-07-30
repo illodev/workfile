@@ -1,6 +1,15 @@
-import { defineProject } from "@illodev/workfile";
+// A plain object on purpose, not `defineProject(...)`. That call would need
+// `import { defineProject } from "@illodev/workfile"` — a bare specifier Node
+// resolves from this file, so the config would only load with `node_modules`
+// present. Two consumers run without one: a workspace initialized via
+// `pnpm dlx` before the package is installed locally, and the generated CI
+// job, which runs `npx --yes @illodev/workfile@X doctor` on a clean clone.
+// The loader applies `defineProject` to whatever this file exports, so
+// wrapping here adds nothing but that boot-time dependency. The JSDoc
+// annotation keeps the typing: it is type-only, no runtime import.
 
-export default defineProject({
+/** @type {import("@illodev/workfile").ProjectConfigInput} */
+export default {
     schemaVersion: 2,
     name: "Example project",
     language: "es",
@@ -86,7 +95,7 @@ export default defineProject({
         semanticWeight: 0.35,
         maxProviderRecords: 500
     }
-});
+};
 
 // Integrations are declared as a named export because they can carry
 // functions, which do not survive the config merge. Each entry is a
