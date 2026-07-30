@@ -38,7 +38,7 @@ sends repository content to a network service by itself — a provider only runs
 if the repository explicitly declares it.
 
 The first-party provider is
-[`@illodev/workfile-search-local`](../packages/search-local/README.md):
+[`@illodev/workfile-search-local`](https://github.com/illodev/workfile/tree/main/packages/search-local#readme):
 on-device embeddings via transformers.js, cached by content hash, fully
 offline after the first model download.
 

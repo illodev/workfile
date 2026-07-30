@@ -148,7 +148,12 @@ repository data to an external service unless the user explicitly configures an 
 
 ### 6.1 Initial packaging decision
 
-Version 2 SHOULD ship as one npm package with strong internal module boundaries:
+The repository is a pnpm workspace with a private root; the published surface
+is one core npm package plus optional provider packages (for example
+`@illodev/workfile-search-local`) released in version lockstep with it.
+Repository layout and npm packaging are independent decisions — the core
+SHOULD keep shipping as one npm package with strong internal module
+boundaries:
 
 ```text
 @illodev/workfile
@@ -166,13 +171,15 @@ Version 2 SHOULD ship as one npm package with strong internal module boundaries:
 └── migrations/          # schema and legacy migrations
 ```
 
-Reasons for a single initial package:
+Reasons for a single core package:
 
 - installation and version alignment remain simple;
 - the existing implementation is already one vertical application;
 - UI, server and core can evolve atomically while contracts stabilize;
-- publishing multiple packages would create release and compatibility overhead before
-  independent consumers exist.
+- splitting the core would create release and compatibility overhead before
+  independent consumers exist. Provider packages are the exception, not a
+  split: they carry heavy optional dependencies (an inference runtime) that
+  must never reach consumers who did not opt in.
 
 The source code MUST still enforce boundaries that allow later extraction.
 

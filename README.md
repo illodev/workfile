@@ -327,8 +327,8 @@ reload. The repository includes a `vercel.json`, so importing it into Vercel dep
 demo with zero configuration.
 
 ```bash
-pnpm run demo:data   # reseed and resnapshot ui/src/demo-data.json (needs build:core)
-pnpm run build:demo  # static demo build into dist/ui
+pnpm run demo:data   # reseed and resnapshot packages/workfile/ui/src/demo-data.json
+pnpm run build:demo  # static demo build into packages/workfile/dist/demo
 ```
 
 Regular builds tree-shake the demo layer and snapshot out of the bundle.
@@ -397,7 +397,7 @@ committed to the repository:
 ```
 
 The full contract — tool inventory, resources, prompts, process hygiene and the
-plugin's surface — is documented in [`docs/mcp.md`](docs/mcp.md).
+plugin's surface — is documented in [`docs/mcp.md`](packages/workfile/docs/mcp.md).
 
 ## Search integrations
 
@@ -533,7 +533,7 @@ workfile ui
 Commands return stable machine-readable errors with `--json`. A stale revision exits with
 code `3`; configuration errors exit with code `2`; validation and not-found errors exit
 with code `1`. The complete command surface is documented in
-[`docs/cli.md`](docs/cli.md).
+[`docs/cli.md`](packages/workfile/docs/cli.md).
 
 ## HTTP API
 
@@ -541,7 +541,7 @@ with code `1`. The complete command surface is documented in
 `/api/v2/*` surface covers the workspace, unified search, and every collection — cards,
 docs, changelog (including release preview/assembly/render), memory lifecycle, agents and
 CI sync. Managed record reads expose an `ETag`, writes accept `If-Match`, and errors use
-stable codes. The endpoint reference lives in [`docs/http-api.md`](docs/http-api.md).
+stable codes. The endpoint reference lives in [`docs/http-api.md`](packages/workfile/docs/http-api.md).
 
 ## Local UI
 
@@ -569,17 +569,21 @@ server provides a `repoUrl` (as the hosted demo does).
 
 ## Development
 
-The repository is developed with [pnpm](https://pnpm.io) (pinned via the
-`packageManager` field; `corepack enable` picks it up automatically):
+The repository is a pnpm workspace: the root is a private shell that holds the
+version and delegator scripts, while everything published lives under
+`packages/` — the core in [`packages/workfile`](packages/workfile), providers
+like [`packages/search-local`](packages/search-local) beside it, all shipping
+in version lockstep. pnpm is pinned via the `packageManager` field
+(`corepack enable` picks it up automatically):
 
 ```bash
 pnpm install
 pnpm run check
 pnpm run smoke:package
-node ./dist/bin/workfile.js mcp inspect --root ./test/fixtures/workspace --json
-node ./dist/bin/workfile.js schema --root ./test/fixtures/workspace --json
-node ./dist/bin/workfile.js doctor --root ./test/fixtures/workspace --json
-node ./dist/bin/workfile.js ui --root ./test/fixtures/workspace
+node ./packages/workfile/dist/bin/workfile.js mcp inspect --root ./packages/workfile/test/fixtures/workspace --json
+node ./packages/workfile/dist/bin/workfile.js schema --root ./packages/workfile/test/fixtures/workspace --json
+node ./packages/workfile/dist/bin/workfile.js doctor --root ./packages/workfile/test/fixtures/workspace --json
+node ./packages/workfile/dist/bin/workfile.js ui --root ./packages/workfile/test/fixtures/workspace
 ```
 
 `pnpm run check` compiles the TypeScript runtime and declarations, checks the strict public
@@ -610,14 +614,14 @@ source tree.
 
 ## Documents
 
-- [`docs/getting-started.md`](docs/getting-started.md) — install, initialize and the
+- [`docs/getting-started.md`](packages/workfile/docs/getting-started.md) — install, initialize and the
   daily loop.
-- [`docs/cli.md`](docs/cli.md) — complete CLI reference for every module.
-- [`docs/http-api.md`](docs/http-api.md) — endpoint reference, conventions and errors.
-- [`docs/mcp.md`](docs/mcp.md) — MCP server contract: tools, resources, prompts.
-- [`docs/security.md`](docs/security.md) — threat model of the local server,
+- [`docs/cli.md`](packages/workfile/docs/cli.md) — complete CLI reference for every module.
+- [`docs/http-api.md`](packages/workfile/docs/http-api.md) — endpoint reference, conventions and errors.
+- [`docs/mcp.md`](packages/workfile/docs/mcp.md) — MCP server contract: tools, resources, prompts.
+- [`docs/security.md`](packages/workfile/docs/security.md) — threat model of the local server,
   request guard, asset handling and what is deliberately out of scope.
-- [`docs/ui.md`](docs/ui.md) — the interface: its build, the zero-dependency
+- [`docs/ui.md`](packages/workfile/docs/ui.md) — the interface: its build, the zero-dependency
   guarantee and how the shadcn migration coexists with the design system.
-- [`docs/SPEC.md`](docs/SPEC.md) — the normative protocol specification: data model,
+- [`docs/SPEC.md`](packages/workfile/docs/SPEC.md) — the normative protocol specification: data model,
   record contracts, revision semantics and the MCP integration contract.

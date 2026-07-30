@@ -5,7 +5,11 @@ export default {
         areas: ["core", "ui", "docs", "infra", "mcp", "search"]
     },
     docs: {
-        sources: ["README.md", "docs/**/*.md"],
+        sources: [
+            "README.md",
+            "packages/workfile/docs/**/*.md",
+            "packages/*/README.md"
+        ],
         reviewIntervalDays: 90
     },
     changelog: {
