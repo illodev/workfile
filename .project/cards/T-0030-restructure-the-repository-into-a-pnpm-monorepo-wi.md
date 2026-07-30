@@ -1,14 +1,12 @@
 ---
 id: T-0030
 title: Restructure the repository into a pnpm monorepo with commit hooks
-status: doing
+status: review
 type: task
 priority: high
 area: infra
 created: 2026-07-30
 updated: 2026-07-30
-claimed_by: claude-fable-e341b469
-claimed_at: "2026-07-30T22:25:19.902Z"
 scope: [package.json, packages/, scripts/, .github/, .husky/, commitlint.config.mjs, project.config.mjs, vercel.json, .gitignore, README.md]
 ---
 ## Intent
@@ -33,4 +31,8 @@ The repository publishes `@illodev/workfile` from the root while `@illodev/workf
 
 - 2026-07-30 22:25Z claude-fable-e341b469 · claimed
 - 2026-07-30 22:25Z claude-fable-e341b469 · claimed
+- 2026-07-30 22:36Z claude-fable-e341b469 · doing → review
 
+## Notes
+
+- 2026-07-30 22:36Z claude-fable-e341b469 — Local runtime evidence: full check green from the new layout; packaged-tarball smoke green; npm pack parity 175=175 files, zero diff; plugin build idempotent; doctor 0/0; commitlint verified against real history samples plus rejections; both pre-commit branches exercised; C5 commit itself ran commit-msg and pre-commit live. Pending: CI on the pushed commits and the release.yml packages-loop, provable only at the next tag.
