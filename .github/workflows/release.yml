@@ -19,7 +19,7 @@ jobs:
             # No registry-url here: it would write an _authToken line into
             # .npmrc, and any configured token makes the npm CLI skip the
             # OIDC exchange that trusted publishing requires.
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v7
               with:
                   node-version: 22
                   cache: pnpm
