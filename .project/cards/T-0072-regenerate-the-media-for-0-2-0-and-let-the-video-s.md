@@ -8,7 +8,7 @@ area: ui
 tags: [media, launch]
 created: 2026-07-31
 updated: 2026-07-31
-scope: [scripts, docs/media, assets]
+scope: [site, scripts, .github/media]
 ---
 
 The stills and the tour predate the whole 0.2.0 interface pass: accents off the
@@ -48,6 +48,10 @@ sentence will not change at all.
 - 2026-07-31 23:21Z session-fube-triage · claimed
 - 2026-07-31 23:34Z session-fube-triage · doing → done
 - 2026-07-31 23:34Z session-fube-triage · released
+- 2026-07-31 23:46Z session-fube-triage · claimed
+- 2026-07-31 23:47Z session-fube-triage · claimed
+- 2026-07-31 23:48Z session-fube-triage · doing → done
+- 2026-07-31 23:48Z session-fube-triage · released
 
 ## Verification
 
@@ -58,3 +62,12 @@ The pointer: it starts hidden and the tour parks it at 880,660 before it is ever
 The live beat is real, not staged footage. Cards are transitioned on disk while the camera holds; the watcher fires, `/api/v2/events` pushes, and the shell reloads. Verified in the recording: the verdict walks '2 cards are blocked' → '1 card is blocked: T-0046 is waiting on the outside' → '11 cards are in flight: T-0028 is doing', the open tile ticks 43 → 42, and the trail gains its rows — with the two unblocks collapsed onto one line by the actor-and-minute grouping, which is the trail behaving exactly as designed on live input.
 
 The first take framed it wrong: centred on the paragraph, which pushed its own left edge and the whole open tile out of shot. The shot is now measured — the union of the sentence and the three tiles, at whatever scale fits it with a margin — rather than an offset guessed from the middle. 61.2s, H.264, 13.6 MB.
+- 2026-07-31 23:47Z session-fube-triage — Reopened: the first pass replaced the README media and left the landing untouched, which is the surface that actually plays the film. `site/assets/` carries its own copies — `workfile-demo.mp4`, `demo-poster.jpg`, `overview.png`, `history.png` — and none of them were the ones being regenerated. The landing was serving a 48.3s cut of the 0.1.8 interface, and its poster was the cursor-in-the-corner frame at 1152x720, the same defect as the README thumbnail in a second place.
+
+All four replaced from the current take. The thumbnail was recut too: the committed one came from the first recording and the video being shipped is the second, so they would otherwise have been frames of different films.
+
+`site/assets/flow.png` was left alone deliberately — `index.html` does not reference it, so refreshing it would have committed 400KB of diff for an asset nothing serves. Worth deleting rather than updating, but that is a separate call.
+
+Runtime: the video re-recorded cleanly after the typing change (59.7s, H.264), which is what proves the `declare const window` handle is erased rather than executed. `pnpm check` green at 182 + 7 with the ratchet at 637, and CI green on 779800a.
+
+Found while reopening this card: `card reopen` accepts `--actor` and then rejects the command for want of one. Filed as [[T-0073]].
