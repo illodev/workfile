@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.9 — 2026-07-31
+
+### Added
+
+- A density toggle: comfortable rows finally reachable (T-0044)
+
+### Changed
+
+- The Overview becomes the landing view (T-0048)
+
+### Fixed
+
+- CLI usage documents release --title and --date (T-0037)
+
 ## 0.1.8 — 2026-07-31
 
 ### Added
