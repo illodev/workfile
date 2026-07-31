@@ -1,7 +1,7 @@
 ---
 id: T-0061
 title: Nine card filenames still describe their pre-translation titles
-status: backlog
+status: done
 type: chore
 priority: low
 area: docs
@@ -10,6 +10,7 @@ tags: [fube-feedback, housekeeping]
 related: [T-0054]
 created: 2026-07-31
 updated: 2026-07-31
+scope: [.project/cards, packages/workfile/ui/src/demo-data.json]
 ---
 
 The `filename-stale` rule from [[T-0054]] found nine on its first run against
@@ -43,3 +44,13 @@ Worth deciding rather than doing on reflex: these are `done` cards from shipped
 releases, and renaming them churns nine files of git history for records whose
 identity is the ID, not the filename. The counter-argument is that leaving them
 means this repository permanently reports nine warnings about a rule it ships.
+
+## Activity
+
+- 2026-07-31 22:22Z session-fube-triage · claimed
+- 2026-07-31 22:24Z session-fube-triage · doing → done
+- 2026-07-31 22:24Z session-fube-triage · released
+
+## Verification
+
+- 2026-07-31 22:24Z session-fube-triage — Done. `doctor --fix` renamed all nine, and `git status` scores every one as a pure rename (R, no content delta), so `git log --follow` still reaches the full history of each record — the churn argument in the body turns out to cost nothing. `pnpm demo:data` rebuilt the snapshot in the same change: the nine `file` fields and the four `path` fields now carry the English names, and the only surviving Spanish filename in the JSON is the one quoted as an example inside this card's own body. Runtime: `workfile doctor` reports 0 errors, 0 warnings against this repository for the first time; demo-parity and cards suites pass 8/8.

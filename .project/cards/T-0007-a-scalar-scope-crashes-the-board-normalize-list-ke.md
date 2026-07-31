@@ -15,6 +15,7 @@ scope: [src/modules/cards, ui/src]
 - 2026-07-30 15:40Z claude-fable-e341b469 · claimed
 - 2026-07-30 15:43Z claude-fable-e341b469 · doing → done
 - 2026-07-30 15:43Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0007-a-scalar-scope-crashes-the-board-normalize-list-ke.md
 
 ## Notes
 

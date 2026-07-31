@@ -20,4 +20,5 @@ scope: [AGENTS.md, .project/agents]
 - 2026-07-30 16:18Z claude-fable-e341b469 · claimed
 - 2026-07-30 16:19Z claude-fable-e341b469 · doing → done
 - 2026-07-30 16:19Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0009-package-manager-wip-partially-on-main-after-an-acc.md
 

@@ -16,6 +16,7 @@ scope: [test, src/core/watcher.ts, .github/workflows]
 - 2026-07-30 14:45Z claude-fable-e341b469 · doing → done
 - 2026-07-30 14:45Z claude-fable-e341b469 · released
 - 2026-07-30 14:49Z claude-fable-e341b469 · next → done
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0002-cross-platform-ci-green-and-first-npm-release-0-1-.md
 
 ## Notes
 

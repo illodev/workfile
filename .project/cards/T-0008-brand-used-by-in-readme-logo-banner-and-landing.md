@@ -17,6 +17,7 @@ scope: [README.md, .github/media, site]
 - 2026-07-30 16:41Z claude-fable-e341b469 · claimed
 - 2026-07-30 16:41Z claude-fable-e341b469 · doing → done
 - 2026-07-30 16:41Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0008-brand-used-by-in-readme-logo-banner-and-landing.md
 
 ## Notes
 

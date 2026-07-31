@@ -14,6 +14,7 @@ scope: [scripts, .github/media, README.md]
 - 2026-07-30 14:52Z claude-fable-e341b469 · claimed
 - 2026-07-30 15:00Z claude-fable-e341b469 · doing → done
 - 2026-07-30 15:00Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0003-stage-readme-screenshots-active-agent-claim-and-op.md
 
 ## Notes
 

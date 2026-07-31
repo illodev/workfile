@@ -15,6 +15,7 @@ scope: [test/events.test.mjs]
 - 2026-07-30 15:31Z claude-fable-e341b469 · claimed
 - 2026-07-30 15:43Z claude-fable-e341b469 · doing → done
 - 2026-07-30 15:43Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0006-watcher-burst-still-flaky-on-windows-runners-with-.md
 
 ## Notes
 

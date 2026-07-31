@@ -15,6 +15,7 @@ scope: [scripts/screenshot-workspace.mjs, scripts/screenshots.mjs, .github/media
 - 2026-07-30 16:06Z claude-fable-e341b469 · claimed
 - 2026-07-30 16:15Z claude-fable-e341b469 · doing → done
 - 2026-07-30 16:15Z claude-fable-e341b469 · released
+- 2026-07-31 22:23Z illodev@local · renamed file to T-0010-realistic-screenshots-curated-workspace-mirroring-.md
 
 ## Notes
 
