@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7 — 2026-07-31
+
+### Added
+
+- Search names its mode in the palette and accepts /pattern/flags regex (T-0043)
+- The sidebar collapses to an icon rail (T-0045)
+
+### Changed
+
+- The Inspector is an overlay drawer: expandable, denser body, no more stolen width (T-0041, T-0042, T-0045)
+
 ## 0.1.6 — 2026-07-31
 
 ### Changed
