@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { buildScreenshotWorkspace } from "./screenshot-workspace.ts";
 import {
+    loadCards,
     loadWorkspace,
     recordAgentSignal,
-    startProjectServer
+    startProjectServer,
+    transitionCard
 } from "../packages/workfile/dist/src/index.js";
 
 /**
@@ -111,6 +113,11 @@ const overlay = () => {
             top: "0px",
             zIndex: "2147483647",
             pointerEvents: "none",
+            // Hidden until it has somewhere to be. The element is created at
+            // 0,0 and only moves when Playwright dispatches its first
+            // mousemove, which is three scenes in — so it used to sit pinned
+            // to the top-left corner through the whole opening.
+            opacity: "0",
             transition: "opacity 350ms ease, scale 120ms ease",
             filter: "drop-shadow(0 2px 5px rgba(0,0,0,.5))"
         });
@@ -184,8 +191,17 @@ const overlay = () => {
                 }
             }, 300);
         };
+        // `__cursor(true)` arms the pointer for the rest of the tour; a camera
+        // push hides it and asks for it back with `__cursorRestore`, which
+        // stays silent until the tour has armed it. Without the distinction the
+        // first push would end by revealing a pointer that has never moved.
+        let armed = false;
         window.__cursor = (visible) => {
+            if (visible) armed = true;
             cursor.style.opacity = visible ? "1" : "0";
+        };
+        window.__cursorRestore = () => {
+            if (armed) cursor.style.opacity = "1";
         };
         // Camera: center (tx, ty) — screen coordinates at rest — at scale s.
         const frame = stage.querySelector("#demo-window");
@@ -252,7 +268,50 @@ async function punchIn(point, scale, text, hold) {
         window.__zoomOut();
     });
     await sleep(1050);
-    await page.evaluate(() => window.__cursor(true));
+    await page.evaluate(() => window.__cursorRestore());
+}
+
+/**
+ * A push that stays in, so something can happen while the camera holds.
+ *
+ * `punchIn` is a statement: drive in, read the caption, pull back. This one is
+ * a scene — each beat gets its caption and then runs, and the shot does not
+ * move until every beat has landed.
+ */
+async function punchHold(point, scale, beats) {
+    await page.evaluate(() => window.__cursor(false));
+    await page.evaluate(
+        ({ x, y, s }) => window.__zoomTo(x, y, s),
+        { x: point.x, y: point.y, s: scale }
+    );
+    await sleep(1050);
+    for (const beat of beats) {
+        if (beat.text) await caption(beat.text, beat.settle ?? 900);
+        if (beat.run) await beat.run();
+        await sleep(beat.hold ?? 1600);
+    }
+    await page.evaluate(() => {
+        window.__caption("");
+        window.__zoomOut();
+    });
+    await sleep(1050);
+    await page.evaluate(() => window.__cursorRestore());
+}
+
+/**
+ * Moves a card in the workspace the server is already serving.
+ *
+ * The point of the beat is that nothing is faked: this writes Markdown to
+ * disk, the watcher notices, `/api/v2/events` pushes, and the shell reloads
+ * its cards. Whoever holds the claim is the actor, because transitioning a
+ * card claimed by somebody else is exactly what the ownership guard refuses.
+ */
+async function move(id, status) {
+    const { cards } = await loadCards(workspace);
+    const card = cards.find((entry) => entry.id === id);
+    await transitionCard(workspace, id, status, {
+        actor: card?.claimed_by || "agent:claude"
+    });
 }
 
 const snap = (name) => page.screenshot({ path: `${outDir}${name}.png` });
@@ -263,6 +322,10 @@ try {
     // Open on the board.
     await page.goto(`${server.url}/?view=flow`, { waitUntil: "networkidle" });
     await sleep(900);
+    // Park the pointer somewhere plausible before it is ever visible. Playwright
+    // starts its mouse at 0,0, so without this the first glide sweeps in from
+    // the corner of the screen instead of starting from rest.
+    await page.mouse.move(880, 660);
     await caption(
         "Work, docs, history and memory — versioned Markdown in your repo",
         2500
@@ -278,7 +341,10 @@ try {
         3000
     );
 
-    // The claimed card, then its claim up close.
+    // The claimed card, then its claim up close. The pointer fades in here, at
+    // the rest position seeded above, rather than appearing at the corner.
+    await page.evaluate(() => window.__cursor(true));
+    await sleep(420);
     await glide(page.getByText(signalCardId, { exact: true }).first(), 500);
     await click();
     await sleep(950);
@@ -336,13 +402,72 @@ try {
     await sleep(1100);
     await caption("However many agents are working — one line tells you where it stands", 2600);
     await snap("scene6-overview");
+
+    /*
+     * The live beat, and the only scene where the app is not merely displayed.
+     *
+     * Cards move on disk while the camera holds, and the sentence rewrites
+     * itself. The verdict is a strict ladder, worst first, so the mutations
+     * have to clear the worst thing on the board or nothing visible happens:
+     * two blocked cards outrank everything, and unblocking them one at a time
+     * walks the headline down a rung per beat. The last move closes a card in
+     * review, which is what makes the counters tick as well as the prose.
+     */
+    const { cards } = await loadCards(workspace);
+    const stuck = cards
+        .filter((card) => card.status === "blocked" && !card.archived)
+        .map((card) => card.id);
+    const finishing = cards.find(
+        (card) => card.status === "review" && !card.archived
+    )?.id;
+    /*
+     * Frame the sentence and the counters together, measured rather than
+     * guessed. Both change during the beat and both have to be legible: the
+     * first attempt centred on the paragraph, which put its own left edge and
+     * the whole "open" tile outside the shot. The scale is whatever fits the
+     * union with a margin, capped so the push still reads as a push.
+     */
+    const sentence = await page
+        .locator("p")
+        .filter({ hasText: /blocked|in flight|board is clean/ })
+        .first()
+        .boundingBox();
+    const tiles = page.locator("[data-slot=card]");
+    const firstTile = await tiles.first().boundingBox();
+    const lastTile = await tiles.nth(2).boundingBox();
+    const left = Math.min(sentence.x, firstTile.x);
+    const right = lastTile.x + lastTile.width;
+    const focus = {
+        x: (left + right) / 2,
+        y: (sentence.y + lastTile.y + lastTile.height) / 2
+    };
+    const push = Math.min(1.5, (1440 * 0.9) / (right - left));
+    await punchHold(focus, push, [
+        {
+            text: "Nothing here is polled — an agent moves a card",
+            run: () => move(stuck[0], "next"),
+            hold: 2100
+        },
+        {
+            text: "and the board rewrites the sentence, live",
+            run: () => move(stuck[1], "next"),
+            hold: 2300
+        },
+        {
+            text: "One less open. The trail keeps the receipt.",
+            run: () => (finishing ? move(finishing, "done") : undefined),
+            hold: 2600
+        }
+    ]);
+    await snap("scene7-live");
+
     await punchIn(
         { x: 700, y: 300 },
         1.6,
         "The repository is the database — npx @illodev/workfile init",
         3400
     );
-    await snap("scene7-close");
+    await snap("scene8-close");
     await sleep(600);
 } finally {
     const video = page.video();
