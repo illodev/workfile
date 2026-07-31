@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { CircleCheck } from "lucide-react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle
+} from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
+
 import { api } from "../api";
 import { useWorkspaceChanges } from "../store/live";
 import { severityColor, statusColor } from "../theme";
@@ -97,14 +110,17 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
 
     if (error)
         return (
-            <div className="callout callout-error" role="alert">
-                {error}
+            <div className="p-3.5">
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
             </div>
         );
     if (!report)
         return (
-            <div style={{ padding: 14 }} aria-busy="true">
-                <span className="mono faint" style={{ fontSize: 11 }}>
+            <div className="flex items-center gap-2 p-3.5" aria-busy="true">
+                <Spinner className="size-3 text-muted-foreground" />
+                <span className="font-mono text-[11px] text-muted-foreground">
                     running workfile doctor…
                 </span>
             </div>
@@ -127,14 +143,16 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
     }).format(new Date(report.generatedAt));
 
     return (
-        <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        <div className="flex-1 overflow-y-auto p-3.5">
+            <div className="mb-2.5 flex gap-1.5">
                 {LEVELS.map(({ level, label }) => (
-                    <button
+                    <Button
                         key={level}
                         type="button"
-                        className={severity === level ? "chip is-on" : "chip"}
+                        variant="outline"
+                        size="sm"
                         aria-pressed={severity === level}
+                        className="aria-pressed:border-ring aria-pressed:bg-accent"
                         onClick={() =>
                             setSeverity((current) =>
                                 current === level ? "" : level
@@ -142,14 +160,17 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                         }
                     >
                         {label}
-                        <span className="chip-value">
+                        <Badge
+                            variant="secondary"
+                            className="px-1.5 font-mono text-[10.5px]"
+                        >
                             {report.counts[level]}
-                        </span>
-                    </button>
+                        </Badge>
+                    </Button>
                 ))}
             </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
+            <div className="flex gap-2.5">
                 {LEVELS.map(({ level, label, hint, zeroHint }) => {
                     const count = report.counts[level];
                     const color =
@@ -157,186 +178,108 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                             ? statusColor("done")
                             : severityColor(level);
                     return (
-                        <div
+                        <Card
                             key={level}
-                            className="panel"
-                            style={{
-                                flex: 1,
-                                gap: 4,
-                                padding: "13px 14px",
-                                borderLeft: `2px solid ${color}`
-                            }}
+                            className="flex-1 gap-1 border-l-2 px-3.5 py-3"
+                            style={{ borderLeftColor: color }}
                         >
-                            <span
-                                style={{
-                                    display: "flex",
-                                    alignItems: "baseline",
-                                    gap: 8
-                                }}
-                            >
+                            <span className="flex items-baseline gap-2">
                                 <span
-                                    style={{
-                                        fontSize: 26,
-                                        fontWeight: 600,
-                                        letterSpacing: "-0.02em",
-                                        color
-                                    }}
+                                    className="text-[26px] font-semibold tracking-tight"
+                                    style={{ color }}
                                 >
                                     {count}
                                 </span>
-                                <span
-                                    className="mono dim"
-                                    style={{ fontSize: 11 }}
-                                >
+                                <span className="font-mono text-[11px] text-muted-foreground">
                                     {label}
                                 </span>
                             </span>
-                            <span className="faint" style={{ fontSize: 12 }}>
+                            <span className="text-xs text-muted-foreground">
                                 {count === 0 ? zeroHint : hint}
                             </span>
-                        </div>
+                        </Card>
                     );
                 })}
             </div>
 
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "16px 2px 8px"
-                }}
-            >
-                <span className="mono dim" style={{ fontSize: 11 }}>
+            <div className="flex items-center gap-2.5 px-0.5 pt-4 pb-2">
+                <span className="font-mono text-[11px] text-muted-foreground">
                     grouped by code · {moduleCounts} · checked {checkedAt}
                 </span>
-                <span style={{ flex: 1 }} />
-                <span className="mono faint" style={{ fontSize: 10.5 }}>
+                <span className="flex-1" />
+                <span className="font-mono text-[10.5px] text-muted-foreground/70">
                     workfile doctor --json
                 </span>
             </div>
 
             {groups.length === 0 ? (
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "40px 0"
-                    }}
-                >
-                    <CircleCheck
-                        aria-hidden="true"
-                        size={20}
-                        style={{ color: statusColor("done") }}
-                    />
-                    <strong style={{ fontSize: 14 }}>All clear</strong>
-                    <span className="dim" style={{ fontSize: 12.5 }}>
-                        No {severity || "integrity"} issues found.
-                    </span>
-                </div>
+                <Empty className="gap-2 p-10">
+                    <EmptyHeader>
+                        <EmptyMedia>
+                            <CircleCheck
+                                aria-hidden="true"
+                                size={20}
+                                style={{ color: statusColor("done") }}
+                            />
+                        </EmptyMedia>
+                        <EmptyTitle className="text-sm">All clear</EmptyTitle>
+                        <EmptyDescription className="text-[12.5px]">
+                            No {severity || "integrity"} issues found.
+                        </EmptyDescription>
+                    </EmptyHeader>
+                </Empty>
             ) : (
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8
-                    }}
-                >
+                <div className="flex flex-col gap-2">
                     {groups.map(([code, issues]) => (
-                        <div
+                        <Card
                             key={code}
-                            className="panel"
-                            style={{ overflow: "hidden" }}
+                            className="gap-0 overflow-hidden py-0"
                         >
-                            <div className="panel-head" style={{ gap: 9 }}>
+                            <div className="flex items-center gap-2 border-b px-3 py-1.5">
                                 <span
-                                    className="dot"
                                     aria-hidden="true"
+                                    className="size-[7px] rounded-full bg-current"
                                     style={{
-                                        width: 7,
-                                        height: 7,
                                         color: severityColor(
                                             issues[0].severity
                                         )
                                     }}
                                 />
-                                <span
-                                    className="mono"
-                                    style={{ fontSize: 11.5 }}
-                                >
+                                <span className="font-mono text-[11.5px]">
                                     {code}
                                 </span>
-                                <span
-                                    className="dim"
-                                    style={{ flex: 1, fontSize: 12.5 }}
-                                >
+                                <span className="flex-1 text-[12.5px] text-muted-foreground">
                                     {summarize(code)}
                                 </span>
-                                <span
-                                    className="mono faint"
-                                    style={{ fontSize: 11 }}
-                                >
+                                <span className="font-mono text-[11px] text-muted-foreground/70">
                                     {issues.length}
                                 </span>
                             </div>
                             {issues.map((issue, issueIndex) => (
                                 <div
                                     key={`${issue.id || issue.file}-${issueIndex}`}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 10,
-                                        padding: "7px 12px",
-                                        borderBottom:
-                                            "1px solid var(--line-2)"
-                                    }}
+                                    className="flex items-center gap-2.5 border-b px-3 py-[7px] last:border-0"
                                 >
                                     {issue.id ? (
-                                        <button
+                                        <Button
                                             type="button"
-                                            className="mono"
-                                            style={{
-                                                flex: "0 0 82px",
-                                                width: 82,
-                                                padding: 0,
-                                                border: 0,
-                                                background: "none",
-                                                textAlign: "left",
-                                                fontSize: 11,
-                                                color: "var(--accent)",
-                                                cursor: "pointer"
-                                            }}
+                                            variant="link"
+                                            className="h-auto w-[82px] flex-[0_0_82px] justify-start p-0 font-mono text-[11px] font-normal"
                                             onClick={() => onOpen(issue.id!)}
                                         >
                                             {issue.id}
-                                        </button>
+                                        </Button>
                                     ) : (
-                                        <span
-                                            className="mono faint"
-                                            style={{
-                                                flex: "0 0 82px",
-                                                width: 82,
-                                                fontSize: 11
-                                            }}
-                                        >
+                                        <span className="w-[82px] flex-[0_0_82px] font-mono text-[11px] text-muted-foreground/70">
                                             —
                                         </span>
                                     )}
-                                    <span
-                                        className="dim"
-                                        style={{ flex: 1, fontSize: 12.5 }}
-                                    >
+                                    <span className="flex-1 text-[12.5px] text-muted-foreground">
                                         {issue.message}
                                     </span>
                                     {issue.file ? (
                                         <span
-                                            className="mono faint truncate"
-                                            style={{
-                                                fontSize: 10.5,
-                                                maxWidth: 320
-                                            }}
+                                            className="max-w-80 truncate font-mono text-[10.5px] text-muted-foreground/70"
                                             title={issue.file}
                                         >
                                             {issue.file}
@@ -344,7 +287,7 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                                     ) : null}
                                 </div>
                             ))}
-                        </div>
+                        </Card>
                     ))}
                 </div>
             )}

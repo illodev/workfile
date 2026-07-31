@@ -53,10 +53,13 @@ function InlineMarkdown({
                 if (wiki) {
                     const target = wiki[1].trim();
                     return (
+                        // Typeset styles `a`, not `button`; the wikilink stays
+                        // a button (it navigates via onOpen, no href) and
+                        // carries its link look itself.
                         <button
                             key={key}
                             type="button"
-                            className="wikilink"
+                            className="cursor-pointer rounded-xs text-primary underline decoration-dashed underline-offset-2"
                             onClick={() => onOpen?.(target)}
                         >
                             {wiki[2]?.trim() || target}
@@ -171,11 +174,9 @@ export const MarkdownBody = memo(function MarkdownBody({
             index -= 1;
             nodes.push(
                 // A wide table scrolls inside its own box rather than pushing
-                // the body sideways.
-                <div
-                    style={{ width: "100%", overflowX: "auto" }}
-                    key={`table-${index}`}
-                >
+                // the body sideways; `typeset-scroll` owns the overflow and
+                // the flow margin.
+                <div className="typeset-scroll" key={`table-${index}`}>
                     <table>
                         <thead>
                             <tr>
@@ -267,5 +268,5 @@ export const MarkdownBody = memo(function MarkdownBody({
     }
     flushParagraph();
     flushList();
-    return <div className="prose">{nodes}</div>;
+    return <div className="typeset">{nodes}</div>;
 });

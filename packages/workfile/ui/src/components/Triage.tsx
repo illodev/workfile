@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCheck, PanelRight, RotateCcw } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+    Empty,
+    EmptyContent,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle
+} from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
+import { Progress } from "@/components/ui/progress";
+
 import { PRIORITIES, type Priority, type Status, type Task } from "../types";
 import { MarkdownBody } from "./Markdown";
 import { priorityColor, statusColor } from "../theme";
@@ -107,96 +119,71 @@ export function TriageView({
 
     if (!task)
         return (
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 10,
-                    padding: 40
-                }}
-            >
-                <CheckCheck
-                    aria-hidden="true"
-                    size={20}
-                    style={{ color: statusColor("done") }}
-                />
-                <strong style={{ fontSize: 14 }}>Queue clear</strong>
-                <span className="dim" style={{ fontSize: 12.5 }}>
-                    You processed {processed.size.toLocaleString()} cards.
-                </span>
-                <button
-                    type="button"
-                    className="btn"
-                    onClick={() => {
-                        setProcessed(new Set());
-                        setIndex(0);
-                    }}
-                >
-                    <RotateCcw aria-hidden="true" />
-                    Start again
-                </button>
-            </div>
+            <Empty className="gap-3 p-10">
+                <EmptyHeader>
+                    <EmptyMedia>
+                        <CheckCheck
+                            aria-hidden="true"
+                            size={20}
+                            style={{ color: statusColor("done") }}
+                        />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-sm">Queue clear</EmptyTitle>
+                    <EmptyDescription className="text-[12.5px]">
+                        You processed {processed.size.toLocaleString()} cards.
+                    </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setProcessed(new Set());
+                            setIndex(0);
+                        }}
+                    >
+                        <RotateCcw aria-hidden="true" />
+                        Start again
+                    </Button>
+                </EmptyContent>
+            </Empty>
         );
 
     return (
-        <div
-            style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0,
-                overflowY: "auto"
-            }}
-        >
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 14px",
-                    borderBottom: "1px solid var(--line)",
-                    background: "var(--surface)"
-                }}
-            >
-                <span className="meter" style={{ flex: 1, maxWidth: 340 }}>
-                    <span
-                        className="meter-fill"
-                        style={{
-                            width: `${
-                                originalTotal
-                                    ? (processed.size / originalTotal) * 100
-                                    : 0
-                            }%`
-                        }}
-                    />
-                </span>
-                <span className="mono dim" style={{ fontSize: 11 }}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="flex items-center gap-2.5 border-b bg-card px-3.5 py-2.5">
+                <Progress
+                    value={
+                        originalTotal
+                            ? (processed.size / originalTotal) * 100
+                            : 0
+                    }
+                    className="max-w-[340px] flex-1"
+                />
+                <span className="font-mono text-[11px] text-muted-foreground">
                     {processed.size} of {originalTotal} processed
                 </span>
-                <span style={{ flex: 1 }} />
-                <button
+                <span className="flex-1" />
+                <Button
                     type="button"
-                    className="btn"
+                    variant="outline"
+                    size="sm"
                     disabled={index === 0}
                     onClick={() =>
                         setIndex((current) => Math.max(0, current - 1))
                     }
                 >
-                    <span className="kbd">K</span>
+                    <Kbd>K</Kbd>
                     Previous
-                </button>
-                <span
-                    className="mono dim"
-                    style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
-                >
+                </Button>
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                     {index + 1} / {queue.length}
                 </span>
-                <button
+                <Button
                     type="button"
-                    className="btn"
+                    variant="outline"
+                    size="sm"
                     disabled={index >= queue.length - 1}
                     onClick={() =>
                         setIndex((current) =>
@@ -204,59 +191,38 @@ export function TriageView({
                         )
                     }
                 >
-                    <span className="kbd">J</span>
+                    <Kbd>J</Kbd>
                     Next
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
-                    className="btn"
+                    variant="outline"
+                    size="sm"
                     onClick={() => onOpen(task.id)}
                 >
                     <PanelRight aria-hidden="true" />
                     Open full card
-                </button>
+                </Button>
             </div>
 
-            <div style={{ padding: "28px 34px", maxWidth: 820 }}>
-                <div
-                    className="mono dim"
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 9,
-                        fontSize: 11
-                    }}
-                >
+            <div className="max-w-[820px] px-[34px] py-7">
+                <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
                     <span>{task.id}</span>
-                    <span className="faint">·</span>
+                    <span className="text-muted-foreground/60">·</span>
                     <span style={{ color: statusColor(task.status) }}>
                         {task.status}
                     </span>
-                    <span className="faint">·</span>
+                    <span className="text-muted-foreground/60">·</span>
                     <span>{task.area}</span>
-                    <span className="faint">·</span>
+                    <span className="text-muted-foreground/60">·</span>
                     <span>{task.type}</span>
                 </div>
-                <h2
-                    style={{
-                        margin: "12px 0 4px",
-                        fontSize: 26,
-                        lineHeight: 1.2,
-                        fontWeight: 600,
-                        letterSpacing: "-0.02em",
-                        textWrap: "pretty"
-                    }}
-                >
+                <h2 className="mt-3 mb-1 text-[26px] leading-[1.2] font-semibold tracking-tight [text-wrap:pretty]">
                     {task.title}
                 </h2>
                 {task.file ? (
                     <a
-                        className="mono faint"
-                        style={{
-                            fontSize: 11,
-                            textDecoration: "underline",
-                            textUnderlineOffset: 3
-                        }}
+                        className="font-mono text-[11px] text-muted-foreground/70 underline underline-offset-[3px]"
                         href={fileHref(task.file)}
                         target={repoUrl ? "_blank" : undefined}
                         rel={repoUrl ? "noreferrer" : undefined}
@@ -265,17 +231,10 @@ export function TriageView({
                     </a>
                 ) : null}
                 {task.source ? (
-                    <span
-                        className="mono faint"
-                        style={{ display: "block", fontSize: 11, marginTop: 3 }}
-                    >
+                    <span className="mt-[3px] block font-mono text-[11px] text-muted-foreground/70">
                         source{" "}
                         <a
-                            className="mono faint"
-                            style={{
-                                textDecoration: "underline",
-                                textUnderlineOffset: 3
-                            }}
+                            className="font-mono underline underline-offset-[3px]"
                             href={fileHref(task.source)}
                             target={repoUrl ? "_blank" : undefined}
                             rel={repoUrl ? "noreferrer" : undefined}
@@ -284,25 +243,16 @@ export function TriageView({
                         </a>
                     </span>
                 ) : null}
-                <div style={{ marginTop: 22 }}>
+                <div className="mt-[22px]">
                     <MarkdownBody source={task.body} onOpen={onOpen} />
                 </div>
 
-                <div
-                    style={{
-                        display: "flex",
-                        gap: 8,
-                        marginTop: 30,
-                        paddingTop: 18,
-                        borderTop: "1px solid var(--line)",
-                        flexWrap: "wrap"
-                    }}
-                >
+                <div className="mt-[30px] flex flex-wrap gap-2 border-t pt-[18px]">
                     {PRIORITIES.map((priority, priorityIndex) => (
-                        <button
+                        <Button
                             key={priority}
                             type="button"
-                            className="btn"
+                            variant="outline"
                             aria-pressed={task.priority === priority}
                             style={
                                 task.priority === priority
@@ -311,30 +261,27 @@ export function TriageView({
                             }
                             onClick={() => void apply({ priority }, false)}
                         >
-                            <span className="kbd">{priorityIndex + 1}</span>
+                            <Kbd>{priorityIndex + 1}</Kbd>
                             <span style={{ color: priorityColor(priority) }}>
                                 {priority}
                             </span>
-                        </button>
+                        </Button>
                     ))}
                     {ACTIONS.map((action) => (
-                        <button
+                        <Button
                             key={action.key}
                             type="button"
-                            className="btn"
+                            variant="outline"
                             onClick={() => void apply({ status: action.status })}
                         >
-                            <span className="kbd">{action.key}</span>
+                            <Kbd>{action.key}</Kbd>
                             <span style={{ color: statusColor(action.status) }}>
                                 {action.label}
                             </span>
-                        </button>
+                        </Button>
                     ))}
                 </div>
-                <span
-                    className="faint"
-                    style={{ display: "block", marginTop: 14, fontSize: 12 }}
-                >
+                <span className="mt-3.5 block text-xs text-muted-foreground">
                     Every action writes the card&apos;s frontmatter to disk
                     immediately. Shortcuts work while focus is outside a form.
                 </span>

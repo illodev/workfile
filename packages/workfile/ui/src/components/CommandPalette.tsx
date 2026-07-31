@@ -1,7 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+    CommandShortcut
+} from "@/components/ui/command";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle
+} from "@/components/ui/dialog";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 import { api } from "../api";
+import { recordCollection } from "../theme";
 import type { SearchHit } from "../types";
 
 /**
@@ -10,6 +28,10 @@ import type { SearchHit } from "../types";
  * `/api/v2/search` ranks across cards, docs, changelog and memory in one pass;
  * the palette is the one control that reads that unified index, plus a few
  * commands (navigation, new card, theme) matched on their labels.
+ *
+ * Results are server-ranked and commands are pre-filtered in `useMemo`, so the
+ * inner cmdk `Command` runs with `shouldFilter={false}` — it only owns
+ * selection, keyboard navigation and scroll-into-view.
  */
 
 interface Entry {
@@ -63,9 +85,6 @@ export function CommandPalette({
 }) {
     const [query, setQuery] = useState("");
     const [hits, setHits] = useState<SearchHit[]>([]);
-    const [active, setActive] = useState(0);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
     const previousFocus = useRef<Element | null>(null);
 
     const actions = useMemo<Entry[]>(
@@ -94,17 +113,6 @@ export function CommandPalette({
             action.title.toLowerCase().includes(needle)
         );
     }, [actions, query]);
-
-    useEffect(() => {
-        if (!open) return;
-        previousFocus.current = document.activeElement;
-        inputRef.current?.focus();
-        return () => {
-            // Returning focus is what makes a dialog usable from the keyboard;
-            // without it the next Tab starts from the top of the document.
-            (previousFocus.current as HTMLElement | null)?.focus?.();
-        };
-    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -162,143 +170,115 @@ export function CommandPalette({
         return built;
     }, [hits, matchingActions, onOpenRecord]);
 
-    const entries = useMemo(
-        () => groups.flatMap((group) => group.entries),
-        [groups]
-    );
-
-    useEffect(() => setActive(0), [query]);
-
-    useEffect(() => {
-        listRef.current
-            ?.querySelector('[data-selected="true"]')
-            ?.scrollIntoView({ block: "nearest" });
-    }, [active, entries]);
-
-    const choose = useCallback(
-        (index: number) => {
-            const entry = entries[index];
-            if (!entry) return;
-            entry.run();
-            onClose();
-        },
-        [entries, onClose]
-    );
-
-    if (!open) return null;
-
-    let cursor = -1;
     return (
-        <div className="overlay" onClick={onClose}>
-            <div
-                className="palette"
-                role="dialog"
-                aria-modal="true"
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) onClose();
+            }}
+        >
+            <DialogContent
                 aria-label="Command palette"
-                onClick={(event) => event.stopPropagation()}
-                onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                        event.preventDefault();
-                        onClose();
-                    }
+                showCloseButton={false}
+                className="top-[110px] max-h-[min(560px,calc(100svh-150px))] translate-y-0 gap-0 overflow-hidden rounded-[14px] p-0 sm:max-w-[620px]"
+                onOpenAutoFocus={() => {
+                    // The palette opens from a global keybinding, so Radix has
+                    // no trigger to restore focus to — remember it ourselves.
+                    previousFocus.current = document.activeElement;
+                }}
+                onCloseAutoFocus={(event) => {
+                    // Returning focus is what makes a dialog usable from the
+                    // keyboard; without it the next Tab starts from the top of
+                    // the document.
+                    event.preventDefault();
+                    (previousFocus.current as HTMLElement | null)?.focus?.();
                 }}
             >
-                <div className="palette-input">
-                    <Search aria-hidden="true" />
-                    <input
-                        ref={inputRef}
-                        value={query}
-                        placeholder="Search everything, or type a command…"
-                        aria-label="Search cards, docs, history and memory"
-                        onChange={(event) => setQuery(event.target.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === "ArrowDown") {
-                                event.preventDefault();
-                                setActive((current) =>
-                                    Math.min(entries.length - 1, current + 1)
-                                );
-                            } else if (event.key === "ArrowUp") {
-                                event.preventDefault();
-                                setActive((current) =>
-                                    Math.max(0, current - 1)
-                                );
-                            } else if (event.key === "Enter") {
-                                event.preventDefault();
-                                choose(active);
-                            }
-                        }}
-                    />
-                    <span className="kbd">esc</span>
-                </div>
-                <div
-                    className="palette-list"
-                    ref={listRef}
-                    role="listbox"
-                    aria-label="Results"
+                <DialogTitle className="sr-only">Command palette</DialogTitle>
+                <DialogDescription className="sr-only">
+                    Search cards, docs, history and memory, or run a command.
+                </DialogDescription>
+                <Command
+                    shouldFilter={false}
+                    className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-input]]:h-12"
                 >
-                    {entries.length === 0 ? (
-                        <div
-                            style={{
-                                padding: "14px 10px",
-                                fontSize: 12.5,
-                                color: "var(--fg-3)"
-                            }}
-                        >
+                    <div className="relative">
+                        <CommandInput
+                            value={query}
+                            onValueChange={setQuery}
+                            placeholder="Search everything, or type a command…"
+                            aria-label="Search cards, docs, history and memory"
+                            className="pr-12"
+                        />
+                        <Kbd className="absolute top-1/2 right-3 -translate-y-1/2">
+                            Esc
+                        </Kbd>
+                    </div>
+                    <CommandList
+                        label="Results"
+                        className="max-h-[min(400px,calc(100svh-240px))] p-1.5"
+                    >
+                        <CommandEmpty className="px-2.5 py-3.5 text-left text-[12.5px] text-muted-foreground">
                             No card, doc, history or memory entry matches this
                             query.
-                        </div>
-                    ) : (
-                        groups.map((group) => (
-                            <div key={group.label} style={{ padding: "6px 0" }}>
-                                <span className="palette-group-label overline">
-                                    {group.label}
-                                </span>
-                                {group.entries.map((entry) => {
-                                    cursor += 1;
-                                    const index = cursor;
-                                    const selected = index === active;
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={entry.key}
-                                            className="palette-hit"
-                                            role="option"
-                                            aria-selected={selected}
-                                            data-selected={
-                                                selected ? "true" : undefined
-                                            }
-                                            onMouseEnter={() =>
-                                                setActive(index)
-                                            }
-                                            onClick={() => choose(index)}
-                                        >
-                                            {entry.id ? (
-                                                <span className="palette-hit-id">
-                                                    {entry.id}
-                                                </span>
-                                            ) : null}
-                                            <span className="palette-hit-title">
-                                                {entry.title}
-                                            </span>
-                                            {entry.meta ? (
-                                                <span className="palette-hit-meta">
-                                                    {entry.meta}
-                                                </span>
-                                            ) : null}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ))
-                    )}
-                </div>
-                <div className="palette-foot">
-                    <span>↑↓ navigate</span>
-                    <span>↵ open</span>
-                    <span className="spacer" />
-                    <span>unified index · local server</span>
-                </div>
-            </div>
-        </div>
+                        </CommandEmpty>
+                        {groups.map((group) => (
+                            <CommandGroup
+                                key={group.label}
+                                heading={group.label}
+                            >
+                                {group.entries.map((entry) => (
+                                    <CommandItem
+                                        key={entry.key}
+                                        value={entry.key}
+                                        onSelect={() => {
+                                            entry.run();
+                                            onClose();
+                                        }}
+                                        className="gap-2.5 rounded-md px-[9px] py-2 text-[13px]"
+                                    >
+                                        {entry.id ? (
+                                            <Badge
+                                                variant="outline"
+                                                title={recordCollection(
+                                                    entry.id
+                                                )}
+                                                className="w-[78px] shrink-0 justify-start rounded-sm px-1.5 font-mono text-[11.5px] font-normal text-muted-foreground"
+                                            >
+                                                {entry.id}
+                                            </Badge>
+                                        ) : null}
+                                        <span className="flex-1 truncate">
+                                            {entry.title}
+                                        </span>
+                                        {entry.meta ? (
+                                            <CommandShortcut className="shrink-0 font-mono text-[10.5px] tracking-normal">
+                                                {entry.meta}
+                                            </CommandShortcut>
+                                        ) : null}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        ))}
+                    </CommandList>
+                    <div className="flex items-center gap-3.5 border-t px-3.5 py-2 font-mono text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                            <KbdGroup>
+                                <Kbd>↑</Kbd>
+                                <Kbd>↓</Kbd>
+                            </KbdGroup>
+                            navigate
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <Kbd>↵</Kbd>
+                            open
+                        </span>
+                        <span className="ml-auto">
+                            unified index · local server
+                        </span>
+                    </div>
+                </Command>
+            </DialogContent>
+        </Dialog>
     );
 }

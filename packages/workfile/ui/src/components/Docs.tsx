@@ -1,8 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Pencil, SlidersHorizontal } from "lucide-react";
+import {
+    Eye,
+    Pencil,
+    Search,
+    SlidersHorizontal,
+    TriangleAlert
+} from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyTitle
+} from "@/components/ui/empty";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput
+} from "@/components/ui/input-group";
+import { Item } from "@/components/ui/item";
+import {
+    NativeSelect,
+    NativeSelectOption
+} from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 import { api } from "../api";
-import { AppDialog, ChipToggle, Field } from "../kit";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
@@ -19,6 +55,10 @@ import { MarkdownBody } from "./Markdown";
 
 /** Statuses offered before the workspace schema has been fetched. */
 const DOC_STATUS_FALLBACK = ["current", "draft", "superseded", "archived"];
+
+/** Small uppercase tracking label used for tiles, relations and scope. */
+const OVERLINE =
+    "text-[10px] font-medium tracking-[0.07em] uppercase text-muted-foreground";
 
 interface MetaDraft {
     id: string;
@@ -39,90 +79,56 @@ function DocRow({
     selected: boolean;
     onSelect: () => void;
 }) {
-    // Hover carries the same panel wash as selection; there is no shared rail
-    // class for this yet, so the row tracks it itself.
-    const [hover, setHover] = useState(false);
+    // Hover carries the same wash as selection; both come from the accent
+    // token now, so the row no longer tracks hover in state.
     return (
-        <button
-            type="button"
-            aria-current={selected ? "true" : undefined}
-            onClick={onSelect}
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                padding: "7px 9px",
-                border: 0,
-                borderRadius: 6,
-                background:
-                    selected || hover ? "var(--panel)" : "transparent",
-                color: "var(--fg)",
-                font: "inherit",
-                textAlign: "left",
-                cursor: "pointer",
-                width: "100%"
-            }}
+        <Item
+            asChild
+            size="sm"
+            className={cn(
+                "w-full cursor-pointer flex-col items-start gap-0.5 px-2 py-1.5 text-left hover:bg-accent",
+                selected && "bg-accent"
+            )}
         >
-            <span
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    width: "100%"
-                }}
+            <button
+                type="button"
+                aria-current={selected ? "true" : undefined}
+                onClick={onSelect}
             >
-                <span
-                    className="truncate"
-                    style={{ flex: 1, fontSize: 12.5, fontWeight: 500 }}
-                >
-                    {document.title}
+                <span className="flex w-full items-center gap-1.5">
+                    <span className="flex-1 truncate text-xs font-medium">
+                        {document.title}
+                    </span>
+                    <span
+                        className={cn(
+                            "font-mono text-[10px]",
+                            !document.managed && "text-muted-foreground"
+                        )}
+                        style={
+                            document.managed
+                                ? {
+                                      color: recordStatusColor(document.status)
+                                  }
+                                : undefined
+                        }
+                    >
+                        {document.managed ? document.status : "indexed"}
+                    </span>
                 </span>
-                <span
-                    className="mono"
-                    style={{
-                        fontSize: 10,
-                        color: document.managed
-                            ? recordStatusColor(document.status)
-                            : "var(--fg-3)"
-                    }}
-                >
-                    {document.managed ? document.status : "indexed"}
+                <span className="w-full truncate font-mono text-[10px] text-muted-foreground">
+                    {document.path}
                 </span>
-            </span>
-            <span
-                className="mono truncate"
-                style={{ fontSize: 10, color: "var(--fg-3)", width: "100%" }}
-            >
-                {document.path}
-            </span>
-        </button>
+            </button>
+        </Item>
     );
 }
 
 function MetaTile({ label, value }: { label: string; value: string }) {
     return (
-        <span
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                padding: "7px 10px",
-                border: "1px solid var(--line)",
-                borderRadius: 7,
-                background: "var(--surface)",
-                minWidth: 120
-            }}
-        >
-            <span
-                className="overline"
-                style={{ fontSize: 9.5, letterSpacing: "0.07em" }}
-            >
-                {label}
-            </span>
-            <span style={{ fontSize: 12.5 }}>{value}</span>
-        </span>
+        <Field className="w-auto min-w-[120px] gap-0.5 rounded-lg border bg-card px-3 py-2 shadow-xs">
+            <span className={OVERLINE}>{label}</span>
+            <span className="text-[13px] font-medium">{value}</span>
+        </Field>
     );
 }
 
@@ -137,38 +143,48 @@ function RelationList({
 }) {
     if (!links.length) return null;
     return (
-        <section style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span className="overline">{label}</span>
+        <section className="flex flex-col gap-1.5">
+            <span className={OVERLINE}>{label}</span>
             {links.map((link, index) => {
                 // A backlink whose record is gone has nowhere to go; it stays
                 // visible but inert rather than opening an empty inspector.
                 const dead = !link.exists && !link.title;
                 return (
-                    <button
+                    <Item
                         key={`${link.id}-${index}`}
-                        type="button"
-                        className="reflink"
-                        disabled={dead}
-                        style={
-                            dead
-                                ? { opacity: 0.55, cursor: "default" }
-                                : undefined
-                        }
-                        onClick={() => onOpen(link.id)}
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                            "w-full cursor-pointer gap-2 px-2.5 py-2 text-left hover:bg-accent",
+                            dead &&
+                                "cursor-default opacity-55 hover:bg-transparent"
+                        )}
                     >
-                        <span className="reflink-id">{link.id}</span>
-                        <span className="reflink-title">
-                            {link.title ||
-                                (link.exists === false
-                                    ? "Missing record"
-                                    : link.id)}
-                        </span>
-                        {link.relation ? (
-                            <span className="reflink-relation">
-                                {link.relation}
+                        <button
+                            type="button"
+                            disabled={dead}
+                            onClick={() => onOpen(link.id)}
+                        >
+                            <span className="min-w-[78px] shrink-0 font-mono text-[11px] font-medium">
+                                {link.id}
                             </span>
-                        ) : null}
-                    </button>
+                            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                                {link.title ||
+                                    (link.exists === false
+                                        ? "Missing record"
+                                        : link.id)}
+                            </span>
+                            {link.relation ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="font-mono text-[10px]"
+                                >
+                                    {link.relation}
+                                </Badge>
+                            ) : null}
+                        </button>
+                    </Item>
                 );
             })}
         </section>
@@ -176,7 +192,7 @@ function RelationList({
 }
 
 const SEPARATOR = (
-    <span aria-hidden="true" style={{ color: "var(--fg-3)" }}>
+    <span aria-hidden="true" className="text-muted-foreground">
         ·
     </span>
 );
@@ -385,104 +401,78 @@ export function DocsView({
     }
 
     return (
-        <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <div className="flex min-h-0 flex-1">
             <aside
                 aria-label="Documents"
-                style={{
-                    width: 290,
-                    flex: "0 0 290px",
-                    borderRight: "1px solid var(--line)",
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 0,
-                    padding: "12px 8px"
-                }}
+                className="flex w-[290px] shrink-0 flex-col min-h-0 border-r px-2 py-3"
             >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                        padding: "0 0 10px"
-                    }}
-                >
-                    <input
-                        className="input"
-                        type="search"
-                        value={query}
-                        aria-label="Search documentation"
-                        placeholder="Search documentation…"
-                        onChange={(event) => setQuery(event.target.value)}
-                    />
-                    <div style={{ display: "flex", gap: 6 }}>
-                        <ChipToggle
-                            label="managed"
-                            on={managedOnly}
-                            onLabel="only"
-                            offLabel="all"
-                            onChange={setManagedOnly}
+                <div className="flex flex-col gap-2 pb-2.5">
+                    <InputGroup className="h-8">
+                        <InputGroupAddon>
+                            <Search aria-hidden="true" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                            className="h-8"
+                            type="search"
+                            value={query}
+                            aria-label="Search documentation"
+                            placeholder="Search documentation…"
+                            onChange={(event) => setQuery(event.target.value)}
                         />
+                    </InputGroup>
+                    <div className="flex gap-1.5">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-pressed={managedOnly}
+                            className={cn(
+                                "h-7 gap-1.5 px-2.5 text-xs",
+                                managedOnly && "border-ring bg-accent"
+                            )}
+                            onClick={() => setManagedOnly(!managedOnly)}
+                        >
+                            managed
+                            <span className="font-normal text-muted-foreground">
+                                {managedOnly ? "only" : "all"}
+                            </span>
+                        </Button>
                     </div>
                 </div>
                 <div
                     aria-busy={loading || undefined}
-                    style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+                    className="min-h-0 flex-1 overflow-y-auto"
                 >
                     {loading ? (
-                        <span
-                            className="mono faint"
-                            style={{
-                                display: "block",
-                                padding: "6px 8px",
-                                fontSize: 10.5
-                            }}
-                        >
+                        <span className="flex items-center gap-2 px-2 py-1.5 font-mono text-[10.5px] text-muted-foreground">
+                            <Spinner className="size-3" />
                             Loading documents…
                         </span>
                     ) : error ? (
-                        <div
-                            className="callout callout-error"
-                            style={{ margin: "6px 0 0" }}
-                        >
-                            {error}
-                        </div>
+                        <Alert variant="destructive" className="mt-1.5">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
                     ) : !groups.length ? (
-                        <span
-                            className="faint"
-                            style={{
-                                display: "block",
-                                padding: "6px 8px",
-                                fontSize: 12
-                            }}
-                        >
-                            No documents found.
-                            {managedOnly
-                                ? " Try another search, or include indexed files."
-                                : " Try another search."}
-                        </span>
+                        <Empty className="gap-2 p-4 md:p-4">
+                            <EmptyHeader>
+                                <EmptyTitle className="text-sm">
+                                    No documents found.
+                                </EmptyTitle>
+                                <EmptyDescription className="text-xs">
+                                    {managedOnly
+                                        ? "Try another search, or include indexed files."
+                                        : "Try another search."}
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
                     ) : (
                         groups.map((group) => (
                             <div
                                 key={group.key}
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 1,
-                                    paddingBottom: 14
-                                }}
+                                className="flex flex-col gap-px pb-3.5"
                             >
-                                <span
-                                    className="mono"
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 7,
-                                        padding: "6px 8px",
-                                        fontSize: 10.5,
-                                        color: "var(--fg-3)"
-                                    }}
-                                >
-                                    <span style={{ color: "var(--fg-2)" }}>
+                                <span className="flex items-center gap-2 px-2 py-1.5 font-mono text-[10.5px] text-muted-foreground">
+                                    <span className="text-foreground/80">
                                         {group.label}
                                     </span>
                                     <span>{group.docs.length}</span>
@@ -501,27 +491,10 @@ export function DocsView({
                 </div>
             </aside>
 
-            <section
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    overflowY: "auto",
-                    padding: "26px 34px"
-                }}
-            >
+            <section className="min-w-0 flex-1 overflow-y-auto px-8.5 py-6.5">
                 {active ? (
                     <>
-                        <div
-                            className="mono"
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 9,
-                                fontSize: 11,
-                                color: "var(--fg-2)",
-                                flexWrap: "wrap"
-                            }}
-                        >
+                        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
                             <span>{active.id}</span>
                             {SEPARATOR}
                             <span>{active.documentKind}</span>
@@ -537,12 +510,13 @@ export function DocsView({
                             <span>
                                 {active.managed ? "managed" : "indexed"}
                             </span>
-                            <span style={{ flex: 1 }} />
+                            <span className="flex-1" />
                             {active.managed ? (
                                 <>
-                                    <button
+                                    <Button
                                         type="button"
-                                        className="btn"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() =>
                                             setEditingBody((value) => !value)
                                         }
@@ -553,43 +527,27 @@ export function DocsView({
                                             <Pencil aria-hidden="true" />
                                         )}
                                         {editingBody ? "Preview" : "Edit"}
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
-                                        className="btn"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => openMetadata(active)}
                                     >
                                         <SlidersHorizontal aria-hidden="true" />
                                         Metadata
-                                    </button>
+                                    </Button>
                                 </>
                             ) : null}
                         </div>
-                        <h2
-                            style={{
-                                margin: "12px 0 6px",
-                                fontSize: 26,
-                                fontWeight: 600,
-                                letterSpacing: "-0.02em"
-                            }}
-                        >
+                        <h2 className="mt-3 mb-1.5 text-2xl font-semibold tracking-tight">
                             {active.title}
                         </h2>
-                        <span
-                            className="mono faint"
-                            style={{ fontSize: 11, overflowWrap: "anywhere" }}
-                        >
+                        <span className="font-mono text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
                             {active.path}
                         </span>
 
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 8,
-                                margin: "18px 0 0",
-                                flexWrap: "wrap"
-                            }}
-                        >
+                        <div className="mt-4.5 flex flex-wrap gap-2">
                             <MetaTile label="kind" value={active.documentKind} />
                             <MetaTile label="status" value={active.status} />
                             <MetaTile
@@ -616,25 +574,24 @@ export function DocsView({
                         </div>
 
                         {active.freshness.length > 0 ? (
-                            <div
-                                className="callout"
-                                role="status"
-                                style={{
-                                    margin: "18px 0 0",
-                                    flexDirection: "column",
-                                    alignItems: "stretch",
-                                    gap: 4
-                                }}
-                            >
-                                {active.freshness.map((issue) => (
-                                    <span key={`${issue.code}-${issue.message}`}>
-                                        {issue.message}
-                                    </span>
-                                ))}
-                            </div>
+                            <Alert role="status" className="mt-4.5 max-w-2xl">
+                                <TriangleAlert
+                                    aria-hidden="true"
+                                    className="text-sev-warning"
+                                />
+                                <AlertDescription>
+                                    {active.freshness.map((issue) => (
+                                        <span
+                                            key={`${issue.code}-${issue.message}`}
+                                        >
+                                            {issue.message}
+                                        </span>
+                                    ))}
+                                </AlertDescription>
+                            </Alert>
                         ) : null}
 
-                        <div style={{ marginTop: 26 }}>
+                        <div className="mt-6.5">
                             {editingBody && active.managed ? (
                                 <BodyEditor
                                     key={active.id}
@@ -661,10 +618,7 @@ export function DocsView({
                                     onOpen={openRelation}
                                 />
                             ) : (
-                                <p
-                                    className="faint"
-                                    style={{ margin: 0, fontSize: 12.5 }}
-                                >
+                                <p className="text-xs text-muted-foreground">
                                     {active.managed
                                         ? "This document is empty. Use Edit to write its first version."
                                         : "This file has no body to render."}
@@ -675,15 +629,7 @@ export function DocsView({
                         {active.outgoing.length ||
                         active.incoming.length ||
                         active.scope?.length ? (
-                            <div
-                                style={{
-                                    marginTop: 28,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 18,
-                                    maxWidth: "70ch"
-                                }}
-                            >
+                            <div className="mt-7 flex max-w-[70ch] flex-col gap-4.5">
                                 <RelationList
                                     label="links to"
                                     links={active.outgoing}
@@ -701,22 +647,12 @@ export function DocsView({
                                     onOpen={openRelation}
                                 />
                                 {active.scope?.length ? (
-                                    <section
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 6
-                                        }}
-                                    >
-                                        <span className="overline">scope</span>
+                                    <section className="flex flex-col gap-1.5">
+                                        <span className={OVERLINE}>scope</span>
                                         {active.scope.map((path) => (
                                             <span
                                                 key={path}
-                                                className="mono faint"
-                                                style={{
-                                                    fontSize: 10.5,
-                                                    overflowWrap: "anywhere"
-                                                }}
+                                                className="font-mono text-[10.5px] text-muted-foreground [overflow-wrap:anywhere]"
                                             >
                                                 {path}
                                             </span>
@@ -727,16 +663,7 @@ export function DocsView({
                         ) : null}
                     </>
                 ) : (
-                    <div
-                        className="faint"
-                        style={{
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 12.5
-                        }}
-                    >
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                         {loading
                             ? "Loading documents…"
                             : "Select a document from the list to read it."}
@@ -744,136 +671,147 @@ export function DocsView({
                 )}
             </section>
 
-            <AppDialog
-                title={`Edit metadata${metaDraft ? ` — ${metaDraft.id}` : ""}`}
+            <Dialog
                 open={metaDraft !== null}
-                onClose={() => {
-                    if (!metaSaving) setMetaDraft(null);
+                onOpenChange={(next) => {
+                    if (!next && !metaSaving) setMetaDraft(null);
                 }}
-                footer={
-                    <>
-                        <button
+            >
+                <DialogContent aria-describedby={undefined}>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {`Edit metadata${metaDraft ? ` — ${metaDraft.id}` : ""}`}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {metaDraft ? (
+                        <FieldGroup className="gap-4">
+                            <Field>
+                                <FieldLabel htmlFor="docs-meta-title">
+                                    title
+                                </FieldLabel>
+                                <Input
+                                    id="docs-meta-title"
+                                    value={metaDraft.title}
+                                    onChange={(event) =>
+                                        setMetaDraft({
+                                            ...metaDraft,
+                                            title: event.target.value
+                                        })
+                                    }
+                                />
+                            </Field>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <Field className="[&_[data-slot=native-select-wrapper]]:w-full">
+                                    <FieldLabel htmlFor="docs-meta-kind">
+                                        kind
+                                    </FieldLabel>
+                                    <NativeSelect
+                                        id="docs-meta-kind"
+                                        value={metaDraft.kind}
+                                        onChange={(event) =>
+                                            setMetaDraft({
+                                                ...metaDraft,
+                                                kind: event.target.value
+                                            })
+                                        }
+                                    >
+                                        {kindOptions.map((kind) => (
+                                            <NativeSelectOption
+                                                key={kind}
+                                                value={kind}
+                                            >
+                                                {kind}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </Field>
+                                <Field className="[&_[data-slot=native-select-wrapper]]:w-full">
+                                    <FieldLabel htmlFor="docs-meta-status">
+                                        status
+                                    </FieldLabel>
+                                    <NativeSelect
+                                        id="docs-meta-status"
+                                        value={metaDraft.status}
+                                        onChange={(event) =>
+                                            setMetaDraft({
+                                                ...metaDraft,
+                                                status: event.target.value
+                                            })
+                                        }
+                                    >
+                                        {statusOptions.map((status) => (
+                                            <NativeSelectOption
+                                                key={status}
+                                                value={status}
+                                            >
+                                                {status}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </Field>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <Field>
+                                    <FieldLabel htmlFor="docs-meta-owners">
+                                        owners
+                                    </FieldLabel>
+                                    <Input
+                                        id="docs-meta-owners"
+                                        value={metaDraft.owners}
+                                        placeholder="comma-separated"
+                                        onChange={(event) =>
+                                            setMetaDraft({
+                                                ...metaDraft,
+                                                owners: event.target.value
+                                            })
+                                        }
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="docs-meta-reviewed">
+                                        reviewed
+                                    </FieldLabel>
+                                    <Input
+                                        id="docs-meta-reviewed"
+                                        type="date"
+                                        value={metaDraft.reviewed}
+                                        onChange={(event) =>
+                                            setMetaDraft({
+                                                ...metaDraft,
+                                                reviewed: event.target.value
+                                            })
+                                        }
+                                    />
+                                </Field>
+                            </div>
+                            {metaError ? (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        {metaError}
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+                        </FieldGroup>
+                    ) : null}
+                    <DialogFooter>
+                        <Button
                             type="button"
-                            className="btn"
+                            variant="outline"
                             disabled={metaSaving}
                             onClick={() => setMetaDraft(null)}
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="btn-accent"
                             disabled={metaSaving}
                             onClick={() => void saveMetadata()}
                         >
                             {metaSaving ? "Saving…" : "Save"}
-                        </button>
-                    </>
-                }
-            >
-                {metaDraft ? (
-                    <>
-                        <Field label="title">
-                            <input
-                                className="input"
-                                value={metaDraft.title}
-                                onChange={(event) =>
-                                    setMetaDraft({
-                                        ...metaDraft,
-                                        title: event.target.value
-                                    })
-                                }
-                            />
-                        </Field>
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: 10
-                            }}
-                        >
-                            <Field label="kind">
-                                <select
-                                    className="select"
-                                    value={metaDraft.kind}
-                                    onChange={(event) =>
-                                        setMetaDraft({
-                                            ...metaDraft,
-                                            kind: event.target.value
-                                        })
-                                    }
-                                >
-                                    {kindOptions.map((kind) => (
-                                        <option key={kind} value={kind}>
-                                            {kind}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                            <Field label="status">
-                                <select
-                                    className="select"
-                                    value={metaDraft.status}
-                                    onChange={(event) =>
-                                        setMetaDraft({
-                                            ...metaDraft,
-                                            status: event.target.value
-                                        })
-                                    }
-                                >
-                                    {statusOptions.map((status) => (
-                                        <option key={status} value={status}>
-                                            {status}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                        </div>
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: 10
-                            }}
-                        >
-                            <Field label="owners">
-                                <input
-                                    className="input"
-                                    value={metaDraft.owners}
-                                    placeholder="comma-separated"
-                                    onChange={(event) =>
-                                        setMetaDraft({
-                                            ...metaDraft,
-                                            owners: event.target.value
-                                        })
-                                    }
-                                />
-                            </Field>
-                            <Field label="reviewed">
-                                <input
-                                    className="input"
-                                    type="date"
-                                    value={metaDraft.reviewed}
-                                    onChange={(event) =>
-                                        setMetaDraft({
-                                            ...metaDraft,
-                                            reviewed: event.target.value
-                                        })
-                                    }
-                                />
-                            </Field>
-                        </div>
-                        {metaError ? (
-                            <div
-                                className="callout callout-error"
-                                style={{ margin: 0 }}
-                            >
-                                {metaError}
-                            </div>
-                        ) : null}
-                    </>
-                ) : null}
-            </AppDialog>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

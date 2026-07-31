@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -11,7 +12,12 @@ export default defineConfig(({ mode }) => {
     const demo = mode === "demo";
     return {
         root: resolve(import.meta.dirname, "ui"),
-        plugins: [react()],
+        plugins: [react(), tailwindcss()],
+        resolve: {
+            alias: {
+                "@": resolve(import.meta.dirname, "ui/src")
+            }
+        },
         // Inlined as a constant so the unused API backend — and the demo
         // snapshot in regular builds — is dropped from the bundle.
         define: {
