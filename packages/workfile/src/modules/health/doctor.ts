@@ -145,7 +145,7 @@ export async function runDoctor(workspace, options: any = {}) {
             code: "legacy-planning-not-migrated",
             file: ".planning/backlog/tasks",
             message:
-                "A legacy .planning backlog exists without a recorded migration. Run project migrate plan."
+                "A legacy .planning backlog exists without a recorded migration. Run workfile migrate plan."
         });
     }
     const severityOrder = { error: 0, warning: 1, info: 2 };

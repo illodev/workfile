@@ -1167,8 +1167,8 @@ The index may contain:
 
 ### 17.3 Rebuildability
 
-Deleting `.project/.cache/` MUST NOT lose canonical data. `project index rebuild` recreates it
-from repository files.
+Deleting `.project/.cache/` MUST NOT lose canonical data. `workfile doctor --rebuild-cache`
+recreates it from repository files.
 
 ### 17.4 Search syntax
 
@@ -1267,17 +1267,22 @@ Project-specific rules use namespaced IDs.
 ### 19.1 Entry points
 
 ```bash
-project
-workfile ui
 workfile init
+workfile schema
 workfile doctor
-project migrate
-project index
-workfile agents
+workfile upgrade
+workfile version
+workfile ui
 workfile card
-workfile docs
+workfile doc
 workfile changelog
 workfile memory
+workfile agents
+workfile ci
+workfile claude
+workfile migrate
+workfile mcp
+workfile search
 ```
 
 Running `project` with no subcommand starts the UI unless configuration disables that
@@ -1708,8 +1713,8 @@ Example `.project/VERSION`:
 ### 25.3 Migration behavior
 
 ```bash
-project migrate plan
-project migrate apply
+workfile migrate plan
+workfile migrate apply
 ```
 
 Migrations:
@@ -1928,8 +1933,9 @@ workfile changelog verify
 Optional full validation on protected branches:
 
 ```bash
-workfile doctor --strict
-project index verify
+workfile doctor --severity warning
+workfile changelog verify
+workfile memory verify
 ```
 
 CI MUST not require starting the UI.

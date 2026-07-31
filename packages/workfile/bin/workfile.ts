@@ -132,17 +132,17 @@ const USAGE: Record<string, string[]> = {
         "workfile agents context --card T-0001 [--limit 20]"
     ],
     ci: [
-        "project ci sync [--targets github,gitlab,generic]",
-        "project ci check [--targets ...]"
+        "workfile ci sync [--targets github,gitlab,generic]",
+        "workfile ci check [--targets ...]"
     ],
     claude: [
-        "project claude install [--dry-run] [--force]",
-        "project claude check [--json]"
+        "workfile claude install [--dry-run] [--force]",
+        "workfile claude check [--json]"
     ],
     migrate: [
-        "project migrate plan [--source .planning] [--mode copy|move]",
-        "project migrate apply [--source .planning] [--mode copy|move] [--force]",
-        "project migrate schema [--dry-run] [--json]"
+        "workfile migrate plan [--source .planning] [--mode copy|move]",
+        "workfile migrate apply [--source .planning] [--mode copy|move] [--force]",
+        "workfile migrate schema [--dry-run] [--json]"
     ],
     mcp: [
         "workfile mcp [serve] [--read-only]",
@@ -365,7 +365,7 @@ function assertKnownFlags(command) {
         if (!known.has(name)) {
             throw new ValidationError(
                 "CLI_ARGUMENT_UNKNOWN",
-                `Unknown option for "${key}": ${name}. Run \`project ${key} --help\`.`
+                `Unknown option for "${key}": ${name}. Run \`workfile ${key} --help\`.`
             );
         }
         if (valueFlags.has(name) && !token.includes("=")) index += 1;
@@ -1519,7 +1519,7 @@ async function main() {
         return;
     }
     if (command === "help" || command === "--help" || command === "-h") {
-        // `project help card` and `workfile card --help` reach the same place.
+        // `workfile help card` and `workfile card --help` reach the same place.
         const topic = subcommand();
         if (topic) printCommandUsage(topic);
         else printUsage();

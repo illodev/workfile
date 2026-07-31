@@ -87,7 +87,7 @@ test("the entry bundle stays within budget and views load on demand", async () =
 // same element rendered differently depending on which view you were in, and
 // changing its appearance meant finding all eight.
 /**
- * One pill, and it is a class now (ADR-0010).
+ * One pill, and it is a class now (ADR-0004).
  *
  * The audit found eight independent implementations of the same element;
  * T-0064 collapsed them, the shadcn migration made them `Badge`, and the

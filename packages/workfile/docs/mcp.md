@@ -38,8 +38,8 @@ failing the call, because a get-by-id has no query to narrow.
 ## Claude Code integration
 
 ```bash
-project claude install     # generate the surface into the repository
-project claude check       # report drift, exit 1 when anything is stale
+workfile claude install     # generate the surface into the repository
+workfile claude check       # report drift, exit 1 when anything is stale
 ```
 
 `install` writes, as managed blocks that a resync updates without touching
@@ -113,7 +113,7 @@ Both forms exist on purpose. A plugin's `settings.json` accepts only `agent` and
 `subagentStatusLine`, so anything else has to be generated locally; and a
 generator alone means every version bump leaves the written files behind, which
 is the trap `T-0018` recorded. `scripts/build-plugin.ts` assembles the plugin
-from the same functions `project claude install` uses, and a test asserts the
+from the same functions `workfile claude install` uses, and a test asserts the
 packaged runtime is byte-identical to the source — a hook that behaves
 differently depending on how it was installed is a bug nobody would find.
 

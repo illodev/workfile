@@ -252,6 +252,6 @@ try {
     // A hook must never break the session it is observing. Failing open is the
     // only acceptable behaviour: the worst case is a missing guard rail, and
     // the alternative is a tool call that cannot proceed.
-    process.stderr.write(`project hook ${command} failed: ${error?.message}\n`);
+    process.stderr.write(`workfile hook ${command} failed: ${error?.message}\n`);
 }
 process.exit(0);

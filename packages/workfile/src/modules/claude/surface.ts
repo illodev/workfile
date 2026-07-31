@@ -209,7 +209,7 @@ function hooksConfiguration() {
  * The slash commands as files.
  *
  * Exported so the distributable plugin is assembled from the same source that
- * `project claude install` writes. A second hand-maintained copy would drift,
+ * `workfile claude install` writes. A second hand-maintained copy would drift,
  * and the two would start telling agents different things.
  */
 export function claudeCommandFiles(cli = DEFAULT_CLI) {

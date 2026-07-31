@@ -1,14 +1,14 @@
 /*
- * The design system of the bespoke redesign (ADR-0010).
+ * The design system of the bespoke redesign (ADR-0004).
  *
  * `Workfile - Rediseño.dc.html` is the normative spec: the oklch
  * tokens, the Geist/Geist Mono pairing, the 13px base and every component
  * pattern below are ported from it 1:1. There is no framework underneath —
- * after two rejected shadcn migrations (T-0100, T-0101) the lesson of
- * ADR-0009 applies in its real form: adopt one look wholesale. This time the
- * look is the owner's own, so the stylesheet carries it directly and a visual
- * change is an edit to a named token or a named class, not a fight with a
- * cascade someone else wrote.
+ * two shadcn migrations were attempted and both were reverted, and the lesson
+ * applies in its real form: adopt one look wholesale. This time the look is
+ * the owner's own, so the stylesheet carries it directly and a visual change
+ * is an edit to a named token or a named class, not a fight with a cascade
+ * someone else wrote.
  *
  * Vocabulary, for anyone adding a surface:
  *   layout   .app .topbar .app-body .nav .main .view-head .inspector .ledger

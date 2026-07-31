@@ -191,16 +191,16 @@ unrelated content. `context` returns a bounded, prioritized context bundle for a
 ## CI templates
 
 ```bash
-project ci sync [--targets github,gitlab,generic]
-project ci check [--targets ...]
+workfile ci sync [--targets github,gitlab,generic]
+workfile ci check [--targets ...]
 ```
 
 ## Legacy migration
 
 ```bash
-project migrate plan [--source .planning] [--mode copy|move]
-project migrate apply [--source .planning] [--mode copy|move] [--force]
-project migrate schema [--dry-run] [--json]
+workfile migrate plan [--source .planning] [--mode copy|move]
+workfile migrate apply [--source .planning] [--mode copy|move] [--force]
+workfile migrate schema [--dry-run] [--json]
 ```
 
 Valid v1 cards become canonical v2 records; everything else is preserved under

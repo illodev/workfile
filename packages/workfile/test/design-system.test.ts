@@ -26,7 +26,7 @@ async function sources() {
 }
 
 /**
- * The stylesheet is the whole design system (ADR-0010).
+ * The stylesheet is the whole design system (ADR-0004).
  *
  * Two migrations proved that a framework underneath this interface ends up
  * being fought, not used. The bespoke system has exactly two moving parts:

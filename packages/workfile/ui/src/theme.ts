@@ -1,7 +1,7 @@
 import type { IssueSeverity, Priority, Status } from "./types";
 
 /**
- * Colour helpers for the bespoke design system (ADR-0010).
+ * Colour helpers for the bespoke design system (ADR-0004).
  *
  * Every status, priority and severity colour in the interface resolves to a
  * named token from `styles.css`; components apply these inline (`style=`)
