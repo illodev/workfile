@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-07-31T18:46:08.956Z",
+    "generatedAt": "2026-07-31T19:09:45.495Z",
     "tasks": {
         "repoRoot": "/demo/workfile",
         "projectName": "Workfile",
@@ -895,16 +895,19 @@
             {
                 "file": "T-0037-no-cli-path-to-title-a-release-record.md",
                 "archived": false,
-                "body": "",
+                "body": "## Activity\n\n- 2026-07-31 18:58Z claude-opus-7c645bf5 · claimed\n- 2026-07-31 19:04Z claude-opus-7c645bf5 · doing → review\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · review → done\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · released\n\n## Notes\n\n- 2026-07-31 19:04Z claude-opus-7c645bf5 — The premise was wrong, and the fix is one line of help text. The CLI has accepted --title all along: bin/workfile.ts passes option(\"--title\") straight into createRelease, and changelog.ts:643 falls back to `Version ${version}` only when it is absent. Verified empirically in a scratch workspace rather than by reading: 'changelog release 1.0.0 --title \"The Big One\"' writes title: The Big One into the release record.\n\nWhat was actually broken is that the binary's usage line omitted the flag while docs/cli.md:155 documented it and README.md:245 showed a worked example. So the two places a reader is sent to were right and the one place the tool describes itself was wrong. That is not academic: 0.1.8 was cut twenty minutes before this card was picked up, and it went out titled 'Version 0.1.8' precisely because the usage was consulted and showed no such flag. All eight releases in this repository carry the generic title for the same reason.\n\nUsage now reads: changelog release VERSION [--title TITLE] [--date YYYY-MM-DD] [--fragments CHG-0001,CHG-0002]. --date got the same treatment; it was equally undocumented and equally supported.",
                 "id": "T-0037",
                 "title": "No CLI path to title a release record",
-                "status": "backlog",
+                "status": "done",
                 "type": "bug",
                 "priority": "low",
                 "area": "core",
                 "created": "2026-07-31",
                 "updated": "2026-07-31",
-                "revision": "sha256:d9f91a4f2aa363cf2f321854664f1c548d923cb864d2ea1dc58cfe61142178b9",
+                "scope": [
+                    "packages/workfile/src/cli"
+                ],
+                "revision": "sha256:251b6e6c2e40cc1ab0303b1f0050656982d68887d6a7a2340c0c62409c30d1c9",
                 "assets": []
             },
             {
@@ -1045,16 +1048,19 @@
             {
                 "file": "T-0044-a-density-toggle-in-the-ui-data-density-has-no-hom.md",
                 "archived": false,
-                "body": "",
+                "body": "## Activity\n\n- 2026-07-31 18:58Z claude-opus-7c645bf5 · claimed\n- 2026-07-31 19:04Z claude-opus-7c645bf5 · doing → review\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · review → done\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · released\n\n## Notes\n\n- 2026-07-31 19:04Z claude-opus-7c645bf5 — data-density has a home. The stylesheet has carried two densities since the shadcn migration - --row-h at 40px on :root and 48px under :root[data-density=\"comfortable\"] - and Explorer, Boards, the shell skeleton and both Overview lists all key their row heights off that token. Nothing ever wrote the attribute, so half of it was unreachable CSS shipping in every bundle.\n\nThe toggle mirrors the theme switch exactly, which is the point: same useState-from-localStorage shape, same effect writing to documentElement.dataset, same icon-sm ghost button in the topbar. One asymmetry is deliberate - compact is the bare :root with no selector of its own, so the effect deletes the attribute rather than writing data-density=\"compact\", which would match nothing and read as though a rule were missing.\n\nRuntime evidence against the served UI: --row-h computes 40px on load, the toggle moves it to 48px with data-density=comfortable on the root and \"comfortable\" in localStorage, and a reload still computes 48px. Compact remains the default for a first visit.",
                 "id": "T-0044",
                 "title": "A density toggle in the UI: data-density has no home",
-                "status": "backlog",
+                "status": "done",
                 "type": "feature",
                 "priority": "low",
                 "area": "ui",
                 "created": "2026-07-31",
                 "updated": "2026-07-31",
-                "revision": "sha256:9e2b99a05324db7d31e650c10cfa64bfcc8c52ccb1fc670ff029adbe3e41a5f0",
+                "scope": [
+                    "packages/workfile/ui/src/main.tsx"
+                ],
+                "revision": "sha256:ec792b891bd80758f151f92cf128e247b2d8d8980d7d3794e53a1f656152abd1",
                 "assets": []
             },
             {
@@ -1133,16 +1139,22 @@
             {
                 "file": "T-0048-overview-takes-the-landing-view-four-call-sites-mu.md",
                 "archived": false,
-                "body": "## Notes\n\n- 2026-07-31 17:51Z claude-opus-7c645bf5 — Split out of T-0047, which shipped the Overview at `?view=overview` deliberately rather than moving the landing view in the same change. The view should live with a release before it becomes the front door, and the swap is not a one-line default: four call sites disagree the moment they drift apart.\n\nquery.ts:31 reads the view and falls back to \"explorer\" when the parameter is missing or unknown; query.ts:68 writes the parameter only when the view is not \"explorer\". They encode the same default from opposite directions, so moving one without the other produces a URL the reader cannot round-trip - the Overview would either be unreachable by default or would write ?view=overview forever.\n\nExplorer is imported eagerly at main.tsx:80 precisely because it is the landing view; the comment above the loaders map says so. Demoting it means a loaders.explorer entry, a lazy() wrapper, a VIEW_MODULE entry so hover and focus still prefetch it, and promoting Overview to the eager import in its place - otherwise the first paint of the new front door waits on a chunk.\n\ntest/schema-parity.test.ts asserts a bare query URL, and three demo links in site/index.html carry no view parameter, so today they mean \"the table\" and would silently come to mean \"the dashboard\". The screenshot script enumerates views in order and would reorder its output.\n\nDecide after 0.1.8 has been in use, not before.",
+                "body": "## Notes\n\n- 2026-07-31 17:51Z claude-opus-7c645bf5 — Split out of T-0047, which shipped the Overview at `?view=overview` deliberately rather than moving the landing view in the same change. The view should live with a release before it becomes the front door, and the swap is not a one-line default: four call sites disagree the moment they drift apart.\n\nquery.ts:31 reads the view and falls back to \"explorer\" when the parameter is missing or unknown; query.ts:68 writes the parameter only when the view is not \"explorer\". They encode the same default from opposite directions, so moving one without the other produces a URL the reader cannot round-trip - the Overview would either be unreachable by default or would write ?view=overview forever.\n\nExplorer is imported eagerly at main.tsx:80 precisely because it is the landing view; the comment above the loaders map says so. Demoting it means a loaders.explorer entry, a lazy() wrapper, a VIEW_MODULE entry so hover and focus still prefetch it, and promoting Overview to the eager import in its place - otherwise the first paint of the new front door waits on a chunk.\n\ntest/schema-parity.test.ts asserts a bare query URL, and three demo links in site/index.html carry no view parameter, so today they mean \"the table\" and would silently come to mean \"the dashboard\". The screenshot script enumerates views in order and would reorder its output.\n\nDecide after 0.1.8 has been in use, not before.\n- 2026-07-31 19:04Z claude-opus-7c645bf5 — The Overview is the front door. All four call sites moved together, as the card warned they must.\n\nquery.ts:31 now falls back to \"overview\" and query.ts:68 omits the parameter for \"overview\" instead of \"explorer\" - the same default written from opposite directions, which is why they cannot be separated. The round trip was verified in the browser rather than reasoned about: a bare URL lands on the Overview with the sidebar marking it current, clicking Explorer writes ?view=explorer, and Back returns to the bare URL.\n\nExplorer gave up its eager import in the same move. Leaving both eager would have made every first paint pay for the old landing view: it is now loaders.explorer, a lazy wrapper and a VIEW_MODULE entry so hover and focus still prefetch it, and it lands as a 12.11 kB chunk while the Overview joins the entry bundle.\n\nschema-parity.test.ts asserted the old default through 'writeUrlState(\"explorer\", ...)' expecting a bare /?q=bill. It now anchors the new one and, more usefully, anchors the symmetry itself: a bare location must read back as the view the writer refuses to name. That is the exact failure the card predicted, and nothing else in the suite would have caught it.\n\nThe three unqualified demo links in site/index.html were left alone on purpose. They follow the default, so their meaning moved with it - the landing nav, the 'Try the live demo' call to action and the footer link now open the Overview. That was the silent change the card wanted made deliberately, and it is: whoever clicks through now meets a sentence stating the project instead of a table of forty-seven rows.\n\nHeld against the card's own advice, which asked for a release of living with the view before deciding. 0.1.8 had been public for twenty minutes. Recorded here because the decision was the owner's and the reasoning should not be lost: if the front door proves wrong, the swap is four call sites in the other direction and this note is the map.\n\n## Activity\n\n- 2026-07-31 18:58Z claude-opus-7c645bf5 · claimed\n- 2026-07-31 19:04Z claude-opus-7c645bf5 · doing → review\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · review → done\n- 2026-07-31 19:09Z claude-opus-7c645bf5 · released",
                 "id": "T-0048",
                 "title": "Overview takes the landing view: four call sites must move together",
-                "status": "backlog",
+                "status": "done",
                 "type": "task",
                 "priority": "medium",
                 "area": "ui",
                 "created": "2026-07-31",
                 "updated": "2026-07-31",
-                "revision": "sha256:799342ab129d85d5c456c5cbbb89073ed37b3be1d2aa4e3e3f4a0e75e7e6fc6b",
+                "scope": [
+                    "packages/workfile/ui/src/query.ts",
+                    "packages/workfile/ui/src/main.tsx",
+                    "packages/workfile/test/schema-parity.test.ts",
+                    "site/index.html"
+                ],
+                "revision": "sha256:67d3c2445316cec87c3af10b4e691e60cb38fd1f7cd8d78f58687a8a63ff5903",
                 "assets": []
             },
             {
@@ -1195,18 +1207,18 @@
         "repoUrl": "https://github.com/illodev/workfile"
     },
     "health": {
-        "generatedAt": "2026-07-31T18:46:09.080Z",
+        "generatedAt": "2026-07-31T19:09:45.615Z",
         "cards": 50,
         "modules": {
             "cards": 50,
             "docs": 10,
             "managedDocs": 0,
             "indexedDocs": 10,
-            "changes": 23,
-            "unreleasedChanges": 0,
+            "changes": 26,
+            "unreleasedChanges": 3,
             "releases": 8,
-            "memory": 8,
-            "learnings": 2,
+            "memory": 9,
+            "learnings": 3,
             "decisions": 5,
             "incidents": 0,
             "conventions": 1,
@@ -1221,7 +1233,7 @@
         "issues": []
     },
     "activity": {
-        "generatedAt": "2026-07-31T18:46:09.091Z",
+        "generatedAt": "2026-07-31T19:09:45.625Z",
         "sessions": [],
         "claims": [],
         "conflicts": [],
@@ -1992,6 +2004,96 @@
     "changelog": {
         "records": [
             {
+                "id": "CHG-0025",
+                "kind": "change",
+                "recordType": "added",
+                "title": "A density toggle: comfortable rows finally reachable",
+                "path": ".project/changelog/unreleased/CHG-0025-a-density-toggle-comfortable-rows-finally-reachable.md",
+                "file": "CHG-0025-a-density-toggle-comfortable-rows-finally-reachable.md",
+                "body": "",
+                "type": "added",
+                "area": "ui",
+                "visibility": "public",
+                "released": false,
+                "cards": [
+                    "T-0044"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:f89fa9a4f508736980a3ddee65cf03bc6b34724478d60d703f14686ca8cf2f9f",
+                "metadata": {
+                    "id": "CHG-0025",
+                    "title": "A density toggle: comfortable rows finally reachable",
+                    "type": "added",
+                    "area": "ui",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0044"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "T-0044",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "A density toggle in the UI: data-density has no home",
+                        "path": ".project/cards/T-0044-a-density-toggle-in-the-ui-data-density-has-no-hom.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "CHG-0026",
+                "kind": "change",
+                "recordType": "fixed",
+                "title": "CLI usage documents release --title and --date",
+                "path": ".project/changelog/unreleased/CHG-0026-cli-usage-documents-release-title-and-date.md",
+                "file": "CHG-0026-cli-usage-documents-release-title-and-date.md",
+                "body": "",
+                "type": "fixed",
+                "area": "docs",
+                "visibility": "public",
+                "released": false,
+                "cards": [
+                    "T-0037"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:10ba6c6c7a440e1d5f4a0409df03a82e3b36dd79ba92ce92e5efa81506fb6966",
+                "metadata": {
+                    "id": "CHG-0026",
+                    "title": "CLI usage documents release --title and --date",
+                    "type": "fixed",
+                    "area": "docs",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0037"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "T-0037",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "No CLI path to title a release record",
+                        "path": ".project/cards/T-0037-no-cli-path-to-title-a-release-record.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
                 "id": "CHG-0021",
                 "kind": "change",
                 "recordType": "added",
@@ -2283,6 +2385,51 @@
                         "title": "Version 0.1.6"
                     }
                 ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "CHG-0024",
+                "kind": "change",
+                "recordType": "changed",
+                "title": "The Overview becomes the landing view",
+                "path": ".project/changelog/unreleased/CHG-0024-the-overview-becomes-the-landing-view.md",
+                "file": "CHG-0024-the-overview-becomes-the-landing-view.md",
+                "body": "",
+                "type": "changed",
+                "area": "ui",
+                "visibility": "public",
+                "released": false,
+                "cards": [
+                    "T-0048"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:96e72b68c76948c24a273fc197521cedae8cc657738c7df86f65204539500f77",
+                "metadata": {
+                    "id": "CHG-0024",
+                    "title": "The Overview becomes the landing view",
+                    "type": "changed",
+                    "area": "ui",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0048"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "T-0048",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Overview takes the landing view: four call sites must move together",
+                        "path": ".project/cards/T-0048-overview-takes-the-landing-view-four-call-sites-mu.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
                 "issues": [],
                 "searchScore": 0
             },
@@ -3042,8 +3189,14 @@
                         "path": ".project/cards/T-0004-card-release-degrada-una-card-done-a-next-salvo-qu.md"
                     }
                 ],
-                "incomingTotal": 2,
+                "incomingTotal": 3,
                 "incoming": [
+                    {
+                        "id": "T-0037",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "No CLI path to title a release record"
+                    },
                     {
                         "id": "PATH-BE5BF732D420",
                         "relation": "mention",
@@ -3512,8 +3665,14 @@
                         "path": ".project/cards/T-0002-ci-verde-multiplataforma-y-primera-publicacion-npm.md"
                     }
                 ],
-                "incomingTotal": 2,
+                "incomingTotal": 3,
                 "incoming": [
+                    {
+                        "id": "T-0037",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "No CLI path to title a release record"
+                    },
                     {
                         "id": "PATH-BE5BF732D420",
                         "relation": "mention",
@@ -3811,7 +3970,7 @@
                 "searchScore": 0
             }
         ],
-        "total": 31,
+        "total": 34,
         "offset": 0,
         "limit": 500,
         "view": "full"
@@ -3941,6 +4100,42 @@
                         "kind": "card",
                         "title": "The Overview opens on a quiet board: one verdict, three proofs and the trail",
                         "path": ".project/cards/T-0047-the-overview-opens-on-a-quiet-board-one-verdict-th.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "lifecycleIssues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "LRN-0003",
+                "kind": "memory",
+                "recordType": "learnings",
+                "collection": "learnings",
+                "title": "The hosted demo rebuilds its snapshot: demo-data.json is a local-development artifact",
+                "path": ".project/memory/learnings/LRN-0003-the-hosted-demo-rebuilds-its-snapshot-demo-data-json-is-a-local-develo.md",
+                "file": "LRN-0003-the-hosted-demo-rebuilds-its-snapshot-demo-data-json-is-a-local-develo.md",
+                "body": "`vercel.json` runs `pnpm run build:demo`, and that script is `pnpm run demo:data && vite build --mode demo`. The hosted demo therefore regenerates its snapshot from the `.project/` Markdown of the commit being deployed, every deploy, before Vite ever bundles. The tracked `packages/workfile/ui/src/demo-data.json` is overwritten in that build and never reaches the web: it exists so a local `--mode demo` run has data without rebuilding the core first.\n\nThe practical consequence is the whole point of this record. When the hosted demo shows a stale board, the snapshot file is not the cause and regenerating it is not the fix. What the demo shows is whatever `.project/` looked like *in the deployed commit* - so a board that still lists the release card as `doing` means the deploy came from the tag commit, before the card was closed, and the next push corrects it on its own.\n\nThis was learned the hard way during 0.1.8: the demo was reported showing one card in doing and three in backlog, which matched commit 42581a6 exactly - T-0050 was closed one commit later in 9c9c3ea. The diagnosis went to the tracked file instead of the deployed commit, and commit 95e3fbd carries a message asserting the hosted demo read a stale JSON. It does not. The file was updated anyway, which is harmless and keeps local development honest, but the reasoning in that message is wrong and this record supersedes it.\n\nWorth noting for the same reason: the snapshot is taken mid-release by definition, since the release card is open while the release is being cut. Both 0.1.7 and 0.1.8 committed a snapshot showing their own release card in flight. Harmless for the web, misleading in a diff.",
+                "status": "active",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:a4297a773fa3afd78746ee563f3927e80ea968bdeecf690f3f6f73ddd7dafbfd",
+                "metadata": {
+                    "id": "LRN-0003",
+                    "title": "The hosted demo rebuilds its snapshot: demo-data.json is a local-development artifact",
+                    "status": "active",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31"
+                },
+                "outgoing": [
+                    {
+                        "id": "T-0050",
+                        "relation": "mention",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Release 0.1.8: the Overview, and the media that shows it",
+                        "path": ".project/cards/T-0050-release-0-1-8-the-overview-and-the-media-that-show.md"
                     }
                 ],
                 "incomingTotal": 0,
@@ -4291,13 +4486,13 @@
                 "searchScore": 0
             }
         ],
-        "total": 8,
+        "total": 9,
         "offset": 0,
         "limit": 500,
         "view": "full"
     },
     "changelogRender": {
-        "public": "# Changelog\n\n## 0.1.8 — 2026-07-31\n\n### Added\n\n- The Overview states the workspace: one verdict, three proofs and the trail (T-0047)\n\n## 0.1.7 — 2026-07-31\n\n### Added\n\n- Search names its mode in the palette and accepts /pattern/flags regex (T-0043)\n- The sidebar collapses to an icon rail (T-0045)\n\n### Changed\n\n- The Inspector is an overlay drawer: expandable, denser body, no more stolen width (T-0041, T-0042, T-0045)\n\n## 0.1.6 — 2026-07-31\n\n### Changed\n\n- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
+        "public": "# Changelog\n\n## Unreleased\n\n### Added\n\n- A density toggle: comfortable rows finally reachable (T-0044)\n\n### Changed\n\n- The Overview becomes the landing view (T-0048)\n\n### Fixed\n\n- CLI usage documents release --title and --date (T-0037)\n\n## 0.1.8 — 2026-07-31\n\n### Added\n\n- The Overview states the workspace: one verdict, three proofs and the trail (T-0047)\n\n## 0.1.7 — 2026-07-31\n\n### Added\n\n- Search names its mode in the palette and accepts /pattern/flags regex (T-0043)\n- The sidebar collapses to an icon rail (T-0045)\n\n### Changed\n\n- The Inspector is an overlay drawer: expandable, denser body, no more stolen width (T-0041, T-0042, T-0045)\n\n## 0.1.6 — 2026-07-31\n\n### Changed\n\n- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
         "internal": "# Changelog\n\n## 0.1.5 — 2026-07-31\n\n### Changed\n\n- Repository scripts and tests run as TypeScript via native type stripping\n\n## 0.1.4 — 2026-07-30\n\n### Changed\n\n- The repository becomes a pnpm monorepo with commit hooks\n"
     }
 }
