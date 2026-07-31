@@ -20,6 +20,7 @@ import {
     EmptyTitle
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
+import { Accent } from "../Accent";
 import { priorityColor, severityColor, statusColor } from "../../theme";
 import type { Status, Task } from "../../types";
 
@@ -222,12 +223,14 @@ function FlowColumn({
             role="region"
             aria-label={`${status}, ${cards.length} cards`}
             className={cn(
-                "w-[268px] flex-none gap-0 overflow-hidden rounded-b-lg rounded-t-none border-t-2 py-0 shadow-xs",
-                // The drop highlight recolours the card's own hairline; the
-                // status keeps the 2px top edge either way (inline wins).
+                // The column squared its top corners so the coloured `border-t-2`
+                // would not bend into the radius, which left it rounded at one
+                // end only. The accent is its own inset bar now, so all four
+                // corners come back and the drop highlight is free to own the
+                // hairline without competing with the status colour.
+                "relative w-[268px] flex-none gap-0 overflow-hidden rounded-lg py-0 shadow-xs",
                 isDropTarget && "border-primary"
             )}
-            style={{ borderTopColor: color }}
             onDragOver={(event) => {
                 event.preventDefault();
                 event.dataTransfer.dropEffect = "move";
@@ -252,7 +255,8 @@ function FlowColumn({
                 if (id) void onMove(id, status).catch(() => undefined);
             }}
         >
-            <header className="flex flex-none items-center gap-2 px-3 pb-2.5 pt-3">
+            <Accent edge="top" color={color} />
+            <header className="flex flex-none items-center gap-2 px-3 pb-2.5 pt-4">
                 <span
                     className="flex-1 font-mono text-[11px] uppercase tracking-[0.06em]"
                     style={{ color }}

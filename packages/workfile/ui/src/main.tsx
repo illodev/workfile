@@ -15,6 +15,7 @@ import {
     Calendar,
     ChevronDown,
     Columns3,
+    Database,
     FileDiff,
     Gauge,
     Lightbulb,
@@ -76,7 +77,6 @@ import {
     SidebarTrigger
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { api } from "./api";
@@ -1552,9 +1552,14 @@ function App() {
                                 : ""}
                         </Badge>
                     ) : null}
+                    {/* A count, not a task. This carried a Spinner, which has
+                        no completion to reach because `indexedTotal` is a sum
+                        of numbers already in hand — so it span for the life of
+                        the tab and made the one control that means "busy" mean
+                        nothing anywhere else in the app. */}
                     {indexedTotal ? (
                         <span className="flex shrink-0 items-center gap-1.5">
-                            <Spinner className="size-3" aria-hidden="true" />
+                            <Database className="size-3" aria-hidden="true" />
                             index {indexedTotal.toLocaleString()} records
                         </span>
                     ) : null}

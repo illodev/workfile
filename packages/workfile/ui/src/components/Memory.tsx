@@ -1042,8 +1042,12 @@ function DetailPanel({
         cells.push(["superseded by", record.superseded_by.join(", ")]);
     if (record.owners?.length) cells.push(["owners", record.owners.join(", ")]);
     cells.push(["updated", record.updated || "—"]);
+    // `--card-spacing` drives the header's `[.border-b]:pb-*`, which is a
+    // two-class selector and outranks anything written at the call site — a
+    // bare `py-2` rendered with 24px underneath it. Setting the variable is how
+    // the primitive means for a caller to ask for a denser card.
     return (
-        <Card className="w-[380px] flex-none gap-0 overflow-hidden rounded-xl py-0">
+        <Card className="w-[380px] flex-none gap-0 overflow-hidden rounded-xl py-0 [--card-spacing:--spacing(2)]">
             <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
                 <span className="font-mono text-[11px] text-muted-foreground">
                     {record.id}
@@ -1336,7 +1340,7 @@ export function MemoryView({
                     {lanes.map((lane) => (
                         <Card
                             key={lane.schema.id}
-                            className="w-[272px] flex-none gap-0 overflow-hidden rounded-xl py-0"
+                            className="w-[272px] flex-none gap-0 overflow-hidden rounded-xl py-0 [--card-spacing:--spacing(2)]"
                         >
                             <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
                                 <span className="font-mono text-[11px] font-medium text-primary">

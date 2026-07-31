@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 
+import { Accent } from "./Accent";
 import { api } from "../api";
 import { useWorkspaceChanges } from "../store/live";
 import { severityColor, statusColor } from "../theme";
@@ -180,9 +181,9 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                     return (
                         <Card
                             key={level}
-                            className="flex-1 gap-1 border-l-2 px-3.5 py-3"
-                            style={{ borderLeftColor: color }}
+                            className="relative flex-1 gap-1 py-3 pl-5 pr-3.5"
                         >
+                            <Accent edge="left" color={color} />
                             <span className="flex items-baseline gap-2">
                                 <span
                                     className="text-[26px] font-semibold tracking-tight"

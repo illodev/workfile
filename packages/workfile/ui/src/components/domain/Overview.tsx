@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+import { Accent } from "../Accent";
 import { api } from "../../api";
 import { changeTouches, useWorkspaceChanges } from "../../store/live";
 import { priorityColor, severityColor, since, statusColor } from "../../theme";
@@ -509,13 +510,13 @@ export function OverviewView({
                 {tiles.map((tile) => (
                     <Card
                         key={tile.key}
-                        className="flex-1 gap-0 border-l-2 p-0"
-                        style={{ borderLeftColor: tile.color }}
+                        className="relative flex-1 gap-0 p-0"
                     >
+                        <Accent edge="left" color={tile.color} />
                         <button
                             type="button"
                             onClick={tile.go}
-                            className="flex w-full flex-col items-start gap-1 rounded-[inherit] px-3.5 py-3 text-left hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                            className="flex w-full flex-col items-start gap-1 rounded-[inherit] py-3 pl-5 pr-3.5 text-left hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                         >
                             <span className="flex items-baseline gap-2">
                                 <span
