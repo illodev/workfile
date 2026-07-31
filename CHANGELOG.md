@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.2.0 — 2026-07-31
+
+### Added
+
+- doctor learns a baseline: --new gates on what you just broke (T-0058)
+- doctor reports card filenames that outlived their titles (T-0054)
+- wf is a shorter way to type workfile (T-0069)
+- workfile next: what to pick up now, and why (T-0057)
+
+### Changed
+
+- Enum errors name the values they accept (T-0055)
+- card create shows the one-call form that writes a body (T-0056)
+- The protocol says where durable knowledge goes (T-0059)
+- Cards take a size, and their spacing stops overruling the call site (T-0063)
+- Reading views get a measure, and the memory panel stops shouting (T-0065)
+- Status colour leaves the border, and the corners come back (T-0062)
+
+### Fixed
+
+- A boolean flag no longer swallows the flag after it (T-0058)
+- card create keeps --parent, and reaches every field the card accepts (T-0052)
+- doctor --severity filters the headline and the rule breakdown too (T-0053)
+- The interface works on a narrow screen (T-0066, T-0067)
+- The Overview and the Explorer follow the rest of the app onto a phone (T-0068)
+- The record counter no longer spins a loader that never finishes (T-0064)
+
 ## 0.1.9 — 2026-07-31
 
 ### Added
