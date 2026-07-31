@@ -1,6 +1,6 @@
 {
   "name": "@illodev/workfile-search-local",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "type": "module",
   "description": "Local embeddings semantic search provider for Workfile. Models run on-device; repository content never leaves the machine.",
   "repository": {
