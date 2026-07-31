@@ -28,7 +28,10 @@ export function readUrlState(): {
     const params = new URLSearchParams(location.search);
     const view = params.get("view") as View | null;
     return {
-        view: view && VIEWS.includes(view) ? view : "explorer",
+        // The landing view. This and the `writeUrlState` guard below encode the
+        // same default from opposite directions: move one without the other and
+        // the address bar stops round-tripping.
+        view: view && VIEWS.includes(view) ? view : "overview",
         selectedId: params.get("record") || params.get("card"),
         filters: {
             search: params.get("q") || "",
@@ -65,7 +68,7 @@ export function writeUrlState(
     { push = false }: { push?: boolean } = {}
 ) {
     const params = new URLSearchParams();
-    if (view !== "explorer") params.set("view", view);
+    if (view !== "overview") params.set("view", view);
     if (filters.search) params.set("q", filters.search);
     if (filters.status) params.set("status", filters.status);
     if (filters.area) params.set("area", filters.area);

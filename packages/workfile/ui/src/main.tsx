@@ -23,6 +23,8 @@ import {
     Minimize2,
     Moon,
     Plus,
+    Rows3,
+    Rows4,
     Search,
     Shield,
     SquareKanban,
@@ -78,7 +80,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { api } from "./api";
-import { Explorer } from "./components/domain/Explorer";
+import { OverviewView } from "./components/domain/Overview";
 import { Inspector } from "./components/Inspector";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
@@ -101,17 +103,21 @@ import {
 import "./styles.css";
 
 /**
- * Views load on demand; the Explorer stays eager because it is the landing
+ * Views load on demand; the Overview stays eager because it is the landing
  * view. Prefetch on hover and focus keeps the lazy chunks from ever being
  * felt: by the time a click lands the module is usually already there.
+ *
+ * The Explorer held this position until the Overview took the front door, and
+ * moved into the lazy set with it — leaving both eager would have paid for the
+ * old landing view on every first paint.
  */
 const loaders = {
     boards: () => import("./components/domain/Boards"),
     docs: () => import("./components/Docs"),
+    explorer: () => import("./components/domain/Explorer"),
     health: () => import("./components/Health"),
     history: () => import("./components/History"),
     memory: () => import("./components/Memory"),
-    overview: () => import("./components/domain/Overview"),
     triage: () => import("./components/Triage")
 };
 
@@ -139,12 +145,12 @@ const HistoryView = lazy(() =>
 const HealthView = lazy(() =>
     loaders.health().then((module) => ({ default: module.HealthView }))
 );
-const OverviewView = lazy(() =>
-    loaders.overview().then((module) => ({ default: module.OverviewView }))
+const Explorer = lazy(() =>
+    loaders.explorer().then((module) => ({ default: module.Explorer }))
 );
 
 const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
-    overview: "overview",
+    explorer: "explorer",
     flow: "boards",
     epics: "boards",
     timeline: "boards",
@@ -452,6 +458,15 @@ function App() {
             ? saved === "dark"
             : matchMedia("(prefers-color-scheme: dark)").matches;
     });
+    /**
+     * `--row-h` has carried two densities since the shadcn migration — 40px
+     * compact, 48px comfortable under `:root[data-density="comfortable"]` —
+     * but nothing ever wrote the attribute, so the comfortable half was
+     * unreachable CSS. Compact stays the default it always was.
+     */
+    const [comfortable, setComfortable] = useState(
+        () => localStorage.getItem("workfile-density") === "comfortable"
+    );
     const [inspectorOpen, setInspectorOpen] = useState(
         () => localStorage.getItem("workfile-inspector") !== "collapsed"
     );
@@ -570,6 +585,17 @@ function App() {
         document.documentElement.dataset.theme = dark ? "dark" : "light";
         localStorage.setItem("workfile-theme", dark ? "dark" : "light");
     }, [dark]);
+
+    useEffect(() => {
+        const density = comfortable ? "comfortable" : "compact";
+        // Only the comfortable selector exists in the stylesheet; compact is
+        // the bare `:root`, so the attribute is removed rather than set to a
+        // value nothing matches.
+        if (comfortable)
+            document.documentElement.dataset.density = "comfortable";
+        else delete document.documentElement.dataset.density;
+        localStorage.setItem("workfile-density", density);
+    }, [comfortable]);
 
     useEffect(() => {
         localStorage.setItem(
@@ -1124,6 +1150,26 @@ function App() {
                                 : "records…"}
                         </span>
                         <Kbd>⌘K</Kbd>
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        title={
+                            comfortable
+                                ? "Compact rows"
+                                : "Comfortable rows"
+                        }
+                        aria-label="Toggle row density"
+                        aria-pressed={comfortable}
+                        className="shrink-0"
+                        onClick={() => setComfortable((current) => !current)}
+                    >
+                        {comfortable ? (
+                            <Rows3 aria-hidden="true" />
+                        ) : (
+                            <Rows4 aria-hidden="true" />
+                        )}
                     </Button>
                     <Button
                         type="button"

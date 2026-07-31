@@ -152,9 +152,19 @@ suite("URL state distinguishes navigation from filtering", async () => {
 
     try {
         // A filter change rewrites the entry: one per keystroke would bury the
-        // page the user came from.
-        query.writeUrlState("explorer", { ...filters, search: "bill" }, null);
+        // page the user came from. The landing view is omitted from the URL,
+        // so this writes the query alone.
+        query.writeUrlState("overview", { ...filters, search: "bill" }, null);
         assert.deepEqual(calls.at(-1), ["replace", "/?q=bill"]);
+
+        // The reader and the writer encode the landing view from opposite
+        // directions, and drifting apart breaks the round trip in a way
+        // nothing else would catch: a bare URL must read back as the same
+        // view the writer refuses to name.
+        globalThis.location.search = "";
+        assert.equal(query.readUrlState().view, "overview");
+        query.writeUrlState("explorer", filters, null, { push: true });
+        assert.deepEqual(calls.at(-1), ["push", "/?view=explorer"]);
 
         // Switching view is navigation.
         query.writeUrlState("flow", filters, null, { push: true });
