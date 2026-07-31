@@ -1,7 +1,7 @@
 ---
 id: T-0056
 title: Every surface teaches the worst way to create a card
-status: backlog
+status: done
 type: docs
 priority: high
 area: docs
@@ -46,3 +46,12 @@ what the tool can do.
 
 Related: [[T-0052]] covers the flags that are genuinely missing rather than
 merely undocumented.
+
+## Activity
+
+- 2026-07-31 20:22Z session-fube-triage · claimed
+- 2026-07-31 20:31Z session-fube-triage · doing → done
+
+## Verification
+
+- 2026-07-31 20:31Z session-fube-triage — Runtime: `card --help` now shows `workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call` directly under the flag form, and the form was exercised end to end — a body containing backticks, `$var` and angle quotes round-tripped byte-for-byte through the created card. docs/cli.md gained the full flag list plus a paragraph naming the JSON file as the form to reach for when the card has a body; README gained the one-call line. documentation.test.ts, which exists to catch docs naming things that do not exist, stays green.

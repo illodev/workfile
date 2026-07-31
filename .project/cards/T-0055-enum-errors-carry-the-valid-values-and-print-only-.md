@@ -1,7 +1,7 @@
 ---
 id: T-0055
 title: Enum errors carry the valid values and print only some of them
-status: backlog
+status: done
 type: bug
 priority: medium
 area: core
@@ -38,3 +38,12 @@ the other validators for enum checks that fail without naming the alternatives.
 
 The reporting agent called the enum error "buenísimo" because it drove them to
 the config — which is the point: it was good enough to be worth finishing.
+
+## Activity
+
+- 2026-07-31 20:22Z session-fube-triage · claimed
+- 2026-07-31 20:31Z session-fube-triage · doing → done
+
+## Verification
+
+- 2026-07-31 20:31Z session-fube-triage — Runtime: `card create --area treasury` now prints `CARD_ENUM_INVALID: Invalid area: treasury` followed by `  valid values: general`; `doc create --kind report` prints the eight document kinds, `research` among them — the exact error that cost a call while filing this batch. JSON payloads carry `details.allowed` on both. Sweep result: the changelog and memory enum checks are doctor rules rather than thrown ValidationErrors, so they surface in a report the caller is already reading rather than at a failed command; left alone deliberately.

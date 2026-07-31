@@ -1,13 +1,13 @@
 ---
 id: T-0053
 title: doctor --severity filters the list but not the headline or rule counts
-status: backlog
+status: done
 type: bug
 priority: medium
 area: core
 source: .project/docs/research/DOC-0001-fube-session-feedback-verified-triage.md
 tags: [fube-feedback, doctor, cli]
-scope: [packages/workfile/bin/workfile.ts]
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/test/cli.test.ts]
 created: 2026-07-31
 updated: 2026-07-31
 ---
@@ -32,3 +32,12 @@ Derive the headline and the rule grouping from `shown` when `--severity` is set,
 and reconcile `counts` in the JSON payload the same way. Keep the total
 discoverable — a suppressed-count line is fine — but the requested filter must
 apply to every part of the output, not just the list.
+
+## Activity
+
+- 2026-07-31 20:22Z session-fube-triage · claimed
+- 2026-07-31 20:31Z session-fube-triage · doing → done
+
+## Verification
+
+- 2026-07-31 20:31Z session-fube-triage — Runtime: built dist against a fixture copy carrying 1 error and 7 warnings. Plain `doctor` reports "1 errors, 7 warnings" with all three rules grouped; `doctor --severity error` reports "1 errors, 0 warnings", lists only missing-source, groups only missing-source, and prints "… 7 below --severity error suppressed". JSON counts follow the filter and carry `suppressed: 7`. Exit code still keys off unfiltered errors, which is unchanged because no severity floor can suppress an error.

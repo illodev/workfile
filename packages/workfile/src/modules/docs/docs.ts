@@ -313,16 +313,30 @@ function validateManagedDocument(workspace, document, existing = [], currentId) 
             "review_interval_days must be a non-negative integer."
         );
     }
+    // `allowed` travels with the error so both the JSON payload and the text
+    // renderer can name the near miss. The card validator has carried it since
+    // the enum check was written; these two did not, so `--kind report` failed
+    // without ever mentioning that `research` was one letter of intent away.
     if (!workspace.config.docs.kinds.includes(document.kind)) {
         throw new ValidationError(
             "DOC_KIND_INVALID",
-            `Invalid document kind: ${document.kind}`
+            `Invalid document kind: ${document.kind}`,
+            {
+                field: "kind",
+                value: document.kind,
+                allowed: workspace.config.docs.kinds
+            }
         );
     }
     if (!workspace.config.docs.statuses.includes(document.status)) {
         throw new ValidationError(
             "DOC_STATUS_INVALID",
-            `Invalid document status: ${document.status}`
+            `Invalid document status: ${document.status}`,
+            {
+                field: "status",
+                value: document.status,
+                allowed: workspace.config.docs.statuses
+            }
         );
     }
     for (const key of ["created", "updated", "reviewed"]) {

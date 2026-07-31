@@ -88,6 +88,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card list [--json]",
         "workfile card show ID [--json]",
         "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
+        "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
         "workfile card patch ID --json-input FILE [--expected-revision REV]",
         "workfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]",
         "workfile card release ID [--actor ACTOR] [--status next]",
@@ -210,6 +211,13 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--tags",
         "--tag",
         "--parent",
+        "--source",
+        "--depends",
+        "--milestone",
+        "--effort",
+        "--related",
+        "--start",
+        "--due",
         "--claimed-by",
         "--unclaimed",
         "--updated-since",
@@ -713,6 +721,11 @@ async function cardCommand(workspace, action) {
     }
     if (action === "create") {
         const fileInput = (await jsonInput()) || {};
+        // Every field `createCard` reads gets a flag. `--parent` used to sit in
+        // COMMAND_FLAGS without being read here, so it passed the unknown-flag
+        // guard and was then dropped in silence — the hierarchy came out flat
+        // and the command still exited 0. `cardCreateFlagCoverage` in the CLI
+        // suite now fails if that gap reopens for any field.
         const input = {
             ...fileInput,
             ...(option("--title") ? { title: option("--title") } : {}),
@@ -723,8 +736,22 @@ async function cardCommand(workspace, action) {
                 : {}),
             ...(option("--status") ? { status: option("--status") } : {}),
             ...(option("--body") ? { body: option("--body") } : {}),
+            ...(option("--parent") ? { parent: option("--parent") } : {}),
+            ...(option("--source") ? { source: option("--source") } : {}),
+            ...(option("--milestone")
+                ? { milestone: option("--milestone") }
+                : {}),
+            ...(option("--effort") ? { effort: option("--effort") } : {}),
+            ...(option("--start") ? { start: option("--start") } : {}),
+            ...(option("--due") ? { due: option("--due") } : {}),
             ...(listOption("--scope") ? { scope: listOption("--scope") } : {}),
-            ...(listOption("--tags") ? { tags: listOption("--tags") } : {})
+            ...(listOption("--tags") ? { tags: listOption("--tags") } : {}),
+            ...(listOption("--depends")
+                ? { depends: listOption("--depends") }
+                : {}),
+            ...(listOption("--related")
+                ? { related: listOption("--related") }
+                : {})
         };
         const result = await createCard(workspace, input);
         return print(has("--json") ? result.card : `${result.id} ${result.file}`);
@@ -1576,15 +1603,34 @@ async function main() {
         const cap = option("--max-issues")
             ? Math.max(0, Number(option("--max-issues")))
             : shown.length;
+        // `--severity` used to filter the issue list and nothing else: the
+        // headline still read off `report.counts` and the rule grouping still
+        // walked `report.issues`, so asking for errors on a repository with
+        // hundreds of inherited warnings returned the one line you wanted
+        // wrapped in everything you had just excluded. The filter now applies to
+        // the whole report, and the excluded total stays on one line so it is
+        // suppressed rather than hidden.
+        const counts = floor
+            ? shown.reduce(
+                  (totals, issue) => {
+                      totals[issue.severity] += 1;
+                      return totals;
+                  },
+                  { error: 0, warning: 0, info: 0 }
+              )
+            : report.counts;
+        const suppressed = report.issues.length - shown.length;
         if (has("--json")) {
             print({
                 ...report,
+                counts,
+                ...(floor ? { suppressed } : {}),
                 ...(fixed ? { fixed } : {}),
                 issues: shown.slice(0, cap)
             });
         } else {
             console.log(
-                `Workfile doctor: ${report.counts.error} errors, ${report.counts.warning} warnings`
+                `Workfile doctor: ${counts.error} errors, ${counts.warning} warnings`
             );
             for (const issue of shown.slice(0, cap)) {
                 console.log(
@@ -1594,10 +1640,13 @@ async function main() {
             if (shown.length > cap) {
                 console.log(`… ${shown.length - cap} more`);
             }
+            if (suppressed > 0) {
+                console.log(`… ${suppressed} below --severity ${floor} suppressed`);
+            }
             // Grouped counts, so a wall of one repeated rule reads as one
             // problem rather than as hundreds.
             const byCode = new Map();
-            for (const issue of report.issues) {
+            for (const issue of shown) {
                 byCode.set(issue.code, (byCode.get(issue.code) || 0) + 1);
             }
             if (byCode.size) {
@@ -1711,6 +1760,15 @@ main().catch((error) => {
         );
     } else {
         console.error(`${normalized.code}: ${normalized.message}`);
+        // The validators already compute the accepted values and attach them to
+        // the error; only `--json` was printing them. A text caller got
+        // "Invalid area: treasury" and had to go read project.config.mjs to find
+        // out what would have worked, which made failing the way you learn what
+        // the tool accepts.
+        const allowed = (normalized.details as { allowed?: unknown })?.allowed;
+        if (Array.isArray(allowed) && allowed.length) {
+            console.error(`  valid values: ${allowed.join(", ")}`);
+        }
     }
     process.exitCode = normalized.exitCode;
 });

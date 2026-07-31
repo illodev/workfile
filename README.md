@@ -182,6 +182,7 @@ conflict-aware writes.
 workfile card list --json
 workfile card show T-0042 --json
 workfile card create --title "Implement runtime schema" --area infra
+workfile card create --json-input card.json   # body, parent, source and tags in one call
 workfile card claim T-0042 --actor agent-56a30d1b --scope apps/api,packages/sdk
 workfile card transition T-0042 review --actor agent-56a30d1b
 workfile card patch T-0042 --json-input changes.json --expected-revision sha256:...

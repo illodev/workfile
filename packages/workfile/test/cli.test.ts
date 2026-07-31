@@ -21,6 +21,30 @@ async function run(args) {
     });
 }
 
+type CliResult = { code: number; stdout: string; stderr: string };
+
+/**
+ * Runs the CLI and returns the same shape whether it exited 0 or not.
+ *
+ * `execFile` rejects on a non-zero exit, so asserting on the output of a
+ * command that is *supposed* to fail — every validation error, and `doctor` on
+ * a repository with errors — otherwise means catching an `unknown` and reaching
+ * into it. This narrows once, here, instead of at every call site.
+ */
+async function outcome(args: string[]): Promise<CliResult> {
+    try {
+        const { stdout, stderr } = await run(args);
+        return { code: 0, stdout, stderr };
+    } catch (error) {
+        const failed = error as { code?: number; stdout?: string; stderr?: string };
+        return {
+            code: failed.code ?? 1,
+            stdout: failed.stdout ?? "",
+            stderr: failed.stderr ?? ""
+        };
+    }
+}
+
 test("CLI exposes machine-readable schema and cards", async () => {
     const schemaResult = await run(["schema", "--root", fixture, "--json"]);
     const schema = JSON.parse(schemaResult.stdout);
@@ -811,6 +835,239 @@ test("card renumber --duplicates and doctor --fix heal a merged ID collision", a
         assert.ok(
             !doctor.issues.some(
                 (issue) => issue.code === "duplicate-record-id"
+            )
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// T-0052. `--parent` sat in COMMAND_FLAGS.card and was read by nothing on the
+// create path, so it cleared the unknown-flag guard and was dropped in silence:
+// the card came out with no parent and the command exited 0. Asserting the one
+// field would not have caught the next one, so this walks the whole mutable
+// surface — add a patchable field without a create flag and this fails.
+const CLAIM_MANAGED_FIELDS = ["claimed_by", "claimed_at"];
+
+const CREATE_FLAG_COVERAGE = {
+    title: ["--title", "Fully specified card"],
+    status: ["--status", "next"],
+    type: ["--type", "bug"],
+    priority: ["--priority", "high"],
+    area: ["--area", "infra"],
+    parent: ["--parent", "T-0001"],
+    depends: ["--depends", "T-0001"],
+    milestone: ["--milestone", "0.2.0"],
+    source: ["--source", "docs/architecture.md"],
+    tags: ["--tags", "alpha,beta"],
+    effort: ["--effort", "M"],
+    scope: ["--scope", "packages/api,packages/sdk"],
+    start: ["--start", "2026-08-01"],
+    due: ["--due", "2026-08-31"],
+    related: ["--related", "T-0001"]
+};
+
+test("card create reaches every field the mutation accepts", async () => {
+    const { CARD_PATCHABLE_FIELDS } = await import("../dist/src/index.js");
+    const covered = Object.keys(CREATE_FLAG_COVERAGE);
+    assert.deepEqual(
+        [...CARD_PATCHABLE_FIELDS].sort(),
+        [...covered, ...CLAIM_MANAGED_FIELDS].sort(),
+        "a patchable card field is not reachable from a `card create` flag"
+    );
+
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-create-flags-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const created = JSON.parse(
+            (
+                await run([
+                    "card",
+                    "create",
+                    "--root",
+                    root,
+                    ...Object.values(CREATE_FLAG_COVERAGE).flat(),
+                    "--json"
+                ])
+            ).stdout
+        );
+
+        assert.equal(created.title, "Fully specified card");
+        assert.equal(created.status, "next");
+        assert.equal(created.type, "bug");
+        assert.equal(created.priority, "high");
+        assert.equal(created.area, "infra");
+        assert.equal(created.parent, "T-0001");
+        assert.equal(created.milestone, "0.2.0");
+        assert.equal(created.source, "docs/architecture.md");
+        assert.equal(created.effort, "M");
+        assert.equal(created.start, "2026-08-01");
+        assert.equal(created.due, "2026-08-31");
+        assert.deepEqual(created.depends, ["T-0001"]);
+        assert.deepEqual(created.tags, ["alpha", "beta"]);
+        assert.deepEqual(created.scope, ["packages/api", "packages/sdk"]);
+        assert.deepEqual(created.related, ["T-0001"]);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// T-0056. The one-call form existed and only SPEC.md mentioned it, so an agent
+// reading `--help` built every card in three calls and pushed bodies through
+// shell heredocs. The help text is the fix, so the help text is the assertion.
+test("card create teaches the --json-input form and honours it", async () => {
+    const help = await run(["card", "--help"]);
+    assert.match(help.stdout, /card create --json-input FILE/);
+
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-create-json-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const input = join(root, "card.json");
+        const body = "# Heading\n\nBackticks `x`, a $variable and «angle quotes».";
+        await writeFile(
+            input,
+            JSON.stringify({
+                title: "Created in one call",
+                area: "infra",
+                parent: "T-0001",
+                source: "docs/architecture.md",
+                tags: ["x", "y"],
+                body
+            })
+        );
+        const created = JSON.parse(
+            (
+                await run([
+                    "card",
+                    "create",
+                    "--root",
+                    root,
+                    "--json-input",
+                    input,
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(created.parent, "T-0001");
+        assert.equal(created.source, "docs/architecture.md");
+        assert.deepEqual(created.tags, ["x", "y"]);
+        assert.equal(created.body.trim(), body);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// T-0055. The accepted values were computed at the point of failure and only
+// `--json` printed them, so a text caller learned the enum by going to read
+// project.config.mjs. The document enums did not even carry them.
+test("enum errors name the accepted values on both surfaces", async () => {
+    const area = await outcome([
+        "card", "create", "--title", "Bad", "--area", "treasury", "--root", fixture
+    ]);
+    assert.equal(area.code, 1);
+    assert.match(area.stderr, /CARD_ENUM_INVALID: Invalid area: treasury/);
+    assert.match(area.stderr, /valid values: api, web, infra, docs/);
+
+    const kindJson = await outcome([
+        "doc", "create", "--title", "Bad", "--kind", "report", "--root", fixture, "--json"
+    ]);
+    assert.equal(kindJson.code, 1);
+    const payload = JSON.parse(kindJson.stderr);
+    assert.equal(payload.error.code, "DOC_KIND_INVALID");
+    assert.ok(payload.error.details.allowed.includes("research"));
+
+    const kindText = await outcome([
+        "doc", "create", "--title", "Bad", "--kind", "report", "--root", fixture
+    ]);
+    assert.equal(kindText.code, 1);
+    assert.match(kindText.stderr, /valid values: .*research/);
+});
+
+// T-0053. `--severity` filtered the printed list and nothing else: the headline
+// read off unfiltered counts and the rule grouping walked unfiltered issues, so
+// on a repository with hundreds of inherited warnings the filter returned the
+// one line you wanted wrapped in everything you had just excluded.
+test("doctor --severity filters the headline and the rule grouping too", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-severity-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        // One warning (an unresolvable search provider) and one error (a card
+        // whose source is not in the repository).
+        await writeFile(
+            join(root, "project.config.mjs"),
+            `export default {
+    schemaVersion: 2,
+    name: "Golden workspace",
+    language: "es",
+    cards: { areas: ["api", "web", "infra", "docs"] },
+    search: { provider: "absent-provider" }
+};
+`
+        );
+        await run([
+            "card",
+            "create",
+            "--root",
+            root,
+            "--title",
+            "Points at nothing",
+            "--source",
+            "docs/does-not-exist.md"
+        ]);
+
+        const all = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        );
+        // The fixture carries its own warnings on top of the injected one, so
+        // the assertions are relative: what matters is that the filter moves
+        // every part of the report together, not that the corpus has a
+        // particular size.
+        assert.equal(all.counts.error, 1);
+        assert.ok(all.counts.warning >= 1);
+        assert.ok(
+            all.issues.some(
+                (issue) => issue.code === "search-provider-unresolved"
+            )
+        );
+        assert.equal(all.suppressed, undefined);
+
+        const errorsOnly = JSON.parse(
+            (
+                await outcome([
+                    "doctor",
+                    "--root",
+                    root,
+                    "--severity",
+                    "error",
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(errorsOnly.counts.error, 1);
+        assert.equal(errorsOnly.counts.warning, 0);
+        assert.equal(
+            errorsOnly.suppressed,
+            all.counts.warning + all.counts.info
+        );
+        assert.ok(
+            errorsOnly.issues.every((issue) => issue.severity === "error"),
+            "a filtered report still carried non-error issues"
+        );
+
+        const text = (
+            await outcome(["doctor", "--root", root, "--severity", "error"])
+        ).stdout;
+        assert.match(text, /Workfile doctor: 1 errors, 0 warnings/);
+        assert.match(text, /missing-source/);
+        assert.doesNotMatch(
+            text,
+            /search-provider-unresolved/,
+            "the rule grouping ignored --severity"
+        );
+        assert.match(
+            text,
+            new RegExp(
+                `${all.counts.warning + all.counts.info} below --severity error suppressed`
             )
         );
     } finally {

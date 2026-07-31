@@ -86,6 +86,10 @@ workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent I
                   [--limit N] [--offset N] [--fields a,b] [--with-body] [--json]
 workfile card show ID [--json]
 workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
+                    [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
+                    [--depends ID,ID] [--related ID,ID] [--milestone M] [--effort S|M|L]
+                    [--start DATE] [--due DATE] [--body TEXT]
+workfile card create --json-input FILE
 workfile card patch ID --json-input FILE [--expected-revision REV]
 workfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next]
@@ -96,6 +100,12 @@ workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
 workfile card renumber --duplicates [--actor ACTOR]
 ```
+
+`card create --json-input FILE` is the form to reach for when the card has a
+body. It takes the whole record — title, body, parent, source, tags, scope — in
+one call, and a JSON file survives backticks, `$` and accents that a shell
+heredoc quietly mangles. The flag form above writes the same fields; it is the
+body that argues for the file.
 
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.

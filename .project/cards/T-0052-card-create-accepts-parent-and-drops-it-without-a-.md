@@ -1,13 +1,13 @@
 ---
 id: T-0052
 title: card create accepts --parent and drops it without a word
-status: backlog
+status: done
 type: bug
 priority: high
 area: core
 source: .project/docs/research/DOC-0001-fube-session-feedback-verified-triage.md
 tags: [fube-feedback, cli, silent-failure]
-scope: [packages/workfile/bin/workfile.ts]
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/test/cli.test.ts]
 created: 2026-07-31
 updated: 2026-07-31
 ---
@@ -43,3 +43,12 @@ supported by the mutation and unreachable from flags.
 A regression test should assert that every key `createCard` reads is either
 wired to a flag or absent from `COMMAND_FLAGS.card` — the drift, not just this
 instance.
+
+## Activity
+
+- 2026-07-31 20:22Z session-fube-triage · claimed
+- 2026-07-31 20:31Z session-fube-triage · doing → done
+
+## Verification
+
+- 2026-07-31 20:31Z session-fube-triage — Runtime: built dist run against a fresh `workfile init` workspace. `card create --title Child --parent T-0001 --tags a,b --effort M --due 2026-09-01` now writes `parent: T-0001`, `tags: [a, b]`, `effort: M`, `due: 2026-09-01`. Tests: 177 core + 7 search-local green; the new `card create reaches every field the mutation accepts` walks CARD_PATCHABLE_FIELDS, so a future patchable field without a create flag fails the suite. strict ratchet held at 647 known errors, none new.
