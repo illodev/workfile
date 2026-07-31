@@ -8,8 +8,8 @@ reaches a consumer's `node_modules`.
 ## Zero runtime dependencies is a published guarantee
 
 `dependencies` is exactly `@types/node`, and it is there only because the
-published `.d.ts` files reference `node:` types. React, Radix and Lucide are
-all `devDependencies`.
+published `.d.ts` files reference `node:` types. React, Radix, Tailwind,
+Lucide and the shadcn tooling are all `devDependencies`.
 
 This is enforced, not documented and hoped for. `test/dependencies.test.ts`
 asserts the exact contents of `dependencies`, and also that there are no
@@ -18,93 +18,82 @@ hooks that would smuggle a tree in past that check.
 `test/design-system.test.ts` asserts the same list a second time, from the
 other direction.
 
-The guard exists because a component generator writes its imports into
+The guard matters because `shadcn add` writes its imports into
 `dependencies` by default. One un-corrected run would publish Radix, Lucide
-and CVA into every consumer's install, and nothing about the repository would
-look wrong. Install what a component needs yourself, with `-D`.
+and CVA into every consumer's install, and nothing about the repository
+would look wrong. Install what a component needs yourself, with `-D`,
+before running `add` — then check the test still passes.
 
-`pnpm run smoke:package` goes further: it packs the tarball, installs it in a
-clean consumer, and checks that React is absent from the resulting tree.
+`pnpm run smoke:package` goes further: it packs the tarball, installs it in
+a clean consumer, and checks that React is absent from the resulting tree.
 
-## The stylesheet is the design system
+## shadcn/ui is the design system
 
-There is no framework underneath this interface (`ADR-0004`). Two shadcn
-migrations were attempted and both were reverted; `ui/src/styles.css` now
-carries the whole system — the tokens and the component classes, in one file,
-ported 1:1 from the normative spec `Workfile - Rediseño.dc.html`.
+The third migration (`ADR-0005`) put shadcn/ui on Tailwind v4 underneath
+the interface — wholesale, zinc as published, after two reverted attempts
+taught that adopting a framework means adopting its look. The bespoke
+stylesheet is gone; `ui/src/styles.css` is now the token bridge:
 
-`test/design-system.test.ts` keeps it that way, and its assertions are the
-real contract:
+- `@import "tailwindcss"`, the registry's shared utilities from
+  `shadcn/tailwind.css` (scroll-fade and friends), and `typeset.css` — the
+  styling system for rendered Markdown.
+- The zinc palettes for `:root` and `[data-theme="dark"]`. Themes still
+  switch on the `data-theme` attribute the app stamps; a `@custom-variant`
+  bridges the registry's `dark:` utilities to it.
+- The three semantic namespaces — `--status-*`, `--priority-*`, `--sev-*` —
+  ported byte-for-byte from the system they outlived. They are the one
+  named exception ADR-0005 allows, applied through the helpers in
+  `ui/src/theme.ts` or the mapped utilities (`text-status-doing`).
+- `--row-h`, the single density token: 40px compact by default, 48px under
+  `:root[data-density="comfortable"]`. Tables key their row height off it.
 
-- **No framework reaches the stylesheet.** No `@import "tailwindcss"`, no
-  `@import "shadcn"`, no `@source`, no `@theme`. The typeface is bundled
-  through `@fontsource-variable`, so the package carries its own Geist rather
-  than requesting one from a CDN.
-- **The framework packages stay out of `package.json`, by name** —
-  `tailwindcss`, `@tailwindcss/vite`, `shadcn`, `tw-animate-css`,
-  `class-variance-authority`, `tailwind-merge`, `clsx`, `cmdk`, `sonner`,
-  `react-resizable-panels`, `next-themes`.
-- **No component imports through the `@/` alias or references
-  `components/ui/`.** Both were deleted with the second migration.
-- **Components name tokens, never colours.** A literal `#hex`, `rgb()`,
-  `hsl()` or `oklch()` in a component fails the suite. Status, priority and
-  severity are the `--status-*`, `--priority-*` and `--sev-*` custom
-  properties, applied inline through the helpers in `ui/src/theme.ts`.
-- **Every `var()` a component references is declared.** The check is a set
-  difference against the stylesheet, because a typo'd token does not error —
-  the declaration is silently dropped and renders as "transparent" or
-  "inherits something odd", never as a message.
-- **The dark palette is keyed to `data-theme`**, which is what the app toggles
-  on the root element, and it sets `color-scheme: dark`.
-
-### Things that are specific to this build
-
-- **The base is 13px**, set on `body` for density. Sizes are chosen against
-  that base, so numbers here do not compare directly with any framework's
-  documentation.
-- **Themes switch on `data-theme`**, not a class. `[data-theme="light"]` rides
-  with `:root`, and `[data-theme="dark"]` overrides the palette.
-- **Row height is the one density token**: `--row-h`, with a taller value
-  under `:root[data-density="comfortable"]`.
-- **Radii are literal values**, not a token — the stylesheet writes `6px` or
-  `7px` per component. Colours are the opposite and must always be tokens;
-  the tests enforce that asymmetry, so do not assume it applies to sizes.
-- **`radix-ui` and `lucide-react` are still devDependencies and still used** —
-  behaviour primitives and icons, not a look. They are not the rejected layer.
-
-### The vocabulary
-
-The header of `styles.css` lists every class family, and it is the place to
-look before inventing one:
-
-```text
-layout     .app .topbar .app-body .nav .main .view-head .inspector .ledger
-text       .mono .dim .faint .overline .truncate
-controls   .btn .btn-accent .iconbtn .chip .kbd .searchbtn .input .select
-patterns   .tile .dot .meter .metagrid .reflink .callout .facet .grid-table
-```
+`test/design-system.test.ts` enforces the direction: the framework imports
+must be present, the registry must exist and stay free of application
+imports, no component may speak the dead bespoke vocabulary or name a
+colour literal, every `var()` referenced must be declared, and the dark
+palette must follow `data-theme`. `test/tokens.test.ts` walks the theme
+blocks with a real parser and fails if the dark palette drops a token the
+light one declares.
 
 ### Where components live
 
-- `ui/src/components/domain/` holds the virtual table, the kanban, the Gantt
-  and the record tree. These carry this project's own decisions about how work
-  is displayed.
-- Everything else in `ui/src/components/` is application glue — the drawer,
-  the editors, the palette.
-- `ui/src/kit.tsx` is where the Radix primitives are wrapped.
+- `ui/src/components/ui/` is the registry — generated by `shadcn add`,
+  replaced wholesale on regeneration, never hand-edited.
+- `ui/src/components/domain/` holds the virtual table, the kanban and the
+  Gantt: Workfile's own decisions about how work is displayed, composed
+  from registry parts.
+- Everything else in `ui/src/components/` is application glue — the
+  inspector, the editors, the palette.
+- `ui/src/lib/utils.ts` carries `cn()`; `ui/src/hooks/` the registry hooks.
 
-### Adding a surface
-
-There is no generator. Reuse a class family above, or add a named token and a
-named class to `styles.css` and use it:
+### Adding a component
 
 ```sh
-node --test test/design-system.test.ts    # tokens declared, no colour literals
-node --test test/dependencies.test.ts     # nothing new reached dependencies
+pnpm dlx shadcn@latest add <component>
+node --test test/dependencies.test.ts     # nothing reached dependencies
+node --test test/design-system.test.ts    # registry discipline holds
 ```
 
-Reaching for a component library is the third migration. Read `ADR-0004`
-first — it records what the first two cost.
+The CLI resolves `@/` from the **root** `tsconfig.json` — its `paths` entry
+exists solely for this, and removing it makes `shadcn add` write into a
+literal `@/` directory beside `package.json`. App code resolves the same
+alias through `ui/tsconfig.json` and the matching `resolve.alias` in
+`vite.config.mjs`; the two must stay in sync. Note `ui/tsconfig.json`
+declares `paths` without `baseUrl` — TypeScript 7 removed `baseUrl`, and
+reintroducing it aborts the whole typecheck with TS5102 before a single
+file is checked.
+
+### Conventions the framework does not decide
+
+- **Native selects in table rows** — never a portal select mid-row. The
+  registry's NativeSelect restyles the real `<select>` the Explorer rows
+  depend on.
+- **Density is one token.** Components never hardcode a row height; they
+  read `var(--row-h)`. The comfortable/compact switch is the `data-density`
+  attribute on the root element.
+- **Colours are tokens.** Status, priority and severity ride the semantic
+  namespaces via `theme.ts`; everything else is a shadcn token utility. A
+  literal colour anywhere in `ui/src` fails the suite.
 
 ## Demo builds
 
