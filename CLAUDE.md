@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=adapter-claude version=0.1.4 digest=sha256:aa3901da1c12d46b145804133aeb1aacf682f40ac19e583ff1c0dbd3b1b0a3b5 -->
+<!-- workfile:begin kind=adapter-claude version=0.1.5 digest=sha256:aa3901da1c12d46b145804133aeb1aacf682f40ac19e583ff1c0dbd3b1b0a3b5 -->
 # Workfile for Claude Code
 
 Before substantial changes, read `.project/agents/protocol.md` and the relevant workflow under `.project/agents/workflows`.
