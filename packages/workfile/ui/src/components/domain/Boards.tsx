@@ -1,31 +1,29 @@
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type CSSProperties
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ChipSelect } from "../../kit";
+import { ChevronDown, Inbox } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle
+} from "@/components/ui/empty";
+import { cn } from "@/lib/utils";
 import { priorityColor, severityColor, statusColor } from "../../theme";
 import type { Status, Task } from "../../types";
 
 const NO_CARDS: Task[] = [];
-
-/** Kept off-screen but announced: keyboard moves have no visual anchor for
- *  someone not looking at the board. */
-const VISUALLY_HIDDEN: CSSProperties = {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    margin: -1,
-    padding: 0,
-    overflow: "hidden",
-    clip: "rect(0 0 0 0)",
-    whiteSpace: "nowrap",
-    border: 0
-};
 
 /** Incremental render: mounts `step` cards and grows when the sentinel comes
  *  into view. Card heights vary with the title, so a windowed virtualiser like
@@ -75,8 +73,7 @@ function Sentinel({
     return (
         <span
             ref={ref}
-            className="mono faint"
-            style={{ fontSize: 11, padding: "4px 2px" }}
+            className="px-0.5 py-1 font-mono text-[11px] text-muted-foreground"
         >
             +{remaining} more
         </span>
@@ -123,7 +120,10 @@ function TaskTile({
     ].filter(Boolean);
     return (
         <article
-            className={carrying ? "tile is-selected" : "tile"}
+            className={cn(
+                "flex cursor-pointer flex-col gap-1.5 rounded-lg border bg-background px-3 py-2.5 shadow-xs outline-none transition-[color,border-color,box-shadow] hover:border-ring focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                carrying && "border-ring ring-2 ring-ring"
+            )}
             tabIndex={0}
             draggable={Boolean(onDragStart)}
             aria-grabbed={onCarry ? Boolean(carrying) : undefined}
@@ -145,52 +145,46 @@ function TaskTile({
             }}
             onDragStart={onDragStart}
         >
-            <span className="tile-row">
-                <span className="mono dim" style={{ fontSize: 11 }}>
+            <span className="flex items-center">
+                <span className="font-mono text-[11px] text-foreground/70">
                     {task.id}
                 </span>
-                <span className="spacer" />
+                <span className="flex-1" />
                 <span
-                    className="mono"
-                    style={{ fontSize: 10, color: priorityColor(task.priority) }}
+                    className="font-mono text-[10px] font-medium"
+                    style={{ color: priorityColor(task.priority) }}
                 >
                     {task.priority}
                 </span>
             </span>
-            <span className="tile-title" role="heading" aria-level={3}>
+            <span
+                className="text-[12.5px] leading-snug font-medium"
+                role="heading"
+                aria-level={3}
+            >
                 {task.title}
             </span>
-            <span
-                className="tile-row mono faint"
-                style={{ fontSize: 10, gap: 6 }}
-            >
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
                 <span>{task.area}</span>
                 <span>·</span>
                 <span>{task.type}</span>
                 {task.claimed_by ? (
                     <span
-                        style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 5,
-                            marginLeft: "auto",
-                            minWidth: 0,
-                            color: statusColor("doing")
-                        }}
+                        className="ml-auto inline-flex min-w-0 items-center gap-[5px]"
+                        style={{ color: statusColor("doing") }}
                     >
                         <span
-                            className="dot dot-round"
-                            style={{ width: 5, height: 5 }}
+                            className="size-[5px] flex-none rounded-full bg-current"
                             aria-hidden="true"
                         />
-                        <span className="truncate" style={{ maxWidth: 90 }}>
+                        <span className="max-w-[90px] truncate">
                             {task.claimed_by}
                         </span>
                     </span>
                 ) : null}
             </span>
             {Array.isArray(task.scope) && task.scope.length ? (
-                <span className="tile-note truncate">
+                <span className="mt-0.5 truncate border-t border-dashed pt-1.5 font-mono text-[10.5px] text-muted-foreground">
                     scope {task.scope.join(" · ")}
                 </span>
             ) : null}
@@ -224,18 +218,16 @@ function FlowColumn({
     const [shown, hasMore, showMore] = useIncremental(cards, 25);
     const color = statusColor(status);
     return (
-        <section
-            className="panel"
+        <Card
+            role="region"
             aria-label={`${status}, ${cards.length} cards`}
-            style={{
-                width: 268,
-                flex: "0 0 268px",
-                borderRadius: "0 0 8px 8px",
-                // The drop highlight recolours the panel's own hairline; the
-                // status keeps the 2px top edge either way.
-                borderColor: isDropTarget ? "var(--accent)" : undefined,
-                borderTop: `2px solid ${color}`
-            }}
+            className={cn(
+                "w-[268px] flex-none gap-0 overflow-hidden rounded-b-lg rounded-t-none border-t-2 py-0 shadow-xs",
+                // The drop highlight recolours the card's own hairline; the
+                // status keeps the 2px top edge either way (inline wins).
+                isDropTarget && "border-primary"
+            )}
+            style={{ borderTopColor: color }}
             onDragOver={(event) => {
                 event.preventDefault();
                 event.dataTransfer.dropEffect = "move";
@@ -260,41 +252,43 @@ function FlowColumn({
                 if (id) void onMove(id, status).catch(() => undefined);
             }}
         >
-            <header className="panel-head">
+            <header className="flex flex-none items-center gap-2 px-3 pb-2.5 pt-3">
                 <span
-                    className="mono"
-                    style={{
-                        flex: 1,
-                        fontSize: 11,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color
-                    }}
+                    className="flex-1 font-mono text-[11px] uppercase tracking-[0.06em]"
+                    style={{ color }}
                 >
                     {status}
                 </span>
-                <span className="mono faint" style={{ fontSize: 11 }}>
+                <Badge
+                    variant="secondary"
+                    className="h-5 rounded-md px-[7px] font-mono text-[11px] font-normal"
+                >
                     {cards.length}
-                </span>
+                </Badge>
             </header>
             <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    padding: 10,
-                    overflowY: "auto",
-                    background: isDropTarget ? "var(--accent-soft)" : undefined
-                }}
+                className={cn(
+                    "scroll-fade flex flex-1 flex-col gap-2 overflow-y-auto p-2.5",
+                    isDropTarget && "bg-accent/50"
+                )}
             >
                 {cards.length === 0 ? (
-                    <span
-                        className="mono faint"
-                        style={{ fontSize: 11, padding: "8px 2px" }}
-                    >
-                        no cards
-                    </span>
+                    <Empty className="flex-1 gap-2 rounded-lg border border-dashed p-4">
+                        <EmptyHeader className="gap-1">
+                            <EmptyMedia
+                                variant="icon"
+                                className="mb-0 size-8 [&_svg:not([class*='size-'])]:size-4"
+                            >
+                                <Inbox aria-hidden="true" />
+                            </EmptyMedia>
+                            <EmptyTitle className="text-[12.5px] font-medium">
+                                No cards
+                            </EmptyTitle>
+                            <EmptyDescription className="text-[11.5px]">
+                                Nothing in this state.
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
                 ) : (
                     shown.map((task) => (
                         <TaskTile
@@ -321,7 +315,7 @@ function FlowColumn({
                     />
                 )}
             </div>
-        </section>
+        </Card>
     );
 }
 
@@ -406,14 +400,7 @@ export function FlowBoard({
 
     return (
         <div
-            style={{
-                flex: 1,
-                display: "flex",
-                gap: 12,
-                padding: 14,
-                overflowX: "auto",
-                minHeight: 0
-            }}
+            className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3.5"
             // dragend bubbles from the card being dragged, so one handler here
             // clears the highlight however the drag ended — dropped, cancelled
             // with Escape, or released outside any column.
@@ -436,7 +423,9 @@ export function FlowBoard({
                 }
             }}
         >
-            <p style={VISUALLY_HIDDEN} role="status" aria-live="polite">
+            {/* Kept off-screen but announced: keyboard moves have no visual
+                anchor for someone not looking at the board. */}
+            <p className="sr-only" role="status" aria-live="polite">
                 {announcement}
             </p>
             {statuses.map((status) => (
@@ -498,26 +487,19 @@ export function EpicsView({
 
     if (!groups.length)
         return (
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 24
-                }}
-            >
-                <span className="mono faint" style={{ fontSize: 11 }}>
-                    no epics — no cards match the current filters
-                </span>
-            </div>
+            <Empty className="flex-1 p-6">
+                <EmptyHeader>
+                    <EmptyTitle className="text-sm">No epics</EmptyTitle>
+                    <EmptyDescription className="text-[11.5px]">
+                        No cards match the current filters.
+                    </EmptyDescription>
+                </EmptyHeader>
+            </Empty>
         );
 
     return (
-        <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
-            <div
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}
-            >
+        <div className="flex-1 overflow-y-auto p-3.5">
+            <div className="flex flex-col gap-2.5">
                 {groups.map(([id, cards]) => {
                     const epic = taskById.get(id);
                     const total = cards.length;
@@ -535,56 +517,52 @@ export function EpicsView({
                     const pct = (part: number) =>
                         total ? `${(part / total) * 100}%` : "0%";
                     const legend = [
-                        { label: `${done} done`, color: statusColor("done") },
+                        {
+                            label: `${done} done`,
+                            color: statusColor("done") as string | null
+                        },
                         {
                             label: `${doing} doing`,
-                            color: statusColor("doing")
+                            color: statusColor("doing") as string | null
                         },
-                        { label: `${open} open`, color: "var(--line)" }
+                        // The open swatch reads as the meter's uncovered
+                        // track: a muted token, not a status colour.
+                        { label: `${open} open`, color: null }
                     ];
                     const content = (
                         <>
-                            <span className="tile-row" style={{ gap: 10 }}>
-                                <span
-                                    className="mono dim"
-                                    style={{ fontSize: 11 }}
-                                >
+                            <span className="flex min-w-0 items-center gap-2.5">
+                                <span className="font-mono text-[11.5px] text-foreground/70">
                                     {id === "__none" ? "—" : id}
                                 </span>
-                                <span
-                                    style={{
-                                        flex: 1,
-                                        minWidth: 0,
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        letterSpacing: "-0.01em",
-                                        textWrap: "pretty"
-                                    }}
-                                >
+                                <span className="min-w-0 flex-1 text-sm font-semibold tracking-[-0.01em] text-pretty">
                                     {epic?.title || "Without epic"}
                                 </span>
                                 {epic ? (
                                     <span
-                                        className="mono"
+                                        className="font-mono text-[11px]"
                                         style={{
-                                            fontSize: 11,
                                             color: statusColor(epic.status)
                                         }}
                                     >
                                         {epic.status}
                                     </span>
                                 ) : null}
-                                <span
-                                    className="mono faint"
-                                    style={{ fontSize: 11 }}
-                                >
+                                <span className="font-mono text-[11.5px] text-muted-foreground">
                                     {done}/{total}
                                 </span>
                             </span>
-                            <span className="stack-meter" aria-hidden="true">
+                            {/* Stacked meter, not shadcn Progress: done and
+                                doing segments over a muted track — the bare
+                                track is the "open" share. */}
+                            <span
+                                className="flex h-2 w-full overflow-hidden rounded-full bg-muted"
+                                aria-hidden="true"
+                            >
                                 {total > 0 ? (
                                     <>
                                         <span
+                                            className="h-full"
                                             style={{
                                                 width: pct(done),
                                                 background:
@@ -592,49 +570,42 @@ export function EpicsView({
                                             }}
                                         />
                                         <span
+                                            className="h-full"
                                             style={{
                                                 width: pct(doing),
                                                 background:
                                                     statusColor("doing")
                                             }}
                                         />
-                                        <span
-                                            style={{
-                                                width: pct(open),
-                                                background: "var(--line)"
-                                            }}
-                                        />
                                     </>
                                 ) : null}
                             </span>
-                            <span
-                                className="mono faint"
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 14,
-                                    fontSize: 10.5,
-                                    flexWrap: "wrap"
-                                }}
-                            >
+                            <span className="flex flex-wrap items-center gap-3.5 font-mono text-[10.5px] text-muted-foreground">
                                 {legend.map((entry) => (
                                     <span
                                         key={entry.label}
-                                        style={{
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: 5
-                                        }}
+                                        className="inline-flex items-center gap-[5px]"
                                     >
                                         <span
-                                            className="dot"
-                                            style={{ color: entry.color }}
+                                            className={cn(
+                                                "size-1.5 rounded-[2px]",
+                                                !entry.color &&
+                                                    "bg-muted-foreground"
+                                            )}
+                                            style={
+                                                entry.color
+                                                    ? {
+                                                          background:
+                                                              entry.color
+                                                      }
+                                                    : undefined
+                                            }
                                             aria-hidden="true"
                                         />
                                         {entry.label}
                                     </span>
                                 ))}
-                                <span style={{ marginLeft: "auto" }}>
+                                <span className="ml-auto">
                                     {epic?.area ?? ""}
                                 </span>
                             </span>
@@ -646,33 +617,18 @@ export function EpicsView({
                         <button
                             key={id}
                             type="button"
-                            className="tile"
-                            style={{
-                                borderRadius: 8,
-                                background: "var(--surface)",
-                                padding: "13px 14px",
-                                gap: 10,
-                                width: "100%"
-                            }}
+                            className="flex w-full cursor-pointer flex-col gap-2.5 rounded-xl border bg-card px-4 py-3.5 text-left text-card-foreground shadow-xs outline-none transition-[color,border-color,box-shadow] hover:border-ring focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             onClick={() => onOpen(id)}
                         >
                             {content}
                         </button>
                     ) : (
-                        <div
+                        <Card
                             key={id}
-                            style={{
-                                border: "1px solid var(--line)",
-                                borderRadius: 8,
-                                background: "var(--surface)",
-                                padding: "13px 14px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 10
-                            }}
+                            className="gap-2.5 rounded-xl px-4 py-3.5 shadow-xs"
                         >
                             {content}
-                        </div>
+                        </Card>
                     );
                 })}
             </div>
@@ -699,8 +655,6 @@ function TimelineRow({
     pct: (time: number) => number;
     onOpen: (id: string) => void;
 }) {
-    // No CSS class carries this hover, so the row tracks it itself.
-    const [hover, setHover] = useState(false);
     const start = task.start ? parseDay(task.start) : null;
     const due = task.due ? parseDay(task.due) : null;
     const color = statusColor(task.status);
@@ -708,56 +662,29 @@ function TimelineRow({
         <button
             type="button"
             onClick={() => onOpen(task.id)}
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
             title={`${task.start || "?"} → ${task.due || "?"} · ${task.status}${
                 epicId && epicId !== task.id ? ` · epic ${epicId}` : ""
             }`}
-            style={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                padding: 0,
-                border: 0,
-                borderBottom: "1px solid var(--line-2)",
-                background: hover ? "var(--panel)" : "transparent",
-                cursor: "pointer",
-                textAlign: "left"
-            }}
+            className="flex w-full cursor-pointer items-center border-b bg-transparent p-0 text-left transition-colors hover:bg-muted"
         >
             <span
+                className="flex min-w-0 items-center gap-2 border-r px-3.5"
                 style={{
                     width: GANTT_LABEL,
                     flex: `0 0 ${GANTT_LABEL}px`,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "0 14px",
-                    height: "var(--row-h)",
-                    borderRight: "1px solid var(--line)",
-                    minWidth: 0
+                    height: "var(--row-h)"
                 }}
             >
-                <span
-                    className="mono dim"
-                    style={{ fontSize: 11, flex: "0 0 auto", whiteSpace: "nowrap" }}
-                >
+                <span className="flex-none whitespace-nowrap font-mono text-[11px] text-foreground/70">
                     {task.id}
                 </span>
-                <span
-                    className="truncate"
-                    style={{ minWidth: 0, fontSize: 12.5 }}
-                >
+                <span className="min-w-0 truncate text-[12.5px]">
                     {task.title}
                 </span>
             </span>
             <span
-                style={{
-                    flex: 1,
-                    position: "relative",
-                    height: "var(--row-h)",
-                    display: "block"
-                }}
+                className="relative block flex-1"
+                style={{ height: "var(--row-h)" }}
             >
                 {start != null && due != null ? (
                     <span
@@ -819,8 +746,8 @@ export function TimelineView({
         // switching the grouping never hides work.
         const key = (task: Task) =>
             groupBy === "epic"
-                ? epicIds.get(task.id) || "ungrouped"
-                : task.area || "ungrouped";
+                ? epicIds.get(task.id) || "ungrouped"
+                : task.area || "ungrouped";
         return [...dated].sort(
             (left, right) =>
                 key(left).localeCompare(key(right)) ||
@@ -894,89 +821,81 @@ export function TimelineView({
 
     if (!scheduled.length || !range)
         return (
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 24
-                }}
-            >
-                <span className="mono faint" style={{ fontSize: 11 }}>
-                    nothing scheduled — add a start or due date to a card
-                </span>
-            </div>
+            <Empty className="flex-1 p-6">
+                <EmptyHeader>
+                    <EmptyTitle className="text-sm">
+                        Nothing scheduled
+                    </EmptyTitle>
+                    <EmptyDescription className="text-[11.5px]">
+                        Add a start or due date to a card.
+                    </EmptyDescription>
+                </EmptyHeader>
+            </Empty>
         );
 
     return (
-        <div
-            style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0
-            }}
-        >
-            <div
-                style={{
-                    flex: "0 0 auto",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 14px",
-                    borderBottom: "1px solid var(--line)",
-                    background: "var(--surface)"
-                }}
-            >
-                <span className="mono faint" style={{ fontSize: 11 }}>
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-none items-center gap-2.5 border-b bg-card px-3.5 py-2">
+                <span className="font-mono text-[11px] text-muted-foreground">
                     {scheduled.length} scheduled · {edges.length} dependenc
                     {edges.length === 1 ? "y" : "ies"}
                 </span>
-                <span className="spacer" />
-                <ChipSelect
-                    label="group"
-                    value={groupBy === "none" ? "" : groupBy}
-                    allLabel="none"
-                    options={[{ value: "epic" }, { value: "area" }]}
-                    onChange={(value) =>
-                        setGroupBy(value ? (value as "epic" | "area") : "none")
-                    }
-                />
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="group"
+                            className="ml-auto text-[12.5px] font-medium"
+                        >
+                            group
+                            <span className="font-normal text-muted-foreground">
+                                {groupBy}
+                            </span>
+                            <ChevronDown className="size-[13px] text-muted-foreground" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuRadioGroup
+                            value={groupBy}
+                            onValueChange={(value) =>
+                                setGroupBy(value as "none" | "epic" | "area")
+                            }
+                        >
+                            <DropdownMenuRadioItem value="none">
+                                none
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="epic">
+                                epic
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="area">
+                                area
+                            </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                <div style={{ position: "relative", minHeight: "100%" }}>
+            <div className="min-h-0 flex-1 overflow-auto">
+                <div className="relative min-h-full">
                     <div
                         aria-hidden="true"
-                        style={{
-                            display: "flex",
-                            alignItems: "stretch",
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 2,
-                            height: SCALE_H,
-                            borderBottom: "1px solid var(--line)",
-                            background: "var(--surface)"
-                        }}
+                        className="sticky top-0 z-[2] flex items-stretch border-b bg-card"
+                        style={{ height: SCALE_H }}
                     >
                         <span
-                            className="overline"
+                            className="flex items-center border-r px-3.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
                             style={{
                                 width: GANTT_LABEL,
-                                flex: `0 0 ${GANTT_LABEL}px`,
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "0 14px",
-                                borderRight: "1px solid var(--line)"
+                                flex: `0 0 ${GANTT_LABEL}px`
                             }}
                         >
                             card
                         </span>
-                        <span style={{ flex: 1, position: "relative" }}>
+                        <span className="relative flex-1">
                             {range.months.map((month, monthIndex) => (
                                 <span
                                     key={month.key}
-                                    className="overline"
+                                    className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
                                     style={{
                                         position: "absolute",
                                         top: "50%",
@@ -1003,35 +922,25 @@ export function TimelineView({
                         scrollable area, behind the rows. */}
                     <div
                         aria-hidden="true"
+                        className="pointer-events-none absolute"
                         style={{
-                            position: "absolute",
                             top: SCALE_H,
                             bottom: 0,
                             left: GANTT_LABEL,
-                            right: 0,
-                            pointerEvents: "none"
+                            right: 0
                         }}
                     >
                         {range.months.map((month) => (
                             <span
                                 key={month.key}
-                                style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    bottom: 0,
-                                    width: 1,
-                                    background: "var(--line-2)",
-                                    left: `${month.left}%`
-                                }}
+                                className="absolute inset-y-0 w-px bg-border"
+                                style={{ left: `${month.left}%` }}
                             />
                         ))}
                         {range.today != null && (
                             <span
+                                className="absolute inset-y-0 w-px"
                                 style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    bottom: 0,
-                                    width: 1,
                                     background: severityColor("error"),
                                     opacity: 0.55,
                                     left: `${range.today}%`
@@ -1039,7 +948,7 @@ export function TimelineView({
                             />
                         )}
                     </div>
-                    <div style={{ position: "relative" }}>
+                    <div className="relative">
                         {edges.length > 0 && (
                             // An overlay rather than per-row elements: an edge
                             // spans rows, so it cannot live inside one. It sits
@@ -1050,13 +959,10 @@ export function TimelineView({
                                 aria-hidden="true"
                                 preserveAspectRatio="none"
                                 viewBox={`0 0 100 ${scheduled.length}`}
+                                className="pointer-events-none absolute top-0 h-full"
                                 style={{
-                                    position: "absolute",
-                                    top: 0,
                                     left: GANTT_LABEL,
-                                    width: `calc(100% - ${GANTT_LABEL}px)`,
-                                    height: "100%",
-                                    pointerEvents: "none"
+                                    width: `calc(100% - ${GANTT_LABEL}px)`
                                 }}
                             >
                                 {edges.map((edge) => {
@@ -1092,7 +998,7 @@ export function TimelineView({
                                                       }
                                                     : {
                                                           fill: "none",
-                                                          stroke: "var(--fg-3)",
+                                                          stroke: "var(--muted-foreground)",
                                                           strokeWidth: 1.5,
                                                           opacity: 0.4
                                                       }

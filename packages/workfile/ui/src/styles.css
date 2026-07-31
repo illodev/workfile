@@ -18,6 +18,9 @@
 
 @import "tailwindcss";
 @import "tw-animate-css";
+/* The registry's shared utilities — scroll-fade and friends — shipped in
+ * the shadcn package itself, so they upgrade with the CLI. */
+@import "shadcn/tailwind.css";
 /* shadcn/typeset — the styling system for rendered Markdown (card bodies,
  * Triage, Docs articles). One file, one `typeset` container class. */
 @import "./typeset.css";

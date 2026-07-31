@@ -14,6 +14,7 @@ import {
 import {
     Book,
     Calendar,
+    ChevronDown,
     Columns3,
     FileDiff,
     Lightbulb,
@@ -30,12 +31,48 @@ import {
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarInset,
+    SidebarMenu,
+    SidebarMenuBadge,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarProvider
+} from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+
 import { api } from "./api";
 import { Explorer } from "./components/domain/Explorer";
 import { Inspector } from "./components/Inspector";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
-import { ChipSelect, ChipToggle } from "./kit";
 import { recordCollection, severityColor, since, statusColor } from "./theme";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
@@ -248,24 +285,122 @@ function ViewLoading({ label }: { label: string }) {
         <div
             aria-busy="true"
             aria-label={label}
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                padding: 14
-            }}
+            className="flex flex-col gap-2 p-3.5"
         >
             {Array.from({ length: 8 }, (_, index) => (
-                <span
+                <Skeleton
                     key={index}
-                    style={{
-                        height: "var(--row-h)",
-                        borderRadius: 7,
-                        background: "var(--line-2)"
-                    }}
+                    className="h-[var(--row-h)] w-full shrink-0"
                 />
             ))}
         </div>
+    );
+}
+
+interface FilterOption {
+    value: string;
+    label?: string;
+    /** Optional swatch colour, e.g. `statusColor("doing")`. */
+    color?: string;
+}
+
+/**
+ * A filter chip that opens a menu: `status: all` in the toolbar. The empty
+ * value means "all" and renders the chip in its resting muted state.
+ */
+function FilterChip({
+    label,
+    value,
+    options,
+    allLabel = "all",
+    onChange
+}: {
+    label: string;
+    value: string;
+    options: FilterOption[];
+    allLabel?: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={label}
+                    className={cn(
+                        "h-7 gap-1 rounded-full px-2.5 text-xs",
+                        value && "border-ring bg-accent"
+                    )}
+                >
+                    {label}
+                    <span className="font-normal text-muted-foreground">
+                        {value || allLabel}
+                    </span>
+                    <ChevronDown
+                        aria-hidden="true"
+                        className="size-3 text-muted-foreground"
+                    />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={4}>
+                <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+                    <DropdownMenuRadioItem value="">
+                        {allLabel}
+                    </DropdownMenuRadioItem>
+                    {options.map((option) => (
+                        <DropdownMenuRadioItem
+                            key={option.value}
+                            value={option.value}
+                        >
+                            {option.color ? (
+                                <span
+                                    className="size-1.5 rounded-full bg-current"
+                                    style={{ color: option.color }}
+                                    aria-hidden="true"
+                                />
+                            ) : null}
+                            {option.label ?? option.value}
+                        </DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+/** An on/off chip: `closed: yes` in the toolbar. */
+function FilterToggle({
+    label,
+    on,
+    onLabel = "yes",
+    offLabel = "no",
+    onChange
+}: {
+    label: string;
+    on: boolean;
+    onLabel?: string;
+    offLabel?: string;
+    onChange: (on: boolean) => void;
+}) {
+    return (
+        <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={on}
+            className={cn(
+                "h-7 gap-1 rounded-full px-2.5 text-xs",
+                on && "border-ring bg-accent"
+            )}
+            onClick={() => onChange(!on)}
+        >
+            {label}
+            <span className="font-normal text-muted-foreground">
+                {on ? onLabel : offLabel}
+            </span>
+        </Button>
     );
 }
 
@@ -804,535 +939,642 @@ function App() {
             : VIEW_TITLE[view].toLowerCase());
 
     return (
-        <div
-            className="app"
-            data-inspector={
-                !inspectorOpen ? "collapsed" : selected ? "open" : undefined
-            }
-            style={
-                { "--inspector-w": `${inspectorWidth}px` } as CSSProperties
-            }
+        <SidebarProvider
+            className="h-svh overflow-hidden"
+            style={{ "--sidebar-width": "15rem" } as CSSProperties}
         >
-            <header className="topbar">
-                <div className="topbar-brand">
-                    <span className="brand-mark" aria-hidden="true" />
-                    <span className="brand-name">{projectName}</span>
-                    {import.meta.env.VITE_APP_VERSION ? (
-                        <span className="chip-version">
-                            {import.meta.env.VITE_APP_VERSION}
-                        </span>
-                    ) : null}
-                    {import.meta.env.VITE_DEMO === "1" ? (
-                        <span className="chip-version">demo</span>
-                    ) : null}
-                </div>
-                <nav className="crumb" aria-label="Breadcrumb">
-                    <span>.project</span>
-                    <span className="crumb-sep">/</span>
-                    {crumbRecord ? (
-                        <>
-                            <span>{crumbCollection}</span>
-                            <span className="crumb-sep">/</span>
-                            <span className="crumb-current truncate">
-                                {crumbRecord}
-                            </span>
-                        </>
-                    ) : (
-                        <span className="crumb-current truncate">
-                            {crumbCollection}
-                        </span>
-                    )}
-                </nav>
-                <span className="spacer" />
-                <button
-                    type="button"
-                    className="searchbtn"
-                    onClick={() => setShowPalette(true)}
-                >
-                    <Search aria-hidden="true" />
-                    <span className="searchbtn-label">
-                        Search{" "}
-                        {indexedTotal
-                            ? `${indexedTotal.toLocaleString()} records…`
-                            : "records…"}
-                    </span>
-                    <span className="kbd">⌘K</span>
-                </button>
-                {health ? (
-                    <button
-                        type="button"
-                        className="statuschip"
-                        title="workfile doctor"
-                        onClick={() => setView("health")}
-                    >
+            <Sidebar collapsible="none" className="h-svh shrink-0 border-r">
+                <SidebarHeader className="gap-1 px-3 pt-3">
+                    <div className="flex items-center gap-2">
                         <span
-                            className="dot dot-round"
-                            style={{
-                                color: worstSeverity
-                                    ? severityColor(worstSeverity)
-                                    : statusColor("done")
-                            }}
+                            className="size-4 shrink-0 rounded-sm bg-primary"
                             aria-hidden="true"
                         />
-                        doctor {health.counts.error}E · {health.counts.warning}W
-                        · {health.counts.info}I
-                    </button>
-                ) : null}
-                {import.meta.env.VITE_DEMO !== "1" ? (
-                    <span className="statuschip" title="Change stream">
-                        <span
-                            className="dot dot-round"
-                            style={{
-                                color:
-                                    liveMode === "stream"
-                                        ? statusColor("done")
-                                        : "var(--sev-warning)"
-                            }}
-                            aria-hidden="true"
-                        />
-                        {liveMode === "stream" ? "sse live" : "polling"}
-                        {liveAgents
-                            ? ` · ${liveAgents} agent${liveAgents === 1 ? "" : "s"}`
-                            : ""}
-                    </span>
-                ) : null}
-                <button
-                    type="button"
-                    className="iconbtn"
-                    title="Toggle inspector"
-                    aria-label="Toggle inspector"
-                    aria-pressed={inspectorOpen}
-                    style={
-                        inspectorOpen
-                            ? { color: "var(--accent)" }
-                            : undefined
-                    }
-                    onClick={() => setInspectorOpen((current) => !current)}
-                >
-                    <PanelRight aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    className="iconbtn"
-                    title="Toggle theme"
-                    aria-label="Toggle theme"
-                    onClick={() => setDark((current) => !current)}
-                >
-                    {dark ? (
-                        <Sun aria-hidden="true" />
-                    ) : (
-                        <Moon aria-hidden="true" />
-                    )}
-                </button>
-                <button
-                    type="button"
-                    className="btn-accent"
-                    onClick={() => setShowNewCard(true)}
-                >
-                    <Plus aria-hidden="true" />
-                    New card
-                </button>
-            </header>
-
-            <div className="app-body">
-                <nav className="nav" aria-label="Primary">
-                    {NAV_GROUPS.map((group) => (
-                        <div
-                            key={group.label}
-                            className="nav-group"
-                            role="group"
-                            aria-label={group.label}
-                        >
-                            <span className="overline" aria-hidden="true">
-                                {group.label}
-                            </span>
-                            {group.items.map((option) => {
-                                const Icon = option.icon;
-                                const active = view === option.value;
-                                const count = navCounts[option.value];
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={
-                                            active
-                                                ? "nav-item is-active"
-                                                : "nav-item"
-                                        }
-                                        aria-current={
-                                            active ? "page" : undefined
-                                        }
-                                        onMouseEnter={() =>
-                                            prefetchView(option.value)
-                                        }
-                                        onFocus={() =>
-                                            prefetchView(option.value)
-                                        }
-                                        onClick={() => setView(option.value)}
-                                    >
-                                        <span
-                                            className="nav-item-bar"
-                                            aria-hidden="true"
-                                        />
-                                        <Icon aria-hidden="true" />
-                                        <span className="nav-label">
-                                            {option.label}
-                                        </span>
-                                        {count != null ? (
-                                            <span className="nav-count">
-                                                {count.toLocaleString()}
-                                            </span>
-                                        ) : null}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ))}
-                    <span className="nav-spacer" />
-                    <div className="nav-foot">
-                        <span className="nav-foot-path" title={repoRoot}>
-                            {repoRoot ? `${repoRoot}/.project` : ".project"}
+                        <span className="truncate text-sm font-semibold">
+                            {projectName}
                         </span>
-                        <span className="nav-foot-line">
-                            Markdown is the source. No database.
-                        </span>
-                    </div>
-                </nav>
-
-                <section className="main">
-                    <div className="view-head">
-                        <span className="view-title">{VIEW_TITLE[view]}</span>
-                        {viewMeta ? (
-                            <span className="view-meta">{viewMeta}</span>
+                        {import.meta.env.VITE_APP_VERSION ? (
+                            <Badge
+                                variant="secondary"
+                                className="px-1.5 font-mono text-[10px]"
+                            >
+                                {import.meta.env.VITE_APP_VERSION}
+                            </Badge>
                         ) : null}
-                        <span className="spacer" />
-                        {isWorkView ? (
-                            <>
-                                <ChipSelect
-                                    label="status"
-                                    value={filters.status}
-                                    options={STATUSES.map((status) => ({
-                                        value: status,
-                                        color: statusColor(status)
-                                    }))}
-                                    onChange={(status) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            status: status as Filters["status"]
-                                        }))
-                                    }
+                        {import.meta.env.VITE_DEMO === "1" ? (
+                            <Badge
+                                variant="secondary"
+                                className="px-1.5 font-mono text-[10px]"
+                            >
+                                demo
+                            </Badge>
+                        ) : null}
+                    </div>
+                </SidebarHeader>
+                <nav
+                    aria-label="Primary"
+                    className="flex min-h-0 flex-1 flex-col"
+                >
+                    <SidebarContent>
+                        {NAV_GROUPS.map((group) => (
+                            <SidebarGroup
+                                key={group.label}
+                                role="group"
+                                aria-label={group.label}
+                            >
+                                <SidebarGroupLabel aria-hidden="true">
+                                    {group.label}
+                                </SidebarGroupLabel>
+                                <SidebarGroupContent>
+                                    <SidebarMenu>
+                                        {group.items.map((option) => {
+                                            const Icon = option.icon;
+                                            const active =
+                                                view === option.value;
+                                            const count =
+                                                navCounts[option.value];
+                                            return (
+                                                <SidebarMenuItem
+                                                    key={option.value}
+                                                >
+                                                    <SidebarMenuButton
+                                                        type="button"
+                                                        isActive={active}
+                                                        aria-current={
+                                                            active
+                                                                ? "page"
+                                                                : undefined
+                                                        }
+                                                        onMouseEnter={() =>
+                                                            prefetchView(
+                                                                option.value
+                                                            )
+                                                        }
+                                                        onFocus={() =>
+                                                            prefetchView(
+                                                                option.value
+                                                            )
+                                                        }
+                                                        onClick={() =>
+                                                            setView(
+                                                                option.value
+                                                            )
+                                                        }
+                                                    >
+                                                        <Icon
+                                                            aria-hidden="true"
+                                                            className={
+                                                                active
+                                                                    ? undefined
+                                                                    : "text-muted-foreground"
+                                                            }
+                                                        />
+                                                        <span>
+                                                            {option.label}
+                                                        </span>
+                                                    </SidebarMenuButton>
+                                                    {count != null ? (
+                                                        <SidebarMenuBadge className="font-mono text-[11px] font-normal text-muted-foreground">
+                                                            {count.toLocaleString()}
+                                                        </SidebarMenuBadge>
+                                                    ) : null}
+                                                </SidebarMenuItem>
+                                            );
+                                        })}
+                                    </SidebarMenu>
+                                </SidebarGroupContent>
+                            </SidebarGroup>
+                        ))}
+                    </SidebarContent>
+                </nav>
+                <SidebarFooter className="gap-1 border-t p-3">
+                    <span
+                        className="truncate font-mono text-[11px] text-muted-foreground"
+                        title={repoRoot}
+                    >
+                        {repoRoot ? `${repoRoot}/.project` : ".project"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                        Markdown is the source. No database.
+                    </span>
+                </SidebarFooter>
+            </Sidebar>
+
+            <SidebarInset className="h-svh min-w-0 overflow-hidden">
+                <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+                    <Breadcrumb aria-label="Breadcrumb" className="min-w-0">
+                        <BreadcrumbList className="flex-nowrap gap-1.5 font-mono text-xs sm:gap-1.5">
+                            <BreadcrumbItem>.project</BreadcrumbItem>
+                            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                            {crumbRecord ? (
+                                <>
+                                    <BreadcrumbItem>
+                                        {crumbCollection}
+                                    </BreadcrumbItem>
+                                    <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                                    <BreadcrumbItem className="min-w-0">
+                                        <BreadcrumbPage className="max-w-[32ch] truncate">
+                                            {crumbRecord}
+                                        </BreadcrumbPage>
+                                    </BreadcrumbItem>
+                                </>
+                            ) : (
+                                <BreadcrumbItem className="min-w-0">
+                                    <BreadcrumbPage className="max-w-[32ch] truncate">
+                                        {crumbCollection}
+                                    </BreadcrumbPage>
+                                </BreadcrumbItem>
+                            )}
+                        </BreadcrumbList>
+                    </Breadcrumb>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto w-64 min-w-0 shrink justify-start px-2.5 font-normal text-muted-foreground"
+                        onClick={() => setShowPalette(true)}
+                    >
+                        <Search aria-hidden="true" className="size-3.5" />
+                        <span className="min-w-0 flex-1 truncate text-left text-[13px]">
+                            Search{" "}
+                            {indexedTotal
+                                ? `${indexedTotal.toLocaleString()} records…`
+                                : "records…"}
+                        </span>
+                        <Kbd>⌘K</Kbd>
+                    </Button>
+                    {health ? (
+                        <Badge
+                            asChild
+                            variant="outline"
+                            className="shrink-0 cursor-pointer font-mono text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <button
+                                type="button"
+                                title="workfile doctor"
+                                onClick={() => setView("health")}
+                            >
+                                <span
+                                    className="size-1.5 rounded-full bg-current"
+                                    style={{
+                                        color: worstSeverity
+                                            ? severityColor(worstSeverity)
+                                            : statusColor("done")
+                                    }}
+                                    aria-hidden="true"
                                 />
-                                <ChipSelect
-                                    label="area"
-                                    value={filters.area}
-                                    options={areas.map((area) => ({
-                                        value: area
-                                    }))}
-                                    onChange={(area) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            area
-                                        }))
-                                    }
-                                />
-                                <ChipSelect
-                                    label="type"
-                                    value={filters.type}
-                                    options={TYPES.map((type) => ({
-                                        value: type
-                                    }))}
-                                    onChange={(type) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            type: type as Filters["type"]
-                                        }))
-                                    }
-                                />
-                                <ChipSelect
-                                    label="priority"
-                                    value={filters.priority}
-                                    options={PRIORITIES.map((priority) => ({
-                                        value: priority
-                                    }))}
-                                    onChange={(priority) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            priority:
-                                                priority as Filters["priority"]
-                                        }))
-                                    }
-                                />
-                                {milestones.length > 0 ? (
-                                    <ChipSelect
-                                        label="milestone"
-                                        value={filters.milestone}
-                                        options={milestones.map(
-                                            (milestone) => ({
-                                                value: milestone
-                                            })
-                                        )}
-                                        onChange={(milestone) =>
+                                doctor {health.counts.error}E ·{" "}
+                                {health.counts.warning}W · {health.counts.info}
+                                I
+                            </button>
+                        </Badge>
+                    ) : null}
+                    {import.meta.env.VITE_DEMO !== "1" ? (
+                        <Badge
+                            variant="outline"
+                            title="Change stream"
+                            className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground"
+                        >
+                            <span
+                                className="size-1.5 rounded-full bg-current"
+                                style={{
+                                    color:
+                                        liveMode === "stream"
+                                            ? statusColor("done")
+                                            : "var(--sev-warning)"
+                                }}
+                                aria-hidden="true"
+                            />
+                            {liveMode === "stream" ? "sse live" : "polling"}
+                            {liveAgents
+                                ? ` · ${liveAgents} agent${liveAgents === 1 ? "" : "s"}`
+                                : ""}
+                        </Badge>
+                    ) : null}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Toggle inspector"
+                        aria-label="Toggle inspector"
+                        aria-pressed={inspectorOpen}
+                        className={cn(
+                            "shrink-0",
+                            inspectorOpen && "text-primary"
+                        )}
+                        onClick={() => setInspectorOpen((current) => !current)}
+                    >
+                        <PanelRight aria-hidden="true" />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Toggle theme"
+                        aria-label="Toggle theme"
+                        className="shrink-0"
+                        onClick={() => setDark((current) => !current)}
+                    >
+                        {dark ? (
+                            <Sun aria-hidden="true" />
+                        ) : (
+                            <Moon aria-hidden="true" />
+                        )}
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setShowNewCard(true)}
+                    >
+                        <Plus aria-hidden="true" />
+                        New card
+                    </Button>
+                </header>
+
+                <div className="relative flex min-h-0 flex-1">
+                    <section className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
+                            <span className="text-sm font-medium">
+                                {VIEW_TITLE[view]}
+                            </span>
+                            {viewMeta ? (
+                                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                                    {viewMeta}
+                                </span>
+                            ) : null}
+                            <span className="flex-1" />
+                            {isWorkView ? (
+                                <>
+                                    <FilterChip
+                                        label="status"
+                                        value={filters.status}
+                                        options={STATUSES.map((status) => ({
+                                            value: status,
+                                            color: statusColor(status)
+                                        }))}
+                                        onChange={(status) =>
                                             setFilters((current) => ({
                                                 ...current,
-                                                milestone
+                                                status: status as Filters["status"]
                                             }))
                                         }
                                     />
-                                ) : null}
-                                <ChipToggle
-                                    label="ideas"
-                                    on={filters.showIdeas}
-                                    onChange={(showIdeas) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            showIdeas
-                                        }))
-                                    }
-                                />
-                                <ChipToggle
-                                    label="closed"
-                                    on={filters.showClosed}
-                                    onChange={(showClosed) =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            showClosed
-                                        }))
-                                    }
-                                />
-                                {anyFilter ? (
-                                    <button
-                                        type="button"
-                                        className="chip"
-                                        onClick={resetFilters}
-                                    >
-                                        reset
-                                    </button>
-                                ) : null}
-                            </>
-                        ) : null}
-                    </div>
+                                    <FilterChip
+                                        label="area"
+                                        value={filters.area}
+                                        options={areas.map((area) => ({
+                                            value: area
+                                        }))}
+                                        onChange={(area) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                area
+                                            }))
+                                        }
+                                    />
+                                    <FilterChip
+                                        label="type"
+                                        value={filters.type}
+                                        options={TYPES.map((type) => ({
+                                            value: type
+                                        }))}
+                                        onChange={(type) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                type: type as Filters["type"]
+                                            }))
+                                        }
+                                    />
+                                    <FilterChip
+                                        label="priority"
+                                        value={filters.priority}
+                                        options={PRIORITIES.map((priority) => ({
+                                            value: priority
+                                        }))}
+                                        onChange={(priority) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                priority:
+                                                    priority as Filters["priority"]
+                                            }))
+                                        }
+                                    />
+                                    {milestones.length > 0 ? (
+                                        <FilterChip
+                                            label="milestone"
+                                            value={filters.milestone}
+                                            options={milestones.map(
+                                                (milestone) => ({
+                                                    value: milestone
+                                                })
+                                            )}
+                                            onChange={(milestone) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    milestone
+                                                }))
+                                            }
+                                        />
+                                    ) : null}
+                                    <FilterToggle
+                                        label="ideas"
+                                        on={filters.showIdeas}
+                                        onChange={(showIdeas) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                showIdeas
+                                            }))
+                                        }
+                                    />
+                                    <FilterToggle
+                                        label="closed"
+                                        on={filters.showClosed}
+                                        onChange={(showClosed) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                showClosed
+                                            }))
+                                        }
+                                    />
+                                    {anyFilter ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+                                            onClick={resetFilters}
+                                        >
+                                            reset
+                                        </Button>
+                                    ) : null}
+                                </>
+                            ) : null}
+                        </div>
 
-                    {error ? (
-                        <div
-                            className="callout callout-error"
-                            aria-live="polite"
-                        >
-                            <span style={{ flex: 1 }}>{error}</span>
-                            <button
-                                type="button"
-                                className="iconbtn"
-                                style={{ width: 22, height: 22 }}
-                                aria-label="Dismiss error"
-                                onClick={() => setError("")}
+                        {error ? (
+                            <Alert
+                                variant="destructive"
+                                role="status"
+                                aria-live="polite"
+                                className="shrink-0 rounded-none border-x-0 border-t-0 px-3 py-2"
                             >
-                                <X aria-hidden="true" />
-                            </button>
+                                <AlertDescription className="pr-8">
+                                    {error}
+                                </AlertDescription>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    aria-label="Dismiss error"
+                                    className="absolute top-1.5 right-2"
+                                    onClick={() => setError("")}
+                                >
+                                    <X aria-hidden="true" />
+                                </Button>
+                            </Alert>
+                        ) : null}
+                        {scopeConflicts.length > 0 && isWorkView ? (
+                            <Alert
+                                role="status"
+                                aria-live="polite"
+                                className="shrink-0 rounded-none border-x-0 border-t-0 px-3 py-2"
+                            >
+                                <AlertDescription>
+                                    <span>
+                                        Scope overlap between in-progress
+                                        cards:{" "}
+                                        <span className="font-mono">
+                                            {scopeConflicts.join(" · ")}
+                                        </span>
+                                    </span>
+                                </AlertDescription>
+                            </Alert>
+                        ) : null}
+
+                        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+                            <Suspense
+                                fallback={<ViewLoading label="Loading view…" />}
+                            >
+                                {loading ? (
+                                    <ViewLoading label="Loading backlog…" />
+                                ) : view === "explorer" ? (
+                                    <Explorer
+                                        tasks={visibleTasks}
+                                        allTasks={tasks}
+                                        areas={areas}
+                                        filters={filters}
+                                        setFilters={setFilters}
+                                        epicIds={epicIds}
+                                        onOpen={setSelectedId}
+                                        onPatch={patch}
+                                        onBulkPatch={bulkPatch}
+                                    />
+                                ) : view === "flow" ? (
+                                    <FlowBoard
+                                        tasks={visibleTasks}
+                                        epicIds={epicIds}
+                                        showClosed={filters.showClosed}
+                                        onOpen={setSelectedId}
+                                        onMove={(id, status) =>
+                                            patch(id, { status })
+                                        }
+                                    />
+                                ) : view === "triage" ? (
+                                    <TriageView
+                                        tasks={visibleTasks}
+                                        repoRoot={repoRoot}
+                                        repoUrl={repoUrl}
+                                        onPatch={patch}
+                                        onOpen={setSelectedId}
+                                    />
+                                ) : view === "epics" ? (
+                                    <EpicsView
+                                        tasks={visibleTasks}
+                                        allTasks={tasks}
+                                        epicIds={epicIds}
+                                        onOpen={setSelectedId}
+                                    />
+                                ) : view === "timeline" ? (
+                                    <TimelineView
+                                        tasks={visibleTasks}
+                                        epicIds={epicIds}
+                                        onOpen={setSelectedId}
+                                    />
+                                ) : view === "docs" ? (
+                                    <DocsView
+                                        selectedId={selectedId}
+                                        onSelect={setSelectedId}
+                                        onOpenCard={openRecord}
+                                    />
+                                ) : view === "history" ? (
+                                    <HistoryView
+                                        selectedId={selectedId}
+                                        onSelect={setSelectedId}
+                                        onOpenRecord={openRecord}
+                                        schema={schema.changelog}
+                                        areas={areas}
+                                    />
+                                ) : view === "memory" ? (
+                                    <MemoryView
+                                        selectedId={selectedId}
+                                        onSelect={setSelectedId}
+                                        onOpenRecord={openRecord}
+                                        schema={schema.memory}
+                                    />
+                                ) : (
+                                    <HealthView onOpen={openRecord} />
+                                )}
+                            </Suspense>
                         </div>
-                    ) : null}
-                    {scopeConflicts.length > 0 && isWorkView ? (
-                        <div className="callout" aria-live="polite">
-                            <span>
-                                Scope overlap between in-progress cards:{" "}
-                                <span className="mono">
-                                    {scopeConflicts.join(" · ")}
-                                </span>
-                            </span>
-                        </div>
-                    ) : null}
+                    </section>
 
-                    <div className="view-body">
-                        <Suspense
-                            fallback={<ViewLoading label="Loading view…" />}
-                        >
-                            {loading ? (
-                                <ViewLoading label="Loading backlog…" />
-                            ) : view === "explorer" ? (
-                                <Explorer
-                                    tasks={visibleTasks}
-                                    allTasks={tasks}
-                                    areas={areas}
-                                    filters={filters}
-                                    setFilters={setFilters}
-                                    epicIds={epicIds}
-                                    onOpen={setSelectedId}
-                                    onPatch={patch}
-                                    onBulkPatch={bulkPatch}
-                                />
-                            ) : view === "flow" ? (
-                                <FlowBoard
-                                    tasks={visibleTasks}
-                                    epicIds={epicIds}
-                                    showClosed={filters.showClosed}
-                                    onOpen={setSelectedId}
-                                    onMove={(id, status) =>
-                                        patch(id, { status })
-                                    }
-                                />
-                            ) : view === "triage" ? (
-                                <TriageView
-                                    tasks={visibleTasks}
-                                    repoRoot={repoRoot}
-                                    repoUrl={repoUrl}
-                                    onPatch={patch}
-                                    onOpen={setSelectedId}
-                                />
-                            ) : view === "epics" ? (
-                                <EpicsView
-                                    tasks={visibleTasks}
-                                    allTasks={tasks}
-                                    epicIds={epicIds}
-                                    onOpen={setSelectedId}
-                                />
-                            ) : view === "timeline" ? (
-                                <TimelineView
-                                    tasks={visibleTasks}
-                                    epicIds={epicIds}
-                                    onOpen={setSelectedId}
-                                />
-                            ) : view === "docs" ? (
-                                <DocsView
-                                    selectedId={selectedId}
-                                    onSelect={setSelectedId}
-                                    onOpenCard={openRecord}
-                                />
-                            ) : view === "history" ? (
-                                <HistoryView
-                                    selectedId={selectedId}
-                                    onSelect={setSelectedId}
-                                    onOpenRecord={openRecord}
-                                    schema={schema.changelog}
-                                    areas={areas}
-                                />
-                            ) : view === "memory" ? (
-                                <MemoryView
-                                    selectedId={selectedId}
-                                    onSelect={setSelectedId}
-                                    onOpenRecord={openRecord}
-                                    schema={schema.memory}
-                                />
-                            ) : (
-                                <HealthView onOpen={openRecord} />
-                            )}
-                        </Suspense>
-                    </div>
-                </section>
-
-                <button
-                    type="button"
-                    className="inspector-resizer"
-                    aria-label="Resize inspector"
-                    title="Drag to resize · double-click to reset"
-                    onPointerDown={startInspectorResize}
-                    onDoubleClick={() => setInspectorWidth(440)}
-                />
-                <Inspector
-                    task={selected}
-                    selectedId={selectedId}
-                    repoRoot={repoRoot}
-                    repoUrl={repoUrl}
-                    tasks={tasks}
-                    areas={areas}
-                    schema={schema}
-                    orderedIds={visibleTasks.map((task) => task.id)}
-                    onOpen={setSelectedId}
-                    onClose={() => setSelectedId(null)}
-                    onPatch={patch}
-                    onEditingChange={(editing) => {
-                        editingRef.current = editing;
-                    }}
-                    onArchive={async (id, archived) => {
-                        try {
-                            await api.archive(
-                                id,
-                                archived,
-                                tasks.find((task) => task.id === id)?.revision
-                            );
-                            await load(true);
-                        } catch (reason) {
-                            setError(
-                                reason instanceof Error
-                                    ? reason.message
-                                    : String(reason)
-                            );
+                    {/* The rail hides rather than unmounts when collapsed, as
+                        the deleted stylesheet did: an open form in the
+                        inspector survives a toggle of the rail. */}
+                    <div
+                        className={cn(
+                            "relative flex w-(--inspector-w) max-w-full shrink-0 *:min-w-0 *:grow",
+                            !inspectorOpen
+                                ? "hidden"
+                                : selected
+                                  ? "max-[1100px]:absolute max-[1100px]:inset-y-0 max-[1100px]:right-0 max-[1100px]:z-20 max-[1100px]:shadow-xl"
+                                  : "max-[1100px]:hidden"
+                        )}
+                        style={
+                            {
+                                "--inspector-w": `${inspectorWidth}px`
+                            } as CSSProperties
                         }
-                    }}
-                    onUpload={async (id, files) => {
-                        try {
-                            await Promise.all(
-                                [...files].map((file) => api.upload(id, file))
-                            );
-                            await load(true);
-                        } catch (reason) {
-                            setError(
-                                reason instanceof Error
-                                    ? reason.message
-                                    : String(reason)
-                            );
-                        }
-                    }}
-                    projectName={projectName}
-                />
-            </div>
-
-            <footer className="ledger" aria-label="Agent activity">
-                {ledgerClaims.slice(0, 3).map((entry) => {
-                    const tone =
-                        entry.claim.state === "live"
-                            ? statusColor("doing")
-                            : entry.claim.state === "held"
-                              ? statusColor("review")
-                              : entry.claim.state === "stale"
-                                ? "var(--sev-warning)"
-                                : "var(--sev-error)";
-                    return (
+                    >
                         <button
-                            key={entry.id}
                             type="button"
-                            onClick={() => openRecord(entry.id)}
-                            title={`${entry.claim.by} · ${entry.claim.state}`}
-                        >
-                            <span
-                                className="dot dot-round"
-                                style={{ color: tone, background: tone }}
-                                aria-hidden="true"
-                            />
-                            <span style={{ color: tone }}>
-                                {entry.claim.by}
+                            className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize outline-none transition-colors hover:bg-primary/40 focus-visible:bg-primary/40 data-dragging:bg-primary max-[1100px]:hidden"
+                            aria-label="Resize inspector"
+                            title="Drag to resize · double-click to reset"
+                            onPointerDown={startInspectorResize}
+                            onDoubleClick={() => setInspectorWidth(440)}
+                        />
+                        <Inspector
+                            task={selected}
+                            selectedId={selectedId}
+                            repoRoot={repoRoot}
+                            repoUrl={repoUrl}
+                            tasks={tasks}
+                            areas={areas}
+                            schema={schema}
+                            orderedIds={visibleTasks.map((task) => task.id)}
+                            onOpen={setSelectedId}
+                            onClose={() => setSelectedId(null)}
+                            onPatch={patch}
+                            onEditingChange={(editing) => {
+                                editingRef.current = editing;
+                            }}
+                            onArchive={async (id, archived) => {
+                                try {
+                                    await api.archive(
+                                        id,
+                                        archived,
+                                        tasks.find((task) => task.id === id)
+                                            ?.revision
+                                    );
+                                    await load(true);
+                                } catch (reason) {
+                                    setError(
+                                        reason instanceof Error
+                                            ? reason.message
+                                            : String(reason)
+                                    );
+                                }
+                            }}
+                            onUpload={async (id, files) => {
+                                try {
+                                    await Promise.all(
+                                        [...files].map((file) =>
+                                            api.upload(id, file)
+                                        )
+                                    );
+                                    await load(true);
+                                } catch (reason) {
+                                    setError(
+                                        reason instanceof Error
+                                            ? reason.message
+                                            : String(reason)
+                                    );
+                                }
+                            }}
+                            projectName={projectName}
+                        />
+                    </div>
+                </div>
+
+                <footer
+                    aria-label="Agent activity"
+                    className="flex h-8 shrink-0 items-center gap-3 overflow-hidden border-t px-3 font-mono text-[10.5px] text-muted-foreground"
+                >
+                    {ledgerClaims.slice(0, 3).map((entry) => {
+                        const tone =
+                            entry.claim.state === "live"
+                                ? statusColor("doing")
+                                : entry.claim.state === "held"
+                                  ? statusColor("review")
+                                  : entry.claim.state === "stale"
+                                    ? "var(--sev-warning)"
+                                    : "var(--sev-error)";
+                        return (
+                            <button
+                                key={entry.id}
+                                type="button"
+                                className="flex min-w-0 items-center gap-1.5 hover:text-foreground"
+                                onClick={() => openRecord(entry.id)}
+                                title={`${entry.claim.by} · ${entry.claim.state}`}
+                            >
+                                <span
+                                    className="size-1.5 shrink-0 rounded-full"
+                                    style={{ background: tone }}
+                                    aria-hidden="true"
+                                />
+                                <span style={{ color: tone }}>
+                                    {entry.claim.by}
+                                </span>
+                                <span className="truncate">
+                                    claim {entry.id}
+                                    {entry.scope.length
+                                        ? ` · scope ${entry.scope[0]}${entry.scope.length > 1 ? "…" : ""}`
+                                        : ""}
+                                    {entry.claim.ageHours != null
+                                        ? ` · ${since(entry.claim.ageHours)}`
+                                        : ""}
+                                </span>
+                            </button>
+                        );
+                    })}
+                    {ledgerClaims.length > 3 ? (
+                        <span>+{ledgerClaims.length - 3} more</span>
+                    ) : null}
+                    {activity?.conflicts.length ? (
+                        <>
+                            <span className="opacity-40" aria-hidden="true">
+                                |
                             </span>
-                            <span>
-                                claim {entry.id}
-                                {entry.scope.length
-                                    ? ` · scope ${entry.scope[0]}${entry.scope.length > 1 ? "…" : ""}`
-                                    : ""}
-                                {entry.claim.ageHours != null
-                                    ? ` · ${since(entry.claim.ageHours)}`
-                                    : ""}
+                            <span style={{ color: "var(--sev-warning)" }}>
+                                {activity.conflicts.length} scope overlap
+                                {activity.conflicts.length === 1 ? "" : "s"}
                             </span>
-                        </button>
-                    );
-                })}
-                {ledgerClaims.length > 3 ? (
-                    <span>+{ledgerClaims.length - 3} more</span>
-                ) : null}
-                {activity?.conflicts.length ? (
-                    <>
-                        <span className="ledger-sep">|</span>
-                        <span style={{ color: "var(--sev-warning)" }}>
-                            {activity.conflicts.length} scope overlap
-                            {activity.conflicts.length === 1 ? "" : "s"}
+                        </>
+                    ) : null}
+                    {!ledgerClaims.length && !activity?.conflicts.length ? (
+                        <span>no active claims</span>
+                    ) : null}
+                    <span className="flex-1" />
+                    {indexedTotal ? (
+                        <span className="flex shrink-0 items-center gap-1.5">
+                            <Spinner className="size-3" aria-hidden="true" />
+                            index {indexedTotal.toLocaleString()} records
                         </span>
-                    </>
-                ) : null}
-                {!ledgerClaims.length && !activity?.conflicts.length ? (
-                    <span>no active claims</span>
-                ) : null}
-                <span className="spacer" />
-                <span>
-                    {indexedTotal
-                        ? `index ${indexedTotal.toLocaleString()} records`
-                        : ""}
-                </span>
-            </footer>
+                    ) : null}
+                </footer>
+            </SidebarInset>
 
             <CommandPalette
                 open={showPalette}
@@ -1364,7 +1606,7 @@ function App() {
                     }}
                 />
             )}
-        </div>
+        </SidebarProvider>
     );
 }
 

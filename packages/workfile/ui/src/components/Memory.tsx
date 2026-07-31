@@ -1,8 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, Pencil, Plus, Replace, X } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+    Check,
+    ChevronDown,
+    GraduationCap,
+    Pencil,
+    Plus,
+    Replace,
+    Search,
+    X
+} from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput
+} from "@/components/ui/input-group";
+import { Item } from "@/components/ui/item";
+import {
+    NativeSelect,
+    NativeSelectOption
+} from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 import { api } from "../api";
-import { AppDialog, ChipSelect, Field } from "../kit";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor } from "../theme";
 import type {
@@ -17,14 +60,18 @@ import { MarkdownBody } from "./Markdown";
 /**
  * Memory: one lane per collection (learnings, decisions, incidents,
  * conventions, context), a tile per record, and a right-hand detail panel
- * when a record is selected. Structure and spacing follow the design's
- * `isMemory` block; behaviour is the old view's inventory (search, filters,
- * live reload, create, edit, graduate, supersede — all with `If-Match`
+ * when a record is selected. Lanes are shadcn Cards sharing the kanban
+ * geometry; behaviour is the old view's inventory (search, filters, live
+ * reload, create, edit, graduate, supersede — all with `If-Match`
  * revisions).
  */
 
 const CONFIDENCES = ["low", "medium", "high"];
 const SEVERITIES = ["critical", "high", "medium", "low"];
+
+/** Bottom scroll-fade on lane scrollers, per the design's kanban lanes. */
+const SCROLL_FADE =
+    "[mask-image:linear-gradient(to_bottom,black_calc(100%_-_24px),transparent)]";
 
 function capitalise(value: string) {
     return value ? value[0].toUpperCase() + value.slice(1) : value;
@@ -91,6 +138,95 @@ function tileNote(record: MemoryRecord): string {
     return parts.filter(Boolean).join(" · ");
 }
 
+/**
+ * A filter chip that opens a menu: the kit `ChipSelect` rebuilt on the
+ * registry's Button + DropdownMenu. The empty value means "all" and drops
+ * the chip out of its active look.
+ */
+function FilterChip({
+    label,
+    value,
+    options,
+    allLabel = "all",
+    onChange
+}: {
+    label: string;
+    value: string;
+    options: Array<{ value: string; label?: string; color?: string }>;
+    allLabel?: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={label}
+                    className={cn(
+                        "h-7 gap-1 rounded-full px-2.5 text-xs",
+                        value && "border-ring bg-accent"
+                    )}
+                >
+                    {label}
+                    <span className="font-normal text-muted-foreground">
+                        {value || allLabel}
+                    </span>
+                    <ChevronDown
+                        aria-hidden="true"
+                        className="size-3 text-muted-foreground"
+                    />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={4}>
+                <DropdownMenuItem onSelect={() => onChange("")}>
+                    {allLabel}
+                    {!value ? (
+                        <Check aria-hidden="true" className="ml-auto" />
+                    ) : null}
+                </DropdownMenuItem>
+                {options.map((option) => (
+                    <DropdownMenuItem
+                        key={option.value}
+                        onSelect={() => onChange(option.value)}
+                    >
+                        {option.color ? (
+                            <span
+                                className="size-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: option.color }}
+                                aria-hidden="true"
+                            />
+                        ) : null}
+                        {option.label ?? option.value}
+                        {value === option.value ? (
+                            <Check aria-hidden="true" className="ml-auto" />
+                        ) : null}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+/** Labelled form field for the dialogs, on the registry Field family. */
+function FormField({
+    id,
+    label,
+    children
+}: {
+    id: string;
+    label: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <Field className="gap-1.5 [&_[data-slot=native-select-wrapper]]:w-full">
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            {children}
+        </Field>
+    );
+}
+
 function MemoryTile({
     record,
     selected,
@@ -103,40 +239,53 @@ function MemoryTile({
     const note = tileNote(record);
     const warnings = record.lifecycleIssues?.length || 0;
     return (
-        <button
-            type="button"
-            className={selected ? "tile is-selected" : "tile"}
-            aria-current={selected ? "true" : undefined}
-            onClick={onSelect}
+        <Item
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-full flex-none flex-col items-stretch gap-1 rounded-lg bg-background px-2.5 py-2 text-left shadow-xs hover:border-ring aria-[current=true]:border-ring aria-[current=true]:bg-accent"
         >
-            <span className="tile-row">
-                <span className="mono dim" style={{ fontSize: 11 }}>
-                    {record.id}
+            <button
+                type="button"
+                aria-current={selected ? "true" : undefined}
+                onClick={onSelect}
+            >
+                <span className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                        {record.id}
+                    </span>
+                    <Badge
+                        variant="outline"
+                        className="h-[18px] gap-1 rounded-md px-1.5 font-mono text-[10px] font-medium"
+                    >
+                        <span
+                            className="size-[5px] shrink-0 rounded-full"
+                            style={{
+                                backgroundColor: recordStatusColor(
+                                    record.status
+                                )
+                            }}
+                            aria-hidden="true"
+                        />
+                        {record.status}
+                    </Badge>
                 </span>
-                <span style={{ flex: 1 }} />
-                <span
-                    className="mono"
-                    style={{
-                        fontSize: 10,
-                        color: recordStatusColor(record.status)
-                    }}
-                >
-                    {record.status}
+                <span className="text-[13px] font-medium leading-snug">
+                    {record.title}
                 </span>
-            </span>
-            <span className="tile-title">{record.title}</span>
-            {note || warnings ? (
-                <span className="tile-note">
-                    {note}
-                    {note && warnings ? " · " : null}
-                    {warnings ? (
-                        <span style={{ color: severityColor("warning") }}>
-                            {plural(warnings, "lifecycle warning")}
-                        </span>
-                    ) : null}
-                </span>
-            ) : null}
-        </button>
+                {note || warnings ? (
+                    <span className="font-mono text-[10.5px] text-muted-foreground">
+                        {note}
+                        {note && warnings ? " · " : null}
+                        {warnings ? (
+                            <span style={{ color: severityColor("warning") }}>
+                                {plural(warnings, "lifecycle warning")}
+                            </span>
+                        ) : null}
+                    </span>
+                ) : null}
+            </button>
+        </Item>
     );
 }
 
@@ -151,26 +300,23 @@ function IssueCallouts({
     return (
         <>
             {issues.map((issue) => (
-                <div
+                <Alert
                     key={`${kind}-${issue.code}-${issue.message}`}
-                    className={
-                        issue.severity === "error"
-                            ? "callout callout-error"
-                            : "callout"
+                    variant={
+                        issue.severity === "error" ? "destructive" : "default"
                     }
-                    style={{ margin: 0 }}
+                    className="px-3 py-2"
                 >
-                    <span
-                        className="mono"
-                        style={{
-                            fontSize: 10.5,
-                            color: severityColor(issue.severity)
-                        }}
-                    >
-                        {kind === "lifecycle" ? "lifecycle" : issue.severity}
-                    </span>
-                    <span>{issue.message}</span>
-                </div>
+                    <AlertDescription className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span
+                            className="font-mono text-[10.5px]"
+                            style={{ color: severityColor(issue.severity) }}
+                        >
+                            {kind === "lifecycle" ? "lifecycle" : issue.severity}
+                        </span>
+                        <span>{issue.message}</span>
+                    </AlertDescription>
+                </Alert>
             ))}
         </>
     );
@@ -187,33 +333,41 @@ function RelationList({
 }) {
     if (!links.length) return null;
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span className="overline">{label}</span>
+        <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+            </span>
             {links.map((link) => {
                 const dangling = !link.exists && !link.title;
                 return (
-                    <button
+                    <Item
                         key={`${label}-${link.id}`}
-                        type="button"
-                        className="reflink"
-                        disabled={dangling}
-                        style={
-                            dangling
-                                ? { opacity: 0.5, cursor: "default" }
-                                : undefined
-                        }
-                        onClick={() => onOpen(link.id)}
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 rounded-lg px-2.5 py-2 text-left hover:border-ring disabled:pointer-events-none disabled:opacity-50"
                     >
-                        <span className="reflink-id">{link.id}</span>
-                        <span className="reflink-title">
-                            {link.title || "Missing record"}
-                        </span>
-                        {link.relation || link.kind ? (
-                            <span className="reflink-relation">
-                                {link.relation || link.kind}
+                        <button
+                            type="button"
+                            disabled={dangling}
+                            onClick={() => onOpen(link.id)}
+                        >
+                            <span className="w-[78px] shrink-0 truncate font-mono text-[11px] font-medium">
+                                {link.id}
                             </span>
-                        ) : null}
-                    </button>
+                            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                                {link.title || "Missing record"}
+                            </span>
+                            {link.relation || link.kind ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="h-[18px] rounded-md px-1.5 font-mono text-[10px] font-medium"
+                                >
+                                    {link.relation || link.kind}
+                                </Badge>
+                            ) : null}
+                        </button>
+                    </Item>
                 );
             })}
         </div>
@@ -223,9 +377,9 @@ function RelationList({
 function DialogError({ message }: { message: string }) {
     if (!message) return null;
     return (
-        <div className="callout callout-error" style={{ margin: 0 }}>
-            <span>{message}</span>
-        </div>
+        <Alert variant="destructive" className="px-3 py-2">
+            <AlertDescription>{message}</AlertDescription>
+        </Alert>
     );
 }
 
@@ -290,161 +444,205 @@ function CreateDialog({
         }
     };
     return (
-        <AppDialog
+        <Dialog
             open
-            title={`New ${collection?.singular || "record"}`}
-            width={520}
-            onClose={onClose}
-            footer={
-                <>
-                    <button type="button" className="btn" onClick={onClose}>
+            onOpenChange={(next) => {
+                if (!next) onClose();
+            }}
+        >
+            <DialogContent
+                className="sm:max-w-[520px]"
+                aria-describedby={undefined}
+            >
+                <DialogHeader>
+                    <DialogTitle>
+                        New {collection?.singular || "record"}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="-m-1 flex max-h-[65vh] flex-col gap-3 overflow-y-auto p-1">
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <FormField id="memory-create-collection" label="Collection">
+                            <NativeSelect
+                                id="memory-create-collection"
+                                value={form.collection}
+                                onChange={(event) =>
+                                    changeCollection(event.target.value)
+                                }
+                            >
+                                {schema.collections.map((item) => (
+                                    <NativeSelectOption
+                                        key={item.id}
+                                        value={item.id}
+                                    >
+                                        {item.id}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                        </FormField>
+                        <FormField id="memory-create-status" label="Status">
+                            <NativeSelect
+                                id="memory-create-status"
+                                value={form.status}
+                                onChange={(event) =>
+                                    update("status", event.target.value)
+                                }
+                            >
+                                {(collection?.statuses || []).map((status) => (
+                                    <NativeSelectOption
+                                        key={status}
+                                        value={status}
+                                    >
+                                        {status}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                        </FormField>
+                    </div>
+                    <FormField id="memory-create-title" label="Title">
+                        <Input
+                            id="memory-create-title"
+                            autoFocus
+                            required
+                            maxLength={120}
+                            value={form.title}
+                            onChange={(event) =>
+                                update("title", event.target.value)
+                            }
+                        />
+                    </FormField>
+                    {fields.category ||
+                    fields.confidence ||
+                    fields.severity ||
+                    fields.expires ? (
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {fields.category ? (
+                                <FormField
+                                    id="memory-create-category"
+                                    label="Category"
+                                >
+                                    <Input
+                                        id="memory-create-category"
+                                        value={form.category}
+                                        onChange={(event) =>
+                                            update(
+                                                "category",
+                                                event.target.value
+                                            )
+                                        }
+                                    />
+                                </FormField>
+                            ) : null}
+                            {fields.confidence ? (
+                                <FormField
+                                    id="memory-create-confidence"
+                                    label="Confidence"
+                                >
+                                    <NativeSelect
+                                        id="memory-create-confidence"
+                                        value={form.confidence}
+                                        onChange={(event) =>
+                                            update(
+                                                "confidence",
+                                                event.target.value
+                                            )
+                                        }
+                                    >
+                                        <NativeSelectOption value="">
+                                            not set
+                                        </NativeSelectOption>
+                                        {CONFIDENCES.map((value) => (
+                                            <NativeSelectOption
+                                                key={value}
+                                                value={value}
+                                            >
+                                                {value}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </FormField>
+                            ) : null}
+                            {fields.severity ? (
+                                <FormField
+                                    id="memory-create-severity"
+                                    label="Severity"
+                                >
+                                    <NativeSelect
+                                        id="memory-create-severity"
+                                        value={form.severity}
+                                        onChange={(event) =>
+                                            update(
+                                                "severity",
+                                                event.target.value
+                                            )
+                                        }
+                                    >
+                                        <NativeSelectOption value="">
+                                            not set
+                                        </NativeSelectOption>
+                                        {SEVERITIES.map((value) => (
+                                            <NativeSelectOption
+                                                key={value}
+                                                value={value}
+                                            >
+                                                {value}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </FormField>
+                            ) : null}
+                            {fields.expires ? (
+                                <FormField
+                                    id="memory-create-expires"
+                                    label="Expires"
+                                >
+                                    <Input
+                                        id="memory-create-expires"
+                                        type="date"
+                                        value={form.expires}
+                                        onChange={(event) =>
+                                            update(
+                                                "expires",
+                                                event.target.value
+                                            )
+                                        }
+                                    />
+                                </FormField>
+                            ) : null}
+                        </div>
+                    ) : null}
+                    <FormField id="memory-create-body" label="Details">
+                        <Textarea
+                            id="memory-create-body"
+                            rows={8}
+                            value={form.body}
+                            onChange={(event) =>
+                                update("body", event.target.value)
+                            }
+                        />
+                    </FormField>
+                    <DialogError message={error} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className="btn-accent"
                         disabled={saving || !form.title.trim()}
                         onClick={() => void submit()}
                     >
-                        {saving ? "Saving…" : "Create record"}
-                    </button>
-                </>
-            }
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 10
-                    }}
-                >
-                    <Field label="Collection">
-                        <select
-                            className="select"
-                            value={form.collection}
-                            onChange={(event) =>
-                                changeCollection(event.target.value)
-                            }
-                        >
-                            {schema.collections.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.id}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="Status">
-                        <select
-                            className="select"
-                            value={form.status}
-                            onChange={(event) =>
-                                update("status", event.target.value)
-                            }
-                        >
-                            {(collection?.statuses || []).map((status) => (
-                                <option key={status} value={status}>
-                                    {status}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                </div>
-                <Field label="Title">
-                    <input
-                        className="input"
-                        autoFocus
-                        required
-                        maxLength={120}
-                        value={form.title}
-                        onChange={(event) =>
-                            update("title", event.target.value)
-                        }
-                    />
-                </Field>
-                {fields.category ||
-                fields.confidence ||
-                fields.severity ||
-                fields.expires ? (
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: 10
-                        }}
-                    >
-                        {fields.category ? (
-                            <Field label="Category">
-                                <input
-                                    className="input"
-                                    value={form.category}
-                                    onChange={(event) =>
-                                        update("category", event.target.value)
-                                    }
-                                />
-                            </Field>
-                        ) : null}
-                        {fields.confidence ? (
-                            <Field label="Confidence">
-                                <select
-                                    className="select"
-                                    value={form.confidence}
-                                    onChange={(event) =>
-                                        update("confidence", event.target.value)
-                                    }
-                                >
-                                    <option value="">not set</option>
-                                    {CONFIDENCES.map((value) => (
-                                        <option key={value} value={value}>
-                                            {value}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                        ) : null}
-                        {fields.severity ? (
-                            <Field label="Severity">
-                                <select
-                                    className="select"
-                                    value={form.severity}
-                                    onChange={(event) =>
-                                        update("severity", event.target.value)
-                                    }
-                                >
-                                    <option value="">not set</option>
-                                    {SEVERITIES.map((value) => (
-                                        <option key={value} value={value}>
-                                            {value}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                        ) : null}
-                        {fields.expires ? (
-                            <Field label="Expires">
-                                <input
-                                    className="input"
-                                    type="date"
-                                    value={form.expires}
-                                    onChange={(event) =>
-                                        update("expires", event.target.value)
-                                    }
-                                />
-                            </Field>
-                        ) : null}
-                    </div>
-                ) : null}
-                <Field label="Details">
-                    <textarea
-                        className="textarea"
-                        rows={8}
-                        value={form.body}
-                        onChange={(event) => update("body", event.target.value)}
-                    />
-                </Field>
-                <DialogError message={error} />
-            </div>
-        </AppDialog>
+                        {saving ? (
+                            <>
+                                <Spinner aria-hidden="true" />
+                                Saving…
+                            </>
+                        ) : (
+                            "Create record"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -511,148 +709,187 @@ function EditDialog({
         }
     };
     return (
-        <AppDialog
+        <Dialog
             open
-            title={`Edit ${record.id}`}
-            width={520}
-            onClose={onClose}
-            footer={
-                <>
-                    <button type="button" className="btn" onClick={onClose}>
+            onOpenChange={(next) => {
+                if (!next) onClose();
+            }}
+        >
+            <DialogContent
+                className="sm:max-w-[520px]"
+                aria-describedby={undefined}
+            >
+                <DialogHeader>
+                    <DialogTitle>Edit {record.id}</DialogTitle>
+                </DialogHeader>
+                <div className="-m-1 flex max-h-[65vh] flex-col gap-3 overflow-y-auto p-1">
+                    <FormField id="memory-edit-title" label="Title">
+                        <Input
+                            id="memory-edit-title"
+                            autoFocus
+                            required
+                            maxLength={120}
+                            value={form.title}
+                            onChange={(event) =>
+                                update("title", event.target.value)
+                            }
+                        />
+                    </FormField>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <FormField id="memory-edit-status" label="Status">
+                            <NativeSelect
+                                id="memory-edit-status"
+                                value={form.status}
+                                onChange={(event) =>
+                                    update("status", event.target.value)
+                                }
+                            >
+                                {(statuses.includes(form.status)
+                                    ? statuses
+                                    : [form.status, ...statuses]
+                                ).map((status) => (
+                                    <NativeSelectOption
+                                        key={status}
+                                        value={status}
+                                    >
+                                        {status}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                        </FormField>
+                        {fields.category ? (
+                            <FormField
+                                id="memory-edit-category"
+                                label="Category"
+                            >
+                                <Input
+                                    id="memory-edit-category"
+                                    value={form.category}
+                                    onChange={(event) =>
+                                        update("category", event.target.value)
+                                    }
+                                />
+                            </FormField>
+                        ) : null}
+                        {fields.confidence ? (
+                            <FormField
+                                id="memory-edit-confidence"
+                                label="Confidence"
+                            >
+                                <NativeSelect
+                                    id="memory-edit-confidence"
+                                    value={form.confidence}
+                                    onChange={(event) =>
+                                        update(
+                                            "confidence",
+                                            event.target.value
+                                        )
+                                    }
+                                >
+                                    <NativeSelectOption value="">
+                                        not set
+                                    </NativeSelectOption>
+                                    {CONFIDENCES.map((value) => (
+                                        <NativeSelectOption
+                                            key={value}
+                                            value={value}
+                                        >
+                                            {value}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                            </FormField>
+                        ) : null}
+                        {fields.severity ? (
+                            <FormField
+                                id="memory-edit-severity"
+                                label="Severity"
+                            >
+                                <NativeSelect
+                                    id="memory-edit-severity"
+                                    value={form.severity}
+                                    onChange={(event) =>
+                                        update("severity", event.target.value)
+                                    }
+                                >
+                                    <NativeSelectOption value="">
+                                        not set
+                                    </NativeSelectOption>
+                                    {SEVERITIES.map((value) => (
+                                        <NativeSelectOption
+                                            key={value}
+                                            value={value}
+                                        >
+                                            {value}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                            </FormField>
+                        ) : null}
+                        {fields.expires ? (
+                            <FormField id="memory-edit-expires" label="Expires">
+                                <Input
+                                    id="memory-edit-expires"
+                                    type="date"
+                                    value={form.expires}
+                                    onChange={(event) =>
+                                        update("expires", event.target.value)
+                                    }
+                                />
+                            </FormField>
+                        ) : null}
+                        {fields.review_after ? (
+                            <FormField
+                                id="memory-edit-review-after"
+                                label="Review after"
+                            >
+                                <Input
+                                    id="memory-edit-review-after"
+                                    type="date"
+                                    value={form.review_after}
+                                    onChange={(event) =>
+                                        update(
+                                            "review_after",
+                                            event.target.value
+                                        )
+                                    }
+                                />
+                            </FormField>
+                        ) : null}
+                    </div>
+                    <FormField id="memory-edit-body" label="Details">
+                        <Textarea
+                            id="memory-edit-body"
+                            rows={10}
+                            value={form.body}
+                            onChange={(event) =>
+                                update("body", event.target.value)
+                            }
+                        />
+                    </FormField>
+                    <DialogError message={error} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className="btn-accent"
                         disabled={saving || !form.title.trim()}
                         onClick={() => void submit()}
                     >
-                        {saving ? "Saving…" : "Save changes"}
-                    </button>
-                </>
-            }
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <Field label="Title">
-                    <input
-                        className="input"
-                        autoFocus
-                        required
-                        maxLength={120}
-                        value={form.title}
-                        onChange={(event) =>
-                            update("title", event.target.value)
-                        }
-                    />
-                </Field>
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 10
-                    }}
-                >
-                    <Field label="Status">
-                        <select
-                            className="select"
-                            value={form.status}
-                            onChange={(event) =>
-                                update("status", event.target.value)
-                            }
-                        >
-                            {(statuses.includes(form.status)
-                                ? statuses
-                                : [form.status, ...statuses]
-                            ).map((status) => (
-                                <option key={status} value={status}>
-                                    {status}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    {fields.category ? (
-                        <Field label="Category">
-                            <input
-                                className="input"
-                                value={form.category}
-                                onChange={(event) =>
-                                    update("category", event.target.value)
-                                }
-                            />
-                        </Field>
-                    ) : null}
-                    {fields.confidence ? (
-                        <Field label="Confidence">
-                            <select
-                                className="select"
-                                value={form.confidence}
-                                onChange={(event) =>
-                                    update("confidence", event.target.value)
-                                }
-                            >
-                                <option value="">not set</option>
-                                {CONFIDENCES.map((value) => (
-                                    <option key={value} value={value}>
-                                        {value}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                    ) : null}
-                    {fields.severity ? (
-                        <Field label="Severity">
-                            <select
-                                className="select"
-                                value={form.severity}
-                                onChange={(event) =>
-                                    update("severity", event.target.value)
-                                }
-                            >
-                                <option value="">not set</option>
-                                {SEVERITIES.map((value) => (
-                                    <option key={value} value={value}>
-                                        {value}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                    ) : null}
-                    {fields.expires ? (
-                        <Field label="Expires">
-                            <input
-                                className="input"
-                                type="date"
-                                value={form.expires}
-                                onChange={(event) =>
-                                    update("expires", event.target.value)
-                                }
-                            />
-                        </Field>
-                    ) : null}
-                    {fields.review_after ? (
-                        <Field label="Review after">
-                            <input
-                                className="input"
-                                type="date"
-                                value={form.review_after}
-                                onChange={(event) =>
-                                    update("review_after", event.target.value)
-                                }
-                            />
-                        </Field>
-                    ) : null}
-                </div>
-                <Field label="Details">
-                    <textarea
-                        className="textarea"
-                        rows={10}
-                        value={form.body}
-                        onChange={(event) => update("body", event.target.value)}
-                    />
-                </Field>
-                <DialogError message={error} />
-            </div>
-        </AppDialog>
+                        {saving ? (
+                            <>
+                                <Spinner aria-hidden="true" />
+                                Saving…
+                            </>
+                        ) : (
+                            "Save changes"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -697,48 +934,64 @@ function LifecycleDialog({
         }
     };
     return (
-        <AppDialog
+        <Dialog
             open
-            title={`${mode === "graduate" ? "Graduate" : "Supersede"} ${record.id}`}
-            width={420}
-            onClose={onClose}
-            footer={
-                <>
-                    <button type="button" className="btn" onClick={onClose}>
+            onOpenChange={(next) => {
+                if (!next) onClose();
+            }}
+        >
+            <DialogContent
+                className="sm:max-w-[420px]"
+                aria-describedby={undefined}
+            >
+                <DialogHeader>
+                    <DialogTitle>
+                        {mode === "graduate" ? "Graduate" : "Supersede"}{" "}
+                        {record.id}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                    <FormField
+                        id="memory-lifecycle-target"
+                        label={
+                            mode === "graduate" ? "Target IDs" : "Replacement ID"
+                        }
+                    >
+                        <Input
+                            id="memory-lifecycle-target"
+                            autoFocus
+                            placeholder={
+                                mode === "graduate"
+                                    ? "CONV-0001, DOC-0004"
+                                    : "ADR-0009"
+                            }
+                            value={value}
+                            onChange={(event) => setValue(event.target.value)}
+                        />
+                    </FormField>
+                    <DialogError message={error} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className="btn-accent"
                         disabled={saving || !value.trim()}
                         onClick={() => void submit()}
                     >
-                        {saving ? "Saving…" : "Apply"}
-                    </button>
-                </>
-            }
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <Field
-                    label={
-                        mode === "graduate" ? "Target IDs" : "Replacement ID"
-                    }
-                >
-                    <input
-                        className="input"
-                        autoFocus
-                        placeholder={
-                            mode === "graduate"
-                                ? "CONV-0001, DOC-0004"
-                                : "ADR-0009"
-                        }
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
-                    />
-                </Field>
-                <DialogError message={error} />
-            </div>
-        </AppDialog>
+                        {saving ? (
+                            <>
+                                <Spinner aria-hidden="true" />
+                                Saving…
+                            </>
+                        ) : (
+                            "Apply"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -790,88 +1043,56 @@ function DetailPanel({
     if (record.owners?.length) cells.push(["owners", record.owners.join(", ")]);
     cells.push(["updated", record.updated || "—"]);
     return (
-        <div
-            className="panel"
-            style={{ flex: "0 0 380px", width: 380, overflow: "hidden" }}
-        >
-            <div className="panel-head">
-                <span className="mono dim" style={{ fontSize: 11 }}>
+        <Card className="w-[380px] flex-none gap-0 overflow-hidden rounded-xl py-0">
+            <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
+                <span className="font-mono text-[11px] text-muted-foreground">
                     {record.id}
                 </span>
-                <span className="mono faint" style={{ fontSize: 11 }}>
+                <span className="font-mono text-[11px] text-muted-foreground/60">
                     ·
                 </span>
-                <span className="mono dim" style={{ fontSize: 11 }}>
+                <span className="font-mono text-[11px] text-muted-foreground">
                     {record.collection}
                 </span>
-                <span className="mono faint" style={{ fontSize: 11 }}>
+                <span className="font-mono text-[11px] text-muted-foreground/60">
                     ·
                 </span>
                 <span
-                    className="mono"
-                    style={{
-                        fontSize: 11,
-                        color: recordStatusColor(record.status)
-                    }}
+                    className="font-mono text-[11px]"
+                    style={{ color: recordStatusColor(record.status) }}
                 >
                     {record.status}
                 </span>
-                <span style={{ flex: 1 }} />
-                <button
+                <span className="flex-1" />
+                <Button
                     type="button"
-                    className="iconbtn"
-                    style={{ width: 22, height: 22, borderRadius: 6 }}
+                    variant="ghost"
+                    size="icon-xs"
                     aria-label="Close details"
                     onClick={onClose}
                 >
                     <X aria-hidden="true" />
-                </button>
-            </div>
-            <div
-                style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflowY: "auto",
-                    padding: 16,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 14
-                }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6
-                    }}
-                >
-                    <h2
-                        style={{
-                            margin: 0,
-                            fontSize: 17,
-                            fontWeight: 600,
-                            lineHeight: 1.3,
-                            letterSpacing: "-0.01em",
-                            textWrap: "pretty"
-                        }}
-                    >
+                </Button>
+            </CardHeader>
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
+                <div className="flex flex-col gap-1.5">
+                    <h2 className="m-0 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] [text-wrap:pretty]">
                         {record.title}
                     </h2>
                     {record.path ? (
-                        <span
-                            className="mono faint"
-                            style={{ fontSize: 10.5, wordBreak: "break-all" }}
-                        >
+                        <span className="break-all font-mono text-[10.5px] text-muted-foreground">
                             {record.path}
                         </span>
                     ) : null}
                 </div>
-                <div className="metagrid">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                     {cells.map(([label, value, color]) => (
-                        <span className="metacell" key={label}>
-                            <span className="metacell-label">{label}</span>
+                        <span className="flex flex-col gap-0.5" key={label}>
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {label}
+                            </span>
                             <span
-                                className="metacell-value"
+                                className="text-sm"
                                 style={color ? { color } : undefined}
                             >
                                 {value}
@@ -898,37 +1119,40 @@ function DetailPanel({
                     links={record.incoming}
                     onOpen={onOpenRelation}
                 />
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    <button
+                <div className="flex flex-wrap gap-2">
+                    <Button
                         type="button"
-                        className="btn"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setEditing(true)}
                     >
                         <Pencil aria-hidden="true" />
                         Edit
-                    </button>
+                    </Button>
                     {canGraduate ? (
-                        <button
+                        <Button
                             type="button"
-                            className="btn"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setLifecycle("graduate")}
                         >
                             <GraduationCap aria-hidden="true" />
                             Graduate
-                        </button>
+                        </Button>
                     ) : null}
                     {canSupersede ? (
-                        <button
+                        <Button
                             type="button"
-                            className="btn"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setLifecycle("supersede")}
                         >
                             <Replace aria-hidden="true" />
                             Supersede
-                        </button>
+                        </Button>
                     ) : null}
                 </div>
-            </div>
+            </CardContent>
             {editing ? (
                 <EditDialog
                     record={record}
@@ -945,7 +1169,7 @@ function DetailPanel({
                     onUpdated={onUpdated}
                 />
             ) : null}
-        </div>
+        </Card>
     );
 }
 
@@ -1053,24 +1277,20 @@ export function MemoryView({
 
     return (
         <>
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "14px 14px 0"
-                }}
-            >
-                <input
-                    className="input"
-                    type="search"
-                    aria-label="Search workfile memory"
-                    placeholder="Search decisions, incidents, learnings…"
-                    style={{ width: 260 }}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                />
-                <ChipSelect
+            <div className="flex items-center gap-2 px-3.5 pt-3.5">
+                <InputGroup className="w-[260px]">
+                    <InputGroupAddon>
+                        <Search aria-hidden="true" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                        type="search"
+                        aria-label="Search workfile memory"
+                        placeholder="Search decisions, incidents, learnings…"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                    />
+                </InputGroup>
+                <FilterChip
                     label="collection"
                     value={collection}
                     options={schema.collections.map((item) => ({
@@ -1081,7 +1301,7 @@ export function MemoryView({
                         setStatus("");
                     }}
                 />
-                <ChipSelect
+                <FilterChip
                     label="status"
                     value={status}
                     options={statuses.map((value) => ({
@@ -1090,93 +1310,66 @@ export function MemoryView({
                     }))}
                     onChange={setStatus}
                 />
-                <span className="spacer" />
-                <span className="mono faint" style={{ fontSize: 11 }}>
-                    {loading ? "loading…" : plural(records.length, "record")}
+                <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                    {loading ? (
+                        <>
+                            <Spinner aria-hidden="true" className="size-3" />
+                            loading…
+                        </>
+                    ) : (
+                        plural(records.length, "record")
+                    )}
                 </span>
             </div>
             {error ? (
-                <div className="callout callout-error">
-                    <span>Memory could not be loaded: {error}</span>
-                </div>
-            ) : null}
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    gap: 12,
-                    padding: 14,
-                    minHeight: 0,
-                    overflow: "hidden"
-                }}
-            >
-                <div
-                    style={{
-                        flex: 1,
-                        display: "flex",
-                        gap: 12,
-                        overflowX: "auto",
-                        minHeight: 0
-                    }}
+                <Alert
+                    variant="destructive"
+                    className="mx-3.5 mt-3 w-auto px-3 py-2"
                 >
+                    <AlertDescription>
+                        Memory could not be loaded: {error}
+                    </AlertDescription>
+                </Alert>
+            ) : null}
+            <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3.5">
+                <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
                     {lanes.map((lane) => (
-                        <div
+                        <Card
                             key={lane.schema.id}
-                            className="panel"
-                            style={{ width: 272, flex: "0 0 272px" }}
+                            className="w-[272px] flex-none gap-0 overflow-hidden rounded-xl py-0"
                         >
-                            <div className="panel-head">
-                                <span
-                                    className="mono"
-                                    style={{
-                                        fontSize: 11,
-                                        color: "var(--accent)"
-                                    }}
-                                >
+                            <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
+                                <span className="font-mono text-[11px] font-medium text-primary">
                                     {lane.schema.idPrefix}
                                 </span>
-                                <span
-                                    style={{
-                                        flex: 1,
-                                        fontSize: 12.5,
-                                        fontWeight: 600
-                                    }}
-                                >
+                                <span className="flex-1 text-[12.5px] font-semibold">
                                     {capitalise(lane.schema.singular)}
                                 </span>
-                                <span
-                                    className="mono faint"
-                                    style={{ fontSize: 11 }}
+                                <Badge
+                                    variant="secondary"
+                                    className="h-5 px-1.5 font-mono text-[11px] font-normal"
                                 >
                                     {lane.records.length}
-                                </span>
+                                </Badge>
                                 {lane.schema.id !== "other" ? (
-                                    <button
+                                    <Button
                                         type="button"
-                                        className="iconbtn"
-                                        style={{
-                                            width: 22,
-                                            height: 22,
-                                            borderRadius: 6
-                                        }}
+                                        variant="ghost"
+                                        size="icon-xs"
                                         aria-label={`New ${lane.schema.singular}`}
                                         onClick={() =>
                                             setCreateFor(lane.schema.id)
                                         }
                                     >
                                         <Plus aria-hidden="true" />
-                                    </button>
+                                    </Button>
                                 ) : null}
-                            </div>
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 8,
-                                    padding: 10,
-                                    overflowY: "auto"
-                                }}
+                            </CardHeader>
+                            <CardContent
+                                className={cn(
+                                    "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5",
+                                    SCROLL_FADE
+                                )}
                             >
                                 {lane.records.map((record) => (
                                     <MemoryTile
@@ -1187,18 +1380,14 @@ export function MemoryView({
                                     />
                                 ))}
                                 {!lane.records.length && !loading ? (
-                                    <span
-                                        className="mono faint"
-                                        style={{
-                                            fontSize: 10.5,
-                                            padding: "4px 2px"
-                                        }}
-                                    >
-                                        no records
-                                    </span>
+                                    <Empty className="gap-1 border border-dashed p-4 md:p-6">
+                                        <EmptyDescription className="font-mono text-xs">
+                                            no records
+                                        </EmptyDescription>
+                                    </Empty>
                                 ) : null}
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
                 {active ? (

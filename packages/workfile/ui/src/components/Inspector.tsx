@@ -1,21 +1,41 @@
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type CSSProperties,
-    type DragEvent
-} from "react";
-import { DropdownMenu } from "radix-ui";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
     Archive,
     ArchiveRestore,
+    Check,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
+    Paperclip,
     Pencil,
     Upload,
     X
 } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import {
+    Attachment,
+    AttachmentContent,
+    AttachmentMedia,
+    AttachmentTrigger
+} from "@/components/ui/attachment";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyTitle
+} from "@/components/ui/empty";
+import { Item } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 
 import { api } from "../api";
 import { priorityColor, statusColor } from "../theme";
@@ -110,13 +130,12 @@ function parseActivity(body: string): Array<{ when: string; what: string }> {
     return rows;
 }
 
-const SECTION_HEAD: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8
-};
+/** Small-caps section heading, shared by every block in the rail. */
+const OVERLINE =
+    "text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
 
-const SMALL_BTN: CSSProperties = { height: 24 };
+/** One vertical block; `shrink-0` keeps the scroll container honest. */
+const SECTION = "flex shrink-0 flex-col gap-2";
 
 interface CardInspectorProps {
     task: Task;
@@ -348,98 +367,95 @@ function CardInspector({
     return (
         <>
             {/* ------------------------------------------------- identity */}
-            <div className="inspector-section">
-                <span
-                    className="mono"
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontSize: 11
-                    }}
-                >
-                    <span style={{ color: "var(--accent)" }}>{task.id}</span>
-                    <span className="faint">card</span>
-                    {task.archived ? (
-                        <span className="faint">archived</span>
-                    ) : null}
-                    <span className="spacer" />
-                    <span
-                        style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            color: statusColor(task.status)
-                        }}
-                    >
-                        <span className="dot" aria-hidden="true" />
-                        {task.status}
+            <div className={SECTION}>
+                <span className="flex items-center gap-2 text-[11px]">
+                    <span className="font-mono font-medium text-primary">
+                        {task.id}
                     </span>
+                    <Badge
+                        variant="secondary"
+                        className="px-2 py-0 text-[10px] font-medium"
+                    >
+                        card
+                    </Badge>
+                    {task.archived ? (
+                        <Badge
+                            variant="outline"
+                            className="px-2 py-0 text-[10px] font-medium text-muted-foreground"
+                        >
+                            archived
+                        </Badge>
+                    ) : null}
+                    <Badge
+                        variant="outline"
+                        className="ml-auto gap-1.5 text-[11px] font-medium"
+                        style={{ color: statusColor(task.status) }}
+                    >
+                        <span
+                            className="size-1.5 rounded-full bg-current"
+                            aria-hidden="true"
+                        />
+                        {task.status}
+                    </Badge>
                 </span>
-                <span className="inspector-title">{task.title}</span>
-                <span className="inspector-path">{task.file}</span>
+                <span className="text-sm leading-snug font-medium">
+                    {task.title}
+                </span>
+                <span className="font-mono text-[11px] break-all text-muted-foreground">
+                    {task.file}
+                </span>
             </div>
 
             {/* -------------------------------------------------- actions */}
-            <div
-                className="inspector-section"
-                style={{ flexDirection: "row", flexWrap: "wrap" }}
-            >
-                <a
-                    className="btn"
-                    style={{ textDecoration: "none" }}
-                    href={fileHref(cardPath)}
-                    target={linkTarget}
-                    rel={linkRel}
-                >
-                    Open file
-                </a>
-                {claimed ? (
-                    <button
-                        type="button"
-                        className="btn"
-                        onClick={() =>
-                            void onPatch(task.id, {
-                                claimed_by: null,
-                                claimed_at: null
-                            }).catch(() => undefined)
-                        }
-                    >
-                        Release
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        className="btn"
-                        onClick={() =>
-                            void onPatch(task.id, {
-                                claimed_by: "ui-local",
-                                claimed_at: new Date().toISOString()
-                            }).catch(() => undefined)
-                        }
-                    >
-                        Claim
-                    </button>
-                )}
-                <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                        <button type="button" className="btn">
-                            Transition →
-                        </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                        <DropdownMenu.Content
-                            className="menu"
-                            align="start"
-                            sideOffset={4}
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <ButtonGroup>
+                    <Button asChild variant="outline" size="sm">
+                        <a
+                            href={fileHref(cardPath)}
+                            target={linkTarget}
+                            rel={linkRel}
                         >
+                            Open file
+                        </a>
+                    </Button>
+                    {claimed ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                                void onPatch(task.id, {
+                                    claimed_by: null,
+                                    claimed_at: null
+                                }).catch(() => undefined)
+                            }
+                        >
+                            Release
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                                void onPatch(task.id, {
+                                    claimed_by: "ui-local",
+                                    claimed_at: new Date().toISOString()
+                                }).catch(() => undefined)
+                            }
+                        >
+                            Claim
+                        </Button>
+                    )}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                Transition
+                                <ChevronDown aria-hidden="true" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" sideOffset={4}>
                             {schema.cards.statuses.map((status) => (
-                                <DropdownMenu.Item
+                                <DropdownMenuItem
                                     key={status}
-                                    className="menu-item"
-                                    data-checked={
-                                        status === task.status || undefined
-                                    }
                                     onSelect={() => {
                                         if (status !== task.status) {
                                             void onPatch(task.id, {
@@ -449,20 +465,26 @@ function CardInspector({
                                     }}
                                 >
                                     <span
-                                        className="dot"
+                                        className="size-1.5 rounded-full bg-current"
                                         style={{ color: statusColor(status) }}
                                         aria-hidden="true"
                                     />
                                     {status}
-                                </DropdownMenu.Item>
+                                    {status === task.status ? (
+                                        <Check
+                                            className="ml-auto"
+                                            aria-hidden="true"
+                                        />
+                                    ) : null}
+                                </DropdownMenuItem>
                             ))}
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </ButtonGroup>
                 {["done", "discarded"].includes(task.status) ? (
-                    <button
-                        type="button"
-                        className="btn"
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
                             if (
                                 task.archived ||
@@ -480,35 +502,37 @@ function CardInspector({
                             <Archive aria-hidden="true" />
                         )}
                         {task.archived ? "Unarchive" : "Archive"}
-                    </button>
+                    </Button>
                 ) : null}
-                <button
-                    type="button"
-                    className="btn"
+                <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => fileRef.current?.click()}
                 >
                     <Upload aria-hidden="true" />
                     Upload
-                </button>
-                <span className="spacer" />
-                <button
-                    type="button"
-                    className="btn"
-                    disabled={!previousId}
-                    aria-label="Previous card"
-                    onClick={() => previousId && onOpen(previousId)}
-                >
-                    <ChevronLeft aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    className="btn"
-                    disabled={!nextId}
-                    aria-label="Next card"
-                    onClick={() => nextId && onOpen(nextId)}
-                >
-                    <ChevronRight aria-hidden="true" />
-                </button>
+                </Button>
+                <span className="flex-1" />
+                <ButtonGroup>
+                    <Button
+                        variant="outline"
+                        size="icon-sm"
+                        disabled={!previousId}
+                        aria-label="Previous card"
+                        onClick={() => previousId && onOpen(previousId)}
+                    >
+                        <ChevronLeft aria-hidden="true" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon-sm"
+                        disabled={!nextId}
+                        aria-label="Next card"
+                        onClick={() => nextId && onOpen(nextId)}
+                    >
+                        <ChevronRight aria-hidden="true" />
+                    </Button>
+                </ButtonGroup>
                 <input
                     ref={fileRef}
                     type="file"
@@ -524,16 +548,15 @@ function CardInspector({
             </div>
 
             {/* ----------------------------------------------- properties */}
-            <div className="inspector-section">
-                <span style={SECTION_HEAD}>
-                    <span className="overline">properties</span>
-                    <span className="spacer" />
+            <div className={SECTION}>
+                <span className="flex items-center gap-2">
+                    <span className={OVERLINE}>properties</span>
+                    <span className="flex-1" />
                     {editingProps ? (
                         <>
-                            <button
-                                type="button"
-                                className="btn"
-                                style={SMALL_BTN}
+                            <Button
+                                variant="outline"
+                                size="xs"
                                 disabled={saving}
                                 onClick={() => {
                                     setEditingProps(false);
@@ -542,27 +565,25 @@ function CardInspector({
                             >
                                 <X aria-hidden="true" />
                                 Cancel
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-accent"
-                                style={SMALL_BTN}
+                            </Button>
+                            <Button
+                                size="xs"
                                 disabled={saving || titleMissing}
                                 onClick={() => void saveProperties()}
                             >
+                                {saving ? <Spinner className="size-3" /> : null}
                                 {saving ? "Saving…" : "Save"}
-                            </button>
+                            </Button>
                         </>
                     ) : (
-                        <button
-                            type="button"
-                            className="btn"
-                            style={SMALL_BTN}
+                        <Button
+                            variant="outline"
+                            size="xs"
                             onClick={openPropertyEditor}
                         >
                             <Pencil aria-hidden="true" />
                             Edit
-                        </button>
+                        </Button>
                     )}
                 </span>
                 {editingProps && draft ? (
@@ -579,29 +600,28 @@ function CardInspector({
                     />
                 ) : (
                     <div
-                        className="metagrid"
-                        style={{ cursor: "pointer" }}
+                        className="grid cursor-pointer grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border"
                         title="Edit properties"
                         onClick={openPropertyEditor}
                     >
                         {metaCells.map((cell, index) => (
                             <span
                                 key={cell.label}
-                                className="metacell"
                                 // An odd count would leave a hairline-coloured
                                 // hole in the grid; the last cell spans it.
-                                style={
+                                className={cn(
+                                    "flex min-w-0 flex-col gap-0.5 bg-background px-2.5 py-2",
                                     index === metaCells.length - 1 &&
-                                    metaCells.length % 2
-                                        ? { gridColumn: "span 2" }
+                                        metaCells.length % 2
+                                        ? "col-span-2"
                                         : undefined
-                                }
+                                )}
                             >
-                                <span className="metacell-label">
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                     {cell.label}
                                 </span>
                                 <span
-                                    className="metacell-value"
+                                    className="truncate text-xs font-medium"
                                     style={
                                         cell.color
                                             ? { color: cell.color }
@@ -619,102 +639,138 @@ function CardInspector({
 
             {/* ---------------------------------------- outgoing references */}
             {outgoing.length || task.source ? (
-                <div className="inspector-section">
-                    <span className="overline">outgoing references</span>
+                <div className={SECTION}>
+                    <span className={OVERLINE}>outgoing references</span>
                     {outgoing.map((link) => (
-                        <button
+                        <Item
                             key={`${link.relation}-${link.id}`}
-                            type="button"
-                            className="reflink"
-                            onClick={() => onOpen(link.id)}
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex-nowrap gap-2 px-2.5 py-1.5 hover:bg-accent/50"
                         >
-                            <span className="reflink-id">{link.id}</span>
-                            <span className="reflink-title">
-                                {link.title || "—"}
-                            </span>
-                            <span className="reflink-relation">
-                                {link.relation}
-                            </span>
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => onOpen(link.id)}
+                            >
+                                <span className="shrink-0 font-mono text-[11px] font-medium">
+                                    {link.id}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground">
+                                    {link.title || "—"}
+                                </span>
+                                <Badge
+                                    variant="secondary"
+                                    className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
+                                >
+                                    {link.relation}
+                                </Badge>
+                            </button>
+                        </Item>
                     ))}
                     {task.source ? (
-                        <a
-                            className="reflink"
-                            style={{ textDecoration: "none" }}
-                            href={fileHref(task.source)}
-                            target={linkTarget}
-                            rel={linkRel}
-                            title={task.source}
+                        <Item
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex-nowrap gap-2 px-2.5 py-1.5"
                         >
-                            <span className="reflink-id">file</span>
-                            <span className="reflink-title">
-                                {task.source}
-                            </span>
-                            <span className="reflink-relation">source</span>
-                        </a>
+                            <a
+                                href={fileHref(task.source)}
+                                target={linkTarget}
+                                rel={linkRel}
+                                title={task.source}
+                            >
+                                <span className="shrink-0 font-mono text-[11px] font-medium">
+                                    file
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground">
+                                    {task.source}
+                                </span>
+                                <Badge
+                                    variant="secondary"
+                                    className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
+                                >
+                                    source
+                                </Badge>
+                            </a>
+                        </Item>
                     ) : null}
                 </div>
             ) : null}
 
             {/* ------------------------------------------------ backlinks */}
             {backlinks.length ? (
-                <div className="inspector-section">
-                    <span className="overline" style={SECTION_HEAD}>
+                <div className={SECTION}>
+                    <span className={cn(OVERLINE, "flex items-center gap-2")}>
                         backlinks
-                        <span style={{ color: "var(--fg-2)" }}>
+                        <span className="font-normal opacity-70">
                             {backlinks.length}
                         </span>
                     </span>
                     {backlinks.map(({ card, relation }) => (
-                        <button
+                        <Item
                             key={`${relation}-${card.id}`}
-                            type="button"
-                            className="reflink"
-                            onClick={() => onOpen(card.id)}
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex-nowrap gap-2 px-2.5 py-1.5 hover:bg-accent/50"
                         >
-                            <span
-                                className="dot"
-                                style={{ color: statusColor(card.status) }}
-                                aria-hidden="true"
-                            />
-                            <span className="reflink-id">{card.id}</span>
-                            <span className="reflink-title">{card.title}</span>
-                            <span className="reflink-relation">
-                                {relation}
-                            </span>
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => onOpen(card.id)}
+                            >
+                                <span
+                                    className="size-1.5 shrink-0 rounded-full bg-current"
+                                    style={{ color: statusColor(card.status) }}
+                                    aria-hidden="true"
+                                />
+                                <span className="shrink-0 font-mono text-[11px] font-medium">
+                                    {card.id}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground">
+                                    {card.title}
+                                </span>
+                                <Badge
+                                    variant="secondary"
+                                    className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
+                                >
+                                    {relation}
+                                </Badge>
+                            </button>
+                        </Item>
                     ))}
                 </div>
             ) : null}
 
             {/* ------------------------------------------------- activity */}
             {activity.length ? (
-                <div className="inspector-section">
-                    <span className="overline">activity</span>
+                <div className={SECTION}>
+                    <span className={OVERLINE}>activity</span>
                     {activity.map((entry, at) => (
-                        <div key={at} className="activity-row">
-                            <span className="activity-when">{entry.when}</span>
-                            <span className="activity-what">{entry.what}</span>
+                        <div
+                            key={at}
+                            className="grid grid-cols-[78px_1fr] gap-x-2 font-mono text-[11px] leading-relaxed"
+                        >
+                            <span className="tabular-nums text-muted-foreground">
+                                {entry.when}
+                            </span>
+                            <span className="text-foreground/75">
+                                {entry.what}
+                            </span>
                         </div>
                     ))}
                 </div>
             ) : null}
 
             {/* ----------------------------------------------------- body */}
-            <div
-                className="inspector-section"
-                style={{
-                    paddingTop: 12,
-                    borderTop: "1px solid var(--line)"
-                }}
-            >
-                <span style={SECTION_HEAD}>
-                    <span className="overline">body</span>
-                    <span className="spacer" />
-                    <button
-                        type="button"
-                        className="btn"
-                        style={SMALL_BTN}
+            <div className={cn(SECTION, "border-t pt-3")}>
+                <span className="flex items-center gap-2">
+                    <span className={OVERLINE}>body</span>
+                    <span className="flex-1" />
+                    <Button
+                        variant="outline"
+                        size="xs"
                         onClick={() => setEditingBody((state) => !state)}
                     >
                         {editingBody ? (
@@ -723,7 +779,7 @@ function CardInspector({
                             <Pencil aria-hidden="true" />
                         )}
                         {editingBody ? "Close editor" : "Edit"}
-                    </button>
+                    </Button>
                 </span>
                 {editingBody ? (
                     <BodyEditor
@@ -745,54 +801,54 @@ function CardInspector({
                         }}
                     />
                 ) : bodyValue.trim() ? (
-                    <MarkdownBody source={bodyValue} onOpen={onOpen} />
+                    <div className="typeset">
+                        <MarkdownBody source={bodyValue} onOpen={onOpen} />
+                    </div>
                 ) : (
-                    <span className="faint" style={{ fontSize: 12 }}>
+                    <span className="text-xs text-muted-foreground">
                         No body yet.
                     </span>
                 )}
             </div>
 
             {/* --------------------------------------------------- assets */}
-            <div className="inspector-section">
-                <span className="overline" style={SECTION_HEAD}>
+            <div className={SECTION}>
+                <span className={cn(OVERLINE, "flex items-center gap-2")}>
                     assets
                     {assets.length ? (
-                        <span style={{ color: "var(--fg-2)" }}>
+                        <span className="font-normal opacity-70">
                             {assets.length}
                         </span>
                     ) : null}
                 </span>
                 {assets.map((asset) => (
-                    <a
-                        key={asset}
-                        className="mono"
-                        style={{
-                            fontSize: 11,
-                            color: "var(--accent)",
-                            textDecoration: "none",
-                            overflowWrap: "anywhere"
-                        }}
-                        href={`/assets/${task.id}/${encodeURIComponent(asset)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={asset}
-                    >
-                        {asset}
-                    </a>
+                    <Attachment key={asset} size="sm" className="w-full">
+                        <AttachmentTrigger asChild>
+                            <a
+                                href={`/assets/${task.id}/${encodeURIComponent(asset)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={asset}
+                            >
+                                <span className="sr-only">{asset}</span>
+                            </a>
+                        </AttachmentTrigger>
+                        <AttachmentMedia>
+                            <Paperclip aria-hidden="true" />
+                        </AttachmentMedia>
+                        <AttachmentContent>
+                            <span className="block font-mono text-[11px] break-all">
+                                {asset}
+                            </span>
+                        </AttachmentContent>
+                    </Attachment>
                 ))}
                 <div
                     role="button"
                     tabIndex={0}
                     aria-label="Attach files"
-                    style={{
-                        border: `1px dashed ${dropOver ? "var(--accent)" : "var(--line)"}`,
-                        borderRadius: 7,
-                        padding: "14px 10px",
-                        textAlign: "center",
-                        cursor: "pointer",
-                        background: dropOver ? "var(--accent-soft)" : "var(--bg)"
-                    }}
+                    data-dragover={dropOver ? true : undefined}
+                    className="cursor-pointer rounded-lg border border-dashed bg-background px-2.5 py-3.5 text-center transition-colors data-[dragover]:border-primary data-[dragover]:bg-primary/10"
                     onClick={() => fileRef.current?.click()}
                     onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -814,10 +870,7 @@ function CardInspector({
                     {/* Inert label: `dragleave` bubbles, so a hit-testable
                         child would clear the drag state the moment the pointer
                         crossed onto it. Clicks retarget to the zone. */}
-                    <span
-                        className="faint"
-                        style={{ fontSize: 11.5, pointerEvents: "none" }}
-                    >
+                    <span className="pointer-events-none text-[11px] text-muted-foreground">
                         Drop files here or click to browse.
                     </span>
                 </div>
@@ -843,20 +896,26 @@ export function Inspector({
     projectName
 }: InspectorProps) {
     return (
-        <aside className="inspector" aria-label="Inspector">
-            <div className="inspector-head">
-                <span className="overline">inspector</span>
-                <span className="spacer" />
+        <aside
+            className="flex min-h-0 flex-col overflow-hidden border-l bg-background"
+            aria-label="Inspector"
+        >
+            <div className="flex h-11 shrink-0 items-center gap-2 border-b px-3.5">
+                <span className="text-[13px] font-semibold">Inspector</span>
+                <span className="flex-1" />
                 {task?.revision ? (
-                    <span
-                        className="chip-version truncate"
+                    <Badge
+                        variant="secondary"
+                        className="max-w-[16ch] font-mono text-[10px] font-medium"
                         title={task.revision}
                     >
-                        {task.revision.slice(0, 14)}…
-                    </span>
+                        <span className="truncate">
+                            {task.revision.slice(0, 14)}…
+                        </span>
+                    </Badge>
                 ) : null}
             </div>
-            <div className="inspector-body">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3.5 pt-4 pb-6">
                 {task ? (
                     // Keyed on the id, not the object: a background reload
                     // hands over a fresh Task instance, and remounting there
@@ -877,28 +936,25 @@ export function Inspector({
                         onUpload={onUpload}
                     />
                 ) : (
-                    <div className="inspector-section">
-                        <span className="overline">workspace</span>
-                        <span className="inspector-title">{projectName}</span>
-                        {selectedId ? (
-                            <span className="dim" style={{ fontSize: 12.5 }}>
-                                <span
-                                    className="mono"
-                                    style={{
-                                        color: "var(--accent)",
-                                        fontSize: 11
-                                    }}
-                                >
-                                    {selectedId}
-                                </span>{" "}
-                                opens in its view on the left.
-                            </span>
-                        ) : (
-                            <span className="dim" style={{ fontSize: 12.5 }}>
-                                Select a record to inspect it.
-                            </span>
-                        )}
-                    </div>
+                    <Empty className="border border-dashed p-6 md:p-6">
+                        <EmptyHeader>
+                            <EmptyTitle className="text-base">
+                                {projectName}
+                            </EmptyTitle>
+                            <EmptyDescription className="text-xs">
+                                {selectedId ? (
+                                    <>
+                                        <span className="font-mono text-[11px] text-primary">
+                                            {selectedId}
+                                        </span>{" "}
+                                        opens in its view on the left.
+                                    </>
+                                ) : (
+                                    "Select a record to inspect it."
+                                )}
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
                 )}
             </div>
         </aside>

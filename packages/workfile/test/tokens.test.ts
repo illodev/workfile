@@ -8,23 +8,41 @@ const stylesheet = await readFile(
     "utf8"
 );
 
-/** Reads one declaration block. One token system now, so no filtering. */
-function tokensOf(selector) {
-    for (const match of stylesheet.matchAll(
-        /(?:^|\n)([^{}]*?)\{([^}]*)\}/g
-    )) {
-        if (!match[1].includes(selector.replace(/\s*\{$/, ""))) continue;
-        const tokens = Object.fromEntries(
-            [...match[2].matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((entry) => [
-                entry[1],
-                entry[2].trim()
-            ])
-        );
-        if (Object.keys(tokens).length) return tokens;
+/**
+ * The brace-walked body of the block whose selector opens a line.
+ *
+ * The previous parser substring-matched the text BEFORE a `{`, and the
+ * `@custom-variant dark (&:is([data-theme="dark"] *));` line put the string
+ * `[data-theme="dark"]` in front of the first `:root` block — so the dark
+ * query returned the light block and the parity test compared light with
+ * itself, green and meaningless. Anchoring on the selector at line start
+ * kills that class of bug.
+ */
+function blockOf(selector) {
+    const start = stylesheet.search(selector);
+    if (start === -1) throw new Error(`no block matches ${selector}`);
+    const open = stylesheet.indexOf("{", start);
+    let depth = 1;
+    let end = open + 1;
+    while (depth > 0 && end < stylesheet.length) {
+        if (stylesheet[end] === "{") depth += 1;
+        else if (stylesheet[end] === "}") depth -= 1;
+        end += 1;
     }
-    throw new Error(`no tokens found for ${selector}`);
+    return stylesheet.slice(open + 1, end - 1);
 }
 
+/** Token name → value for one anchored block. */
+function tokensOf(selector) {
+    const tokens = Object.fromEntries(
+        [...blockOf(selector).matchAll(/(--[\w-]+):\s*([^;]+);/g)].map(
+            (entry) => [entry[1], entry[2].trim()]
+        )
+    );
+    if (!Object.keys(tokens).length)
+        throw new Error(`no tokens found for ${selector}`);
+    return tokens;
+}
 
 // Everything shipped in one chunk, so opening the Explorer downloaded and
 // parsed the Gantt, the release panel and the memory forms too. React is most
@@ -82,22 +100,18 @@ test("the entry bundle stays within budget and views load on demand", async () =
     }
 });
 
-// Eight independent implementations of the same chip: six pills, one rectangle
-// and one with neither border nor background, at five different paddings. The
-// same element rendered differently depending on which view you were in, and
-// changing its appearance meant finding all eight.
 /**
- * One pill, and it is a class now (ADR-0004).
+ * The bespoke patterns stay dead (ADR-0005).
  *
- * The audit found eight independent implementations of the same element;
- * T-0064 collapsed them, the shadcn migration made them `Badge`, and the
- * bespoke rebuild made them the `.chip` / `.tile` / `.dot` patterns of
- * `styles.css`. The regression to guard against has not changed its nature:
- * a surface re-describing what a shared pattern looks like in a rule of its
- * own. Each pattern is declared exactly once, and nothing in the application
- * declares a class of the same family.
+ * The audit that predates every migration found eight independent
+ * implementations of the same chip. The bespoke rebuild collapsed them into
+ * `.chip` / `.tile` / `.dot` classes; the third migration replaced those
+ * with Badge, Item and Card. The regression to guard against is the same
+ * one it has always been — a surface re-describing a shared pattern in a
+ * rule of its own — and its modern form is a bespoke class family creeping
+ * back into the stylesheet beside the framework.
  */
-test("one pill, not eight", async () => {
+test("the bespoke patterns stay dead", async () => {
     for (const pattern of [".chip", ".tile", ".dot", ".panel", ".metagrid"]) {
         const escaped = pattern.replace(".", "\\.");
         const definitions = [
@@ -105,13 +119,14 @@ test("one pill, not eight", async () => {
         ];
         assert.equal(
             definitions.length,
-            1,
-            `${pattern} must be declared exactly once, found ${definitions.length}`
+            0,
+            `${pattern} is declared again — the registry replaced that family`
         );
     }
 
-    // And no view carries a stylesheet of its own: styles.css is the only
-    // .css file the interface has.
+    // The interface owns exactly two css files: the token bridge and the
+    // typeset system for rendered Markdown. A third is a view growing a
+    // stylesheet of its own.
     const { readdir } = await import("node:fs/promises");
     const { join, relative, sep } = await import("node:path");
     const base = fileURLToPath(new URL("../ui/src/", import.meta.url));
@@ -125,11 +140,12 @@ test("one pill, not eight", async () => {
     }
     await walk(base);
     assert.deepEqual(
-        stray.map((name) => relative(base, name).split(sep).join("/")),
-        ["styles.css"],
-        "the stylesheet is singular on purpose"
+        stray.map((name) => relative(base, name).split(sep).join("/")).sort(),
+        ["styles.css", "typeset.css"],
+        "the stylesheet count is fixed on purpose"
     );
 });
+
 // Forty-odd copies of the same twelve lines: mkdtemp, copy the fixture, load,
 // and a `finally` that removes it. Copies drift — some remembered
 // `force: true`, some did not, and one forgot to clean up at all — and a test
@@ -167,7 +183,7 @@ test("test workspaces are disposed of", async () => {
  * link. If red means two things it means neither.
  */
 test("the domain axes stay visually distinct", () => {
-    const root = tokensOf(":root {");
+    const root = tokensOf(/^:root \{/m);
     const axes = Object.entries(root).filter(
         ([name]) => name.startsWith("--status-") || name.startsWith("--priority-")
     );
@@ -193,11 +209,11 @@ test("the domain axes stay visually distinct", () => {
  * it resolves to nothing, and the property it feeds is simply dropped.
  */
 test("both themes define the same tokens", () => {
-    const light = new Set(Object.keys(tokensOf(":root {")));
-    const dark = new Set(Object.keys(tokensOf('[data-theme="dark"]')));
-    // `--radius` and the font stacks are theme-independent on purpose.
+    const light = new Set(Object.keys(tokensOf(/^:root \{/m)));
+    const dark = new Set(Object.keys(tokensOf(/^\[data-theme="dark"\] \{/m)));
+    // `--radius` and the density row height are theme-independent on purpose.
     const themed = [...light].filter(
-        (name) => !["--radius", "--font-sans", "--font-mono"].includes(name)
+        (name) => !["--radius", "--row-h"].includes(name)
     );
     const missing = themed.filter((name) => !dark.has(name));
     assert.deepEqual(missing, [], `dark theme is missing: ${missing.join(", ")}`);
@@ -206,10 +222,12 @@ test("both themes define the same tokens", () => {
 /**
  * Declared tokens are used tokens.
  *
- * With the Tailwind mapping gone, the failure mode inverts: a token nothing
- * references is dead weight that reads as an extension point, and the next
- * person "uses" it believing it is wired to something. The stylesheet and the
- * components are both in reach, so the check is a set difference again.
+ * A token nothing references is dead weight that reads as an extension
+ * point, and the next person "uses" it believing it is wired to something.
+ * Tokens are consumed three ways now: a `var()` in the stylesheet itself,
+ * a `var()` in a component, or the `@theme inline` mapping that turns them
+ * into Tailwind utilities — the mapping counts as the reference, because
+ * the generated CSS that consumes it is not on disk to scan.
  */
 test("every declared token is referenced somewhere", async () => {
     const { readdir, readFile: read } = await import("node:fs/promises");
@@ -225,7 +243,16 @@ test("every declared token is referenced somewhere", async () => {
     }
     await walk(base.replace(/\/$/, ""));
 
-    const declared = [...stylesheet.matchAll(/(--[\w-]+)\s*:/g)].map(
+    // Declared = the theme blocks only. The `@theme inline` block is the
+    // utility bridge, not a token source: its entries exist to be consumed
+    // by generated CSS, so they are exempt as declarations and counted as
+    // references for the tokens they map.
+    const themeBlocks = [
+        blockOf(/^:root \{/m),
+        blockOf(/^\[data-theme="dark"\] \{/m),
+        blockOf(/^:root\[data-density="comfortable"\] \{/m)
+    ].join("\n");
+    const declared = [...themeBlocks.matchAll(/(--[\w-]+)\s*:/g)].map(
         (match) => match[1]
     );
     const unused = [...new Set(declared)].filter((token) => {

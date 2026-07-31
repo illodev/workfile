@@ -1,6 +1,21 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupButton,
+    InputGroupInput
+} from "@/components/ui/input-group";
+import {
+    NativeSelect,
+    NativeSelectOption
+} from "@/components/ui/native-select";
+
 import {
     PROTOCOL_OWNED,
     inferKind,
@@ -30,43 +45,51 @@ function TagInput({
     // input would only render an empty box.
     if (disabled) {
         return (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div className="flex flex-wrap gap-1">
                 {value.map((entry) => (
-                    <span key={entry} className="chip-version">
+                    <Badge
+                        key={entry}
+                        variant="secondary"
+                        className="font-mono text-[10px] font-normal"
+                    >
                         {entry}
-                    </span>
+                    </Badge>
                 ))}
             </div>
         );
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="flex flex-col gap-1">
             {value.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                <div className="flex flex-wrap gap-1">
                     {value.map((entry) => (
-                        <button
+                        <Badge
                             key={entry}
-                            type="button"
-                            className="chip"
-                            aria-label={`Remove ${entry}`}
-                            title={`Remove ${entry}`}
-                            onClick={() =>
-                                onChange(value.filter((item) => item !== entry))
-                            }
+                            asChild
+                            variant="secondary"
+                            className="cursor-pointer font-mono text-[10px] font-normal hover:bg-secondary/70"
                         >
-                            {entry}
-                            <X
-                                aria-hidden="true"
-                                style={{ width: 10, height: 10 }}
-                            />
-                        </button>
+                            <button
+                                type="button"
+                                aria-label={`Remove ${entry}`}
+                                title={`Remove ${entry}`}
+                                onClick={() =>
+                                    onChange(
+                                        value.filter((item) => item !== entry)
+                                    )
+                                }
+                            >
+                                {entry}
+                                <X aria-hidden="true" className="size-2.5" />
+                            </button>
+                        </Badge>
                     ))}
                 </div>
             ) : null}
-            <input
+            <Input
                 id={inputId}
-                className="input"
+                className="h-8 text-xs md:text-xs"
                 value={draft}
                 placeholder="Add…"
                 onChange={(event) => setDraft(event.target.value)}
@@ -117,7 +140,7 @@ export function PropertyEditor({
     ];
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        <FieldGroup className="gap-2.5">
             {keys.map((key) => {
                 const value = values[key];
                 const definition =
@@ -131,51 +154,48 @@ export function PropertyEditor({
                 const controlId = `property-${key}`;
 
                 return (
-                    <div key={key} className="field">
-                        <label
-                            className="field-label"
+                    <Field key={key} className="gap-1.5">
+                        <FieldLabel
                             htmlFor={controlId}
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                minWidth: 0
-                            }}
+                            className="max-w-full min-w-0 gap-1.5 text-xs"
                         >
-                            <span className="truncate" title={key}>
+                            <span className="min-w-0 truncate" title={key}>
                                 {key}
                             </span>
                             {known.has(key) ? null : (
-                                <span
-                                    className="chip-version"
-                                    style={{
-                                        textTransform: "none",
-                                        letterSpacing: 0
-                                    }}
+                                <Badge
+                                    variant="outline"
+                                    className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
                                     title="Not part of the runtime schema; preserved as written"
                                 >
                                     custom
-                                </span>
+                                </Badge>
                             )}
-                        </label>
+                        </FieldLabel>
 
                         {definition.kind === "enum" && definition.options ? (
-                            <select
+                            <NativeSelect
                                 id={controlId}
-                                className="select"
+                                size="sm"
+                                className="text-xs"
                                 value={String(value ?? "")}
                                 disabled={locked}
                                 onChange={(event) =>
                                     onChange(key, event.target.value)
                                 }
                             >
-                                <option value="">—</option>
+                                <NativeSelectOption value="">
+                                    —
+                                </NativeSelectOption>
                                 {definition.options.map((option) => (
-                                    <option key={option} value={option}>
+                                    <NativeSelectOption
+                                        key={option}
+                                        value={option}
+                                    >
                                         {option}
-                                    </option>
+                                    </NativeSelectOption>
                                 ))}
-                            </select>
+                            </NativeSelect>
                         ) : definition.kind === "list" ? (
                             <TagInput
                                 inputId={controlId}
@@ -186,9 +206,9 @@ export function PropertyEditor({
                                 onChange={(next) => onChange(key, next)}
                             />
                         ) : definition.kind === "date" ? (
-                            <input
+                            <Input
                                 id={controlId}
-                                className="input"
+                                className="h-8 text-xs md:text-xs"
                                 type="date"
                                 value={String(value ?? "")}
                                 disabled={locked}
@@ -197,76 +217,67 @@ export function PropertyEditor({
                                 }
                             />
                         ) : definition.kind === "reference" && locked ? (
-                            <button
-                                id={controlId}
-                                type="button"
-                                className="mono"
-                                style={{
-                                    border: 0,
-                                    background: "none",
-                                    padding: 0,
-                                    fontSize: 12,
-                                    color: "var(--accent)",
-                                    cursor: "pointer",
-                                    textAlign: "left",
-                                    width: "fit-content"
-                                }}
-                                onClick={() =>
-                                    onOpenReference?.(String(value ?? ""))
-                                }
-                            >
-                                {String(value ?? "") || "—"}
-                            </button>
-                        ) : definition.kind === "reference" ? (
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6
-                                }}
-                            >
-                                <input
+                            <div className="flex">
+                                <Button
                                     id={controlId}
-                                    className="input mono"
+                                    type="button"
+                                    variant="link"
+                                    className="h-auto w-fit justify-start p-0 font-mono text-xs"
+                                    onClick={() =>
+                                        onOpenReference?.(String(value ?? ""))
+                                    }
+                                >
+                                    {String(value ?? "") || "—"}
+                                </Button>
+                            </div>
+                        ) : definition.kind === "reference" ? (
+                            <InputGroup className="h-8">
+                                <InputGroupInput
+                                    id={controlId}
+                                    className="font-mono text-xs md:text-xs"
                                     type="text"
-                                    style={{ fontSize: 12 }}
                                     value={String(value ?? "")}
                                     onChange={(event) =>
                                         onChange(key, event.target.value)
                                     }
                                 />
                                 {String(value ?? "").trim() ? (
-                                    <button
-                                        type="button"
-                                        className="btn"
-                                        style={{ flex: "0 0 auto" }}
-                                        title={`Open ${String(value)}`}
-                                        onClick={() =>
-                                            onOpenReference?.(
-                                                String(value ?? "").trim()
-                                            )
-                                        }
-                                    >
-                                        Open
-                                    </button>
+                                    <InputGroupAddon align="inline-end">
+                                        <InputGroupButton
+                                            title={`Open ${String(value)}`}
+                                            onClick={() =>
+                                                onOpenReference?.(
+                                                    String(value ?? "").trim()
+                                                )
+                                            }
+                                        >
+                                            Open
+                                        </InputGroupButton>
+                                    </InputGroupAddon>
                                 ) : null}
-                            </div>
+                            </InputGroup>
                         ) : (
-                            <input
+                            <Input
                                 id={controlId}
-                                className="input"
+                                className="h-8 text-xs md:text-xs"
                                 type="text"
                                 value={String(value ?? "")}
                                 disabled={locked}
+                                aria-invalid={
+                                    key === "title" &&
+                                    !String(value ?? "").trim()
+                                        ? true
+                                        : undefined
+                                }
                                 onChange={(event) =>
                                     onChange(key, event.target.value)
                                 }
                             />
                         )}
-                    </div>
+                    </Field>
                 );
             })}
-        </div>
+        </FieldGroup>
     );
 }
 

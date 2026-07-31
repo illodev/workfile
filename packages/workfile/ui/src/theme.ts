@@ -1,11 +1,12 @@
 import type { IssueSeverity, Priority, Status } from "./types";
 
 /**
- * Colour helpers for the bespoke design system (ADR-0004).
+ * Colour helpers for the semantic namespaces (ADR-0005).
  *
- * Every status, priority and severity colour in the interface resolves to a
- * named token from `styles.css`; components apply these inline (`style=`)
- * exactly like the design file does. Nothing else in the codebase names a
+ * The three token families that survived the shadcn migration — status,
+ * priority, severity — resolve to named tokens from `styles.css`;
+ * components apply these inline (`style=`) or through the mapped
+ * utilities (`text-status-doing`). Nothing else in the codebase names a
  * colour.
  */
 

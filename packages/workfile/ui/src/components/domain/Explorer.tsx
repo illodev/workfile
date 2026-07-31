@@ -10,6 +10,32 @@ import {
     type SetStateAction
 } from "react";
 
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyTitle
+} from "@/components/ui/empty";
+import {
+    NativeSelect,
+    NativeSelectOption
+} from "@/components/ui/native-select";
+import { Progress } from "@/components/ui/progress";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+
 import { filterTasks } from "../../query";
 import { priorityColor, statusColor } from "../../theme";
 import {
@@ -62,8 +88,12 @@ function countBy(tasks: Task[], key: keyof Task) {
 
 /**
  * One facet group in the left rail: overline label, then a row per value that
- * exists in the current result set — label + count + a 3px meter scaled to the
+ * exists in the current result set — label + count + a meter scaled to the
  * group's maximum. Clicking a row toggles that dimension's filter.
+ *
+ * The meter is a Progress whose indicator rides `currentColor`: status and
+ * priority groups set the surviving semantic token on the bar, the rest fall
+ * back to the primary hue.
  */
 function FacetGroup({
     title,
@@ -84,8 +114,10 @@ function FacetGroup({
     if (!present.length) return null;
     const max = Math.max(...present.map((value) => counts.get(value) || 0));
     return (
-        <div className="facet">
-            <span className="overline">{title}</span>
+        <div className="flex flex-col gap-1">
+            <span className="px-1.5 font-mono text-[10px] tracking-widest uppercase text-muted-foreground">
+                {title}
+            </span>
             {present.map((value) => {
                 const count = counts.get(value) || 0;
                 const active = selected === value;
@@ -93,25 +125,38 @@ function FacetGroup({
                     <button
                         type="button"
                         key={value}
-                        className={active ? "facet-row is-on" : "facet-row"}
                         aria-pressed={active}
                         onClick={() => onSelect(active ? "" : value)}
+                        className={cn(
+                            "flex w-full cursor-pointer flex-col gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/50",
+                            active && "bg-accent"
+                        )}
                     >
-                        <span className="facet-line">
-                            <span className="facet-label">{value}</span>
-                            <span className="facet-count">{count}</span>
-                        </span>
-                        <span className="meter">
+                        <span className="flex w-full items-center gap-1.5">
                             <span
-                                className="meter-fill"
-                                style={{
-                                    width: `${max ? Math.round((count / max) * 100) : 0}%`,
-                                    background: color
-                                        ? color(value)
-                                        : "var(--accent)"
-                                }}
-                            />
+                                className={cn(
+                                    "min-w-0 flex-1 truncate text-xs",
+                                    active
+                                        ? "font-medium text-foreground"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                {value}
+                            </span>
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                                {count}
+                            </span>
                         </span>
+                        <Progress
+                            value={max ? Math.round((count / max) * 100) : 0}
+                            className={cn(
+                                "h-[5px] bg-muted [&>div]:bg-current",
+                                !color && "text-primary"
+                            )}
+                            style={
+                                color ? { color: color(value) } : undefined
+                            }
+                        />
                     </button>
                 );
             })}
@@ -123,9 +168,10 @@ function FacetGroup({
  * The status and priority controls inside a row.
  *
  * A native `<select>` on purpose, per CONV-0003: a portalled select's content
- * can outlive its row in a virtualised table. It is stripped down to the
- * design's coloured mono text — the `.dot` next to it carries the same hue via
- * `currentColor`.
+ * can outlive its row in a virtualised table. The registry NativeSelect is
+ * stripped down to the design's coloured mono text — the dot next to it
+ * carries the same hue via `currentColor`, and NativeSelectOption keeps the
+ * native popup readable despite the transparent, status-coloured trigger.
  */
 function RowSelect({
     label,
@@ -144,44 +190,27 @@ function RowSelect({
 }) {
     return (
         <span
-            style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                color
-            }}
+            className="inline-flex items-center gap-1.5"
+            style={{ color }}
         >
-            {withDot ? <span className="dot" aria-hidden="true" /> : null}
-            <select
-                className="select mono"
+            {withDot ? (
+                <span
+                    className="size-1.5 shrink-0 rounded-full bg-current"
+                    aria-hidden="true"
+                />
+            ) : null}
+            <NativeSelect
                 aria-label={label}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                style={{
-                    width: "auto",
-                    height: 22,
-                    padding: "0 2px",
-                    background: "transparent",
-                    borderColor: "transparent",
-                    color: "inherit",
-                    fontSize: 11
-                }}
+                className="h-[22px] cursor-pointer border-transparent bg-transparent px-1 py-0 pr-8 font-mono text-[11px] text-inherit shadow-none dark:bg-transparent dark:hover:bg-transparent"
             >
                 {options.map((option) => (
-                    // The native popup would otherwise inherit the trigger's
-                    // transparent surface and status hue.
-                    <option
-                        key={option}
-                        value={option}
-                        style={{
-                            background: "var(--bg)",
-                            color: "var(--fg)"
-                        }}
-                    >
+                    <NativeSelectOption key={option} value={option}>
                         {option}
-                    </option>
+                    </NativeSelectOption>
                 ))}
-            </select>
+            </NativeSelect>
         </span>
     );
 }
@@ -207,55 +236,47 @@ const TaskRow = memo(function TaskRow({
 }: TaskRowProps) {
     const links = (task.depends?.length ?? 0) + (task.parent ? 1 : 0);
     return (
-        <tr
-            className={isOpen ? "is-selected" : undefined}
+        <TableRow
+            className="h-[var(--row-h)] cursor-pointer"
+            data-state={isOpen ? "selected" : undefined}
             tabIndex={0}
             onClick={() => onOpen(task.id)}
             onKeyDown={(event) => {
                 if (event.key === "Enter") onOpen(task.id);
             }}
         >
-            <td
-                style={{ width: 28 }}
+            <TableCell
+                className="w-7"
                 onClick={(event) => event.stopPropagation()}
             >
-                <input
-                    type="checkbox"
+                <Checkbox
                     aria-label={`Select ${task.id}`}
                     checked={checked}
-                    onChange={() => onToggle(task.id)}
-                    style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                    onCheckedChange={() => onToggle(task.id)}
                 />
-            </td>
-            <td className="row-lead mono dim" style={{ fontSize: 12 }}>
+            </TableCell>
+            {/* The open row carries the accent on its lead cell edge. */}
+            <TableCell
+                className={cn(
+                    "border-l-2 border-l-transparent font-mono text-xs text-muted-foreground",
+                    isOpen && "border-l-primary"
+                )}
+            >
                 {task.id}
-            </td>
-            <td style={{ maxWidth: 520 }}>
-                <span
-                    style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 8,
-                        minWidth: 0
-                    }}
-                >
-                    <span
-                        className="truncate"
-                        style={{ fontWeight: 500, minWidth: 0 }}
-                    >
+            </TableCell>
+            <TableCell className="max-w-[520px]">
+                <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="min-w-0 truncate font-medium">
                         {task.title}
                     </span>
                     {task.claimed_by ? (
-                        <span
-                            className="mono faint"
-                            style={{ fontSize: 10, whiteSpace: "nowrap" }}
-                        >
+                        <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground/60">
                             · {task.claimed_by}
                         </span>
                     ) : null}
                 </span>
-            </td>
-            <td onClick={(event) => event.stopPropagation()}>
+            </TableCell>
+            <TableCell onClick={(event) => event.stopPropagation()}>
                 <RowSelect
                     label={`Status for ${task.id}`}
                     value={task.status}
@@ -268,8 +289,8 @@ const TaskRow = memo(function TaskRow({
                         }).catch(() => undefined)
                     }
                 />
-            </td>
-            <td onClick={(event) => event.stopPropagation()}>
+            </TableCell>
+            <TableCell onClick={(event) => event.stopPropagation()}>
                 <RowSelect
                     label={`Priority for ${task.id}`}
                     value={task.priority}
@@ -281,14 +302,14 @@ const TaskRow = memo(function TaskRow({
                         }).catch(() => undefined)
                     }
                 />
-            </td>
-            <td className="mono dim" style={{ fontSize: 11 }}>
+            </TableCell>
+            <TableCell className="font-mono text-[11px] text-muted-foreground">
                 {task.type}
-            </td>
-            <td className="mono dim" style={{ fontSize: 11 }}>
+            </TableCell>
+            <TableCell className="font-mono text-[11px] text-muted-foreground">
                 {task.area}
-            </td>
-            <td className="mono faint" style={{ fontSize: 11 }}>
+            </TableCell>
+            <TableCell className="font-mono text-[11px] text-muted-foreground/60">
                 {epicId ? (
                     <button
                         type="button"
@@ -296,25 +317,20 @@ const TaskRow = memo(function TaskRow({
                             event.stopPropagation();
                             onOpen(epicId);
                         }}
-                        style={{
-                            font: "inherit",
-                            color: "var(--accent)",
-                            background: "none",
-                            border: 0,
-                            padding: 0,
-                            marginRight: links > 0 ? 6 : 0,
-                            cursor: "pointer"
-                        }}
+                        className={cn(
+                            "cursor-pointer text-primary hover:underline",
+                            links > 0 && "mr-1.5"
+                        )}
                     >
                         {epicId}
                     </button>
                 ) : null}
                 {links > 0 ? `${links} ↔` : epicId ? null : "—"}
-            </td>
-            <td className="mono faint" style={{ fontSize: 11 }}>
+            </TableCell>
+            <TableCell className="font-mono text-[11px] text-muted-foreground/60">
                 {task.updated || "—"}
-            </td>
-        </tr>
+            </TableCell>
+        </TableRow>
     );
 });
 
@@ -338,7 +354,7 @@ export function Explorer({
     const [bulkArea, setBulkArea] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
     const [viewport, setViewport] = useState({ start: 0, end: 40 });
-    const [rowHeight, setRowHeight] = useState(34);
+    const [rowHeight, setRowHeight] = useState(40);
 
     // Faceted counts: every dimension counts the set filtered by all the OTHER
     // filters, so the number on a value is exactly what the table will show
@@ -384,7 +400,8 @@ export function Explorer({
     }, [epicIds, sortDirection, sortKey, tasks]);
 
     // Windowed rows over one scroll container. The row height is the theme's
-    // `--row-h` (density-dependent), so it is measured, not assumed.
+    // `--row-h` (density-dependent), so it is measured, not assumed — the
+    // rows key their height off the same token (`h-[var(--row-h)]`).
     const rowCount = useRef(0);
     const hasRows = sorted.length > 0;
     const recalculate = useCallback(() => {
@@ -395,7 +412,7 @@ export function Explorer({
                 getComputedStyle(document.documentElement).getPropertyValue(
                     "--row-h"
                 )
-            ) || 34;
+            ) || 40;
         setRowHeight(measured);
         const overscan = 10;
         const start = Math.max(
@@ -472,6 +489,7 @@ export function Explorer({
     const visibleIds = useMemo(() => sorted.map((task) => task.id), [sorted]);
     const allVisibleSelected =
         visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+    const someVisibleSelected = visibleIds.some((id) => selected.has(id));
     const rows = sorted.slice(viewport.start, viewport.end);
     const bulkReady = Boolean(bulkStatus || bulkPriority || bulkArea);
 
@@ -502,8 +520,11 @@ export function Explorer({
     }
 
     return (
-        <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-            <aside className="facet-rail" aria-label="Backlog facets">
+        <div className="flex min-h-0 flex-1">
+            <aside
+                aria-label="Backlog facets"
+                className="flex w-[204px] flex-none flex-col gap-5 overflow-y-auto border-r px-3.5 py-4"
+            >
                 <FacetGroup
                     title="status"
                     values={STATUSES}
@@ -556,123 +577,125 @@ export function Explorer({
                 />
             </aside>
 
-            <div
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 0
-                }}
-            >
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 {selected.size > 0 && (
                     <div
-                        className="callout callout-accent"
                         role="region"
                         aria-label="Bulk actions"
-                        style={{
-                            flex: "0 0 auto",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            marginBottom: 10
-                        }}
+                        className="mx-3.5 mt-2.5 mb-2.5 flex flex-none flex-wrap items-center gap-2 rounded-md border-l-2 border-l-primary bg-muted/50 px-3 py-2"
                     >
-                        <span className="mono" style={{ fontSize: 11 }}>
+                        <span className="font-mono text-[11px]">
                             {selected.size} selected
                         </span>
-                        <select
-                            className="select"
+                        <NativeSelect
                             aria-label="Set status"
                             value={bulkStatus}
                             onChange={(event) =>
                                 setBulkStatus(event.target.value)
                             }
-                            style={{ width: "auto", height: 26, fontSize: 12 }}
+                            className="h-[26px] px-2 py-0 pr-8 text-xs"
                         >
-                            <option value="">status…</option>
+                            <NativeSelectOption value="">
+                                status…
+                            </NativeSelectOption>
                             {STATUSES.map((value) => (
-                                <option key={value} value={value}>
+                                <NativeSelectOption key={value} value={value}>
                                     {value}
-                                </option>
+                                </NativeSelectOption>
                             ))}
-                        </select>
-                        <select
-                            className="select"
+                        </NativeSelect>
+                        <NativeSelect
                             aria-label="Set priority"
                             value={bulkPriority}
                             onChange={(event) =>
                                 setBulkPriority(event.target.value)
                             }
-                            style={{ width: "auto", height: 26, fontSize: 12 }}
+                            className="h-[26px] px-2 py-0 pr-8 text-xs"
                         >
-                            <option value="">priority…</option>
+                            <NativeSelectOption value="">
+                                priority…
+                            </NativeSelectOption>
                             {PRIORITIES.map((value) => (
-                                <option key={value} value={value}>
+                                <NativeSelectOption key={value} value={value}>
                                     {value}
-                                </option>
+                                </NativeSelectOption>
                             ))}
-                        </select>
-                        <select
-                            className="select"
+                        </NativeSelect>
+                        <NativeSelect
                             aria-label="Set area"
                             value={bulkArea}
                             onChange={(event) =>
                                 setBulkArea(event.target.value)
                             }
-                            style={{ width: "auto", height: 26, fontSize: 12 }}
+                            className="h-[26px] px-2 py-0 pr-8 text-xs"
                         >
-                            <option value="">area…</option>
+                            <NativeSelectOption value="">
+                                area…
+                            </NativeSelectOption>
                             {areas.map((value) => (
-                                <option key={value} value={value}>
+                                <NativeSelectOption key={value} value={value}>
                                     {value}
-                                </option>
+                                </NativeSelectOption>
                             ))}
-                        </select>
-                        <button
-                            type="button"
-                            className="btn"
-                            disabled={!bulkReady}
-                            onClick={() => void applyBulk()}
-                        >
-                            Apply
-                        </button>
-                        <button
-                            type="button"
-                            className="btn"
-                            onClick={() => setSelected(new Set())}
-                        >
-                            Clear
-                        </button>
+                        </NativeSelect>
+                        <ButtonGroup>
+                            <Button
+                                size="sm"
+                                disabled={!bulkReady}
+                                onClick={() => void applyBulk()}
+                            >
+                                Apply
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelected(new Set())}
+                            >
+                                Clear
+                            </Button>
+                        </ButtonGroup>
                     </div>
                 )}
 
                 {sorted.length === 0 ? (
-                    <div
-                        style={{
-                            flex: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                        }}
-                    >
-                        <span className="mono faint" style={{ fontSize: 12 }}>
-                            no cards match — adjust filters
-                        </span>
-                    </div>
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyTitle>No cards match</EmptyTitle>
+                            <EmptyDescription>
+                                Adjust filters or clear the search
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
                 ) : (
+                    /*
+                     * The registry Table wraps its <table> in an
+                     * overflow-x-auto container; left alone, that inner box
+                     * becomes the scrollport the sticky header attaches to,
+                     * and it never scrolls — so the header would drift away
+                     * with the rows. Opening the wrapper up restores the
+                     * bespoke system's single scroll container: this div owns
+                     * both axes, the header sticks to it, and the
+                     * virtualization math keeps reading the element it
+                     * measures.
+                     */
                     <div
                         ref={scrollRef}
-                        style={{ flex: 1, minWidth: 0, overflow: "auto" }}
+                        className="min-w-0 flex-1 overflow-auto [&>[data-slot=table-container]]:overflow-visible"
                     >
-                        <table className="grid-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ width: 28 }}>
-                                        <input
-                                            type="checkbox"
+                        <Table className="text-[13px]">
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="sticky top-0 z-10 w-7 bg-background">
+                                        <Checkbox
                                             aria-label="Select all matching cards"
-                                            checked={allVisibleSelected}
-                                            onChange={() =>
+                                            checked={
+                                                allVisibleSelected
+                                                    ? true
+                                                    : someVisibleSelected
+                                                      ? "indeterminate"
+                                                      : false
+                                            }
+                                            onCheckedChange={() =>
                                                 setSelected((current) => {
                                                     const next = new Set(
                                                         current
@@ -690,14 +713,10 @@ export function Explorer({
                                                     return next;
                                                 })
                                             }
-                                            style={{
-                                                accentColor: "var(--accent)",
-                                                cursor: "pointer"
-                                            }}
                                         />
-                                    </th>
+                                    </TableHead>
                                     {SORT_COLUMNS.map(([key, label]) => (
-                                        <th
+                                        <TableHead
                                             key={key}
                                             aria-sort={
                                                 sortKey === key
@@ -706,33 +725,30 @@ export function Explorer({
                                                         : "descending"
                                                     : "none"
                                             }
+                                            className="sticky top-0 z-10 bg-background"
                                         >
-                                            <button
-                                                type="button"
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => changeSort(key)}
-                                                style={{
-                                                    font: "inherit",
-                                                    letterSpacing: "inherit",
-                                                    textTransform: "inherit",
-                                                    color: "inherit",
-                                                    background: "none",
-                                                    border: 0,
-                                                    padding: 0,
-                                                    cursor: "pointer"
-                                                }}
+                                                className="-ml-2 h-7 gap-1 px-2 text-xs text-muted-foreground"
                                             >
                                                 {label}
-                                                {sortKey === key
-                                                    ? sortDirection === "asc"
-                                                        ? " ↑"
-                                                        : " ↓"
-                                                    : ""}
-                                            </button>
-                                        </th>
+                                                {sortKey === key ? (
+                                                    sortDirection === "asc" ? (
+                                                        <ArrowUp className="size-3" />
+                                                    ) : (
+                                                        <ArrowDown className="size-3" />
+                                                    )
+                                                ) : (
+                                                    <ChevronsUpDown className="size-3 opacity-50" />
+                                                )}
+                                            </Button>
+                                        </TableHead>
                                     ))}
-                                </tr>
-                            </thead>
-                            <tbody>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {viewport.start > 0 && (
                                     <tr aria-hidden="true">
                                         <td
@@ -769,8 +785,8 @@ export function Explorer({
                                         />
                                     </tr>
                                 )}
-                            </tbody>
-                        </table>
+                            </TableBody>
+                        </Table>
                     </div>
                 )}
             </div>

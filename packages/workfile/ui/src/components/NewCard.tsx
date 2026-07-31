@@ -1,7 +1,23 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+    NativeSelect,
+    NativeSelectOption
+} from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+
 import { PRIORITIES, TYPES, type Task } from "../types";
-import { AppDialog, Field } from "../kit";
 
 /** Free-text fields, with their visible label. */
 const TEXT_FIELDS = [
@@ -75,144 +91,170 @@ export function NewCardModal({
         (task) => !task.archived && (task.type === "epic" || !task.parent)
     );
     return (
-        <AppDialog
+        <Dialog
             open
-            title="New card"
-            onClose={onClose}
-            footer={
-                <>
-                    <button type="button" className="btn" onClick={onClose}>
+            onOpenChange={(open) => {
+                if (!open) onClose();
+            }}
+        >
+            <DialogContent
+                className="max-h-[85vh] overflow-y-auto sm:max-w-xl"
+                onOpenAutoFocus={(event) => {
+                    event.preventDefault();
+                    titleRef.current?.focus();
+                }}
+            >
+                <DialogHeader>
+                    <DialogTitle>New card</DialogTitle>
+                    <DialogDescription>
+                        Only the title is required. Everything else can be
+                        changed later.
+                    </DialogDescription>
+                </DialogHeader>
+                <form
+                    id="new-card-form"
+                    onSubmit={(event) => void submit(event)}
+                    className="flex flex-col gap-3"
+                >
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="new-card-title">
+                            Title — up to 80 characters
+                        </FieldLabel>
+                        <Input
+                            id="new-card-title"
+                            ref={titleRef}
+                            value={form.title}
+                            maxLength={80}
+                            onChange={(event) =>
+                                update("title", event.target.value)
+                            }
+                        />
+                    </Field>
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {(
+                            [
+                                ["type", "Type", TYPES],
+                                ["priority", "Priority", PRIORITIES],
+                                ["area", "Area", areas]
+                            ] as const
+                        ).map(([key, label, options]) => (
+                            <Field className="gap-1.5" key={key}>
+                                <FieldLabel htmlFor={`new-card-${key}`}>
+                                    {label}
+                                </FieldLabel>
+                                <NativeSelect
+                                    id={`new-card-${key}`}
+                                    value={form[key]}
+                                    onChange={(event) =>
+                                        update(key, event.target.value)
+                                    }
+                                >
+                                    {options.map((option) => (
+                                        <NativeSelectOption
+                                            key={option}
+                                            value={option}
+                                        >
+                                            {option}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                            </Field>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-[1fr_2fr] gap-2.5">
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="new-card-effort">
+                                Effort
+                            </FieldLabel>
+                            <NativeSelect
+                                id="new-card-effort"
+                                value={form.effort}
+                                onChange={(event) =>
+                                    update("effort", event.target.value)
+                                }
+                            >
+                                <NativeSelectOption value="">
+                                    —
+                                </NativeSelectOption>
+                                <NativeSelectOption value="S">
+                                    S
+                                </NativeSelectOption>
+                                <NativeSelectOption value="M">
+                                    M
+                                </NativeSelectOption>
+                                <NativeSelectOption value="L">
+                                    L
+                                </NativeSelectOption>
+                            </NativeSelect>
+                        </Field>
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="new-card-parent">
+                                Parent — epics and top-level cards
+                            </FieldLabel>
+                            <NativeSelect
+                                id="new-card-parent"
+                                value={form.parent}
+                                onChange={(event) =>
+                                    update("parent", event.target.value)
+                                }
+                            >
+                                <NativeSelectOption value="">
+                                    —
+                                </NativeSelectOption>
+                                {parents.map((task) => (
+                                    <NativeSelectOption
+                                        key={task.id}
+                                        value={task.id}
+                                    >
+                                        {task.id} — {task.title}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                        </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {TEXT_FIELDS.map(([key, label]) => (
+                            <Field className="gap-1.5" key={key}>
+                                <FieldLabel htmlFor={`new-card-${key}`}>
+                                    {label}
+                                </FieldLabel>
+                                <Input
+                                    id={`new-card-${key}`}
+                                    value={form[key]}
+                                    onChange={(event) =>
+                                        update(key, event.target.value)
+                                    }
+                                />
+                            </Field>
+                        ))}
+                    </div>
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="new-card-body">
+                            Description
+                        </FieldLabel>
+                        <Textarea
+                            id="new-card-body"
+                            className="min-h-24"
+                            value={form.body}
+                            onChange={(event) =>
+                                update("body", event.target.value)
+                            }
+                        />
+                    </Field>
+                </form>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="submit"
                         form="new-card-form"
-                        className="btn-accent"
                         disabled={saving || !form.title.trim()}
                     >
                         {saving ? "Creating…" : "Create card"}
-                    </button>
-                </>
-            }
-        >
-            <form
-                id="new-card-form"
-                onSubmit={(event) => void submit(event)}
-                style={{ display: "flex", flexDirection: "column", gap: 12 }}
-            >
-                <span style={{ fontSize: 12, color: "var(--fg-3)" }}>
-                    Only the title is required. Everything else can be changed
-                    later.
-                </span>
-                <Field label="Title — up to 80 characters">
-                    <input
-                        className="input"
-                        ref={titleRef}
-                        value={form.title}
-                        maxLength={80}
-                        onChange={(event) =>
-                            update("title", event.target.value)
-                        }
-                    />
-                </Field>
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 10
-                    }}
-                >
-                    {(
-                        [
-                            ["type", "Type", TYPES],
-                            ["priority", "Priority", PRIORITIES],
-                            ["area", "Area", areas]
-                        ] as const
-                    ).map(([key, label, options]) => (
-                        <Field label={label} key={key}>
-                            <select
-                                className="select"
-                                value={form[key]}
-                                onChange={(event) =>
-                                    update(key, event.target.value)
-                                }
-                            >
-                                {options.map((option) => (
-                                    <option key={option} value={option}>
-                                        {option}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                    ))}
-                </div>
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 2fr",
-                        gap: 10
-                    }}
-                >
-                    <Field label="Effort">
-                        <select
-                            className="select"
-                            value={form.effort}
-                            onChange={(event) =>
-                                update("effort", event.target.value)
-                            }
-                        >
-                            <option value="">—</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                        </select>
-                    </Field>
-                    <Field label="Parent — epics and top-level cards">
-                        <select
-                            className="select"
-                            value={form.parent}
-                            onChange={(event) =>
-                                update("parent", event.target.value)
-                            }
-                        >
-                            <option value="">—</option>
-                            {parents.map((task) => (
-                                <option key={task.id} value={task.id}>
-                                    {task.id} — {task.title}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                </div>
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 10
-                    }}
-                >
-                    {TEXT_FIELDS.map(([key, label]) => (
-                        <Field label={label} key={key}>
-                            <input
-                                className="input"
-                                value={form[key]}
-                                onChange={(event) =>
-                                    update(key, event.target.value)
-                                }
-                            />
-                        </Field>
-                    ))}
-                </div>
-                <Field label="Description">
-                    <textarea
-                        className="textarea"
-                        value={form.body}
-                        onChange={(event) =>
-                            update("body", event.target.value)
-                        }
-                    />
-                </Field>
-            </form>
-        </AppDialog>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

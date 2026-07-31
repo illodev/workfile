@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Kbd } from "@/components/ui/kbd";
+import { Textarea } from "@/components/ui/textarea";
+
 interface Conflict {
     theirs: string;
     theirRevision: string;
@@ -78,24 +84,13 @@ export function BodyEditor({
         }
     }
 
-    const preStyle = {
-        margin: "6px 0 0",
-        maxHeight: 240,
-        overflow: "auto",
-        border: "1px solid var(--line)",
-        borderRadius: 6,
-        background: "var(--panel)",
-        padding: 8,
-        fontSize: 11,
-        lineHeight: 1.6,
-        whiteSpace: "pre-wrap"
-    } as const;
+    const preClassName =
+        "mt-1.5 max-h-60 overflow-auto rounded-md border bg-muted p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground";
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <textarea
-                className="textarea"
-                style={{ minHeight: 320 }}
+        <div className="flex flex-col gap-2.5">
+            <Textarea
+                className="min-h-80 field-sizing-fixed resize-y font-mono text-sm"
                 value={draft}
                 spellCheck={false}
                 disabled={disabled || saving}
@@ -111,132 +106,112 @@ export function BodyEditor({
                 }}
                 aria-label="Record body"
             />
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    flexWrap: "wrap"
-                }}
-            >
-                <span className="mono faint" style={{ fontSize: 10.5 }}>
-                    {dirty ? "Unsaved changes · ⌘↵ to save" : "Saved"}
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                    {dirty ? (
+                        <>
+                            Unsaved changes · <Kbd>⌘↵</Kbd> to save
+                        </>
+                    ) : (
+                        "Saved"
+                    )}
                 </span>
-                <span style={{ flex: 1 }} />
-                <button
-                    type="button"
-                    className="btn"
-                    disabled={!dirty || saving || disabled}
-                    onClick={() => {
-                        setDraft(baseline.current);
-                        setError("");
-                    }}
-                >
-                    Discard
-                </button>
-                <button
-                    type="button"
-                    className="btn-accent"
-                    disabled={!dirty || saving || disabled}
-                    onClick={() => void save(draft, revision)}
-                >
-                    {saving ? "Saving…" : "Save"}
-                </button>
+                <span className="flex-1" />
+                <ButtonGroup>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!dirty || saving || disabled}
+                        onClick={() => {
+                            setDraft(baseline.current);
+                            setError("");
+                        }}
+                    >
+                        Discard
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        disabled={!dirty || saving || disabled}
+                        onClick={() => void save(draft, revision)}
+                    >
+                        {saving ? "Saving…" : "Save"}
+                    </Button>
+                </ButtonGroup>
             </div>
 
             {error ? (
-                <div className="callout callout-error" style={{ margin: 0 }}>
-                    {error}
-                </div>
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
             ) : null}
 
             {conflict ? (
-                <div
-                    className="callout callout-error"
-                    style={{
-                        margin: 0,
-                        flexDirection: "column",
-                        alignItems: "stretch",
-                        gap: 10
-                    }}
-                >
-                    <p
-                        style={{
-                            margin: 0,
-                            fontSize: 12.5,
-                            color: "var(--fg-2)"
-                        }}
-                    >
-                        This record changed on disk while you were editing —
-                        another agent, the CLI, or git. Your text is still here.
-                    </p>
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "repeat(auto-fit, minmax(200px, 1fr))",
-                            gap: 10
-                        }}
-                    >
-                        <section style={{ minWidth: 0 }}>
-                            <span className="overline">
-                                Theirs (on disk now)
-                            </span>
-                            <pre className="mono" style={preStyle}>
-                                {conflict.theirs}
-                            </pre>
-                        </section>
-                        <section style={{ minWidth: 0 }}>
-                            <span className="overline">Yours</span>
-                            <pre className="mono" style={preStyle}>
-                                {draft}
-                            </pre>
-                        </section>
-                    </div>
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            gap: 8,
-                            flexWrap: "wrap"
-                        }}
-                    >
-                        <button
-                            type="button"
-                            className="btn"
-                            onClick={() => {
-                                baseline.current = conflict.theirs;
-                                setDraft(conflict.theirs);
-                                setConflict(null);
-                            }}
-                        >
-                            Take theirs
-                        </button>
-                        <button
-                            type="button"
-                            className="btn"
-                            onClick={() => {
-                                // Both, in order, with a marker: neither side
-                                // is silently lost, and the result is something
-                                // a person can finish resolving in place.
-                                const merged = `${conflict.theirs.replace(/\s+$/, "")}\n\n<!-- yours -->\n\n${draft.replace(/\s+$/, "")}\n`;
-                                setDraft(merged);
-                                setConflict(null);
-                            }}
-                        >
-                            Keep both
-                        </button>
-                        <button
-                            type="button"
-                            className="btn-accent"
-                            onClick={() =>
-                                void save(draft, conflict.theirRevision)
-                            }
-                        >
-                            Overwrite with mine
-                        </button>
-                    </div>
-                </div>
+                <Alert variant="destructive">
+                    <AlertDescription className="flex w-full flex-col items-stretch gap-2.5">
+                        <p className="m-0 text-[12.5px] text-muted-foreground">
+                            This record changed on disk while you were editing —
+                            another agent, the CLI, or git. Your text is still
+                            here.
+                        </p>
+                        <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
+                            <section className="min-w-0">
+                                <span className="text-[10px] font-medium tracking-wider uppercase text-muted-foreground">
+                                    Theirs (on disk now)
+                                </span>
+                                <pre className={preClassName}>
+                                    {conflict.theirs}
+                                </pre>
+                            </section>
+                            <section className="min-w-0">
+                                <span className="text-[10px] font-medium tracking-wider uppercase text-muted-foreground">
+                                    Yours
+                                </span>
+                                <pre className={preClassName}>{draft}</pre>
+                            </section>
+                        </div>
+                        <div className="flex w-full flex-wrap justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    baseline.current = conflict.theirs;
+                                    setDraft(conflict.theirs);
+                                    setConflict(null);
+                                }}
+                            >
+                                Take theirs
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    // Both, in order, with a marker: neither side
+                                    // is silently lost, and the result is something
+                                    // a person can finish resolving in place.
+                                    const merged = `${conflict.theirs.replace(/\s+$/, "")}\n\n<!-- yours -->\n\n${draft.replace(/\s+$/, "")}\n`;
+                                    setDraft(merged);
+                                    setConflict(null);
+                                }}
+                            >
+                                Keep both
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() =>
+                                    void save(draft, conflict.theirRevision)
+                                }
+                            >
+                                Overwrite with mine
+                            </Button>
+                        </div>
+                    </AlertDescription>
+                </Alert>
             ) : null}
         </div>
     );
