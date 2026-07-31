@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-07-31T11:37:43.058Z",
+    "generatedAt": "2026-07-31T15:21:44.177Z",
     "tasks": {
         "repoRoot": "/demo/workfile",
         "projectName": "Workfile",
@@ -954,17 +954,15 @@
             {
                 "file": "T-0040-release-0-1-6-the-shadcn-interface-ships.md",
                 "archived": false,
-                "body": "## Activity\n\n- 2026-07-31 11:37Z claude-fable-4df73848 · claimed",
+                "body": "## Activity\n\n- 2026-07-31 11:37Z claude-fable-4df73848 · claimed\n- 2026-07-31 11:40Z claude-fable-4df73848 · doing → done\n- 2026-07-31 11:40Z claude-fable-4df73848 · released\n\n## Notes\n\n- 2026-07-31 11:40Z claude-fable-4df73848 — 0.1.6 live on the registry as latest for both packages, published end to end by the tag pipeline (run 30627757056): tag-version match, check:release green in CI (167+7 tests, no vulnerabilities, packaged smoke exercising the new UI), OIDC publish. No manual step touched the registry. REL-0006 renders one public line for the whole migration; the tag sits on the bump commit directly, same discipline as 0.1.5. The hosted demo snapshot shipped inside the package carries the migration story it was built by.",
                 "id": "T-0040",
                 "title": "Release 0.1.6: the shadcn interface ships",
-                "status": "doing",
+                "status": "done",
                 "type": "task",
                 "priority": "high",
                 "area": "infra",
                 "created": "2026-07-31",
                 "updated": "2026-07-31",
-                "claimed_by": "claude-fable-4df73848",
-                "claimed_at": "2026-07-31T11:37:25.628Z",
                 "scope": [
                     "package.json",
                     "CHANGELOG.md",
@@ -980,23 +978,151 @@
                     ".project/generated",
                     "packages/workfile/ui/src/demo-data.json"
                 ],
-                "revision": "sha256:3b09ad5acaab3973a53e1967b845e7c5e98082dacbceea592cfc3a77efd99952",
+                "revision": "sha256:63650d26fbeff809da72005fe59b2abcb14f31605a707796279fa395f2186dbc",
+                "assets": []
+            },
+            {
+                "file": "T-0041-the-inspector-becomes-an-overlay-drawer-expandable.md",
+                "archived": false,
+                "body": "## Intent\n\nThree of the owner's wishes, one surface. The Inspector today is a fixed right rail: it steals layout width from every view, its drag-resizer is fiddly, and its rendered Markdown body reads too large. It becomes a right-side overlay **drawer** (registry Sheet, `modal={false}`): the board never reflows, row-to-row browsing keeps working while it is open, outside clicks do not close it, and Esc still respects the unsaved-input guard.\n\nThe resizer dies in favour of two states — normal (~480px) and **expanded** (~min(1100px, 92vw)) via a maximize toggle — both persisted. Inside, the typeset scale drops to ~13px body with a capped readable measure in the expanded width; property grids may use the full width.\n\n## Acceptance\n\n- Main content width is identical with the drawer open or closed.\n- Clicking another row while open swaps content without closing; Esc closes unless a form holds unsaved input.\n- Expanded state survives reload. No drag-resizer remains.\n- Inspector body text lands ~13px; expanded view caps line measure (~72ch) for prose while tables stretch.\n\nWishes: drawer (1), body type (6), expand (7).\n\n## Activity\n\n- 2026-07-31 14:53Z claude-fable-4df73848 · doing → done\n- 2026-07-31 14:53Z claude-fable-4df73848 · released\n\n## Notes\n\n- 2026-07-31 14:53Z claude-fable-4df73848 — Implemented and runtime-verified. The rail is a non-modal Sheet drawer composed from the sheet primitives directly (the registry SheetContent's portal ignores forceMount, and the drawer must stay mounted while closed so an open form survives a toggle). Integration fix on top of the agent's work: open requires BOTH the preference and a selection - the old rail could sit empty in-flow, but an empty overlay was dead glass covering the toolbar on a fresh load, which the first runtime smoke caught by failing to click through it. Typography: the body wrapper overrides the typeset knobs at the element level (--typeset-size 0.8125rem, leading 1.6, 72ch measure capped for prose, full width for .typeset-scroll tables) - the utilities layer outranks typeset.css's components layer, and the placement on .typeset itself is load-bearing (an inherited value would lose to the element's own declaration).\n\nRuntime evidence, 8/8 smoke against the served UI: clean load keeps the drawer closed; opening causes zero reflow (table 1156px before and after); clicking another row swaps content without closing (T-0041 to T-0037); expand reaches 1100px and persists under workfile-inspector-expanded; Esc closes respecting the editingRef guard; body lands at 13px desktop. check green (180 tests).\n\nKnown deltas, accepted: the fixed drawer covers the topbar's right buttons while open (inherent to overlay); close is instant while open animates (forceMount); the slim drawer control strip sits above the Inspector's own header - cosmetic, revisit if it grates. Pre-existing quirk unchanged: the document-level Escape handler ignores defaultPrevented, so Esc with the palette open also clears the selection.",
+                "id": "T-0041",
+                "title": "The Inspector becomes an overlay drawer: expandable, denser body type",
+                "status": "done",
+                "type": "feature",
+                "priority": "high",
+                "area": "ui",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "scope": [
+                    "packages/workfile/ui/src/main.tsx",
+                    "packages/workfile/ui/src/components/Inspector.tsx"
+                ],
+                "revision": "sha256:27664730c285a125126c0017ff1050f69227a011506e125528dc6c7635d4800b",
+                "assets": []
+            },
+            {
+                "file": "T-0042-shell-chrome-doctor-and-sse-chips-join-the-ledger-.md",
+                "archived": false,
+                "body": "## Intent\n\nTwo chrome wishes. The sidebar footer tagline \"Markdown is the source. No database.\" leaves — the path line stays. The doctor chip (`doctor 0E · 6W · 2I`, click → Health) and the SSE chip (`sse live` / `polling`) move from the topbar to the bottom ledger strip, right-aligned by `index N records`, keeping their exact behaviour: doctor stays a button with its severity dot, SSE keeps its statusColor/sev-warning dot logic.\n\n## Acceptance\n\n- The tagline string is gone from main.tsx.\n- Both chips render in the ledger, none in the topbar; doctor still navigates to Health; dots keep their semantic tones.\n\nWishes: tagline (2), badges to footer (3).\n\n## Activity\n\n- 2026-07-31 14:53Z claude-fable-4df73848 · doing → done\n- 2026-07-31 14:53Z claude-fable-4df73848 · released\n\n## Notes\n\n- 2026-07-31 14:53Z claude-fable-4df73848 — Implemented and runtime-verified in the same main.tsx pass as T-0041. The tagline string is gone from the file; doctor and SSE badges render in the ledger footer after the spacer, left of \"index N records\", with byte-identical behaviour (doctor still a button into Health with its severity dot; SSE keeps statusColor and sev-warning tones). Topbar now holds only search, inspector toggle, theme and New card. Smoke item 7: both chips present in the footer, tagline absent from the DOM.",
+                "id": "T-0042",
+                "title": "Shell chrome: doctor and SSE chips join the ledger; the tagline leaves",
+                "status": "done",
+                "type": "chore",
+                "priority": "medium",
+                "area": "ui",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "scope": [
+                    "packages/workfile/ui/src/main.tsx"
+                ],
+                "revision": "sha256:2f5abddde77a04d958af611a6459ea5db715fc0e60cc4d5db9013e2288637454",
+                "assets": []
+            },
+            {
+                "file": "T-0043-search-shows-its-mode-in-the-palette-and-learns-re.md",
+                "archived": false,
+                "body": "## Intent\n\nTwo search wishes that share a wire. The core already computes `mode: \"lexical\" | \"hybrid\"` and the provider — the UI just never showed it, so semantic search is indistinguishable from lexical (the exact trap `changelog preview` set for releases: green that teaches nothing). The palette gains a muted Badge naming the mode (\"hybrid · <provider>\", \"lexical\", \"regex\") with a one-line Tooltip.\n\nRegex arrives as a third mode: a full `/pattern/flags` query (flags ⊆ imsu, pattern ≤ 256 chars) compiles safely — `SEARCH_REGEX_INVALID` on bad patterns — and scans id, title and body (first 20k chars), ranking title hits first, then match count. The provider is bypassed on purpose: regex is exact-intent. Plain queries containing slashes do not trigger it.\n\nParity: the demo's local search returns the same envelope and answers regex, so the hosted replay behaves identically; the Explorer's client-side filter gains the same `/.../` form, falling back silently on half-typed patterns.\n\n## Acceptance\n\n- /api/v2/search responses carry `mode` and `provider`; palette displays them.\n- `/error/i` finds records; `/(` yields a clear error server-side and never throws in the Explorer filter.\n- test/search.test.ts covers detection, invalid pattern, ranking, caps and the mode field on all three paths; demo-parity stays green.\n- cli.md query grammar and http-api.md document the form.\n\nWishes: semantic visibility (4), regex (5).\n\n## Notes\n\n- 2026-07-31 14:53Z claude-fable-4df73848 — Implemented across core, server, palette, demo and the Explorer filter; verified at runtime against the served UI and by direct execution of the demo adapter.\n\nCore: /pattern/flags (flags within imsu, pattern <= 256 chars, body scanned to 20k chars) short-circuits into regex mode - title hits outrank body-only, provider bypassed by design; invalid patterns raise SEARCH_REGEX_INVALID. The response envelope now always carries mode and provider on all three paths, and the /api/v2/search handler passes them through (confirmed on the wire: mode lexical, provider null for a plain query). Six new tests in search.test.ts; docs updated (cli.md query grammar, http-api.md).\n\nPalette: mode badge next to the result count - \"lexical\" observed live for a plain query, \"regex\" with the \"Regular expression - /pattern/flags\" hint row and 52 hits for /T-00\\d+/i; hybrid renders \"hybrid . provider-id\" (test-covered; this workspace declares no provider, so it cannot be photographed here). Demo adapter answers the same envelope and regex form (runtime-probed: mode regex; invalid pattern rejects with the compile message); the Explorer filter survived 11 hostile probes including half-typed and over-long patterns without throwing.\n\nDiscovered en route and fixed under this claim's scope: src/server/http.ts carried a raw NUL byte inside a hash-separator string literal, making the file read as binary to grep and file(1); normalized to the backslash-u0000 escape, server tests green. Accepted risks, recorded: catastrophic-backtracking patterns run unguarded on both sides (local tool, user's own query); demo regex ordering is close to but not byte-identical with the server's tie-break.\n\n## Activity\n\n- 2026-07-31 14:53Z claude-fable-4df73848 · doing → done\n- 2026-07-31 14:53Z claude-fable-4df73848 · released",
+                "id": "T-0043",
+                "title": "Search shows its mode in the palette and learns regex",
+                "status": "done",
+                "type": "feature",
+                "priority": "high",
+                "area": "search",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "scope": [
+                    "packages/workfile/src/modules/search",
+                    "packages/workfile/src/server",
+                    "packages/workfile/ui/src/components/CommandPalette.tsx",
+                    "packages/workfile/ui/src/query.ts",
+                    "packages/workfile/ui/src/api.demo.ts",
+                    "packages/workfile/test",
+                    "packages/workfile/docs"
+                ],
+                "revision": "sha256:6dcf8dcce0de14428429f809bc6439d9165f06b7a44c4e08e8d384b4e6b23ee0",
+                "assets": []
+            },
+            {
+                "file": "T-0044-a-density-toggle-in-the-ui-data-density-has-no-hom.md",
+                "archived": false,
+                "body": "",
+                "id": "T-0044",
+                "title": "A density toggle in the UI: data-density has no home",
+                "status": "backlog",
+                "type": "feature",
+                "priority": "low",
+                "area": "ui",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:9e2b99a05324db7d31e650c10cfa64bfcc8c52ccb1fc670ff029adbe3e41a5f0",
+                "assets": []
+            },
+            {
+                "file": "T-0045-drawer-and-shell-feedback-round-outside-closes-car.md",
+                "archived": false,
+                "body": "## Activity\n\n- 2026-07-31 15:03Z claude-fable-4df73848 · claimed\n- 2026-07-31 15:14Z claude-fable-4df73848 · doing → done\n- 2026-07-31 15:14Z claude-fable-4df73848 · released\n\n## Notes\n\n- 2026-07-31 15:14Z claude-fable-4df73848 — Six-point feedback round on the drawer and shell, all runtime-verified against the served UI (smoke a-f):\n\n(a) Non-card selections never raise the drawer: opening a changelog, memory or doc record from the palette or a view navigates there without the sheet appearing - the \"opens in its view on the left\" placeholder is unreachable. The Sheet's open condition gates on recordCollection(selectedId) === \"cards\" and the auto-open effect does the same.\n\n(b) Clicking outside closes the drawer, as expected. The interesting defect lived here: Radix defers its pointer-down-outside dispatch until after click handlers run, so a record-opening click would open the drawer and then be dismissed ~12ms later by its own echo (instrumented with capture listeners: pointerdown 1942ms, click 1944ms opens, pointerDownOutside 1956ms closes). Fix: every record-open stamps lastSelectRef; the dismiss handlers ignore outside events arriving within 200ms of a selection. Covers rows, tiles and palette without marking each surface. The unsaved-input guard still blocks dismissal while editing.\n\n(c) Row-to-row browsing keeps the drawer open (verified T-0045 to T-0037 swap).\n\n(d) The topbar inspector toggle is gone along with its PanelRight import - the drawer opens by selecting and closes by X, Esc or clicking outside.\n\n(e) The sidebar collapses to icon rail: collapsible=\"icon\", SidebarTrigger at the topbar start, brand text/version chips and footer path hidden via group-data-[collapsible=icon]; the registry hides group labels and count badges itself. Verified 240px -> 48px -> 240px via both the trigger and Cmd/Ctrl+B (the provider shortcut that was inert under collapsible=\"none\"), state persisted in the provider's cookie.\n\n(f) The selected-row accent moved from the id cell to the first cell's left edge - the bar now starts where the row starts. Sidebar footer and app footer both measure exactly 32px (h-8).\n\ncheck green after the round: 180 tests, 0 failures.",
+                "id": "T-0045",
+                "title": "Drawer and shell feedback round: outside closes, cards-only, collapsible sidebar",
+                "status": "done",
+                "type": "task",
+                "priority": "high",
+                "area": "ui",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "scope": [
+                    "packages/workfile/ui/src/main.tsx",
+                    "packages/workfile/ui/src/components/Inspector.tsx",
+                    "packages/workfile/ui/src/components/domain/Explorer.tsx"
+                ],
+                "revision": "sha256:f204facb8a4559f1a73e92bafd477afa1c88b791e73dc81da735fef146b83bf5",
+                "assets": []
+            },
+            {
+                "file": "T-0046-release-0-1-7-the-drawer-the-honest-search-the-fol.md",
+                "archived": false,
+                "body": "## Activity\n\n- 2026-07-31 15:21Z claude-fable-4df73848 · claimed",
+                "id": "T-0046",
+                "title": "Release 0.1.7: the drawer, the honest search, the folding sidebar",
+                "status": "doing",
+                "type": "task",
+                "priority": "high",
+                "area": "infra",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "claimed_by": "claude-fable-4df73848",
+                "claimed_at": "2026-07-31T15:21:24.192Z",
+                "scope": [
+                    "package.json",
+                    "CHANGELOG.md",
+                    ".project/changelog",
+                    "packages/workfile/package.json",
+                    "packages/search-local/package.json",
+                    ".claude",
+                    ".project/agents",
+                    "plugins/workfile",
+                    "AGENTS.md",
+                    "CLAUDE.md",
+                    ".claude-plugin",
+                    ".project/generated",
+                    "packages/workfile/ui/src/demo-data.json"
+                ],
+                "revision": "sha256:3470bcef8c2645503c3836108c4e2ffc5ade33bd64bc2b3c6d21018ad07df9cd",
                 "assets": []
             }
         ],
         "repoUrl": "https://github.com/illodev/workfile"
     },
     "health": {
-        "generatedAt": "2026-07-31T11:37:43.136Z",
-        "cards": 40,
+        "generatedAt": "2026-07-31T15:21:44.276Z",
+        "cards": 46,
         "modules": {
-            "cards": 40,
+            "cards": 46,
             "docs": 10,
             "managedDocs": 0,
             "indexedDocs": 10,
-            "changes": 19,
+            "changes": 22,
             "unreleasedChanges": 0,
-            "releases": 6,
+            "releases": 7,
             "memory": 7,
             "learnings": 1,
             "decisions": 5,
@@ -1013,12 +1139,12 @@
         "issues": []
     },
     "activity": {
-        "generatedAt": "2026-07-31T11:37:43.142Z",
+        "generatedAt": "2026-07-31T15:21:44.284Z",
         "sessions": [],
         "claims": [
             {
-                "id": "T-0040",
-                "title": "Release 0.1.6: the shadcn interface ships",
+                "id": "T-0046",
+                "title": "Release 0.1.7: the drawer, the honest search, the folding sidebar",
                 "status": "doing",
                 "area": "infra",
                 "scope": [
@@ -1038,9 +1164,9 @@
                 ],
                 "claim": {
                     "by": "claude-fable-4df73848",
-                    "at": "2026-07-31T11:37:25.628Z",
-                    "ageMs": 17514,
-                    "ageHours": 0,
+                    "at": "2026-07-31T15:21:24.192Z",
+                    "ageMs": 20092,
+                    "ageHours": 0.01,
                     "sessionId": null,
                     "state": "held"
                 }
@@ -1173,13 +1299,13 @@
                 "title": "CLI reference",
                 "path": "packages/workfile/docs/cli.md",
                 "file": "cli.md",
-                "body": "# CLI reference\n\nEvery command accepts the global options and returns stable machine-readable\nerrors with `--json`.\n\n## Global options\n\n| Option | Meaning |\n| --- | --- |\n| `--root PATH` | Workspace root (default: discovered from the working directory) |\n| `--json` | Machine-readable output |\n| `--expected-revision REV` | Reject the write when the file changed since it was read |\n| `--dry-run` | Preview filesystem changes without applying them |\n| `--force` | Replace conflicting generated files |\n| `--read-only` | Disable MCP mutation tools |\n| `--yes` | Accept initializer defaults without prompting |\n\nExit codes: `3` stale revision · `2` configuration error · `1` validation / not found.\n\n## Workspace\n\n```bash\nworkfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]\nworkfile schema [--json]        # effective runtime schema (areas, vocabularies…)\nworkfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]\nworkfile upgrade [--dry-run] [--json]\nworkfile ui [--host HOST] [--port PORT]\nworkfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]\n```\n\n`search` is lexical by default and becomes hybrid automatically when\n`project.config.mjs` declares an integration with a semantic search provider\n(`export const integrations = [...]`; `search.provider` selects one by id when\nseveral are declared). `--mode lexical` opts out for a run; `--mode hybrid`\nfails with `SEARCH_PROVIDER_UNAVAILABLE` instead of silently degrading when no\nprovider is available. `--json` reports which mode actually ran. Workfile never\nsends repository content to a network service by itself — a provider only runs\nif the repository explicitly declares it.\n\nThe first-party provider is\n[`@illodev/workfile-search-local`](https://github.com/illodev/workfile/tree/main/packages/search-local#readme):\non-device embeddings via transformers.js, cached by content hash, fully\noffline after the first model download.\n\n`upgrade` is the one command to run after bumping `@illodev/workfile`: it\ncompares the installed version against the stamp on every managed surface the\nconfig owns (agent adapters, CI templates, the Claude Code surface) and\nresyncs the ones behind — including surfaces whose *content* is current but\nwhose stamp is old, which the staleness checks deliberately ignore. Managed\nblocks whose kind no configured target owns are reported instead of silently\nfossilizing.\n\n### Query grammar\n\nOne grammar, shared by the CLI, the HTTP API, MCP and the interface — the same\nstring returns the same answer everywhere, which it did not before.\n\n| Form | Meaning |\n| --- | --- |\n| `billing retry` | free text over id, title, metadata and body, ranked |\n| `\"exact phrase\"` | one term, not two |\n| `status:doing` | field filter; narrows rather than ranking |\n| `area:ui type:bug` | filters combine with AND |\n| `-status:done` | negated filter |\n| `-draft` | negated term |\n| `tag:` / `claim:` | aliases for `tags` and `claimed_by` |\n\nField names are the record's own keys, so the vocabulary follows the runtime\nschema rather than a second list. An unknown field matches nothing instead of\nfalling back to free text, which would quietly return everything.\n\nText is compared with diacritics folded, so `diseno` finds `Diseño`.\n\n## Work (cards)\n\n```bash\nworkfile card list [--status S] [--area A] [--type T] [--priority P] [--parent ID]\n                  [--claimed-by ACTOR] [--unclaimed] [--tag TAG] [--updated-since DATE]\n                  [--limit N] [--offset N] [--fields a,b] [--with-body] [--json]\nworkfile card show ID [--json]\nworkfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]\nworkfile card patch ID --json-input FILE [--expected-revision REV]\nworkfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]\nworkfile card release ID [--actor ACTOR] [--status next]\nworkfile card transition ID STATUS [--actor ACTOR]\nworkfile card archive ID\nworkfile card reopen ID [--status backlog]\nworkfile card reap [--dry-run] [--older-than HOURS] [--json]\nworkfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]\nworkfile card renumber --duplicates [--actor ACTOR]\n```\n\nClaims carry an actor and optional path scope; the server refuses overlapping\nscopes and releases the claim when a card leaves `doing`.\n\nSequential IDs are allocated per clone, so two branches can create the same\ncard ID and git merges both files without a conflict. `card renumber\n--duplicates` (or `doctor --fix`) heals that deterministically: the older card\nkeeps the ID, the younger moves to the next free one. When the moved ID was\nunique, every reference inside `.project/` is rewritten; after a collision the\nreferences are ambiguous by construction, so they are listed under `review`\ninstead of being silently repointed.\n\nFilter flags take comma-separated values (`--type bug,task`) and combine with\nAND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for\nit with `--with-body`, or pick exactly what you need with `--fields`. Responses\ncarry `total`, `offset` and `truncated`.\n\nOptions a command does not recognise are refused with `CLI_ARGUMENT_UNKNOWN`\nrather than ignored, so a mistyped filter fails instead of quietly returning\neverything.\n\nA claim has a lifecycle, not just a flag. The card records `claimed_by` and\n`claimed_at`; the live signal lives in `.project/.cache/activity/sessions/` and\ntherefore outside git, because a heartbeat written into frontmatter would leave\nthe working tree permanently dirty. `doctor` reports `card-claim-stale` past\n`cards.claimLeaseHours` and `card-claim-orphaned` when a session stops\nsignalling, and `workfile card reap` releases them.\n\n## Docs\n\n```bash\nworkfile doc list [--query TEXT] [--managed] [--json]\nworkfile doc show ID [--json]\nworkfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]\nworkfile doc move ID --folder PATH [--expected-revision REV]\nworkfile doc patch ID --json-input FILE [--expected-revision REV]\n```\n\nIndexed documents (from configured globs) get deterministic `PATH-*` IDs and are\nread-only; managed documents live in `.project/docs/` with `DOC-NNNN` IDs.\n\nManaged documents are loaded recursively, so folders work even when they are\ncreated by hand. `docs.layout` decides where new documents are written — `kind`\n(the default) groups them into a folder named after the document kind, `flat`\nuses the managed root — and `--folder PATH` overrides it for a single command.\nThe path must stay inside `docs.managedPath`; `--folder \"\"` targets the root.\n`workfile doc move` relocates a document without changing its ID or its content.\n\n## History (changelog)\n\n```bash\nworkfile changelog list [--unreleased] [--visibility public|internal] [--json]\nworkfile changelog show ID [--json]\nworkfile changelog add --title TITLE [--type fixed] [--area AREA]\nworkfile changelog patch ID --json-input FILE [--expected-revision REV]\nworkfile changelog preview [--fragments CHG-0001,CHG-0002]\nworkfile changelog release VERSION [--fragments CHG-0001,CHG-0002] [--title TITLE]\nworkfile changelog render [--visibility public|internal] [--write]\nworkfile changelog verify\n```\n\nRelease version validation follows `changelog.releaseStrategy`: `semver`,\n`calendar` or `freeform`.\n\n## Memory\n\n```bash\nworkfile memory list [--collection learnings] [--status active] [--json]\nworkfile memory show ID [--json]\nworkfile memory add COLLECTION --title TITLE [--status STATUS]\nworkfile memory patch ID --json-input FILE [--expected-revision REV]\nworkfile memory graduate ID --to CONV-0001,DOC-0001\nworkfile memory supersede ID --by ID\nworkfile memory verify\n```\n\n`add` accepts singular aliases (`learning`, `decision`, `incident`, `convention`,\n`context`) as well as collection ids. Collections and prefixes:\n\n| Collection | Prefix | Purpose |\n| --- | --- | --- |\n| learnings | `LRN` | Reusable observations with confidence and occurrences |\n| decisions | `ADR` | Proposed / accepted / rejected / superseded decisions |\n| incidents | `INC` | Operational events with severity and resolution metadata |\n| conventions | `CONV` | Durable rules for humans and agents |\n| context | `CTX` | Useful but potentially expiring project state |\n\n## Agents\n\n```bash\nworkfile agents sync [--targets agents-md,claude,cursor,copilot]\nworkfile agents check [--targets ...]\nworkfile agents context --card T-0001 [--limit 20]\n```\n\n`sync` writes compact managed blocks (version + SHA-256 digest) into `AGENTS.md`,\n`CLAUDE.md`, `.cursor/rules/` or `.github/copilot-instructions.md` without touching\nunrelated content. `context` returns a bounded, prioritized context bundle for a card.\n\n## CI templates\n\n```bash\nworkfile ci sync [--targets github,gitlab,generic]\nworkfile ci check [--targets ...]\n```\n\n## Legacy migration\n\n```bash\nworkfile migrate plan [--source .planning] [--mode copy|move]\nworkfile migrate apply [--source .planning] [--mode copy|move] [--force]\nworkfile migrate schema [--dry-run] [--json]\n```\n\nValid v1 cards become canonical v2 records; everything else is preserved under\n`.project/sources/legacy-planning/` with a written migration report.\n\n`migrate schema` is a different job: it moves a workspace forward when the\ninstalled package expects a newer `schemaVersion` than `.project/VERSION`\ndeclares. Steps run in ascending order under a lock, `--dry-run` prints the plan\nwithout writing, and the result is recorded in `.project/migrations/schema.json`\nalong with `upgradedWith` in `.project/VERSION`. A workspace *newer* than the\npackage is refused with `WORKSPACE_SCHEMA_AHEAD` — upgrade the package instead.\n\n## MCP\n\n```bash\nworkfile mcp [serve] [--read-only]\nworkfile mcp inspect [--json]\nworkfile mcp config [--read-only] [--json]\n```\n\nSee [mcp.md](mcp.md) for the server contract.",
+                "body": "# CLI reference\n\nEvery command accepts the global options and returns stable machine-readable\nerrors with `--json`.\n\n## Global options\n\n| Option | Meaning |\n| --- | --- |\n| `--root PATH` | Workspace root (default: discovered from the working directory) |\n| `--json` | Machine-readable output |\n| `--expected-revision REV` | Reject the write when the file changed since it was read |\n| `--dry-run` | Preview filesystem changes without applying them |\n| `--force` | Replace conflicting generated files |\n| `--read-only` | Disable MCP mutation tools |\n| `--yes` | Accept initializer defaults without prompting |\n\nExit codes: `3` stale revision · `2` configuration error · `1` validation / not found.\n\n## Workspace\n\n```bash\nworkfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]\nworkfile schema [--json]        # effective runtime schema (areas, vocabularies…)\nworkfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]\nworkfile upgrade [--dry-run] [--json]\nworkfile ui [--host HOST] [--port PORT]\nworkfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]\n```\n\n`search` is lexical by default and becomes hybrid automatically when\n`project.config.mjs` declares an integration with a semantic search provider\n(`export const integrations = [...]`; `search.provider` selects one by id when\nseveral are declared). `--mode lexical` opts out for a run; `--mode hybrid`\nfails with `SEARCH_PROVIDER_UNAVAILABLE` instead of silently degrading when no\nprovider is available. `--json` reports which mode actually ran. Workfile never\nsends repository content to a network service by itself — a provider only runs\nif the repository explicitly declares it.\n\nThe first-party provider is\n[`@illodev/workfile-search-local`](https://github.com/illodev/workfile/tree/main/packages/search-local#readme):\non-device embeddings via transformers.js, cached by content hash, fully\noffline after the first model download.\n\n`upgrade` is the one command to run after bumping `@illodev/workfile`: it\ncompares the installed version against the stamp on every managed surface the\nconfig owns (agent adapters, CI templates, the Claude Code surface) and\nresyncs the ones behind — including surfaces whose *content* is current but\nwhose stamp is old, which the staleness checks deliberately ignore. Managed\nblocks whose kind no configured target owns are reported instead of silently\nfossilizing.\n\n### Query grammar\n\nOne grammar, shared by the CLI, the HTTP API, MCP and the interface — the same\nstring returns the same answer everywhere, which it did not before.\n\n| Form | Meaning |\n| --- | --- |\n| `billing retry` | free text over id, title, metadata and body, ranked |\n| `\"exact phrase\"` | one term, not two |\n| `status:doing` | field filter; narrows rather than ranking |\n| `area:ui type:bug` | filters combine with AND |\n| `-status:done` | negated filter |\n| `-draft` | negated term |\n| `tag:` / `claim:` | aliases for `tags` and `claimed_by` |\n| `/timeout \\d+/i` | regular expression over id, title and body; flags from `imsu` |\n\nField names are the record's own keys, so the vocabulary follows the runtime\nschema rather than a second list. An unknown field matches nothing instead of\nfalling back to free text, which would quietly return everything.\n\nText is compared with diacritics folded, so `diseno` finds `Diseño`.\n\nOnly the full `/pattern/flags` form runs as a regex — a slash inside a plain\nquery does not. Regex queries are exact-intent: they bypass the semantic\nprovider, rank title hits above body hits and match count after that, and\nreport `mode: \"regex\"`. Patterns are capped at 256 characters, bodies scanned\nto their first 20,000; an invalid pattern fails with `SEARCH_REGEX_INVALID`.\n\n## Work (cards)\n\n```bash\nworkfile card list [--status S] [--area A] [--type T] [--priority P] [--parent ID]\n                  [--claimed-by ACTOR] [--unclaimed] [--tag TAG] [--updated-since DATE]\n                  [--limit N] [--offset N] [--fields a,b] [--with-body] [--json]\nworkfile card show ID [--json]\nworkfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]\nworkfile card patch ID --json-input FILE [--expected-revision REV]\nworkfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]\nworkfile card release ID [--actor ACTOR] [--status next]\nworkfile card transition ID STATUS [--actor ACTOR]\nworkfile card archive ID\nworkfile card reopen ID [--status backlog]\nworkfile card reap [--dry-run] [--older-than HOURS] [--json]\nworkfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]\nworkfile card renumber --duplicates [--actor ACTOR]\n```\n\nClaims carry an actor and optional path scope; the server refuses overlapping\nscopes and releases the claim when a card leaves `doing`.\n\nSequential IDs are allocated per clone, so two branches can create the same\ncard ID and git merges both files without a conflict. `card renumber\n--duplicates` (or `doctor --fix`) heals that deterministically: the older card\nkeeps the ID, the younger moves to the next free one. When the moved ID was\nunique, every reference inside `.project/` is rewritten; after a collision the\nreferences are ambiguous by construction, so they are listed under `review`\ninstead of being silently repointed.\n\nFilter flags take comma-separated values (`--type bug,task`) and combine with\nAND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for\nit with `--with-body`, or pick exactly what you need with `--fields`. Responses\ncarry `total`, `offset` and `truncated`.\n\nOptions a command does not recognise are refused with `CLI_ARGUMENT_UNKNOWN`\nrather than ignored, so a mistyped filter fails instead of quietly returning\neverything.\n\nA claim has a lifecycle, not just a flag. The card records `claimed_by` and\n`claimed_at`; the live signal lives in `.project/.cache/activity/sessions/` and\ntherefore outside git, because a heartbeat written into frontmatter would leave\nthe working tree permanently dirty. `doctor` reports `card-claim-stale` past\n`cards.claimLeaseHours` and `card-claim-orphaned` when a session stops\nsignalling, and `workfile card reap` releases them.\n\n## Docs\n\n```bash\nworkfile doc list [--query TEXT] [--managed] [--json]\nworkfile doc show ID [--json]\nworkfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]\nworkfile doc move ID --folder PATH [--expected-revision REV]\nworkfile doc patch ID --json-input FILE [--expected-revision REV]\n```\n\nIndexed documents (from configured globs) get deterministic `PATH-*` IDs and are\nread-only; managed documents live in `.project/docs/` with `DOC-NNNN` IDs.\n\nManaged documents are loaded recursively, so folders work even when they are\ncreated by hand. `docs.layout` decides where new documents are written — `kind`\n(the default) groups them into a folder named after the document kind, `flat`\nuses the managed root — and `--folder PATH` overrides it for a single command.\nThe path must stay inside `docs.managedPath`; `--folder \"\"` targets the root.\n`workfile doc move` relocates a document without changing its ID or its content.\n\n## History (changelog)\n\n```bash\nworkfile changelog list [--unreleased] [--visibility public|internal] [--json]\nworkfile changelog show ID [--json]\nworkfile changelog add --title TITLE [--type fixed] [--area AREA]\nworkfile changelog patch ID --json-input FILE [--expected-revision REV]\nworkfile changelog preview [--fragments CHG-0001,CHG-0002]\nworkfile changelog release VERSION [--fragments CHG-0001,CHG-0002] [--title TITLE]\nworkfile changelog render [--visibility public|internal] [--write]\nworkfile changelog verify\n```\n\nRelease version validation follows `changelog.releaseStrategy`: `semver`,\n`calendar` or `freeform`.\n\n## Memory\n\n```bash\nworkfile memory list [--collection learnings] [--status active] [--json]\nworkfile memory show ID [--json]\nworkfile memory add COLLECTION --title TITLE [--status STATUS]\nworkfile memory patch ID --json-input FILE [--expected-revision REV]\nworkfile memory graduate ID --to CONV-0001,DOC-0001\nworkfile memory supersede ID --by ID\nworkfile memory verify\n```\n\n`add` accepts singular aliases (`learning`, `decision`, `incident`, `convention`,\n`context`) as well as collection ids. Collections and prefixes:\n\n| Collection | Prefix | Purpose |\n| --- | --- | --- |\n| learnings | `LRN` | Reusable observations with confidence and occurrences |\n| decisions | `ADR` | Proposed / accepted / rejected / superseded decisions |\n| incidents | `INC` | Operational events with severity and resolution metadata |\n| conventions | `CONV` | Durable rules for humans and agents |\n| context | `CTX` | Useful but potentially expiring project state |\n\n## Agents\n\n```bash\nworkfile agents sync [--targets agents-md,claude,cursor,copilot]\nworkfile agents check [--targets ...]\nworkfile agents context --card T-0001 [--limit 20]\n```\n\n`sync` writes compact managed blocks (version + SHA-256 digest) into `AGENTS.md`,\n`CLAUDE.md`, `.cursor/rules/` or `.github/copilot-instructions.md` without touching\nunrelated content. `context` returns a bounded, prioritized context bundle for a card.\n\n## CI templates\n\n```bash\nworkfile ci sync [--targets github,gitlab,generic]\nworkfile ci check [--targets ...]\n```\n\n## Legacy migration\n\n```bash\nworkfile migrate plan [--source .planning] [--mode copy|move]\nworkfile migrate apply [--source .planning] [--mode copy|move] [--force]\nworkfile migrate schema [--dry-run] [--json]\n```\n\nValid v1 cards become canonical v2 records; everything else is preserved under\n`.project/sources/legacy-planning/` with a written migration report.\n\n`migrate schema` is a different job: it moves a workspace forward when the\ninstalled package expects a newer `schemaVersion` than `.project/VERSION`\ndeclares. Steps run in ascending order under a lock, `--dry-run` prints the plan\nwithout writing, and the result is recorded in `.project/migrations/schema.json`\nalong with `upgradedWith` in `.project/VERSION`. A workspace *newer* than the\npackage is refused with `WORKSPACE_SCHEMA_AHEAD` — upgrade the package instead.\n\n## MCP\n\n```bash\nworkfile mcp [serve] [--read-only]\nworkfile mcp inspect [--json]\nworkfile mcp config [--read-only] [--json]\n```\n\nSee [mcp.md](mcp.md) for the server contract.",
                 "managed": false,
                 "documentKind": "reference",
                 "status": "current",
-                "modifiedAt": "2026-07-31T09:18:10.242Z",
-                "sizeBytes": 9816,
-                "revision": "sha256:e24944deafe3318e7704c69868ff61aff88f2c574104cf5561bd8f09cc4449ec",
+                "modifiedAt": "2026-07-31T12:42:29.734Z",
+                "sizeBytes": 10283,
+                "revision": "sha256:0bd863554c73efc27f1f6f5c6617d7c37f01883d34b86c9be70a7f89c3fa6df8",
                 "metadata": {},
                 "recordType": "reference",
                 "outgoing": [
@@ -1341,20 +1467,23 @@
                 "title": "HTTP API",
                 "path": "packages/workfile/docs/http-api.md",
                 "file": "http-api.md",
-                "body": "# HTTP API\n\n`workfile ui` starts the local server (default `http://127.0.0.1:4747`). The same\ncore services back the CLI, the MCP server and the UI — the API is a thin layer.\n\n## Conventions\n\n- Managed record reads expose an `ETag`; mutations accept `If-Match` and reject\n  stale writes with a conflict error.\n- Errors use stable codes:\n\n```json\n{\n    \"error\": {\n        \"code\": \"MEMORY_WRITE_CONFLICT\",\n        \"message\": \"The memory record changed after it was loaded.\",\n        \"details\": {}\n    }\n}\n```\n\n- List endpoints accept `q`, `limit` and `offset`; responses carry `total`.\n- List endpoints also accept `view=full|summary|list` and `fields=a,b,c`.\n  `summary` replaces the Markdown body with `bodyBytes` and a 200-character\n  `excerpt` and reduces the link arrays to ids and relations; `list` drops the\n  excerpt too. `fields` overrides the view and returns exactly those keys.\n  Measured on 100 records: 169 KB full, 70 KB summary, 43 KB list, 6.7 KB for\n  three fields.\n  `full` is the default deliberately — the packaged UI still renders record\n  bodies out of its list responses — so narrowing is opt-in until it fetches\n  what it displays.\n- Collection reads carry an `ETag` over the page they return, and honour\n  `If-None-Match` with a `304`. Cards are the corpus a polling client re-fetches\n  most, so this is where it matters: the steady state costs a header exchange.\n- JSON responses above ~1.4 KB are gzipped when `Accept-Encoding` allows it,\n  with `Vary: Accept-Encoding`. Brotli is not offered: ~14% smaller for roughly\n  an order of magnitude more CPU on a single-threaded server.\n- `Cache-Control` is `no-cache` — revalidate every time, but a revalidation may\n  answer `304`. It is deliberately not `no-store`, which would forbid that.\n\n## Events\n\n`GET /api/v2/events` is a Server-Sent Events stream of workspace changes.\n\n```\nevent: hello\ndata: {\"serverId\":\"aec9c77abfc871ec\",\"lastEventId\":0}\n\nid: 1\nevent: records.changed\ndata: {\"epoch\":1,\"count\":1,\"paths\":[\".project/cards/T-0042-example.md\"]}\n```\n\n| Event | Meaning |\n| --- | --- |\n| `hello` | Sent on connect. `serverId` distinguishes a reconnection to the same process from one to a restarted process whose ids began again. |\n| `records.changed` | Files changed. Carries the paths and the new index `epoch`. |\n| `activity.changed` | A card write may have changed who is working on what. A separate event so a presence view need not refetch records. |\n| `sync.reset` | Too many paths at once (a `git checkout`, a release), or the client's `Last-Event-ID` fell off the ring buffer. Refetch rather than applying a delta. |\n\nEvents are **invalidations, not payloads**: no record body ever travels down the\nchannel. The client fetches what the view it has mounted actually needs.\n\nThe source is a file watcher over the protocol corpus, so it sees every writer —\nthe CLI, an agent over MCP, git, an editor — not only mutations made through\nthis server. `.project/.cache` is excluded: it holds the locks that churn on\nevery write, the persisted index and agent activity, so watching it would feed\nback into itself.\n\n`EventSource` reconnects on its own and resumes with `Last-Event-ID`. The\nwatcher is a fast path and not the source of truth — `fs.watch` is silent on\nnetwork filesystems and its queue is bounded — so the index still revalidates\nagainst the filesystem. A dropped event costs latency, never correctness.\n\n## Diagnostics\n\n`GET /api/v2/metrics` reports request counts per route, p50/p95 latency over the\nlast thousand requests, the index epoch, connected event clients and the\nwatcher's mode. `workfile ui --verbose` (or `PROJECT_LOG=1`) also writes one line\nper request to stderr, and any 5xx logs its stack — which nothing did before, so\nan error shown in the interface had no counterpart anywhere to diagnose it from.\n\n## Activity\n\n`GET /api/v2/activity` answers who is working on what, combining three signals\nthat already existed and that nothing joined up:\n\n- the lock files `withFileLock` writes, which exist exactly as long as a write\n  does — the most precise \"right now\" the system has;\n- the durable claims in card frontmatter (`claimed_by`, `claimed_at`, `scope`);\n- session heartbeats under `.project/.cache/activity/sessions/`.\n\nEach claim carries a derived `state`: `live` (a session is signalling),\n`held`, `stale` (past `cards.claimLeaseHours`) or `orphaned` (a session that\nstopped signalling). That distinction is the point — a claim from four minutes\nago and one from a process that died three days ago looked identical before.\n\n`conflicts` lists claims by *different* actors whose scopes overlap. This is the\nsituation claims exist to prevent, and it was computed inside `claimCard` and\nthen thrown away with the response.\n\n## Request guard\n\nThe server holds unauthenticated read and write access to the repository, so the\nbrowser's own origin rules are the entire security model. Every request is\nchecked before routing:\n\n| Condition | Response |\n| --- | --- |\n| `Host` outside the allowlist, or its port is not the listening port | `403 REQUEST_HOST_FORBIDDEN` |\n| `Sec-Fetch-Site` present and not `same-origin` / `none` | `403 REQUEST_ORIGIN_FORBIDDEN` |\n| `Origin` present and outside the allowlist | `403 REQUEST_ORIGIN_FORBIDDEN` |\n| `POST`/`PUT`/`PATCH`/`DELETE` with a CORS-simple or missing `Content-Type` | `415 REQUEST_CONTENT_TYPE_INVALID` |\n\nThe allowlist is `127.0.0.1`, `localhost` and `::1`, plus the bind address when\n`--host` names a specific non-wildcard interface.\n\nThe last rule matters as much as the others: `text/plain`,\n`application/x-www-form-urlencoded`, `multipart/form-data` and *no* content type\nat all are CORS-simple, so a cross-origin page could send them without a\npreflight. Requiring anything else forces a preflight, which this server never\nanswers.\n\nPractical consequence for clients: **mutations must set an explicit\n`Content-Type`**. Use `application/json` for the JSON API and\n`application/octet-stream` (or any concrete binary type) for asset uploads. A\n`fetch` that passes a `File` or an `ArrayBuffer` without setting the header will\nbe refused.\n\nNon-browser clients are unaffected — `curl` sends no `Origin` and no\n`Sec-Fetch-Site`, and its `Host` is the loopback address it dialled.\n\nAssets are served with `X-Content-Type-Options: nosniff`, a\n`default-src 'none'; sandbox` CSP, and `Content-Disposition: attachment` for\nanything outside a narrow inline allowlist. Uploads of types that can execute\nscript (`.html`, `.svg`, `.mjs`, …) are refused with\n`400 ASSET_TYPE_NOT_ALLOWED`.\n\n## Workspace and index\n\n```text\nGET  /api/v2/workspace\nGET  /api/v2/schema\nGET  /api/v2/health\nGET  /api/v2/records?q=&kind=&limit=&offset=\nGET  /api/v2/search?q=&kind=&limit=&offset=&mode=\nGET  /api/v2/records/:id\n```\n\n`/search` consults the semantic provider declared in `project.config.mjs`\n(when there is one) and returns `mode: \"hybrid\"` with per-record\n`semanticScore`; `?mode=lexical` opts out. `/records` is always lexical.\n\n## Work\n\n```text\nGET/POST  /api/v2/cards\nPATCH     /api/v2/cards/:id\nPOST      /api/v2/cards/:id/claim\nPOST      /api/v2/cards/:id/transition\nPOST      /api/v2/cards/:id/archive\nPOST      /api/v2/cards/:id/reopen\nPOST      /api/v2/cards/bulk\n```\n\n## Docs\n\n```text\nGET/POST   /api/v2/docs\nGET/PATCH  /api/v2/docs/:id\n```\n\n## History\n\n```text\nGET/POST   /api/v2/changelog\nGET/PATCH  /api/v2/changelog/:id\nPOST       /api/v2/changelog/releases/preview\nPOST       /api/v2/changelog/releases\nGET/POST   /api/v2/changelog/render\n```\n\n## Memory\n\n```text\nGET/POST   /api/v2/memory\nGET/PATCH  /api/v2/memory/:id\nPOST       /api/v2/memory/:id/graduate\nPOST       /api/v2/memory/:id/supersede\n```\n\n## Agents and CI\n\n```text\nGET   /api/v2/agents\nPOST  /api/v2/agents/sync\nGET   /api/v2/agents/context?card=T-0001\nGET   /api/v2/ci\nPOST  /api/v2/ci/sync\n```\n\n## MCP inspection\n\n```text\nGET  /api/v2/mcp\nGET  /api/v2/mcp/config\n```\n\n## Legacy routes\n\n`/api/tasks`, `/api/health` and `/api/knowledge` remain for existing callers.\nThe packaged UI no longer uses the first two: it boots from\n`/api/v2/workspace` (identity plus the runtime schema) and reads\n`/api/v2/cards`, which — unlike `/api/tasks` — honours `q`, `limit`, `offset`\nand `view`, and carries an ETag.\n\nAsset upload is still `POST /api/tasks/:id/assets`; it has no v2 equivalent yet.\n\nNew integrations should target `/api/v2/*`.",
+                "body": "# HTTP API\n\n`workfile ui` starts the local server (default `http://127.0.0.1:4747`). The same\ncore services back the CLI, the MCP server and the UI — the API is a thin layer.\n\n## Conventions\n\n- Managed record reads expose an `ETag`; mutations accept `If-Match` and reject\n  stale writes with a conflict error.\n- Errors use stable codes:\n\n```json\n{\n    \"error\": {\n        \"code\": \"MEMORY_WRITE_CONFLICT\",\n        \"message\": \"The memory record changed after it was loaded.\",\n        \"details\": {}\n    }\n}\n```\n\n- List endpoints accept `q`, `limit` and `offset`; responses carry `total`.\n- List endpoints also accept `view=full|summary|list` and `fields=a,b,c`.\n  `summary` replaces the Markdown body with `bodyBytes` and a 200-character\n  `excerpt` and reduces the link arrays to ids and relations; `list` drops the\n  excerpt too. `fields` overrides the view and returns exactly those keys.\n  Measured on 100 records: 169 KB full, 70 KB summary, 43 KB list, 6.7 KB for\n  three fields.\n  `full` is the default deliberately — the packaged UI still renders record\n  bodies out of its list responses — so narrowing is opt-in until it fetches\n  what it displays.\n- Collection reads carry an `ETag` over the page they return, and honour\n  `If-None-Match` with a `304`. Cards are the corpus a polling client re-fetches\n  most, so this is where it matters: the steady state costs a header exchange.\n- JSON responses above ~1.4 KB are gzipped when `Accept-Encoding` allows it,\n  with `Vary: Accept-Encoding`. Brotli is not offered: ~14% smaller for roughly\n  an order of magnitude more CPU on a single-threaded server.\n- `Cache-Control` is `no-cache` — revalidate every time, but a revalidation may\n  answer `304`. It is deliberately not `no-store`, which would forbid that.\n\n## Events\n\n`GET /api/v2/events` is a Server-Sent Events stream of workspace changes.\n\n```\nevent: hello\ndata: {\"serverId\":\"aec9c77abfc871ec\",\"lastEventId\":0}\n\nid: 1\nevent: records.changed\ndata: {\"epoch\":1,\"count\":1,\"paths\":[\".project/cards/T-0042-example.md\"]}\n```\n\n| Event | Meaning |\n| --- | --- |\n| `hello` | Sent on connect. `serverId` distinguishes a reconnection to the same process from one to a restarted process whose ids began again. |\n| `records.changed` | Files changed. Carries the paths and the new index `epoch`. |\n| `activity.changed` | A card write may have changed who is working on what. A separate event so a presence view need not refetch records. |\n| `sync.reset` | Too many paths at once (a `git checkout`, a release), or the client's `Last-Event-ID` fell off the ring buffer. Refetch rather than applying a delta. |\n\nEvents are **invalidations, not payloads**: no record body ever travels down the\nchannel. The client fetches what the view it has mounted actually needs.\n\nThe source is a file watcher over the protocol corpus, so it sees every writer —\nthe CLI, an agent over MCP, git, an editor — not only mutations made through\nthis server. `.project/.cache` is excluded: it holds the locks that churn on\nevery write, the persisted index and agent activity, so watching it would feed\nback into itself.\n\n`EventSource` reconnects on its own and resumes with `Last-Event-ID`. The\nwatcher is a fast path and not the source of truth — `fs.watch` is silent on\nnetwork filesystems and its queue is bounded — so the index still revalidates\nagainst the filesystem. A dropped event costs latency, never correctness.\n\n## Diagnostics\n\n`GET /api/v2/metrics` reports request counts per route, p50/p95 latency over the\nlast thousand requests, the index epoch, connected event clients and the\nwatcher's mode. `workfile ui --verbose` (or `PROJECT_LOG=1`) also writes one line\nper request to stderr, and any 5xx logs its stack — which nothing did before, so\nan error shown in the interface had no counterpart anywhere to diagnose it from.\n\n## Activity\n\n`GET /api/v2/activity` answers who is working on what, combining three signals\nthat already existed and that nothing joined up:\n\n- the lock files `withFileLock` writes, which exist exactly as long as a write\n  does — the most precise \"right now\" the system has;\n- the durable claims in card frontmatter (`claimed_by`, `claimed_at`, `scope`);\n- session heartbeats under `.project/.cache/activity/sessions/`.\n\nEach claim carries a derived `state`: `live` (a session is signalling),\n`held`, `stale` (past `cards.claimLeaseHours`) or `orphaned` (a session that\nstopped signalling). That distinction is the point — a claim from four minutes\nago and one from a process that died three days ago looked identical before.\n\n`conflicts` lists claims by *different* actors whose scopes overlap. This is the\nsituation claims exist to prevent, and it was computed inside `claimCard` and\nthen thrown away with the response.\n\n## Request guard\n\nThe server holds unauthenticated read and write access to the repository, so the\nbrowser's own origin rules are the entire security model. Every request is\nchecked before routing:\n\n| Condition | Response |\n| --- | --- |\n| `Host` outside the allowlist, or its port is not the listening port | `403 REQUEST_HOST_FORBIDDEN` |\n| `Sec-Fetch-Site` present and not `same-origin` / `none` | `403 REQUEST_ORIGIN_FORBIDDEN` |\n| `Origin` present and outside the allowlist | `403 REQUEST_ORIGIN_FORBIDDEN` |\n| `POST`/`PUT`/`PATCH`/`DELETE` with a CORS-simple or missing `Content-Type` | `415 REQUEST_CONTENT_TYPE_INVALID` |\n\nThe allowlist is `127.0.0.1`, `localhost` and `::1`, plus the bind address when\n`--host` names a specific non-wildcard interface.\n\nThe last rule matters as much as the others: `text/plain`,\n`application/x-www-form-urlencoded`, `multipart/form-data` and *no* content type\nat all are CORS-simple, so a cross-origin page could send them without a\npreflight. Requiring anything else forces a preflight, which this server never\nanswers.\n\nPractical consequence for clients: **mutations must set an explicit\n`Content-Type`**. Use `application/json` for the JSON API and\n`application/octet-stream` (or any concrete binary type) for asset uploads. A\n`fetch` that passes a `File` or an `ArrayBuffer` without setting the header will\nbe refused.\n\nNon-browser clients are unaffected — `curl` sends no `Origin` and no\n`Sec-Fetch-Site`, and its `Host` is the loopback address it dialled.\n\nAssets are served with `X-Content-Type-Options: nosniff`, a\n`default-src 'none'; sandbox` CSP, and `Content-Disposition: attachment` for\nanything outside a narrow inline allowlist. Uploads of types that can execute\nscript (`.html`, `.svg`, `.mjs`, …) are refused with\n`400 ASSET_TYPE_NOT_ALLOWED`.\n\n## Workspace and index\n\n```text\nGET  /api/v2/workspace\nGET  /api/v2/schema\nGET  /api/v2/health\nGET  /api/v2/records?q=&kind=&limit=&offset=\nGET  /api/v2/search?q=&kind=&limit=&offset=&mode=\nGET  /api/v2/records/:id\n```\n\nSearch responses carry `mode` (`\"lexical\"`, `\"hybrid\"` or `\"regex\"`) and\n`provider` (the semantic provider's id, else `null`), so a client can show\nwhich search actually ran.\n\n`/search` consults the semantic provider declared in `project.config.mjs`\n(when there is one) and returns `mode: \"hybrid\"` with per-record\n`semanticScore`; `?mode=lexical` opts out. `/records` is always lexical. A `q`\nof the full `/pattern/flags` form (flags from `imsu`) runs as a regular\nexpression over id, title and body, bypasses the provider and returns\n`mode: \"regex\"`; an invalid pattern is `400 SEARCH_REGEX_INVALID`.\n\n## Work\n\n```text\nGET/POST  /api/v2/cards\nPATCH     /api/v2/cards/:id\nPOST      /api/v2/cards/:id/claim\nPOST      /api/v2/cards/:id/transition\nPOST      /api/v2/cards/:id/archive\nPOST      /api/v2/cards/:id/reopen\nPOST      /api/v2/cards/bulk\n```\n\n## Docs\n\n```text\nGET/POST   /api/v2/docs\nGET/PATCH  /api/v2/docs/:id\n```\n\n## History\n\n```text\nGET/POST   /api/v2/changelog\nGET/PATCH  /api/v2/changelog/:id\nPOST       /api/v2/changelog/releases/preview\nPOST       /api/v2/changelog/releases\nGET/POST   /api/v2/changelog/render\n```\n\n## Memory\n\n```text\nGET/POST   /api/v2/memory\nGET/PATCH  /api/v2/memory/:id\nPOST       /api/v2/memory/:id/graduate\nPOST       /api/v2/memory/:id/supersede\n```\n\n## Agents and CI\n\n```text\nGET   /api/v2/agents\nPOST  /api/v2/agents/sync\nGET   /api/v2/agents/context?card=T-0001\nGET   /api/v2/ci\nPOST  /api/v2/ci/sync\n```\n\n## MCP inspection\n\n```text\nGET  /api/v2/mcp\nGET  /api/v2/mcp/config\n```\n\n## Legacy routes\n\n`/api/tasks`, `/api/health` and `/api/knowledge` remain for existing callers.\nThe packaged UI no longer uses the first two: it boots from\n`/api/v2/workspace` (identity plus the runtime schema) and reads\n`/api/v2/cards`, which — unlike `/api/tasks` — honours `q`, `limit`, `offset`\nand `view`, and carries an ETag.\n\nAsset upload is still `POST /api/tasks/:id/assets`; it has no v2 equivalent yet.\n\nNew integrations should target `/api/v2/*`.",
                 "managed": false,
                 "documentKind": "reference",
                 "status": "current",
-                "modifiedAt": "2026-07-30T19:04:45.495Z",
-                "sizeBytes": 8378,
-                "revision": "sha256:71ea881f594d5696ea7d30743894406c8187ba024e30fef3036f26b9d26f7911",
+                "modifiedAt": "2026-07-31T12:42:35.997Z",
+                "sizeBytes": 8769,
+                "revision": "sha256:8c83c57afd899f1c4e753cd0c2cfaf4595843dd17e368f5448d40f8f3b6cd6ea",
                 "metadata": {},
                 "recordType": "reference",
                 "outgoing": [
                     {
                         "id": "T-0042",
                         "relation": "mention",
-                        "exists": false
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Shell chrome: doctor and SSE chips join the ledger; the tagline leaves",
+                        "path": ".project/cards/T-0042-shell-chrome-doctor-and-sse-chips-join-the-ledger-.md"
                     },
                     {
                         "id": "T-0001",
@@ -1471,7 +1600,10 @@
                     {
                         "id": "T-0042",
                         "relation": "mention",
-                        "exists": false
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Shell chrome: doctor and SSE chips join the ledger; the tagline leaves",
+                        "path": ".project/cards/T-0042-shell-chrome-doctor-and-sse-chips-join-the-ledger-.md"
                     },
                     {
                         "id": "DOC-0012",
@@ -1653,7 +1785,10 @@
                     {
                         "id": "T-0042",
                         "relation": "mention",
-                        "exists": false
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Shell chrome: doctor and SSE chips join the ledger; the tagline leaves",
+                        "path": ".project/cards/T-0042-shell-chrome-doctor-and-sse-chips-join-the-ledger-.md"
                     },
                     {
                         "id": "DOC-0012",
@@ -1805,6 +1940,61 @@
     "changelog": {
         "records": [
             {
+                "id": "CHG-0021",
+                "kind": "change",
+                "recordType": "added",
+                "title": "Search names its mode in the palette and accepts /pattern/flags regex",
+                "path": ".project/changelog/releases/0-1-7/fragments/CHG-0021-search-names-its-mode-in-the-palette-and-accepts-pattern-flags-regex.md",
+                "file": "CHG-0021-search-names-its-mode-in-the-palette-and-accepts-pattern-flags-regex.md",
+                "body": "",
+                "type": "added",
+                "area": "search",
+                "visibility": "public",
+                "released": true,
+                "cards": [
+                    "T-0043"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:aee83900316e05626f1d6ca6f51f8838b140120834610e2044b4c99ca5702c84",
+                "metadata": {
+                    "id": "CHG-0021",
+                    "title": "Search names its mode in the palette and accepts /pattern/flags regex",
+                    "type": "added",
+                    "area": "search",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0043"
+                    ]
+                },
+                "releaseIds": [
+                    "REL-0007"
+                ],
+                "outgoing": [
+                    {
+                        "id": "T-0043",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Search shows its mode in the palette and learns regex",
+                        "path": ".project/cards/T-0043-search-shows-its-mode-in-the-palette-and-learns-re.md"
+                    }
+                ],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "REL-0007",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Version 0.1.7"
+                    }
+                ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
                 "id": "CHG-0017",
                 "kind": "change",
                 "recordType": "fixed",
@@ -1854,6 +2044,81 @@
                         "relation": "reference",
                         "kind": "release",
                         "title": "Version 0.1.5"
+                    }
+                ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "CHG-0020",
+                "kind": "change",
+                "recordType": "changed",
+                "title": "The Inspector is an overlay drawer: expandable, denser body, no more stolen width",
+                "path": ".project/changelog/releases/0-1-7/fragments/CHG-0020-the-inspector-is-an-overlay-drawer-expandable-denser-body-no-more-stol.md",
+                "file": "CHG-0020-the-inspector-is-an-overlay-drawer-expandable-denser-body-no-more-stol.md",
+                "body": "",
+                "type": "changed",
+                "area": "ui",
+                "visibility": "public",
+                "released": true,
+                "cards": [
+                    "T-0041",
+                    "T-0042",
+                    "T-0045"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:84101bc85ddafc9a736b24740933eb6b20fb6a6981590954f33d4fb77d7212f6",
+                "metadata": {
+                    "id": "CHG-0020",
+                    "title": "The Inspector is an overlay drawer: expandable, denser body, no more stolen width",
+                    "type": "changed",
+                    "area": "ui",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0041",
+                        "T-0042",
+                        "T-0045"
+                    ]
+                },
+                "releaseIds": [
+                    "REL-0007"
+                ],
+                "outgoing": [
+                    {
+                        "id": "T-0041",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "The Inspector becomes an overlay drawer: expandable, denser body type",
+                        "path": ".project/cards/T-0041-the-inspector-becomes-an-overlay-drawer-expandable.md"
+                    },
+                    {
+                        "id": "T-0042",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Shell chrome: doctor and SSE chips join the ledger; the tagline leaves",
+                        "path": ".project/cards/T-0042-shell-chrome-doctor-and-sse-chips-join-the-ledger-.md"
+                    },
+                    {
+                        "id": "T-0045",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Drawer and shell feedback round: outside closes, cards-only, collapsible sidebar",
+                        "path": ".project/cards/T-0045-drawer-and-shell-feedback-round-outside-closes-car.md"
+                    }
+                ],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "REL-0007",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Version 0.1.7"
                     }
                 ],
                 "issues": [],
@@ -1970,6 +2235,61 @@
                 "searchScore": 0
             },
             {
+                "id": "CHG-0022",
+                "kind": "change",
+                "recordType": "added",
+                "title": "The sidebar collapses to an icon rail",
+                "path": ".project/changelog/releases/0-1-7/fragments/CHG-0022-the-sidebar-collapses-to-an-icon-rail.md",
+                "file": "CHG-0022-the-sidebar-collapses-to-an-icon-rail.md",
+                "body": "",
+                "type": "added",
+                "area": "ui",
+                "visibility": "public",
+                "released": true,
+                "cards": [
+                    "T-0045"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:435621429a88153f4458f4682331b8331255b9c090e82c6d6f07ce8ccbd641f8",
+                "metadata": {
+                    "id": "CHG-0022",
+                    "title": "The sidebar collapses to an icon rail",
+                    "type": "added",
+                    "area": "ui",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0045"
+                    ]
+                },
+                "releaseIds": [
+                    "REL-0007"
+                ],
+                "outgoing": [
+                    {
+                        "id": "T-0045",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Drawer and shell feedback round: outside closes, cards-only, collapsible sidebar",
+                        "path": ".project/cards/T-0045-drawer-and-shell-feedback-round-outside-closes-car.md"
+                    }
+                ],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "REL-0007",
+                        "relation": "reference",
+                        "kind": "release",
+                        "title": "Version 0.1.7"
+                    }
+                ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
                 "id": "REL-0005",
                 "kind": "release",
                 "recordType": "release",
@@ -2069,6 +2389,73 @@
                         "kind": "change",
                         "title": "The interface rides shadcn/ui: zinc look, compact tables, same behaviour",
                         "path": ".project/changelog/releases/0-1-6/fragments/CHG-0019-the-interface-rides-shadcn-ui-zinc-look-compact-tables-same-behaviour.md"
+                    }
+                ],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "T-0040",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.6: the shadcn interface ships"
+                    }
+                ],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "REL-0007",
+                "kind": "release",
+                "recordType": "release",
+                "title": "Version 0.1.7",
+                "path": ".project/changelog/releases/0-1-7/REL-0007-0-1-7.md",
+                "file": "REL-0007-0-1-7.md",
+                "body": "",
+                "version": "0.1.7",
+                "date": "2026-07-31",
+                "fragments": [
+                    "CHG-0020",
+                    "CHG-0021",
+                    "CHG-0022"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:7dfd701a467073f5e492c319b06bdafcd4c34f7333fff334527b1bbbceee2e08",
+                "metadata": {
+                    "id": "REL-0007",
+                    "title": "Version 0.1.7",
+                    "version": "0.1.7",
+                    "date": "2026-07-31",
+                    "fragments": [
+                        "CHG-0020",
+                        "CHG-0021",
+                        "CHG-0022"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "CHG-0020",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "The Inspector is an overlay drawer: expandable, denser body, no more stolen width",
+                        "path": ".project/changelog/releases/0-1-7/fragments/CHG-0020-the-inspector-is-an-overlay-drawer-expandable-denser-body-no-more-stol.md"
+                    },
+                    {
+                        "id": "CHG-0021",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "Search names its mode in the palette and accepts /pattern/flags regex",
+                        "path": ".project/changelog/releases/0-1-7/fragments/CHG-0021-search-names-its-mode-in-the-palette-and-accepts-pattern-flags-regex.md"
+                    },
+                    {
+                        "id": "CHG-0022",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "change",
+                        "title": "The sidebar collapses to an icon rail",
+                        "path": ".project/changelog/releases/0-1-7/fragments/CHG-0022-the-sidebar-collapses-to-an-icon-rail.md"
                     }
                 ],
                 "incomingTotal": 0,
@@ -3239,7 +3626,7 @@
                 "searchScore": 0
             }
         ],
-        "total": 25,
+        "total": 29,
         "offset": 0,
         "limit": 500,
         "view": "full"
@@ -3657,7 +4044,7 @@
         "view": "full"
     },
     "changelogRender": {
-        "public": "# Changelog\n\n## 0.1.6 — 2026-07-31\n\n### Changed\n\n- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
+        "public": "# Changelog\n\n## 0.1.7 — 2026-07-31\n\n### Added\n\n- Search names its mode in the palette and accepts /pattern/flags regex (T-0043)\n- The sidebar collapses to an icon rail (T-0045)\n\n### Changed\n\n- The Inspector is an overlay drawer: expandable, denser body, no more stolen width (T-0041, T-0042, T-0045)\n\n## 0.1.6 — 2026-07-31\n\n### Changed\n\n- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
         "internal": "# Changelog\n\n## 0.1.5 — 2026-07-31\n\n### Changed\n\n- Repository scripts and tests run as TypeScript via native type stripping\n\n## 0.1.4 — 2026-07-30\n\n### Changed\n\n- The repository becomes a pnpm monorepo with commit hooks\n"
     }
 }

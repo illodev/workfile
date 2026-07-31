@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=workflow-record-knowledge version=0.1.6 digest=sha256:6e1acd83f31b9c86192f37f9799f44bbda85183772302938eb1e8fb9ac7dd78c -->
+<!-- workfile:begin kind=workflow-record-knowledge version=0.1.7 digest=sha256:6e1acd83f31b9c86192f37f9799f44bbda85183772302938eb1e8fb9ac7dd78c -->
 # Record knowledge
 
 Choose the most specific collection:

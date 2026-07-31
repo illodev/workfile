@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=canonical-agent-protocol version=0.1.6 digest=sha256:c37c02639918fd1ed9ce76a474036bccc3660aaf18aa559c7140bf7edacd4709 -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.1.7 digest=sha256:c37c02639918fd1ed9ce76a474036bccc3660aaf18aa559c7140bf7edacd4709 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
