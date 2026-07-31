@@ -1,7 +1,7 @@
 ---
 id: T-0049
 title: "The media catches up with the tenth view: the curated corpus grows a trail"
-status: review
+status: done
 type: chore
 priority: medium
 area: docs
@@ -13,6 +13,8 @@ scope: [scripts/screenshot-workspace.ts, scripts/demo-video.ts, scripts/screensh
 
 - 2026-07-31 17:59Z claude-opus-7c645bf5 · claimed
 - 2026-07-31 18:14Z claude-opus-7c645bf5 · doing → review
+- 2026-07-31 18:31Z claude-opus-7c645bf5 · review → done
+- 2026-07-31 18:31Z claude-opus-7c645bf5 · released
 
 ## Notes
 
@@ -36,4 +38,3 @@ pnpm check green: 173 tests plus 7, 0 failures, demo-parity and design-system in
 The uploaded binary itself could not be verified from here - user-attachments answers 403 without a browser session, so the 11491533-byte size of the regenerated film could not be compared against what the link serves. Worth an eyeball on the rendered README rather than an assumption.
 
 What remains before this card is done is only that none of the media is committed: twelve modified binaries across .github/media and site/assets, plus the two new overview.png files, are still sitting in the working tree.
-

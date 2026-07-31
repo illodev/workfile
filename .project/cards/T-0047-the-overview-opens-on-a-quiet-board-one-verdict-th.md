@@ -1,7 +1,7 @@
 ---
 id: T-0047
 title: "The Overview opens on a quiet board: one verdict, three proofs and the trail"
-status: review
+status: done
 type: feature
 priority: high
 area: ui
@@ -13,6 +13,8 @@ scope: [packages/workfile/ui/src/components/domain/Overview.tsx, packages/workfi
 
 - 2026-07-31 17:34Z claude-opus-7c645bf5 · claimed
 - 2026-07-31 17:53Z claude-opus-7c645bf5 · doing → review
+- 2026-07-31 18:31Z claude-opus-7c645bf5 · review → done
+- 2026-07-31 18:31Z claude-opus-7c645bf5 · released
 
 ## Notes
 
