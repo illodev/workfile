@@ -53,7 +53,14 @@ pnpm workfile doctor              # dependency bins run through pnpm / npx
 
 pnpm add -g @illodev/workfile     # or globally: `workfile` lands on your PATH
 workfile doctor
+wf doctor                         # `wf` is the same binary, for typing by hand
 ```
+
+`wf` is an alias, not a rename: both names reach the same entry point, and the
+help and error hints answer in whichever one you typed. Keep the long form in
+anything generated or shared. `wf` only resolves once the package is installed,
+and an unrelated `wf` exists on the registry — so `npx wf` would fetch someone
+else's tool where `npx workfile` fails outright.
 
 `pnpm dlx @illodev/workfile init` is fine for one-shot initialization, but keep the
 package as a devDependency afterwards: that is what makes the `project` scripts that

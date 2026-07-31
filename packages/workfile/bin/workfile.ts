@@ -78,6 +78,34 @@ const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../package.json", import.meta.url), "utf8")
 ).version;
 
+/**
+ * The name this process was actually invoked under.
+ *
+ * `workfile` and `wf` are two bins pointing at this one file, so the usage
+ * block cannot be written in a single vocabulary: answering `wf card --help`
+ * with a page of `workfile …` teaches a name the caller did not type. Node
+ * leaves `process.argv[1]` as the path that was executed rather than resolving
+ * it, so a POSIX install reads back `node_modules/.bin/wf` and the invoked name
+ * is simply its basename.
+ *
+ * Anything unrecognised falls back to `workfile`, which covers Windows — npm
+ * writes a `.cmd` shim there that passes this file's real path, so the
+ * basename is `workfile.js`. Falling back is not merely safe: `workfile` is the
+ * canonical bin and always resolves, while `wf` is the alias that might not.
+ */
+const INVOKED_AS = (() => {
+    const executed = (process.argv[1] || "").split(/[\\/]/).pop() || "";
+    const name = executed.replace(/\.(?:js|cjs|mjs|ts|cmd|ps1|exe)$/, "");
+    return name === "wf" ? "wf" : "workfile";
+})();
+
+/** A usage or hint line, spoken in the name the caller used. */
+function spoken(line: string): string {
+    return INVOKED_AS === "workfile"
+        ? line
+        : line.replace(/(^|`)workfile\b/g, `$1${INVOKED_AS}`);
+}
+
 // Usage lines grouped by their command word, so `workfile card --help` can show
 // the card section instead of the whole manual — and so a new subcommand is
 // documented in exactly one place.
@@ -410,7 +438,7 @@ function assertKnownFlags(command) {
         if (!known.has(name)) {
             throw new ValidationError(
                 "CLI_ARGUMENT_UNKNOWN",
-                `Unknown option for "${key}": ${name}. Run \`workfile ${key} --help\`.`
+                `Unknown option for "${key}": ${name}. Run \`${INVOKED_AS} ${key} --help\`.`
             );
         }
         if (valueFlags.has(name) && !token.includes("=")) index += 1;
@@ -444,7 +472,7 @@ function printCommandUsage(command) {
             `Workfile — ${key}`,
             "",
             "Usage:",
-            ...lines.map((line) => `  ${line}`),
+            ...lines.map((line) => `  ${spoken(line)}`),
             "",
             ...(key === "doc" ? [DOCUMENT_FOLDERS, ""] : []),
             GLOBAL_OPTIONS
@@ -458,7 +486,7 @@ function printUsage() {
 Usage:
 ${Object.values(USAGE)
     .flat()
-    .map((line) => `  ${line}`)
+    .map((line) => `  ${spoken(line)}`)
     .join("\n")}
 
 ${DOCUMENT_FOLDERS}

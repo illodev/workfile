@@ -185,6 +185,30 @@ void provider;
     const version = await run(project, ["version"], consumer);
     assert.equal(version.stdout.trim(), packageJson.version);
 
+    /*
+     * `wf` is the same entry point under a second name, so the only thing worth
+     * proving is that npm really installs the shim and that the CLI can tell
+     * which name reached it. It reads `process.argv[1]`, which Node leaves as
+     * the executed path rather than resolving it — true of the symlink npm
+     * writes on POSIX, not of the `.cmd` shim it writes on Windows, where the
+     * target path arrives instead and the help falls back to the canonical
+     * name. Both are correct; only the first is assertable here.
+     */
+    const short = join(
+        consumer,
+        "node_modules",
+        ".bin",
+        process.platform === "win32" ? "wf.cmd" : "wf"
+    );
+    assert.equal(await exists(short), true, "`wf` was not installed as a bin");
+    const shortVersion = await run(short, ["version"], consumer);
+    assert.equal(shortVersion.stdout.trim(), packageJson.version);
+    if (process.platform !== "win32") {
+        const help = await run(short, ["card", "--help"], consumer);
+        assert.match(help.stdout, /^ {2}wf card list/m);
+        assert.doesNotMatch(help.stdout, /^ {2}workfile /m);
+    }
+
     await run(
         project,
         [

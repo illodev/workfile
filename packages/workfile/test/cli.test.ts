@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -1305,4 +1305,51 @@ test("a boolean flag does not swallow the flag after it", async () => {
     assert.equal(failed.code, 1);
     assert.match(failed.stderr, /CLI_ARGUMENT_UNKNOWN/);
     assert.match(failed.stderr, /--bogus/);
+});
+
+/*
+ * `workfile` and `wf` are one file under two bin names, so the CLI reads back
+ * the name it was invoked under and answers in it. Exercised through a symlink
+ * because that is what npm writes into `node_modules/.bin` on POSIX; the
+ * packaged form is asserted end to end in package-smoke.
+ *
+ * Skipped on Windows, where creating a symlink needs a privilege the test
+ * runner may not have and npm writes a `.cmd` shim instead — that shim passes
+ * this file's real path, so the name falls back to `workfile` by design.
+ */
+test("the CLI answers in the name it was invoked under", { skip: process.platform === "win32" }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-alias-"));
+    try {
+        const alias = join(root, "wf");
+        await symlink(cli, alias);
+        const short = await execute(process.execPath, [alias, "card", "--help"], {
+            encoding: "utf8"
+        });
+        assert.match(short.stdout, /^ {2}wf card list/m);
+        assert.doesNotMatch(
+            short.stdout,
+            /^ {2}workfile /m,
+            "the help still teaches the name the caller did not type"
+        );
+
+        // The hint a failing command prints is the other half: it is the line a
+        // reader is most likely to copy.
+        const failed = await outcome(["card", "list", "--nonsense"]);
+        assert.match(failed.stderr, /Run `workfile card --help`/);
+        const failedShort = await execute(
+            process.execPath,
+            [alias, "card", "list", "--nonsense"],
+            { encoding: "utf8" }
+        ).then(
+            () => ({ stderr: "" }),
+            (error: { stderr?: string }) => ({ stderr: error.stderr ?? "" })
+        );
+        assert.match(failedShort.stderr, /Run `wf card --help`/);
+
+        // The canonical name is unaffected by the alias existing.
+        const long = await run(["card", "--help"]);
+        assert.match(long.stdout, /^ {2}workfile card list/m);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });

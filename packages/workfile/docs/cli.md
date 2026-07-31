@@ -3,6 +3,16 @@
 Every command accepts the global options and returns stable machine-readable
 errors with `--json`.
 
+The package installs the CLI under two names: `workfile` and the short alias
+`wf`. They are the same entry point, and the help and error hints answer in
+whichever one you typed. This reference spells the long form throughout.
+
+Prefer the long form in anything generated, scripted or shared — CI, a
+`package.json` script, a README a stranger will copy. `wf` only resolves for a
+binary that is already installed, while an unrelated `wf` package exists on the
+registry, so `npx wf` would fetch that instead of failing. Workfile's own
+generated protocols and skills always spell it long for that reason.
+
 ## Global options
 
 | Option | Meaning |
