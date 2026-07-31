@@ -13,6 +13,8 @@ The normative design is the owner's own: `Workfile - Rediseño.dc.html`, already
 
 This record was written on 2026-07-31, well after the fact. Four source files had been citing `ADR-0010` for the decision and no such record existed; `ADR-0009`, `T-0100` and `T-0101` are cited in the same comments and are equally unresolvable, carried over from a numbering this workspace never had. Workfile's own graph already flagged them: the demo snapshot records `ADR-0009` as a mention with `exists: false`.
 
+Confirmed 2026-07-31: the owner verified both reverted migrations are real history from the predecessor codebase, before this repository's initial commit — which is why this git history shows no trace of them. The plan for the third migration, made under this record's intended friction, is [[ADR-0005]].
+
 ## Decision
 
 The interface has no framework underneath it. `ui/src/styles.css` is the entire design system: the tokens and the component classes, in one file, ported 1:1 from the normative spec.
