@@ -21,7 +21,6 @@ import {
     Maximize2,
     Minimize2,
     Moon,
-    PanelRight,
     Plus,
     Search,
     Shield,
@@ -70,7 +69,8 @@ import {
     SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
-    SidebarProvider
+    SidebarProvider,
+    SidebarTrigger
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -574,10 +574,25 @@ function App() {
         );
     }, [inspectorExpanded]);
 
-    // Opening a record is a request to see it: it reopens a closed drawer.
+    // Opening a CARD is a request to see it in the drawer. Other collections
+    // open inside their own views — the drawer showing "opens in its view"
+    // for a changelog entry was noise, so non-card selections never raise it.
     useEffect(() => {
-        if (selectedId) setInspectorOpen(true);
+        if (selectedId && recordCollection(selectedId) === "cards")
+            setInspectorOpen(true);
     }, [selectedId]);
+
+    /** Radix defers its pointer-down-outside dispatch until after the click
+     *  handlers have run, so a record-opening click would open the drawer
+     *  and then be dismissed by its own, late-arriving outside event. Every
+     *  record-open stamps this ref; the dismiss handlers ignore anything
+     *  arriving in its shadow. */
+    const lastSelectRef = useRef(0);
+    const selectRecord = useCallback((id: string | null) => {
+        lastSelectRef.current = performance.now();
+        setSelectedId(id);
+        if (id && recordCollection(id) === "cards") setInspectorOpen(true);
+    }, []);
 
     useEffect(() => {
         document.title = projectName;
@@ -703,7 +718,7 @@ function App() {
     const isWorkView = !["docs", "history", "memory", "health"].includes(view);
     const openRecord = useCallback(
         (id: string) => {
-            setSelectedId(id);
+            selectRecord(id);
             if (taskById.has(id) || id.startsWith("T-")) setView("explorer");
             else if (id.startsWith("DOC-") || id.startsWith("PATH-"))
                 setView("docs");
@@ -928,20 +943,20 @@ function App() {
             className="h-svh overflow-hidden"
             style={{ "--sidebar-width": "15rem" } as CSSProperties}
         >
-            <Sidebar collapsible="none" className="h-svh shrink-0 border-r">
-                <SidebarHeader className="gap-1 px-3 pt-3">
-                    <div className="flex items-center gap-2">
+            <Sidebar collapsible="icon" className="border-r">
+                <SidebarHeader className="gap-1 px-3 pt-3 group-data-[collapsible=icon]:px-2">
+                    <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
                         <span
                             className="size-4 shrink-0 rounded-sm bg-primary"
                             aria-hidden="true"
                         />
-                        <span className="truncate text-sm font-semibold">
+                        <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
                             {projectName}
                         </span>
                         {import.meta.env.VITE_APP_VERSION ? (
                             <Badge
                                 variant="secondary"
-                                className="px-1.5 font-mono text-[10px]"
+                                className="px-1.5 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
                             >
                                 {import.meta.env.VITE_APP_VERSION}
                             </Badge>
@@ -949,7 +964,7 @@ function App() {
                         {import.meta.env.VITE_DEMO === "1" ? (
                             <Badge
                                 variant="secondary"
-                                className="px-1.5 font-mono text-[10px]"
+                                className="px-1.5 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
                             >
                                 demo
                             </Badge>
@@ -1032,9 +1047,11 @@ function App() {
                         ))}
                     </SidebarContent>
                 </nav>
-                <SidebarFooter className="gap-1 border-t p-3">
+                {/* Same height as the app's activity footer (h-8) so the two
+                    strips read as one continuous baseline. */}
+                <SidebarFooter className="h-8 shrink-0 justify-center border-t px-3 py-0 group-data-[collapsible=icon]:px-0">
                     <span
-                        className="truncate font-mono text-[11px] text-muted-foreground"
+                        className="truncate font-mono text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden"
                         title={repoRoot}
                     >
                         {repoRoot ? `${repoRoot}/.project` : ".project"}
@@ -1044,6 +1061,7 @@ function App() {
 
             <SidebarInset className="h-svh min-w-0 overflow-hidden">
                 <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+                    <SidebarTrigger className="shrink-0" />
                     <Breadcrumb aria-label="Breadcrumb" className="min-w-0">
                         <BreadcrumbList className="flex-nowrap gap-1.5 font-mono text-xs sm:gap-1.5">
                             <BreadcrumbItem>.project</BreadcrumbItem>
@@ -1084,21 +1102,6 @@ function App() {
                                 : "records…"}
                         </span>
                         <Kbd>⌘K</Kbd>
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title="Toggle inspector"
-                        aria-label="Toggle inspector"
-                        aria-pressed={inspectorOpen}
-                        className={cn(
-                            "shrink-0",
-                            inspectorOpen && "text-primary"
-                        )}
-                        onClick={() => setInspectorOpen((current) => !current)}
-                    >
-                        <PanelRight aria-hidden="true" />
                     </Button>
                     <Button
                         type="button"
@@ -1300,7 +1303,7 @@ function App() {
                                         filters={filters}
                                         setFilters={setFilters}
                                         epicIds={epicIds}
-                                        onOpen={setSelectedId}
+                                        onOpen={selectRecord}
                                         onPatch={patch}
                                         onBulkPatch={bulkPatch}
                                     />
@@ -1309,7 +1312,7 @@ function App() {
                                         tasks={visibleTasks}
                                         epicIds={epicIds}
                                         showClosed={filters.showClosed}
-                                        onOpen={setSelectedId}
+                                        onOpen={selectRecord}
                                         onMove={(id, status) =>
                                             patch(id, { status })
                                         }
@@ -1320,31 +1323,31 @@ function App() {
                                         repoRoot={repoRoot}
                                         repoUrl={repoUrl}
                                         onPatch={patch}
-                                        onOpen={setSelectedId}
+                                        onOpen={selectRecord}
                                     />
                                 ) : view === "epics" ? (
                                     <EpicsView
                                         tasks={visibleTasks}
                                         allTasks={tasks}
                                         epicIds={epicIds}
-                                        onOpen={setSelectedId}
+                                        onOpen={selectRecord}
                                     />
                                 ) : view === "timeline" ? (
                                     <TimelineView
                                         tasks={visibleTasks}
                                         epicIds={epicIds}
-                                        onOpen={setSelectedId}
+                                        onOpen={selectRecord}
                                     />
                                 ) : view === "docs" ? (
                                     <DocsView
                                         selectedId={selectedId}
-                                        onSelect={setSelectedId}
+                                        onSelect={selectRecord}
                                         onOpenCard={openRecord}
                                     />
                                 ) : view === "history" ? (
                                     <HistoryView
                                         selectedId={selectedId}
-                                        onSelect={setSelectedId}
+                                        onSelect={selectRecord}
                                         onOpenRecord={openRecord}
                                         schema={schema.changelog}
                                         areas={areas}
@@ -1352,7 +1355,7 @@ function App() {
                                 ) : view === "memory" ? (
                                     <MemoryView
                                         selectedId={selectedId}
-                                        onSelect={setSelectedId}
+                                        onSelect={selectRecord}
                                         onOpenRecord={openRecord}
                                         schema={schema.memory}
                                     />
@@ -1494,7 +1497,11 @@ function App() {
                 overlay is dead glass over the board — a fresh load must not
                 cover the toolbar with a drawer that has nothing to say. */}
             <Sheet
-                open={inspectorOpen && selectedId !== null}
+                open={
+                    inspectorOpen &&
+                    selectedId !== null &&
+                    recordCollection(selectedId) === "cards"
+                }
                 modal={false}
                 onOpenChange={setInspectorOpen}
             >
@@ -1512,10 +1519,24 @@ function App() {
                         onEscapeKeyDown={(event) => {
                             if (editingRef.current) event.preventDefault();
                         }}
-                        onInteractOutside={(event) => event.preventDefault()}
-                        onPointerDownOutside={(event) =>
-                            event.preventDefault()
-                        }
+                        onInteractOutside={(event) => {
+                            // Clicking outside closes the drawer — unless a
+                            // form holds unsaved input, or the "outside"
+                            // event is the deferred echo of a record-open
+                            // click that just (re)opened it.
+                            if (
+                                editingRef.current ||
+                                performance.now() - lastSelectRef.current < 200
+                            )
+                                event.preventDefault();
+                        }}
+                        onPointerDownOutside={(event) => {
+                            if (
+                                editingRef.current ||
+                                performance.now() - lastSelectRef.current < 200
+                            )
+                                event.preventDefault();
+                        }}
                     >
                         <SheetHeader className="flex-row items-center justify-end gap-1 border-b border-l px-2 py-1.5">
                             <SheetTitle className="sr-only">
@@ -1574,7 +1595,7 @@ function App() {
                                 orderedIds={visibleTasks.map(
                                     (task) => task.id
                                 )}
-                                onOpen={setSelectedId}
+                                onOpen={selectRecord}
                                 onClose={() => setSelectedId(null)}
                                 onPatch={patch}
                                 onEditingChange={(editing) => {

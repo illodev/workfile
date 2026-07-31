@@ -245,8 +245,13 @@ const TaskRow = memo(function TaskRow({
                 if (event.key === "Enter") onOpen(task.id);
             }}
         >
+            {/* The open row carries the accent where the row starts — the
+                very first cell's left edge, not the id column's. */}
             <TableCell
-                className="w-7"
+                className={cn(
+                    "w-7 border-l-2 border-l-transparent",
+                    isOpen && "border-l-primary"
+                )}
                 onClick={(event) => event.stopPropagation()}
             >
                 <Checkbox
@@ -255,13 +260,7 @@ const TaskRow = memo(function TaskRow({
                     onCheckedChange={() => onToggle(task.id)}
                 />
             </TableCell>
-            {/* The open row carries the accent on its lead cell edge. */}
-            <TableCell
-                className={cn(
-                    "border-l-2 border-l-transparent font-mono text-xs text-muted-foreground",
-                    isOpen && "border-l-primary"
-                )}
-            >
+            <TableCell className="font-mono text-xs text-muted-foreground">
                 {task.id}
             </TableCell>
             <TableCell className="max-w-[520px]">
