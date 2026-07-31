@@ -8,8 +8,7 @@ import {
     useMemo,
     useRef,
     useState,
-    type CSSProperties,
-    type PointerEvent as ReactPointerEvent
+    type CSSProperties
 } from "react";
 import {
     Book,
@@ -19,6 +18,8 @@ import {
     FileDiff,
     Lightbulb,
     ListChecks,
+    Maximize2,
+    Minimize2,
     Moon,
     PanelRight,
     Plus,
@@ -30,6 +31,7 @@ import {
     X
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
+import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +51,12 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
+import {
+    Sheet,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle
+} from "@/components/ui/sheet";
 import {
     Sidebar,
     SidebarContent,
@@ -436,12 +444,10 @@ function App() {
     const [inspectorOpen, setInspectorOpen] = useState(
         () => localStorage.getItem("workfile-inspector") !== "collapsed"
     );
-    const [inspectorWidth, setInspectorWidth] = useState(() => {
-        const saved = Number(
-            localStorage.getItem("workfile-inspector-width")
-        );
-        return saved >= 320 && saved <= 760 ? saved : 440;
-    });
+    const [inspectorExpanded, setInspectorExpanded] = useState(
+        () =>
+            localStorage.getItem("workfile-inspector-expanded") === "expanded"
+    );
     const deferredSearch = useDeferredValue(filters.search);
 
     // `patch` and `bulkPatch` must not depend on `tasks` or they change
@@ -563,39 +569,15 @@ function App() {
 
     useEffect(() => {
         localStorage.setItem(
-            "workfile-inspector-width",
-            String(inspectorWidth)
+            "workfile-inspector-expanded",
+            inspectorExpanded ? "expanded" : "normal"
         );
-    }, [inspectorWidth]);
+    }, [inspectorExpanded]);
 
-    // Opening a record is a request to see it: it reopens a collapsed rail.
+    // Opening a record is a request to see it: it reopens a closed drawer.
     useEffect(() => {
         if (selectedId) setInspectorOpen(true);
     }, [selectedId]);
-
-    /** Drag the inspector's left edge; double-click resets to the default. */
-    const startInspectorResize = useCallback(
-        (event: ReactPointerEvent<HTMLButtonElement>) => {
-            event.preventDefault();
-            const handle = event.currentTarget;
-            handle.setAttribute("data-dragging", "");
-            const onMove = (move: PointerEvent) => {
-                const width = Math.min(
-                    760,
-                    Math.max(320, window.innerWidth - move.clientX)
-                );
-                setInspectorWidth(width);
-            };
-            const onUp = () => {
-                handle.removeAttribute("data-dragging");
-                window.removeEventListener("pointermove", onMove);
-                window.removeEventListener("pointerup", onUp);
-            };
-            window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", onUp);
-        },
-        []
-    );
 
     useEffect(() => {
         document.title = projectName;
@@ -635,6 +617,9 @@ function App() {
             }
             if (event.key !== "Escape") return;
             if (showNewCard) setShowNewCard(false);
+            // While a form in the inspector holds unsaved input, Escape must
+            // not tear the record down (the drawer refuses to close too).
+            else if (editingRef.current) return;
             else if (selectedId) setSelectedId(null);
         };
         document.addEventListener("keydown", onKeyDown);
@@ -1054,9 +1039,6 @@ function App() {
                     >
                         {repoRoot ? `${repoRoot}/.project` : ".project"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                        Markdown is the source. No database.
-                    </span>
                 </SidebarFooter>
             </Sidebar>
 
@@ -1091,7 +1073,7 @@ function App() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="ml-auto w-64 min-w-0 shrink justify-start px-2.5 font-normal text-muted-foreground"
+                        className="ml-auto w-80 min-w-0 shrink justify-start px-2.5 font-normal text-muted-foreground"
                         onClick={() => setShowPalette(true)}
                     >
                         <Search aria-hidden="true" className="size-3.5" />
@@ -1103,54 +1085,6 @@ function App() {
                         </span>
                         <Kbd>⌘K</Kbd>
                     </Button>
-                    {health ? (
-                        <Badge
-                            asChild
-                            variant="outline"
-                            className="shrink-0 cursor-pointer font-mono text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        >
-                            <button
-                                type="button"
-                                title="workfile doctor"
-                                onClick={() => setView("health")}
-                            >
-                                <span
-                                    className="size-1.5 rounded-full bg-current"
-                                    style={{
-                                        color: worstSeverity
-                                            ? severityColor(worstSeverity)
-                                            : statusColor("done")
-                                    }}
-                                    aria-hidden="true"
-                                />
-                                doctor {health.counts.error}E ·{" "}
-                                {health.counts.warning}W · {health.counts.info}
-                                I
-                            </button>
-                        </Badge>
-                    ) : null}
-                    {import.meta.env.VITE_DEMO !== "1" ? (
-                        <Badge
-                            variant="outline"
-                            title="Change stream"
-                            className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground"
-                        >
-                            <span
-                                className="size-1.5 rounded-full bg-current"
-                                style={{
-                                    color:
-                                        liveMode === "stream"
-                                            ? statusColor("done")
-                                            : "var(--sev-warning)"
-                                }}
-                                aria-hidden="true"
-                            />
-                            {liveMode === "stream" ? "sse live" : "polling"}
-                            {liveAgents
-                                ? ` · ${liveAgents} agent${liveAgents === 1 ? "" : "s"}`
-                                : ""}
-                        </Badge>
-                    ) : null}
                     <Button
                         type="button"
                         variant="ghost"
@@ -1192,7 +1126,7 @@ function App() {
                     </Button>
                 </header>
 
-                <div className="relative flex min-h-0 flex-1">
+                <div className="flex min-h-0 flex-1">
                     <section className="flex min-w-0 flex-1 flex-col">
                         <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
                             <span className="text-sm font-medium">
@@ -1428,84 +1362,6 @@ function App() {
                             </Suspense>
                         </div>
                     </section>
-
-                    {/* The rail hides rather than unmounts when collapsed, as
-                        the deleted stylesheet did: an open form in the
-                        inspector survives a toggle of the rail. */}
-                    <div
-                        className={cn(
-                            "relative flex w-(--inspector-w) max-w-full shrink-0 *:min-w-0 *:grow",
-                            !inspectorOpen
-                                ? "hidden"
-                                : selected
-                                  ? "max-[1100px]:absolute max-[1100px]:inset-y-0 max-[1100px]:right-0 max-[1100px]:z-20 max-[1100px]:shadow-xl"
-                                  : "max-[1100px]:hidden"
-                        )}
-                        style={
-                            {
-                                "--inspector-w": `${inspectorWidth}px`
-                            } as CSSProperties
-                        }
-                    >
-                        <button
-                            type="button"
-                            className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize outline-none transition-colors hover:bg-primary/40 focus-visible:bg-primary/40 data-dragging:bg-primary max-[1100px]:hidden"
-                            aria-label="Resize inspector"
-                            title="Drag to resize · double-click to reset"
-                            onPointerDown={startInspectorResize}
-                            onDoubleClick={() => setInspectorWidth(440)}
-                        />
-                        <Inspector
-                            task={selected}
-                            selectedId={selectedId}
-                            repoRoot={repoRoot}
-                            repoUrl={repoUrl}
-                            tasks={tasks}
-                            areas={areas}
-                            schema={schema}
-                            orderedIds={visibleTasks.map((task) => task.id)}
-                            onOpen={setSelectedId}
-                            onClose={() => setSelectedId(null)}
-                            onPatch={patch}
-                            onEditingChange={(editing) => {
-                                editingRef.current = editing;
-                            }}
-                            onArchive={async (id, archived) => {
-                                try {
-                                    await api.archive(
-                                        id,
-                                        archived,
-                                        tasks.find((task) => task.id === id)
-                                            ?.revision
-                                    );
-                                    await load(true);
-                                } catch (reason) {
-                                    setError(
-                                        reason instanceof Error
-                                            ? reason.message
-                                            : String(reason)
-                                    );
-                                }
-                            }}
-                            onUpload={async (id, files) => {
-                                try {
-                                    await Promise.all(
-                                        [...files].map((file) =>
-                                            api.upload(id, file)
-                                        )
-                                    );
-                                    await load(true);
-                                } catch (reason) {
-                                    setError(
-                                        reason instanceof Error
-                                            ? reason.message
-                                            : String(reason)
-                                    );
-                                }
-                            }}
-                            projectName={projectName}
-                        />
-                    </div>
                 </div>
 
                 <footer
@@ -1567,6 +1423,54 @@ function App() {
                         <span>no active claims</span>
                     ) : null}
                     <span className="flex-1" />
+                    {health ? (
+                        <Badge
+                            asChild
+                            variant="outline"
+                            className="shrink-0 cursor-pointer font-mono text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <button
+                                type="button"
+                                title="workfile doctor"
+                                onClick={() => setView("health")}
+                            >
+                                <span
+                                    className="size-1.5 rounded-full bg-current"
+                                    style={{
+                                        color: worstSeverity
+                                            ? severityColor(worstSeverity)
+                                            : statusColor("done")
+                                    }}
+                                    aria-hidden="true"
+                                />
+                                doctor {health.counts.error}E ·{" "}
+                                {health.counts.warning}W · {health.counts.info}
+                                I
+                            </button>
+                        </Badge>
+                    ) : null}
+                    {import.meta.env.VITE_DEMO !== "1" ? (
+                        <Badge
+                            variant="outline"
+                            title="Change stream"
+                            className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground"
+                        >
+                            <span
+                                className="size-1.5 rounded-full bg-current"
+                                style={{
+                                    color:
+                                        liveMode === "stream"
+                                            ? statusColor("done")
+                                            : "var(--sev-warning)"
+                                }}
+                                aria-hidden="true"
+                            />
+                            {liveMode === "stream" ? "sse live" : "polling"}
+                            {liveAgents
+                                ? ` · ${liveAgents} agent${liveAgents === 1 ? "" : "s"}`
+                                : ""}
+                        </Badge>
+                    ) : null}
                     {indexedTotal ? (
                         <span className="flex shrink-0 items-center gap-1.5">
                             <Spinner className="size-3" aria-hidden="true" />
@@ -1575,6 +1479,147 @@ function App() {
                     ) : null}
                 </footer>
             </SidebarInset>
+
+            {/* The inspector is an overlay drawer: the board never reflows
+                and stays interactive (`modal={false}` also means no dimmer
+                and no focus trap). Outside interactions never dismiss it, so
+                row-to-row browsing retargets the drawer instead of closing
+                it; Escape closes unless a form holds unsaved input. The
+                content is composed from the sheet primitives directly
+                because the registry SheetContent's internal portal ignores
+                `forceMount` — and the drawer must stay mounted while closed,
+                as the old rail did, so an open form survives a toggle. */}
+            {/* Open needs BOTH the user preference and a selection: the old
+                in-flow rail could sit empty ("select a record"), but an empty
+                overlay is dead glass over the board — a fresh load must not
+                cover the toolbar with a drawer that has nothing to say. */}
+            <Sheet
+                open={inspectorOpen && selectedId !== null}
+                modal={false}
+                onOpenChange={setInspectorOpen}
+            >
+                <SheetPrimitive.Portal forceMount>
+                    <SheetPrimitive.Content
+                        forceMount
+                        className={cn(
+                            "fixed inset-y-0 right-0 z-50 flex h-full flex-col bg-background shadow-lg transition-[width] duration-200 ease-in-out",
+                            "data-[state=closed]:hidden data-[state=open]:animate-in data-[state=open]:duration-300 data-[state=open]:slide-in-from-right",
+                            inspectorExpanded
+                                ? "w-[min(1100px,92vw)]"
+                                : "w-[480px] max-w-[92vw]"
+                        )}
+                        onOpenAutoFocus={(event) => event.preventDefault()}
+                        onEscapeKeyDown={(event) => {
+                            if (editingRef.current) event.preventDefault();
+                        }}
+                        onInteractOutside={(event) => event.preventDefault()}
+                        onPointerDownOutside={(event) =>
+                            event.preventDefault()
+                        }
+                    >
+                        <SheetHeader className="flex-row items-center justify-end gap-1 border-b border-l px-2 py-1.5">
+                            <SheetTitle className="sr-only">
+                                Inspector
+                            </SheetTitle>
+                            <SheetDescription className="sr-only">
+                                Details and editing for the selected record.
+                            </SheetDescription>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-pressed={inspectorExpanded}
+                                title={
+                                    inspectorExpanded
+                                        ? "Minimize inspector"
+                                        : "Maximize inspector"
+                                }
+                                aria-label={
+                                    inspectorExpanded
+                                        ? "Minimize inspector"
+                                        : "Maximize inspector"
+                                }
+                                onClick={() =>
+                                    setInspectorExpanded(
+                                        (current) => !current
+                                    )
+                                }
+                            >
+                                {inspectorExpanded ? (
+                                    <Minimize2 aria-hidden="true" />
+                                ) : (
+                                    <Maximize2 aria-hidden="true" />
+                                )}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                title="Close inspector"
+                                aria-label="Close inspector"
+                                onClick={() => setInspectorOpen(false)}
+                            >
+                                <X aria-hidden="true" />
+                            </Button>
+                        </SheetHeader>
+                        <div className="flex min-h-0 flex-1 flex-col *:min-w-0 *:grow">
+                            <Inspector
+                                task={selected}
+                                selectedId={selectedId}
+                                repoRoot={repoRoot}
+                                repoUrl={repoUrl}
+                                tasks={tasks}
+                                areas={areas}
+                                schema={schema}
+                                orderedIds={visibleTasks.map(
+                                    (task) => task.id
+                                )}
+                                onOpen={setSelectedId}
+                                onClose={() => setSelectedId(null)}
+                                onPatch={patch}
+                                onEditingChange={(editing) => {
+                                    editingRef.current = editing;
+                                }}
+                                onArchive={async (id, archived) => {
+                                    try {
+                                        await api.archive(
+                                            id,
+                                            archived,
+                                            tasks.find(
+                                                (task) => task.id === id
+                                            )?.revision
+                                        );
+                                        await load(true);
+                                    } catch (reason) {
+                                        setError(
+                                            reason instanceof Error
+                                                ? reason.message
+                                                : String(reason)
+                                        );
+                                    }
+                                }}
+                                onUpload={async (id, files) => {
+                                    try {
+                                        await Promise.all(
+                                            [...files].map((file) =>
+                                                api.upload(id, file)
+                                            )
+                                        );
+                                        await load(true);
+                                    } catch (reason) {
+                                        setError(
+                                            reason instanceof Error
+                                                ? reason.message
+                                                : String(reason)
+                                        );
+                                    }
+                                }}
+                                projectName={projectName}
+                            />
+                        </div>
+                    </SheetPrimitive.Content>
+                </SheetPrimitive.Portal>
+            </Sheet>
 
             <CommandPalette
                 open={showPalette}

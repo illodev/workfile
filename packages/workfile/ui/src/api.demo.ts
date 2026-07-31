@@ -59,6 +59,60 @@ function matches(query: string, ...haystacks: Array<string | undefined>) {
     return haystacks.some((value) => value?.toLowerCase().includes(needle));
 }
 
+/**
+ * Mirrors the server's regex-query rule (`modules/search/search.ts`): the
+ * trimmed full `/pattern/flags` form, flags a subset of `imsu`. Anything
+ * else — a slash inside a plain query, a missing delimiter, an unknown
+ * flag — ranks lexically.
+ */
+const REGEX_QUERY = /^\/(.+)\/([imsu]*)$/s;
+const REGEX_PATTERN_MAX = 256;
+const REGEX_BODY_CAP = 20_000;
+
+function compileRegexQuery(pattern: string, flags: string) {
+    if (pattern.length > REGEX_PATTERN_MAX) {
+        throw new Error(
+            `Regular expression patterns are capped at ${REGEX_PATTERN_MAX} characters.`
+        );
+    }
+    // `g` so matches can be counted, exactly as the server compiles it.
+    // Invalid patterns throw here with the compile message, which is what
+    // the HTTP client surfaces from the server's 400 response.
+    return new RegExp(pattern, `${flags}g`);
+}
+
+function countMatches(matcher: RegExp, text: string) {
+    if (!text) return 0;
+    matcher.lastIndex = 0;
+    return [...text.matchAll(matcher)].length;
+}
+
+function searchPools(): Array<[string, Array<Record<string, unknown>>]> {
+    return [
+        ["card", state.tasks.tasks as unknown as Array<Record<string, unknown>>],
+        ["doc", state.docs.records as unknown as Array<Record<string, unknown>>],
+        [
+            "change",
+            state.changelog.records as unknown as Array<Record<string, unknown>>
+        ],
+        [
+            "memory",
+            state.memory.records as unknown as Array<Record<string, unknown>>
+        ]
+    ];
+}
+
+function searchHit(kind: string, record: Record<string, unknown>): SearchHit {
+    return {
+        id: String(record.id ?? ""),
+        kind,
+        title: String(record.title ?? ""),
+        status: record.status as string | undefined,
+        area: record.area as string | undefined,
+        path: String(record.path ?? record.file ?? "")
+    };
+}
+
 // Mirrors the server rule: list-typed keys accept the scalar a client may
 // send, because a string's `.length` passes every render guard and its
 // missing `.join` takes the whole view down.
@@ -147,20 +201,52 @@ export const demoApi: ProjectApi = {
      * build is a 404 the catch swallowed — so the one control that searches
      * everything at once returned nothing, quietly, in the demo that exists to
      * show it off. This ranks the same four collections the server does:
-     * an id match first, then a title prefix, then any substring.
+     * an id match first, then a title prefix, then any substring. The
+     * `/pattern/flags` form answers as a regex scan over id, title and body,
+     * so the hosted demo speaks the same envelope — `mode` always present,
+     * `provider` always null (the demo never runs a semantic provider).
      */
     search: async (term: string, limit = 8) => {
         await wait(60);
+        const regexQuery = REGEX_QUERY.exec(term.trim());
+        if (regexQuery) {
+            const matcher = compileRegexQuery(regexQuery[1], regexQuery[2]);
+            const scored: Array<{ score: number; hit: SearchHit }> = [];
+            for (const [kind, records] of searchPools()) {
+                for (const record of records) {
+                    const score =
+                        countMatches(matcher, String(record.id ?? "")) +
+                        countMatches(matcher, String(record.title ?? "")) +
+                        countMatches(
+                            matcher,
+                            String(record.body ?? "").slice(0, REGEX_BODY_CAP)
+                        );
+                    if (!score) continue;
+                    scored.push({ score, hit: searchHit(kind, record) });
+                }
+            }
+            scored.sort(
+                (left, right) =>
+                    right.score - left.score ||
+                    left.hit.id.localeCompare(right.hit.id)
+            );
+            return {
+                records: scored.slice(0, limit).map((entry) => entry.hit),
+                total: scored.length,
+                mode: "regex" as const,
+                provider: null
+            };
+        }
         const needle = term.trim().toLowerCase();
-        if (!needle) return { records: [], total: 0 };
-        const pools: Array<[string, Array<Record<string, unknown>>]> = [
-            ["card", state.tasks.tasks as unknown as Array<Record<string, unknown>>],
-            ["doc", state.docs.records as unknown as Array<Record<string, unknown>>],
-            ["change", state.changelog.records as unknown as Array<Record<string, unknown>>],
-            ["memory", state.memory.records as unknown as Array<Record<string, unknown>>]
-        ];
+        if (!needle)
+            return {
+                records: [],
+                total: 0,
+                mode: "lexical" as const,
+                provider: null
+            };
         const scored: Array<{ score: number; hit: SearchHit }> = [];
-        for (const [kind, records] of pools) {
+        for (const [kind, records] of searchPools()) {
             for (const record of records) {
                 const id = String(record.id ?? "");
                 const title = String(record.title ?? "");
@@ -173,17 +259,7 @@ export const demoApi: ProjectApi = {
                       : title.toLowerCase().startsWith(needle)
                         ? 25
                         : 10;
-                scored.push({
-                    score,
-                    hit: {
-                        id,
-                        kind,
-                        title,
-                        status: record.status as string | undefined,
-                        area: record.area as string | undefined,
-                        path: String(record.path ?? record.file ?? "")
-                    }
-                });
+                scored.push({ score, hit: searchHit(kind, record) });
             }
         }
         scored.sort(
@@ -192,7 +268,9 @@ export const demoApi: ProjectApi = {
         );
         return {
             records: scored.slice(0, limit).map((entry) => entry.hit),
-            total: scored.length
+            total: scored.length,
+            mode: "lexical" as const,
+            provider: null
         };
     },
     docs: async (query = "") => {

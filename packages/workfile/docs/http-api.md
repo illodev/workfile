@@ -147,9 +147,16 @@ GET  /api/v2/search?q=&kind=&limit=&offset=&mode=
 GET  /api/v2/records/:id
 ```
 
+Search responses carry `mode` (`"lexical"`, `"hybrid"` or `"regex"`) and
+`provider` (the semantic provider's id, else `null`), so a client can show
+which search actually ran.
+
 `/search` consults the semantic provider declared in `project.config.mjs`
 (when there is one) and returns `mode: "hybrid"` with per-record
-`semanticScore`; `?mode=lexical` opts out. `/records` is always lexical.
+`semanticScore`; `?mode=lexical` opts out. `/records` is always lexical. A `q`
+of the full `/pattern/flags` form (flags from `imsu`) runs as a regular
+expression over id, title and body, bypasses the provider and returns
+`mode: "regex"`; an invalid pattern is `400 SEARCH_REGEX_INVALID`.
 
 ## Work
 

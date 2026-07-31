@@ -535,7 +535,8 @@ export interface ProjectSearchResult<RecordType extends ProjectRecord = ProjectR
     total: number;
     offset: number;
     limit: number;
-    mode?: "lexical" | "hybrid";
+    view?: "full" | "summary" | "list";
+    mode?: "lexical" | "hybrid" | "regex";
     provider?: string | null;
 }
 

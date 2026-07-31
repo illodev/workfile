@@ -3,7 +3,7 @@ import type {
     DocumentRecord,
     ActivitySnapshot,
     HealthReport,
-    SearchHit,
+    SearchResponse,
     HistoryRecord,
     MemoryRecord,
     RecordsResponse,
@@ -103,8 +103,10 @@ export const httpApi = {
     },
     health: () => request<HealthReport>("/api/v2/health"),
     activity: () => request<ActivitySnapshot>("/api/v2/activity"),
+    // The query goes through untouched: the server itself detects the
+    // `/pattern/flags` regex form and answers with the mode it ranked by.
     search: (term: string, limit = 8) =>
-        request<{ records: SearchHit[]; total: number }>(
+        request<SearchResponse>(
             `/api/v2/search?q=${encodeURIComponent(term)}&limit=${limit}&view=list`
         ),
     docs: (query = "") => {

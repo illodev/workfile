@@ -17,10 +17,16 @@ import {
     DialogTitle
 } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "@/components/ui/tooltip";
 
 import { api } from "../api";
 import { recordCollection } from "../theme";
-import type { SearchHit } from "../types";
+import type { SearchHit, SearchMode } from "../types";
 
 /**
  * One entry point for everything.
@@ -68,6 +74,20 @@ const KIND_GROUPS = [
     ["change", "history"]
 ] as const;
 
+/** One-liners behind the mode badge: how this response was ranked. */
+const MODE_HELP: Record<SearchMode, string> = {
+    lexical: "Deterministic lexical ranking",
+    hybrid: "Ranked by lexical score blended with on-device embeddings",
+    regex: "Exact regular-expression match"
+};
+
+/** How the server ranked the hits currently on screen. */
+interface SearchMeta {
+    mode: SearchMode;
+    provider: string | null;
+    total: number;
+}
+
 export function CommandPalette({
     open,
     onClose,
@@ -85,6 +105,7 @@ export function CommandPalette({
 }) {
     const [query, setQuery] = useState("");
     const [hits, setHits] = useState<SearchHit[]>([]);
+    const [meta, setMeta] = useState<SearchMeta | null>(null);
     const previousFocus = useRef<Element | null>(null);
 
     const actions = useMemo<Entry[]>(
@@ -116,9 +137,12 @@ export function CommandPalette({
 
     useEffect(() => {
         if (!open) return;
+        // The query goes to the server untouched — it detects the
+        // `/pattern/flags` regex form itself and reports the mode it ran.
         const term = query.trim();
         if (!term) {
             setHits([]);
+            setMeta(null);
             return;
         }
         let cancelled = false;
@@ -126,7 +150,13 @@ export function CommandPalette({
             void api
                 .search(term)
                 .then((payload) => {
-                    if (!cancelled) setHits(payload.records || []);
+                    if (cancelled) return;
+                    setHits(payload.records || []);
+                    setMeta({
+                        mode: payload.mode,
+                        provider: payload.provider ?? null,
+                        total: payload.total ?? payload.records?.length ?? 0
+                    });
                 })
                 .catch(() => undefined);
         }, 120);
@@ -169,6 +199,10 @@ export function CommandPalette({
         if (rest.length) built.push({ label: "other", entries: rest });
         return built;
     }, [hits, matchingActions, onOpenRecord]);
+
+    // The syntax is discoverable the moment a query opens with "/": the hint
+    // names the full form while the query still travels to the server as-is.
+    const regexHint = query.trim().startsWith("/");
 
     return (
         <Dialog
@@ -214,6 +248,43 @@ export function CommandPalette({
                             Esc
                         </Kbd>
                     </div>
+                    {regexHint || meta ? (
+                        <div className="flex min-h-7 items-center gap-2 border-b px-3.5 py-1 font-mono text-[10.5px] text-muted-foreground">
+                            {regexHint ? (
+                                <span className="truncate">
+                                    Regular expression — /pattern/flags
+                                </span>
+                            ) : null}
+                            {meta ? (
+                                <span className="ml-auto flex shrink-0 items-center gap-2">
+                                    <span>
+                                        {meta.total}{" "}
+                                        {meta.total === 1
+                                            ? "result"
+                                            : "results"}
+                                    </span>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Badge
+                                                    variant="outline"
+                                                    className="rounded-sm px-1.5 font-mono text-[10px] font-normal text-muted-foreground"
+                                                >
+                                                    {meta.mode === "hybrid" &&
+                                                    meta.provider
+                                                        ? `hybrid · ${meta.provider}`
+                                                        : meta.mode}
+                                                </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                                {MODE_HELP[meta.mode]}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </span>
+                            ) : null}
+                        </div>
+                    ) : null}
                     <CommandList
                         label="Results"
                         className="max-h-[min(400px,calc(100svh-240px))] p-1.5"

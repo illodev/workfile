@@ -336,3 +336,21 @@ export interface SearchHit {
     area?: string;
     path: string;
 }
+
+export type SearchMode = "lexical" | "hybrid" | "regex";
+
+/**
+ * `/api/v2/search` envelope. `mode` is always present; `provider` is the
+ * semantic provider id when `mode` is "hybrid" and null otherwise — regex
+ * bypasses the provider by design. `view` is present on lexical and regex
+ * responses but absent on hybrid ones, so it stays optional here.
+ */
+export interface SearchResponse {
+    records: SearchHit[];
+    total: number;
+    offset?: number;
+    limit?: number;
+    mode: SearchMode;
+    provider: string | null;
+    view?: string;
+}

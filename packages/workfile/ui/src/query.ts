@@ -144,8 +144,31 @@ function tokenMatches(task: Task, token: QueryToken) {
     return token.exclude ? !matches : matches;
 }
 
+/**
+ * The same `/pattern/flags` form the search server recognises (flags a
+ * subset of `imsu`), compiled for the Explorer's client-side filter. An
+ * invalid or over-long pattern returns null and the query falls back to
+ * plain text matching — the filter must never throw while the user types.
+ */
+const REGEX_QUERY = /^\/(.+)\/([imsu]*)$/s;
+const REGEX_PATTERN_MAX = 256;
+
+function compileRegexQuery(search: string): RegExp | null {
+    const match = REGEX_QUERY.exec(search);
+    if (!match || match[1].length > REGEX_PATTERN_MAX) return null;
+    try {
+        return new RegExp(match[1], match[2]);
+    } catch {
+        return null;
+    }
+}
+
 export function filterTasks(tasks: Task[], filters: Filters) {
-    const tokens = tokenize(filters.search.trim());
+    const search = filters.search.trim();
+    // A full-form regex query matches id, title and body directly, like the
+    // server's regex mode; it bypasses the token grammar entirely.
+    const matcher = compileRegexQuery(search);
+    const tokens = matcher ? [] : tokenize(search);
     return tasks.filter((task) => {
         if (
             !filters.showClosed &&
@@ -165,6 +188,12 @@ export function filterTasks(tasks: Task[], filters: Filters) {
             return false;
         if (filters.milestone && task.milestone !== filters.milestone)
             return false;
+        if (matcher)
+            return (
+                matcher.test(task.id) ||
+                matcher.test(task.title) ||
+                matcher.test(task.body || "")
+            );
         return tokens.every((token) => tokenMatches(task, token));
     });
 }

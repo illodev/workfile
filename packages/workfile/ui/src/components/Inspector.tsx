@@ -801,7 +801,17 @@ function CardInspector({
                         }}
                     />
                 ) : bodyValue.trim() ? (
-                    <div className="typeset">
+                    // MarkdownBody brings its own .typeset wrapper; this div
+                    // only tunes its knobs. The overrides must land on the
+                    // .typeset element itself (its component-layer defaults
+                    // beat inherited custom properties), and as utilities
+                    // they outrank that layer: ~13px body via --typeset-size,
+                    // headings scaling down with it (they are em-based), and
+                    // leading tightened to 1.6. Prose blocks cap at a
+                    // readable measure so the expanded drawer does not
+                    // stretch lines across its full width; scroll wrappers
+                    // (wide tables) keep the whole column.
+                    <div className="[&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
                         <MarkdownBody source={bodyValue} onOpen={onOpen} />
                     </div>
                 ) : (

@@ -64,12 +64,19 @@ string returns the same answer everywhere, which it did not before.
 | `-status:done` | negated filter |
 | `-draft` | negated term |
 | `tag:` / `claim:` | aliases for `tags` and `claimed_by` |
+| `/timeout \d+/i` | regular expression over id, title and body; flags from `imsu` |
 
 Field names are the record's own keys, so the vocabulary follows the runtime
 schema rather than a second list. An unknown field matches nothing instead of
 falling back to free text, which would quietly return everything.
 
 Text is compared with diacritics folded, so `diseno` finds `Diseño`.
+
+Only the full `/pattern/flags` form runs as a regex — a slash inside a plain
+query does not. Regex queries are exact-intent: they bypass the semantic
+provider, rank title hits above body hits and match count after that, and
+report `mode: "regex"`. Patterns are capped at 256 characters, bodies scanned
+to their first 20,000; an invalid pattern fails with `SEARCH_REGEX_INVALID`.
 
 ## Work (cards)
 

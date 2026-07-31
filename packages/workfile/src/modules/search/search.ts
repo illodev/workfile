@@ -11,6 +11,115 @@ function clamp(value, minimum = 0, maximum = 1) {
     return Math.min(maximum, Math.max(minimum, Number(value) || 0));
 }
 
+/**
+ * The full `/pattern/flags` form: both delimiters present, a non-empty
+ * pattern, flags a subset of `imsu`. Anything else — a slash inside a plain
+ * query, a missing closing delimiter, an unknown flag — is not a regex query
+ * and falls through to the lexical/hybrid path.
+ */
+const REGEX_QUERY = /^\/(.+)\/([imsu]*)$/s;
+const REGEX_PATTERN_MAX = 256;
+const REGEX_BODY_CAP = 20_000;
+const REGEX_EXCERPT_LENGTH = 200;
+
+function parseRegexQuery(query) {
+    const match = REGEX_QUERY.exec(String(query || "").trim());
+    if (!match) return null;
+    return { pattern: match[1], flags: match[2] };
+}
+
+function compileRegexQuery({ pattern, flags }) {
+    if (pattern.length > REGEX_PATTERN_MAX) {
+        throw new ValidationError(
+            "SEARCH_REGEX_INVALID",
+            `Regular expression patterns are capped at ${REGEX_PATTERN_MAX} characters.`
+        );
+    }
+    try {
+        // `g` so matches can be counted; user flags stay a subset of `imsu`.
+        return new RegExp(pattern, `${flags}g`);
+    } catch (error) {
+        throw new ValidationError(
+            "SEARCH_REGEX_INVALID",
+            error instanceof Error ? error.message : String(error)
+        );
+    }
+}
+
+function countMatches(matcher, text) {
+    if (!text) return 0;
+    matcher.lastIndex = 0;
+    return [...text.matchAll(matcher)].length;
+}
+
+/** The line containing the first body match, trimmed to excerpt length. */
+function matchedLine(matcher, body) {
+    if (!body) return null;
+    matcher.lastIndex = 0;
+    const match = matcher.exec(body);
+    if (!match) return null;
+    const start = body.lastIndexOf("\n", match.index) + 1;
+    const end = body.indexOf("\n", match.index);
+    const line = body
+        .slice(start, end === -1 ? body.length : end)
+        .replace(/\s+/g, " ")
+        .trim();
+    return line.length > REGEX_EXCERPT_LENGTH
+        ? `${line.slice(0, REGEX_EXCERPT_LENGTH).trimEnd()}…`
+        : line;
+}
+
+function searchRecordsByRegex(
+    candidates: ProjectRecord[],
+    matcher: RegExp,
+    { limit, offset, view, fields }
+): ProjectSearchResult {
+    const ranked = candidates
+        .map((record) => {
+            const body = String(record.body || "").slice(0, REGEX_BODY_CAP);
+            const titleMatches = countMatches(matcher, String(record.title || ""));
+            const matchCount =
+                countMatches(matcher, String(record.id || "")) +
+                titleMatches +
+                countMatches(matcher, body);
+            return { record, body, titleMatches, matchCount };
+        })
+        .filter(({ matchCount }) => matchCount > 0)
+        .sort(
+            (left, right) =>
+                Number(right.titleMatches > 0) - Number(left.titleMatches > 0) ||
+                right.matchCount - left.matchCount ||
+                String(right.record.updated || right.record.date || "").localeCompare(
+                    String(left.record.updated || left.record.date || "")
+                ) ||
+                left.record.title.localeCompare(right.record.title)
+        );
+    return {
+        records: ranked
+            .slice(offset, offset + limit)
+            .map(({ record, body, matchCount }) => {
+                const projected = projectRecord(
+                    { ...record, searchScore: matchCount },
+                    view,
+                    fields
+                );
+                // Where the projection carries an excerpt, show the matched
+                // line instead of the head of the body.
+                if (projected.excerpt !== undefined) {
+                    const line = matchedLine(matcher, body);
+                    if (line) projected.excerpt = line;
+                }
+                return projected;
+            }),
+        total: ranked.length,
+        offset,
+        limit,
+        view,
+        mode: "regex",
+        provider: null
+    };
+}
+
 function normalizeKinds(kinds) {
     if (!kinds) return [];
     return Array.isArray(kinds) ? kinds.filter(Boolean) : [kinds].filter(Boolean);
@@ -74,6 +183,17 @@ export async function searchProjectRecordsHybrid(
     const candidates = records.filter(
         (record) => !kindSet.size || kindSet.has(record.kind)
     );
+    // `/pattern/flags` is exact-intent: it bypasses the semantic provider on
+    // purpose and scans each record's id, title and body directly.
+    const regexQuery = parseRegexQuery(query);
+    if (regexQuery) {
+        return searchRecordsByRegex(candidates, compileRegexQuery(regexQuery), {
+            limit,
+            offset,
+            view,
+            fields
+        });
+    }
     if (!provider || !String(query || "").trim()) {
         return {
             ...searchProjectRecords(candidates, query, {

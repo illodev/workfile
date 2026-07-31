@@ -278,3 +278,136 @@ test("one query grammar across every surface", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+function regexFixtureRecords() {
+    const records: any[] = [];
+    records.push(
+        {
+            id: "T-0001",
+            kind: "card",
+            recordType: "card",
+            title: "Retry the billing queue",
+            path: "cards/retry.md",
+            body: "The worker path is jobs/billing/retry.\nTimeouts happen.",
+            tags: []
+        },
+        {
+            id: "DOC-0001",
+            kind: "doc",
+            recordType: "doc",
+            title: "Needle taxonomy",
+            path: "docs/needle.md",
+            body: "One needle here.",
+            tags: []
+        },
+        {
+            id: "T-0002",
+            kind: "card",
+            recordType: "card",
+            title: "Unrelated cleanup",
+            path: "cards/cleanup.md",
+            body: "needle needle needle needle in the body only",
+            tags: []
+        }
+    );
+    return records;
+}
+
+// `/pattern/flags` is exact-intent: only the full form — both delimiters, a
+// non-empty pattern, flags from [imsu] — switches modes. A slash inside a
+// plain query, a missing delimiter or an unknown flag stays lexical.
+test("only the full /pattern/flags form triggers regex mode", async () => {
+    const records = regexFixtureRecords();
+    for (const query of ["jobs/billing/retry", "/needle", "needle/", "/needle/x", "//"]) {
+        const result = await searchProjectRecordsHybrid(records, query, {});
+        assert.equal(result.mode, "lexical", `${JSON.stringify(query)} stays lexical`);
+    }
+    const result = await searchProjectRecordsHybrid(records, "/NEEDLE/i", {});
+    assert.equal(result.mode, "regex");
+    assert.equal(result.provider, null);
+    assert.ok(result.records.length > 0);
+    assert.ok(result.records.every((record) => Number(record.searchScore) > 0));
+});
+
+test("an invalid regex pattern is refused with SEARCH_REGEX_INVALID", async () => {
+    const records = regexFixtureRecords();
+    await assert.rejects(
+        () => searchProjectRecordsHybrid(records, "/(unclosed/", {}),
+        { code: "SEARCH_REGEX_INVALID" }
+    );
+    // The length cap is part of the same contract.
+    await assert.rejects(
+        () => searchProjectRecordsHybrid(records, `/${"a".repeat(300)}/`, {}),
+        { code: "SEARCH_REGEX_INVALID" }
+    );
+});
+
+test("regex ranking puts a title hit above any number of body hits", async () => {
+    const records = regexFixtureRecords();
+    const result = await searchProjectRecordsHybrid(records, "/needle/i", {
+        view: "summary"
+    });
+    // DOC-0001 matches once in the title; T-0002 four times in the body only.
+    assert.deepEqual(
+        result.records.map((record) => record.id),
+        ["DOC-0001", "T-0002"]
+    );
+    // The excerpt is the matched line, not the head of the body.
+    assert.equal(
+        result.records[1].excerpt,
+        "needle needle needle needle in the body only"
+    );
+});
+
+test("regex scanning stops at the first 20000 body characters", async () => {
+    const records = regexFixtureRecords();
+    records[2].body = `${"x".repeat(20_000)} needle`;
+    const result = await searchProjectRecordsHybrid(records, "/needle/", {});
+    // T-0002's only occurrence now sits beyond the cap; DOC-0001 remains.
+    assert.deepEqual(
+        result.records.map((record) => record.id),
+        ["DOC-0001"]
+    );
+});
+
+// Regex reuses the result envelope, so callers need no changes: paging pages,
+// `view` projects, `fields` overrides.
+test("regex mode reuses the lexical result envelope", async () => {
+    const records = regexFixtureRecords();
+    const paged = await searchProjectRecordsHybrid(records, "/needle/i", {
+        limit: 1,
+        offset: 1
+    });
+    assert.equal(paged.total, 2);
+    assert.equal(paged.offset, 1);
+    assert.deepEqual(paged.records.map((record) => record.id), ["T-0002"]);
+    const listed = await searchProjectRecordsHybrid(records, "/needle/i", {
+        view: "list"
+    });
+    assert.equal(listed.records[0].excerpt, undefined);
+    assert.equal(typeof listed.records[0].bodyBytes, "number");
+    const fielded = await searchProjectRecordsHybrid(records, "/needle/i", {
+        fields: ["id", "title"]
+    });
+    assert.deepEqual(Object.keys(fielded.records[0]), ["id", "title"]);
+});
+
+test("every path reports its mode: lexical, hybrid and regex", async () => {
+    const records = regexFixtureRecords();
+    const provider = createSemanticSearchProvider({
+        id: "mode-probe",
+        async search() {
+            return [{ id: "T-0001", score: 0.9 }];
+        }
+    });
+    const lexical = await searchProjectRecordsHybrid(records, "needle", {});
+    assert.equal(lexical.mode, "lexical");
+    assert.equal(lexical.provider, null);
+    const hybrid = await searchProjectRecordsHybrid(records, "needle", { provider });
+    assert.equal(hybrid.mode, "hybrid");
+    assert.equal(hybrid.provider, "mode-probe");
+    // The provider is deliberately bypassed for exact-intent queries.
+    const regex = await searchProjectRecordsHybrid(records, "/needle/", { provider });
+    assert.equal(regex.mode, "regex");
+    assert.equal(regex.provider, null);
+});
