@@ -55,6 +55,7 @@ interface Group {
 }
 
 const VIEWS = [
+    "overview",
     "explorer",
     "triage",
     "flow",

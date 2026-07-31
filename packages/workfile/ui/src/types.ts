@@ -28,6 +28,7 @@ export type Priority = (typeof PRIORITIES)[number];
 export type Area = string;
 export type Effort = "S" | "M" | "L";
 export type View =
+    | "overview"
     | "explorer"
     | "triage"
     | "flow"

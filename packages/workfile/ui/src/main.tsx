@@ -16,6 +16,7 @@ import {
     ChevronDown,
     Columns3,
     FileDiff,
+    Gauge,
     Lightbulb,
     ListChecks,
     Maximize2,
@@ -110,6 +111,7 @@ const loaders = {
     health: () => import("./components/Health"),
     history: () => import("./components/History"),
     memory: () => import("./components/Memory"),
+    overview: () => import("./components/domain/Overview"),
     triage: () => import("./components/Triage")
 };
 
@@ -137,8 +139,12 @@ const HistoryView = lazy(() =>
 const HealthView = lazy(() =>
     loaders.health().then((module) => ({ default: module.HealthView }))
 );
+const OverviewView = lazy(() =>
+    loaders.overview().then((module) => ({ default: module.OverviewView }))
+);
 
 const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
+    overview: "overview",
     flow: "boards",
     epics: "boards",
     timeline: "boards",
@@ -219,6 +225,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
         label: "Work",
         items: [
+            { value: "overview", label: "Overview", icon: Gauge },
             { value: "explorer", label: "Explorer", icon: Table },
             { value: "triage", label: "Triage", icon: ListChecks },
             { value: "flow", label: "Flow", icon: Columns3 },
@@ -243,6 +250,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
 ];
 
 const VIEW_TITLE: Record<View, string> = {
+    overview: "Overview",
     explorer: "Explorer",
     triage: "Triage",
     flow: "Flow",
@@ -256,6 +264,9 @@ const VIEW_TITLE: Record<View, string> = {
 
 /** `.project/<collection>` shown in the breadcrumb when nothing is selected. */
 const VIEW_COLLECTION: Record<View, string> = {
+    // Matches its own title, so the breadcrumb reads ".project / overview"
+    // rather than repeating the tail.
+    overview: "overview",
     explorer: "cards",
     triage: "cards",
     flow: "cards",
@@ -715,7 +726,9 @@ function App() {
             ].sort() as string[],
         [tasks]
     );
-    const isWorkView = !["docs", "history", "memory", "health"].includes(view);
+    const isWorkView = !["overview", "docs", "history", "memory", "health"].includes(
+        view
+    );
     const openRecord = useCallback(
         (id: string) => {
             selectRecord(id);
@@ -851,6 +864,9 @@ function App() {
             ["next", "doing", "review", "blocked"].includes(task.status)
         ).length;
         return {
+            // A dashboard wears no badge: a count beside it would restate what
+            // the page itself says, and a badge stuck at 0 says less than none.
+            overview: null,
             explorer: openTasks.length,
             triage: openTasks.filter((task) => task.status === "backlog")
                 .length,
@@ -869,6 +885,12 @@ function App() {
 
     const viewMeta = useMemo(() => {
         switch (view) {
+            case "overview":
+                return `${(navCounts.explorer ?? 0).toLocaleString()} open of ${tasks.length.toLocaleString()}${
+                    health
+                        ? ` · ${health.counts.error} errors · ${health.counts.warning} warnings`
+                        : ""
+                }`;
             case "explorer":
                 return `${visibleTasks.length.toLocaleString()} of ${tasks.length.toLocaleString()} cards`;
             case "triage":
@@ -1295,6 +1317,16 @@ function App() {
                             >
                                 {loading ? (
                                     <ViewLoading label="Loading backlog…" />
+                                ) : view === "overview" ? (
+                                    <OverviewView
+                                        tasks={tasks}
+                                        openTasks={openTasks}
+                                        health={health}
+                                        activity={activity}
+                                        moduleCounts={moduleCounts}
+                                        onOpen={openRecord}
+                                        onNavigate={setView}
+                                    />
                                 ) : view === "explorer" ? (
                                     <Explorer
                                         tasks={visibleTasks}

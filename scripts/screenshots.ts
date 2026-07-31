@@ -21,6 +21,7 @@ import {
  * private backlog ends up in a screenshot.
  */
 const VIEWS = [
+    "overview",
     "explorer",
     "triage",
     "flow",

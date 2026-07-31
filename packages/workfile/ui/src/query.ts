@@ -8,6 +8,7 @@ import {
 } from "./types";
 
 const VIEWS: View[] = [
+    "overview",
     "explorer",
     "triage",
     "flow",
