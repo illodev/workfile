@@ -4,6 +4,7 @@ title: "The third shadcn migration: no coexistence, the framework look wins"
 status: accepted
 created: 2026-07-31
 updated: 2026-07-31
+supersedes: [ADR-0004]
 ---
 ## Context
 

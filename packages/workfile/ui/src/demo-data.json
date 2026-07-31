@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-07-31T09:25:47.744Z",
+    "generatedAt": "2026-07-31T11:31:19.702Z",
     "tasks": {
         "repoRoot": "/demo/workfile",
         "projectName": "Workfile",
@@ -823,10 +823,10 @@
             {
                 "file": "T-0034-release-0-1-5-cut-fragments-bump-resync-surfaces-t.md",
                 "archived": false,
-                "body": "## Activity\n\n- 2026-07-31 08:52Z claude-opus-4df73848 · claimed\n- 2026-07-31 08:55Z claude-opus-4df73848 · released\n- 2026-07-31 09:24Z unknown · deferred → next\n- 2026-07-31 09:24Z claude-opus-4df73848 · claimed\n\n## Notes\n\n- 2026-07-31 08:55Z claude-opus-4df73848 — Held before cutting. The only unreleased fragment is CHG-0016 (internal): the public renderer drops it, so 0.1.5 would render as an empty section. Against v0.1.4 nothing under src/, bin/ or search-local moved; the publishable diff is .mjs -> .ts filename references in docs/mcp.md, docs/ui.md and one comment in ui/src/api.ts, plus a regenerated ui/src/demo-data.json that prepare-bin forbids shipping as the real UI. Alvaro chose to wait for user-facing content rather than burn a version number on a functionally identical package. Policy recorded as ADR-0003. Resume this card when a public fragment exists: changelog release VERSION, npm version, workfile upgrade + build:plugin, check:release, tag.",
+                "body": "## Activity\n\n- 2026-07-31 08:52Z claude-opus-4df73848 · claimed\n- 2026-07-31 08:55Z claude-opus-4df73848 · released\n- 2026-07-31 09:24Z unknown · deferred → next\n- 2026-07-31 09:24Z claude-opus-4df73848 · claimed\n- 2026-07-31 09:28Z claude-opus-4df73848 · doing → done\n- 2026-07-31 09:28Z claude-opus-4df73848 · released\n\n## Notes\n\n- 2026-07-31 08:55Z claude-opus-4df73848 — Held before cutting. The only unreleased fragment is CHG-0016 (internal): the public renderer drops it, so 0.1.5 would render as an empty section. Against v0.1.4 nothing under src/, bin/ or search-local moved; the publishable diff is .mjs -> .ts filename references in docs/mcp.md, docs/ui.md and one comment in ui/src/api.ts, plus a regenerated ui/src/demo-data.json that prepare-bin forbids shipping as the real UI. Alvaro chose to wait for user-facing content rather than burn a version number on a functionally identical package. Policy recorded as ADR-0003. Resume this card when a public fragment exists: changelog release VERSION, npm version, workfile upgrade + build:plugin, check:release, tag.\n## Notes\n\n- 2026-07-31 09:30Z claude-opus-4df73848 — Shipped. 0.1.5 is live on npm as `latest`, published end to end by the tag pipeline with no manual step touching the registry.\n\n  **What unblocked it.** The hold recorded above was correct at the time: `CHG-0016` was the only unreleased fragment and it is `internal`, so the public section would have rendered empty. T-0035 and T-0036 supplied two `public` fragments, and ADR-0003's condition was met.\n\n  **Sequence.** `changelog release 0.1.5` cut REL-0005 over three fragments; `changelog render --write` rendered two of them, correctly omitting the internal one. `npm version 0.1.5 --no-git-tag-version` bumped the root and both packages through the `version` hook — deliberately untagged, so the tag could land on the final commit instead of being moved afterwards as it was for 0.1.4. `workfile upgrade` resynced fifteen managed surfaces in one pass, `build:plugin` stamped the distributable, and `demo:data` regenerated the hosted snapshot (36 cards, 23 history, 6 memory records).\n\n  **Gate.** `pnpm run check:release` locally: exit 0, 165 + 7 tests, 0 failures, `No known vulnerabilities found`, and the packaged smoke installed 0.1.5 into a clean consumer and exercised init, Work, Docs, History, Memory, MCP and UI. `sync-workspace-versions.ts --check` confirmed lockstep before tagging.\n\n  **Runtime evidence.** Release run 30619966987 completed green — every step through `Publish to npm`. The registry answers `@illodev/workfile@0.1.5` and `@illodev/workfile-search-local@0.1.5`, both on `latest`.\n\n  **Discovered gap.** There is no CLI path to title a release record: `changelog patch` rejects a REL id with `CHANGE_FRAGMENT_NOT_FOUND`, and `changelog release` takes no title. REL-0005 therefore reads \"Version 0.1.5\" like REL-0002 and REL-0003, while REL-0001 and REL-0004 carry hand-written descriptive titles. Left alone rather than hand-editing frontmatter, which the protocol reserves for emergencies. Filed as T-0037.",
                 "id": "T-0034",
                 "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag",
-                "status": "doing",
+                "status": "done",
                 "type": "task",
                 "priority": "high",
                 "area": "infra",
@@ -846,9 +846,7 @@
                     ".claude-plugin",
                     ".project/generated"
                 ],
-                "claimed_by": "claude-opus-4df73848",
-                "claimed_at": "2026-07-31T09:24:07.154Z",
-                "revision": "sha256:c796706a60e0b206efb183511d90cd70a4b4bb9d5625725e5b3cd6812f1765eb",
+                "revision": "sha256:1e6fd4e68a4bbe3b285772989265b8048838eb0199fa682903b7a09540e77e3e",
                 "assets": []
             },
             {
@@ -893,24 +891,62 @@
                 ],
                 "revision": "sha256:23719b8ccbbcaee854e2f1ab05b22d4373b1abea3ea82a640c19b0bb63bab54d",
                 "assets": []
+            },
+            {
+                "file": "T-0037-no-cli-path-to-title-a-release-record.md",
+                "archived": false,
+                "body": "",
+                "id": "T-0037",
+                "title": "No CLI path to title a release record",
+                "status": "backlog",
+                "type": "bug",
+                "priority": "low",
+                "area": "core",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:d9f91a4f2aa363cf2f321854664f1c548d923cb864d2ea1dc58cfe61142178b9",
+                "assets": []
+            },
+            {
+                "file": "T-0038-migrate-the-ui-to-shadcn-ui-with-no-coexistence.md",
+                "archived": false,
+                "body": "## Intent\n\nExecute the third shadcn migration under ADR-0005's rules. The normative spec is `design/shadcn-redesign.dc.html`; the argument and constraints are `design/shadcn-migration-note.dc.html`. The two previous attempts died of layered coexistence in the predecessor codebase; this one forbids the layer: the bespoke stylesheet is deleted in the same PR that introduces shadcn.\n\n## Sequencing constraints, in dependency order\n\n1. **Prove density first.** The note claims the 40px compact Data Table row preserves the Explorer's scanning density. Demonstrate it on the real Explorer with the real workspace (36+ cards) in a spike branch *before* anything is deleted — after the stylesheet is gone there is no cheap way back. This is the go/no-go gate.\n2. **Tokens before components.** Land the three semantic namespaces (`--status-*`, `--priority-*`, `--sev-*`) in their registry-safe location, port `theme.ts` helpers to them, then generate components against a base that already has them.\n3. **The big PR.** Generate the registry (`components/ui/`), migrate every view, delete `styles.css` and the bespoke vocabulary, move every CLI-installed package to `devDependencies` in the same commit.\n4. **Tests switch sides in the same PR.** `design-system.test.ts` asserts the new direction (registry present, no colour literal outside the semantic namespaces, no `.btn`/`.chip`/`.tile` survivors); the forbidden-package list retires; `dependencies.test.ts` is NOT touched and must stay green throughout.\n5. **Docs follow.** `docs/ui.md` rewritten against the new reality; `documentation.test.ts` keeps its file references honest.\n\n## Decisions already made (do not reopen)\n\n- Radix primitives, not Base UI (`radix-ui` already used in kit.tsx, main.tsx, PropertyEditor.tsx).\n- Zinc look as-is: 14px base, 0.625rem radius. The 13px base and the brand-blue primary are accepted losses.\n- UI copy stays **English** — the mockup's Spanish is incidental, not normative.\n- Native select in table rows (shadcn Native Select), never a portal select mid-row.\n- Every mapped entry verified against ui.shadcn.com 2026-07-31: Sidebar, Breadcrumb, Badge, Input Group, Kbd, Data Table, Checkbox, Native Select, Button Group, Progress, Field, Item, Attachment, Card, Empty, Alert, Command, Spinner — plus **Typeset** (`/docs/typeset`, the CSS system for rendered Markdown; use it for card bodies, Triage and Docs articles) and the **scroll-fade** utility (`/docs/utils/scroll-fade`) for Flow and Memory lists. Both live outside the components index — sweep the whole docs tree, not just /docs/components, when checking the catalog.\n\n## Acceptance\n\n- `styles.css` (bespoke) no longer exists; no view renders through the old vocabulary.\n- `dependencies.test.ts` green and unedited: `dependencies` is exactly `@types/node`.\n- Rewritten `design-system.test.ts` green: registry present, semantic-token discipline, no bespoke class survivors.\n- Explorer density proven equal-or-better at the 40px compact row, with the comfortable/compact toggle working.\n- Demo build parity intact (`demo-parity.test.ts`), smoke:package green — React still absent from a consumer's tree.\n- On merge: `workfile memory supersede ADR-0004 --by ADR-0005`, changelog fragment, `docs/ui.md` rewritten.\n\n## Activity\n\n- 2026-07-31 10:17Z claude-fable-4df73848 · claimed\n- 2026-07-31 11:09Z claude-fable-4df73848 · doing → review\n- 2026-07-31 11:19Z claude-fable-4df73848 · review → done\n- 2026-07-31 11:19Z claude-fable-4df73848 · released\n\n## Notes\n\n- 2026-07-31 12:58Z claude-fable-4df73848 — Implementation complete on branch `shadcn-migration`, three commits: foundation (`ab8f0c6`-era), full view migration (`158e512`), close-out. Held in `review` pending the owner's merge — ADR-0005's supersede of ADR-0004 executes on landing, not before.\n\n  **How it ran.** Two orchestrated phases over the accepted design package. *Understand*: 12 parallel scouts mapped every view, the 1560-line stylesheet, the mockup and the test contracts (473k tokens). *Migrate*: 9 disjoint units in parallel, each re-verified by a second agent against the files rather than the reports (1.73M tokens, 18 agents, 0 errors). Sequencing followed the card: foundation → tokens → views → tests switch sides → docs.\n\n  **The verify passes earned their cost.** They caught the registry Table wrapper silently detaching Explorer's sticky headers (fixed via `[&>[data-slot=table-container]]:overflow-visible`), and that `baseUrl` in `ui/tsconfig.json` aborts TypeScript 7 with TS5102 before checking a single file — every per-unit typecheck had been vacuously green until it was removed.\n\n  **Density gate (go).** Measured on the served UI against this real workspace, 1600×1000 viewport, 38 rows: compact `--row-h` 40px → 20 rows visible; comfortable 48px → 17; the old bespoke 34px would have shown 24. The −17% against the old system is the accepted loss ADR-0005 names (the 14px base); against an uncompacted shadcn default (~52px, ~16 rows) the compact variant recovers +25%. Both densities measured live, switching on `data-density` alone.\n\n  **Behaviour preserved, verified per unit against HEAD:** keyboard-carry protocol with aria-live announcements (Boards), windowed virtual scrolling with the data-density MutationObserver (Explorer), revision-guard conflict flow (Inspector), optimistic patch/rollback + URL sync + SSE reloads (shell), 120ms cancellable search debounce (palette). Native selects stay in table rows; the palette moved to cmdk with state held above the dialog so query survives close.\n\n  **Runtime evidence.** `pnpm run check` exit 0 — 174 tests, 0 failures, strict ratchet clean (it caught and forced the fix of 1 strict error in the rewritten test). `smoke:package`: tarball installs clean, React absent from the consumer tree. `build:demo` compiles. Full screenshot sweep of all 10 views, light + dark, real workspace served by the real binary. Invariants passed UNEDITED: `dependencies.test.ts`, `demo-parity.test.ts`, `documentation.test.ts` (over the rewritten `docs/ui.md`).\n\n  **Debt, recorded not hidden:** the fixed 3 design-system failures were real mid-flight states, not test looseness; `tokens.test.ts`'s theme-parity check was green-but-vacuous before this branch (parser compared light with itself) and now walks braces; there is still no in-UI control to set `data-density` — follow-up card needed if the toggle should exist; the sticky-header fix keys off the registry's `data-slot=\"table-container\"` attribute and would silently revert if the registry renames it (noted in Explorer's code comment).\n- 2026-07-31 11:19Z claude-fable-4df73848 — Merged to main as PR #9 (fc69b96). ADR-0004 formally superseded by ADR-0005 via memory supersede, closing the loop the ADR deferred to landing. The hosted demo and the README media still show the bespoke UI; screenshot and video refresh runs next, outside this card's scope.",
+                "id": "T-0038",
+                "title": "Migrate the UI to shadcn/ui with no coexistence",
+                "status": "done",
+                "type": "epic",
+                "priority": "high",
+                "area": "ui",
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "scope": [
+                    "packages/workfile/ui",
+                    "packages/workfile/test",
+                    "packages/workfile/docs/ui.md",
+                    "packages/workfile/package.json",
+                    "packages/workfile/vite.config.mjs",
+                    "packages/workfile/tsconfig.json"
+                ],
+                "revision": "sha256:067fd870abf8f7ccec3e6fa0b391a085f6c22a21ba9a3943b8da7ff83e493403",
+                "assets": []
             }
         ],
         "repoUrl": "https://github.com/illodev/workfile"
     },
     "health": {
-        "generatedAt": "2026-07-31T09:25:47.908Z",
-        "cards": 36,
+        "generatedAt": "2026-07-31T11:31:19.848Z",
+        "cards": 38,
         "modules": {
-            "cards": 36,
+            "cards": 38,
             "docs": 10,
             "managedDocs": 0,
             "indexedDocs": 10,
-            "changes": 18,
-            "unreleasedChanges": 0,
+            "changes": 19,
+            "unreleasedChanges": 1,
             "releases": 5,
-            "memory": 6,
+            "memory": 7,
             "learnings": 1,
-            "decisions": 4,
+            "decisions": 5,
             "incidents": 0,
             "conventions": 1,
             "context": 0
@@ -924,38 +960,9 @@
         "issues": []
     },
     "activity": {
-        "generatedAt": "2026-07-31T09:25:47.919Z",
+        "generatedAt": "2026-07-31T11:31:19.858Z",
         "sessions": [],
-        "claims": [
-            {
-                "id": "T-0034",
-                "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag",
-                "status": "doing",
-                "area": "infra",
-                "scope": [
-                    "package.json",
-                    "CHANGELOG.md",
-                    ".project/changelog",
-                    "packages/workfile/package.json",
-                    "packages/search-local/package.json",
-                    ".claude",
-                    ".project/agents",
-                    "plugins/workfile",
-                    "AGENTS.md",
-                    "CLAUDE.md",
-                    ".claude-plugin",
-                    ".project/generated"
-                ],
-                "claim": {
-                    "by": "claude-opus-4df73848",
-                    "at": "2026-07-31T09:24:07.154Z",
-                    "ageMs": 100765,
-                    "ageHours": 0.03,
-                    "sessionId": null,
-                    "state": "held"
-                }
-            }
-        ],
+        "claims": [],
         "conflicts": [],
         "writing": []
     },
@@ -1611,7 +1618,10 @@
                     {
                         "id": "T-0038",
                         "relation": "mention",
-                        "exists": false
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Migrate the UI to shadcn/ui with no coexistence",
+                        "path": ".project/cards/T-0038-migrate-the-ui-to-shadcn-ui-with-no-coexistence.md"
                     },
                     {
                         "id": "REL-2026",
@@ -1665,23 +1675,23 @@
                 "title": "The interface",
                 "path": "packages/workfile/docs/ui.md",
                 "file": "ui.md",
-                "body": "# The interface\n\nThe UI is a React application in `ui/`, compiled by Vite into `dist/ui` and\nserved by the same `node:http` server that answers the API. It ships\nprecompiled: `files` publishes `dist`, so nothing the interface is built with\nreaches a consumer's `node_modules`.\n\n## Zero runtime dependencies is a published guarantee\n\n`dependencies` is exactly `@types/node`, and it is there only because the\npublished `.d.ts` files reference `node:` types. React, Radix and Lucide are\nall `devDependencies`.\n\nThis is enforced, not documented and hoped for. `test/dependencies.test.ts`\nasserts the exact contents of `dependencies`, and also that there are no\n`peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install\nhooks that would smuggle a tree in past that check.\n`test/design-system.test.ts` asserts the same list a second time, from the\nother direction.\n\nThe guard exists because a component generator writes its imports into\n`dependencies` by default. One un-corrected run would publish Radix, Lucide\nand CVA into every consumer's install, and nothing about the repository would\nlook wrong. Install what a component needs yourself, with `-D`.\n\n`pnpm run smoke:package` goes further: it packs the tarball, installs it in a\nclean consumer, and checks that React is absent from the resulting tree.\n\n## The stylesheet is the design system\n\nThere is no framework underneath this interface (`ADR-0004`). Two shadcn\nmigrations were attempted and both were reverted; `ui/src/styles.css` now\ncarries the whole system — the tokens and the component classes, in one file,\nported 1:1 from the normative spec `Workfile - Rediseño.dc.html`.\n\n`test/design-system.test.ts` keeps it that way, and its assertions are the\nreal contract:\n\n- **No framework reaches the stylesheet.** No `@import \"tailwindcss\"`, no\n  `@import \"shadcn\"`, no `@source`, no `@theme`. The typeface is bundled\n  through `@fontsource-variable`, so the package carries its own Geist rather\n  than requesting one from a CDN.\n- **The framework packages stay out of `package.json`, by name** —\n  `tailwindcss`, `@tailwindcss/vite`, `shadcn`, `tw-animate-css`,\n  `class-variance-authority`, `tailwind-merge`, `clsx`, `cmdk`, `sonner`,\n  `react-resizable-panels`, `next-themes`.\n- **No component imports through the `@/` alias or references\n  `components/ui/`.** Both were deleted with the second migration.\n- **Components name tokens, never colours.** A literal `#hex`, `rgb()`,\n  `hsl()` or `oklch()` in a component fails the suite. Status, priority and\n  severity are the `--status-*`, `--priority-*` and `--sev-*` custom\n  properties, applied inline through the helpers in `ui/src/theme.ts`.\n- **Every `var()` a component references is declared.** The check is a set\n  difference against the stylesheet, because a typo'd token does not error —\n  the declaration is silently dropped and renders as \"transparent\" or\n  \"inherits something odd\", never as a message.\n- **The dark palette is keyed to `data-theme`**, which is what the app toggles\n  on the root element, and it sets `color-scheme: dark`.\n\n### Things that are specific to this build\n\n- **The base is 13px**, set on `body` for density. Sizes are chosen against\n  that base, so numbers here do not compare directly with any framework's\n  documentation.\n- **Themes switch on `data-theme`**, not a class. `[data-theme=\"light\"]` rides\n  with `:root`, and `[data-theme=\"dark\"]` overrides the palette.\n- **Row height is the one density token**: `--row-h`, with a taller value\n  under `:root[data-density=\"comfortable\"]`.\n- **Radii are literal values**, not a token — the stylesheet writes `6px` or\n  `7px` per component. Colours are the opposite and must always be tokens;\n  the tests enforce that asymmetry, so do not assume it applies to sizes.\n- **`radix-ui` and `lucide-react` are still devDependencies and still used** —\n  behaviour primitives and icons, not a look. They are not the rejected layer.\n\n### The vocabulary\n\nThe header of `styles.css` lists every class family, and it is the place to\nlook before inventing one:\n\n```text\nlayout     .app .topbar .app-body .nav .main .view-head .inspector .ledger\ntext       .mono .dim .faint .overline .truncate\ncontrols   .btn .btn-accent .iconbtn .chip .kbd .searchbtn .input .select\npatterns   .tile .dot .meter .metagrid .reflink .callout .facet .grid-table\n```\n\n### Where components live\n\n- `ui/src/components/domain/` holds the virtual table, the kanban, the Gantt\n  and the record tree. These carry this project's own decisions about how work\n  is displayed.\n- Everything else in `ui/src/components/` is application glue — the drawer,\n  the editors, the palette.\n- `ui/src/kit.tsx` is where the Radix primitives are wrapped.\n\n### Adding a surface\n\nThere is no generator. Reuse a class family above, or add a named token and a\nnamed class to `styles.css` and use it:\n\n```sh\nnode --test test/design-system.test.ts    # tokens declared, no colour literals\nnode --test test/dependencies.test.ts     # nothing new reached dependencies\n```\n\nReaching for a component library is the third migration. Read `ADR-0004`\nfirst — it records what the first two cost.\n\n## Demo builds\n\n`pnpm run build:demo` produces `dist/demo`, a static bundle that replays a\nsnapshot of this repository's own workspace with in-memory mutations. It has no\nserver behind it, so **every view must reach the network through `ui/src/api.ts`**.\nA component calling `fetch` directly gets a 404 that its own catch swallows, and\nthe feature is simply absent from the hosted demo — which is how the presence\nstrip and the command palette were both silently dead there.\n`test/demo-parity.test.ts` fails if any view does this.",
+                "body": "# The interface\n\nThe UI is a React application in `ui/`, compiled by Vite into `dist/ui` and\nserved by the same `node:http` server that answers the API. It ships\nprecompiled: `files` publishes `dist`, so nothing the interface is built with\nreaches a consumer's `node_modules`.\n\n## Zero runtime dependencies is a published guarantee\n\n`dependencies` is exactly `@types/node`, and it is there only because the\npublished `.d.ts` files reference `node:` types. React, Radix, Tailwind,\nLucide and the shadcn tooling are all `devDependencies`.\n\nThis is enforced, not documented and hoped for. `test/dependencies.test.ts`\nasserts the exact contents of `dependencies`, and also that there are no\n`peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install\nhooks that would smuggle a tree in past that check.\n`test/design-system.test.ts` asserts the same list a second time, from the\nother direction.\n\nThe guard matters because `shadcn add` writes its imports into\n`dependencies` by default. One un-corrected run would publish Radix, Lucide\nand CVA into every consumer's install, and nothing about the repository\nwould look wrong. Install what a component needs yourself, with `-D`,\nbefore running `add` — then check the test still passes.\n\n`pnpm run smoke:package` goes further: it packs the tarball, installs it in\na clean consumer, and checks that React is absent from the resulting tree.\n\n## shadcn/ui is the design system\n\nThe third migration (`ADR-0005`) put shadcn/ui on Tailwind v4 underneath\nthe interface — wholesale, zinc as published, after two reverted attempts\ntaught that adopting a framework means adopting its look. The bespoke\nstylesheet is gone; `ui/src/styles.css` is now the token bridge:\n\n- `@import \"tailwindcss\"`, the registry's shared utilities from\n  `shadcn/tailwind.css` (scroll-fade and friends), and `typeset.css` — the\n  styling system for rendered Markdown.\n- The zinc palettes for `:root` and `[data-theme=\"dark\"]`. Themes still\n  switch on the `data-theme` attribute the app stamps; a `@custom-variant`\n  bridges the registry's `dark:` utilities to it.\n- The three semantic namespaces — `--status-*`, `--priority-*`, `--sev-*` —\n  ported byte-for-byte from the system they outlived. They are the one\n  named exception ADR-0005 allows, applied through the helpers in\n  `ui/src/theme.ts` or the mapped utilities (`text-status-doing`).\n- `--row-h`, the single density token: 40px compact by default, 48px under\n  `:root[data-density=\"comfortable\"]`. Tables key their row height off it.\n\n`test/design-system.test.ts` enforces the direction: the framework imports\nmust be present, the registry must exist and stay free of application\nimports, no component may speak the dead bespoke vocabulary or name a\ncolour literal, every `var()` referenced must be declared, and the dark\npalette must follow `data-theme`. `test/tokens.test.ts` walks the theme\nblocks with a real parser and fails if the dark palette drops a token the\nlight one declares.\n\n### Where components live\n\n- `ui/src/components/ui/` is the registry — generated by `shadcn add`,\n  replaced wholesale on regeneration, never hand-edited.\n- `ui/src/components/domain/` holds the virtual table, the kanban and the\n  Gantt: Workfile's own decisions about how work is displayed, composed\n  from registry parts.\n- Everything else in `ui/src/components/` is application glue — the\n  inspector, the editors, the palette.\n- `ui/src/lib/utils.ts` carries `cn()`; `ui/src/hooks/` the registry hooks.\n\n### Adding a component\n\n```sh\npnpm dlx shadcn@latest add <component>\nnode --test test/dependencies.test.ts     # nothing reached dependencies\nnode --test test/design-system.test.ts    # registry discipline holds\n```\n\nThe CLI resolves `@/` from the **root** `tsconfig.json` — its `paths` entry\nexists solely for this, and removing it makes `shadcn add` write into a\nliteral `@/` directory beside `package.json`. App code resolves the same\nalias through `ui/tsconfig.json` and the matching `resolve.alias` in\n`vite.config.mjs`; the two must stay in sync. Note `ui/tsconfig.json`\ndeclares `paths` without `baseUrl` — TypeScript 7 removed `baseUrl`, and\nreintroducing it aborts the whole typecheck with TS5102 before a single\nfile is checked.\n\n### Conventions the framework does not decide\n\n- **Native selects in table rows** — never a portal select mid-row. The\n  registry's NativeSelect restyles the real `<select>` the Explorer rows\n  depend on.\n- **Density is one token.** Components never hardcode a row height; they\n  read `var(--row-h)`. The comfortable/compact switch is the `data-density`\n  attribute on the root element.\n- **Colours are tokens.** Status, priority and severity ride the semantic\n  namespaces via `theme.ts`; everything else is a shadcn token utility. A\n  literal colour anywhere in `ui/src` fails the suite.\n\n## Demo builds\n\n`pnpm run build:demo` produces `dist/demo`, a static bundle that replays a\nsnapshot of this repository's own workspace with in-memory mutations. It has no\nserver behind it, so **every view must reach the network through `ui/src/api.ts`**.\nA component calling `fetch` directly gets a 404 that its own catch swallows, and\nthe feature is simply absent from the hosted demo — which is how the presence\nstrip and the command palette were both silently dead there.\n`test/demo-parity.test.ts` fails if any view does this.",
                 "managed": false,
                 "documentKind": "reference",
                 "status": "current",
-                "modifiedAt": "2026-07-31T09:15:44.744Z",
-                "sizeBytes": 5688,
-                "revision": "sha256:30387d200bcc538db57831a1c793d9e6e33956e659a267a6d664299d3dd4209f",
+                "modifiedAt": "2026-07-31T11:19:46.591Z",
+                "sizeBytes": 5371,
+                "revision": "sha256:03b3e8edb914033ebe369e817983137874d3e8c560adab5970887eb14cbd82de",
                 "metadata": {},
                 "recordType": "reference",
                 "outgoing": [
                     {
-                        "id": "ADR-0004",
+                        "id": "ADR-0005",
                         "relation": "mention",
                         "exists": true,
                         "kind": "memory",
-                        "title": "The stylesheet is the whole design system: no framework under the interface",
-                        "path": ".project/memory/decisions/ADR-0004-the-stylesheet-is-the-whole-design-system-no-framework-under-the-inter.md"
+                        "title": "The third shadcn migration: no coexistence, the framework look wins",
+                        "path": ".project/memory/decisions/ADR-0005-the-third-shadcn-migration-no-coexistence-the-framework-look-wins.md"
                     }
                 ],
                 "incomingTotal": 2,
@@ -1822,6 +1832,51 @@
                 "searchScore": 0
             },
             {
+                "id": "CHG-0019",
+                "kind": "change",
+                "recordType": "changed",
+                "title": "The interface rides shadcn/ui: zinc look, compact tables, same behaviour",
+                "path": ".project/changelog/unreleased/CHG-0019-the-interface-rides-shadcn-ui-zinc-look-compact-tables-same-behaviour.md",
+                "file": "CHG-0019-the-interface-rides-shadcn-ui-zinc-look-compact-tables-same-behaviour.md",
+                "body": "",
+                "type": "changed",
+                "area": "ui",
+                "visibility": "public",
+                "released": false,
+                "cards": [
+                    "T-0038"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:f17b70182ca80c312eb94859d0c6911c5f9868058169b7b22d2e7f82fcdf68ea",
+                "metadata": {
+                    "id": "CHG-0019",
+                    "title": "The interface rides shadcn/ui: zinc look, compact tables, same behaviour",
+                    "type": "changed",
+                    "area": "ui",
+                    "visibility": "public",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "cards": [
+                        "T-0038"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "T-0038",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "Migrate the UI to shadcn/ui with no coexistence",
+                        "path": ".project/cards/T-0038-migrate-the-ui-to-shadcn-ui-with-no-coexistence.md"
+                    }
+                ],
+                "incomingTotal": 0,
+                "incoming": [],
+                "issues": [],
+                "searchScore": 0
+            },
+            {
                 "id": "REL-0005",
                 "kind": "release",
                 "recordType": "release",
@@ -1876,8 +1931,15 @@
                         "path": ".project/changelog/releases/0-1-5/fragments/CHG-0018-the-interface-doc-describes-the-design-system-that-actually-ships.md"
                     }
                 ],
-                "incomingTotal": 0,
-                "incoming": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "T-0034",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
+                    }
+                ],
                 "issues": [],
                 "searchScore": 0
             },
@@ -1991,8 +2053,15 @@
                         "path": ".project/changelog/releases/0-1-3/fragments/CHG-0012-search-local-docs-teach-the-guarded-config-import-first-party-provider.md"
                     }
                 ],
-                "incomingTotal": 0,
-                "incoming": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "T-0034",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
+                    }
+                ],
                 "issues": [],
                 "searchScore": 0
             },
@@ -2213,8 +2282,15 @@
                         "path": ".project/changelog/releases/0-1-4/fragments/CHG-0015-the-repository-becomes-a-pnpm-monorepo-with-commit-hooks.md"
                     }
                 ],
-                "incomingTotal": 0,
-                "incoming": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "T-0034",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
+                    }
+                ],
                 "issues": [],
                 "searchScore": 0
             },
@@ -2824,13 +2900,19 @@
                         "path": ".project/changelog/releases/0-1-2/fragments/CHG-0009-sharp-overridden-to-0-35-0-clearing-high-severity-libvips-cves.md"
                     }
                 ],
-                "incomingTotal": 1,
+                "incomingTotal": 2,
                 "incoming": [
                     {
                         "id": "T-0024",
                         "relation": "mention",
                         "kind": "card",
                         "title": "Same-day releases render oldest-first in CHANGELOG: tie-break by id ascending"
+                    },
+                    {
+                        "id": "T-0034",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
                     }
                 ],
                 "issues": [],
@@ -2901,8 +2983,15 @@
                         "path": ".project/changelog/releases/0-1-1/fragments/CHG-0004-un-scope-escalar-ya-no-revienta-el-board-las-claves-de-lista-se-normal.md"
                     }
                 ],
-                "incomingTotal": 0,
-                "incoming": [],
+                "incomingTotal": 1,
+                "incoming": [
+                    {
+                        "id": "T-0034",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
+                    }
+                ],
                 "issues": [],
                 "searchScore": 0
             },
@@ -3017,7 +3106,7 @@
                 "searchScore": 0
             }
         ],
-        "total": 23,
+        "total": 24,
         "offset": 0,
         "limit": 500,
         "view": "full"
@@ -3095,19 +3184,33 @@
                 "title": "The stylesheet is the whole design system: no framework under the interface",
                 "path": ".project/memory/decisions/ADR-0004-the-stylesheet-is-the-whole-design-system-no-framework-under-the-inter.md",
                 "file": "ADR-0004-the-stylesheet-is-the-whole-design-system-no-framework-under-the-inter.md",
-                "body": "## Context\n\nThe interface twice tried to sit on a component framework, and twice the framework was removed. Both attempts followed the same arc: the registry's tokens and the project's own tokens shared names with different meanings, a legacy element selector silently outranked a generated component, and every visual change turned into an argument with a cascade written elsewhere. The second attempt reached the point of shipping `class-variance-authority`, `tailwind-merge`, `clsx`, `cmdk`, `sonner`, `react-resizable-panels` and `next-themes` before it was reverted.\n\nThe normative design is the owner's own: `Workfile - Rediseño.dc.html`, already a complete look with its oklch palette, the Geist and Geist Mono pairing, a 13px base and a named pattern for every surface. A framework was never adding a design here — it was translating one that already existed.\n\nThis record was written on 2026-07-31, well after the fact. Four source files had been citing `ADR-0010` for the decision and no such record existed; `ADR-0009`, `T-0100` and `T-0101` are cited in the same comments and are equally unresolvable, carried over from a numbering this workspace never had. Workfile's own graph already flagged them: the demo snapshot records `ADR-0009` as a mention with `exists: false`.\n\n## Decision\n\nThe interface has no framework underneath it. `ui/src/styles.css` is the entire design system: the tokens and the component classes, in one file, ported 1:1 from the normative spec.\n\nThe rules that follow from it, each one enforced by `test/design-system.test.ts` rather than by memory:\n\n- No framework import reaches the stylesheet — no `@import \"tailwindcss\"`, no `@import \"shadcn\"`, no `@source`, no `@theme`. The typeface is bundled through `@fontsource-variable`, not linked from a CDN.\n- The framework packages stay out of `package.json`, by name. `dependencies` is exactly `@types/node`, so the published package carries no runtime tree at all.\n- No component imports through the deleted `@/` alias or references the deleted `components/ui/` registry.\n- Components name tokens, never colours. Status, priority and severity are the `--status-*`, `--priority-*` and `--sev-*` custom properties, applied inline through the helpers in `ui/src/theme.ts`.\n- Every `var()` a component references is declared in the stylesheet, checked as a set difference — a typo'd token does not error, it silently drops the declaration.\n- Themes switch on `data-theme` on the root element.\n\nAdding a surface means using the existing vocabulary — the layout, text, control and pattern class families listed at the top of `styles.css` — or adding a named token and a named class to that file. There is no generator.\n\n## Consequences\n\n- A visual change is an edit to a named token or a named class. That is the whole point: the cost of the bespoke system is paid once, in the file, instead of continuously in cascade conflicts.\n- `radix-ui` and `lucide-react` remain devDependencies and are genuinely used — behaviour primitives and icons, not a look. They are not the rejected layer, and the tests do not forbid them.\n- Proposing a framework again means arguing with two reverted migrations and this record, which is the intended friction. The lesson is not \"frameworks are bad\": it is that adopting one means adopting its look wholesale, and this project already owns a complete look.\n- The stylesheet is long by design and will keep growing. That is accepted; a single file that can be read top to bottom beats a distributed system whose behaviour emerges from layer order.\n- The guard against `shadcn add` writing into `dependencies` stays load-bearing even with the registry gone: it is what keeps an experiment from publishing React into every consumer's install.",
-                "status": "accepted",
+                "body": "## Context\n\nThe interface twice tried to sit on a component framework, and twice the framework was removed. Both attempts followed the same arc: the registry's tokens and the project's own tokens shared names with different meanings, a legacy element selector silently outranked a generated component, and every visual change turned into an argument with a cascade written elsewhere. The second attempt reached the point of shipping `class-variance-authority`, `tailwind-merge`, `clsx`, `cmdk`, `sonner`, `react-resizable-panels` and `next-themes` before it was reverted.\n\nThe normative design is the owner's own: `Workfile - Rediseño.dc.html`, already a complete look with its oklch palette, the Geist and Geist Mono pairing, a 13px base and a named pattern for every surface. A framework was never adding a design here — it was translating one that already existed.\n\nThis record was written on 2026-07-31, well after the fact. Four source files had been citing `ADR-0010` for the decision and no such record existed; `ADR-0009`, `T-0100` and `T-0101` are cited in the same comments and are equally unresolvable, carried over from a numbering this workspace never had. Workfile's own graph already flagged them: the demo snapshot records `ADR-0009` as a mention with `exists: false`.\n\nConfirmed 2026-07-31: the owner verified both reverted migrations are real history from the predecessor codebase, before this repository's initial commit — which is why this git history shows no trace of them. The plan for the third migration, made under this record's intended friction, is [[ADR-0005]].\n\n## Decision\n\nThe interface has no framework underneath it. `ui/src/styles.css` is the entire design system: the tokens and the component classes, in one file, ported 1:1 from the normative spec.\n\nThe rules that follow from it, each one enforced by `test/design-system.test.ts` rather than by memory:\n\n- No framework import reaches the stylesheet — no `@import \"tailwindcss\"`, no `@import \"shadcn\"`, no `@source`, no `@theme`. The typeface is bundled through `@fontsource-variable`, not linked from a CDN.\n- The framework packages stay out of `package.json`, by name. `dependencies` is exactly `@types/node`, so the published package carries no runtime tree at all.\n- No component imports through the deleted `@/` alias or references the deleted `components/ui/` registry.\n- Components name tokens, never colours. Status, priority and severity are the `--status-*`, `--priority-*` and `--sev-*` custom properties, applied inline through the helpers in `ui/src/theme.ts`.\n- Every `var()` a component references is declared in the stylesheet, checked as a set difference — a typo'd token does not error, it silently drops the declaration.\n- Themes switch on `data-theme` on the root element.\n\nAdding a surface means using the existing vocabulary — the layout, text, control and pattern class families listed at the top of `styles.css` — or adding a named token and a named class to that file. There is no generator.\n\n## Consequences\n\n- A visual change is an edit to a named token or a named class. That is the whole point: the cost of the bespoke system is paid once, in the file, instead of continuously in cascade conflicts.\n- `radix-ui` and `lucide-react` remain devDependencies and are genuinely used — behaviour primitives and icons, not a look. They are not the rejected layer, and the tests do not forbid them.\n- Proposing a framework again means arguing with two reverted migrations and this record, which is the intended friction. The lesson is not \"frameworks are bad\": it is that adopting one means adopting its look wholesale, and this project already owns a complete look.\n- The stylesheet is long by design and will keep growing. That is accepted; a single file that can be read top to bottom beats a distributed system whose behaviour emerges from layer order.\n- The guard against `shadcn add` writing into `dependencies` stays load-bearing even with the registry gone: it is what keeps an experiment from publishing React into every consumer's install.",
+                "status": "superseded",
+                "superseded_by": [
+                    "ADR-0005"
+                ],
                 "created": "2026-07-31",
                 "updated": "2026-07-31",
-                "revision": "sha256:83770c51cbf8ae21a9c6a01a6a4375ef213b1a5b20fc203d7dea3f38711326cc",
+                "revision": "sha256:9a70bebe1675cda660a0ae0444f2e19b61a22618c36d79208c452dc6f2068715",
                 "metadata": {
                     "id": "ADR-0004",
                     "title": "The stylesheet is the whole design system: no framework under the interface",
-                    "status": "accepted",
+                    "status": "superseded",
                     "created": "2026-07-31",
-                    "updated": "2026-07-31"
+                    "updated": "2026-07-31",
+                    "superseded_by": [
+                        "ADR-0005"
+                    ]
                 },
                 "outgoing": [
+                    {
+                        "id": "ADR-0005",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "memory",
+                        "title": "The third shadcn migration: no coexistence, the framework look wins",
+                        "path": ".project/memory/decisions/ADR-0005-the-third-shadcn-migration-no-coexistence-the-framework-look-wins.md"
+                    },
                     {
                         "id": "ADR-0010",
                         "relation": "mention",
@@ -3129,7 +3232,7 @@
                         "exists": false
                     }
                 ],
-                "incomingTotal": 2,
+                "incomingTotal": 3,
                 "incoming": [
                     {
                         "id": "T-0036",
@@ -3138,10 +3241,116 @@
                         "title": "The interface doc describes a design system that was deleted"
                     },
                     {
+                        "id": "T-0038",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Migrate the UI to shadcn/ui with no coexistence"
+                    },
+                    {
+                        "id": "ADR-0005",
+                        "relation": "reference",
+                        "kind": "memory",
+                        "title": "The third shadcn migration: no coexistence, the framework look wins"
+                    }
+                ],
+                "issues": [],
+                "lifecycleIssues": [],
+                "searchScore": 0
+            },
+            {
+                "id": "ADR-0005",
+                "kind": "memory",
+                "recordType": "decisions",
+                "collection": "decisions",
+                "title": "The third shadcn migration: no coexistence, the framework look wins",
+                "path": ".project/memory/decisions/ADR-0005-the-third-shadcn-migration-no-coexistence-the-framework-look-wins.md",
+                "file": "ADR-0005-the-third-shadcn-migration-no-coexistence-the-framework-look-wins.md",
+                "body": "## Context\n\n[[ADR-0004]] demands that a third framework migration argue against the two reverted ones. On 2026-07-31 the owner confirmed both reverted attempts are real history — they happened in the predecessor codebase, before this repository's initial commit, which is why no trace of them exists in this git history — and delivered that argument as a design package: `design/shadcn-migration-note.dc.html` (the response to ADR-0004) and `design/shadcn-redesign.dc.html` (the normative mockup). The owner's summary of the previous attempts, made without a design-first spec: \"fue horrible\".\n\nThe note's diagnosis of both failures is **coexistence by layers**: the bespoke and generated systems lived side by side, tokens shared names with different meanings (Workfile's `--accent` was brand blue; shadcn's, a hover grey), and a legacy element selector always beat a generated class in the cascade. The documented result: cards closed as done with dozens of native buttons and the hand-written CSS intact underneath.\n\nThe mockup renders a fictional future workspace (v0.7.0-rc.2, 1,244 records). Its record IDs — ADR-0009, T-0100, CONV-0003, CHG-0082, LRN-0008 — are set dressing, not citable records; copying them into source comments is what left the dangling citations T-0036 cleaned up.\n\n## Decision\n\nMigrate the UI to shadcn/ui under the note's rules:\n\n1. **No coexistence.** The bespoke stylesheet is deleted in the same PR that introduces shadcn. There is no period with two competing cascades; a view is migrated or it does not build.\n2. **shadcn's look wins, with one named exception.** The zinc tokens are adopted as-is (14px base, 0.625rem radius, xs shadows). Workfile contributes only the semantic namespaces `--status-*`, `--priority-*` and `--sev-*`, which shadcn does not have, declared where no registry write can touch them. No re-tinting of generated components.\n3. **Radix stays.** `radix-ui` is already a used devDependency and every shadcn component still publishes for Radix. Switching primitive libraries in the same move as the design system would double the risk.\n4. **The zero-runtime-dependency guarantee is untouchable.** Everything the CLI installs moves to `devDependencies` in the same commit. `dependencies.test.ts` is not edited: it keeps asserting that `dependencies` is exactly `@types/node`.\n5. **The tests switch sides, they do not disappear.** `design-system.test.ts` is rewritten to assert the opposite direction: components live in `components/ui/`, no colour literal outside the three semantic namespaces, and no survivor of the bespoke vocabulary (`.btn`, `.chip`, `.tile`, …). The forbidden-package list (`cmdk`, `clsx`, `tailwind-merge`, …) is retired as part of the same rewrite — the ⌘K palette needs `cmdk`.\n6. **Domain conventions survive the framework.** Native select in table rows (never a portal select mid-row), implemented with shadcn's Native Select. Table density returns via the 40px compact row variant and the comfortable/compact toggle, not a fork of the component.\n\n**Component map, verified against ui.shadcn.com on 2026-07-31.** Every component the note maps exists in the current catalog: Sidebar, Breadcrumb, Badge, Input Group, Kbd, Data Table, Checkbox, Native Select, Button Group, Progress, Field, Item, Attachment, Card, Empty, Alert, Command, Spinner. Two entries live outside the components index and are equally real: **Typeset** (`/docs/typeset`, a CSS system that styles everything inside a `typeset` container — the natural fit for Workfile's rendered Markdown bodies) and the **scroll-fade** utility (`/docs/utils/scroll-fade`) the note assigns to Flow and Memory lists.\n\n**Accepted losses**, named by the note so nobody relitigates them mid-migration: the 13px base, the brand blue as primary action colour, and the top-to-bottom readability of a single `styles.css`.\n\n## Consequences\n\n- ADR-0004 remains in force until the migration lands — the tests it describes are still the shipped reality. When the migration PR merges, supersede it: `workfile memory supersede ADR-0004 --by ADR-0005`.\n- `docs/ui.md` gets rewritten again, one release after T-0036 rewrote it. Accepted: the doc follows the code, and `documentation.test.ts` keeps its named files honest either way.\n- The mockup is normative for structure, components and behaviour — **not for copy language**. It renders in Spanish; the shipped UI is and stays English unless the owner decides otherwise ([[workfile-records-in-english]] logic applies to the UI's public surface).\n- The density claim — that the 40px compact row preserves today's Explorer scanning density — is asserted by the note, not demonstrated by the mockup. The migration must prove it on the real Explorer with real data before the bespoke stylesheet is deleted, because after deletion there is no cheap way back.\n- `pnpm dlx shadcn add` regains a place in the workflow, and with it the guard rails: registry writes go through `-D` corrections exactly as `docs/ui.md` will re-teach.",
+                "status": "accepted",
+                "supersedes": [
+                    "ADR-0004"
+                ],
+                "created": "2026-07-31",
+                "updated": "2026-07-31",
+                "revision": "sha256:dcf8e5acd3ba3fa9ede28039bb9435f1e4ea37dc7960c273ca569afc24ddabce",
+                "metadata": {
+                    "id": "ADR-0005",
+                    "title": "The third shadcn migration: no coexistence, the framework look wins",
+                    "status": "accepted",
+                    "created": "2026-07-31",
+                    "updated": "2026-07-31",
+                    "supersedes": [
+                        "ADR-0004"
+                    ]
+                },
+                "outgoing": [
+                    {
+                        "id": "ADR-0004",
+                        "relation": "reference",
+                        "exists": true,
+                        "kind": "memory",
+                        "title": "The stylesheet is the whole design system: no framework under the interface",
+                        "path": ".project/memory/decisions/ADR-0004-the-stylesheet-is-the-whole-design-system-no-framework-under-the-inter.md"
+                    },
+                    {
+                        "id": "ADR-0009",
+                        "relation": "mention",
+                        "exists": false
+                    },
+                    {
+                        "id": "T-0100",
+                        "relation": "mention",
+                        "exists": false
+                    },
+                    {
+                        "id": "CONV-0003",
+                        "relation": "mention",
+                        "exists": false
+                    },
+                    {
+                        "id": "CHG-0082",
+                        "relation": "mention",
+                        "exists": false
+                    },
+                    {
+                        "id": "LRN-0008",
+                        "relation": "mention",
+                        "exists": false
+                    },
+                    {
+                        "id": "T-0036",
+                        "relation": "mention",
+                        "exists": true,
+                        "kind": "card",
+                        "title": "The interface doc describes a design system that was deleted",
+                        "path": ".project/cards/T-0036-the-interface-doc-describes-a-design-system-that-w.md"
+                    }
+                ],
+                "incomingTotal": 4,
+                "incoming": [
+                    {
+                        "id": "T-0036",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "The interface doc describes a design system that was deleted"
+                    },
+                    {
+                        "id": "T-0038",
+                        "relation": "mention",
+                        "kind": "card",
+                        "title": "Migrate the UI to shadcn/ui with no coexistence"
+                    },
+                    {
                         "id": "PATH-FC5FCAFC7AD8",
                         "relation": "mention",
                         "kind": "doc",
                         "title": "The interface"
+                    },
+                    {
+                        "id": "ADR-0004",
+                        "relation": "reference",
+                        "kind": "memory",
+                        "title": "The stylesheet is the whole design system: no framework under the interface"
                     }
                 ],
                 "issues": [],
@@ -3297,13 +3506,13 @@
                 "searchScore": 0
             }
         ],
-        "total": 6,
+        "total": 7,
         "offset": 0,
         "limit": 500,
         "view": "full"
     },
     "changelogRender": {
-        "public": "# Changelog\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
+        "public": "# Changelog\n\n## Unreleased\n\n### Changed\n\n- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)\n\n## 0.1.5 — 2026-07-31\n\n### Fixed\n\n- The CLI and the docs no longer teach the removed project binary (T-0035)\n- The interface doc describes the design system that actually ships (T-0036)\n\n## 0.1.4 — 2026-07-30\n\n### Added\n\n- workfile upgrade: one command resyncs every generated surface after a bump (T-0029)\n\n### Fixed\n\n- Syncing over nested-era files sweeps orphan managed markers (T-0025)\n\n## 0.1.3 — 2026-07-30\n\n### Fixed\n\n- Hybrid search picks provider candidates by lexical relevance, not index order\n- The first embedding pass batches, persists per batch and caps ONNX at half the cores\n- search-local docs teach the guarded config import; first-party provider documented in the README\n\n## 0.1.2 — 2026-07-30\n\n### Added\n\n- Duplicate card IDs after a merge now heal deterministically (T-0019)\n- First-party local embeddings search provider: @illodev/workfile-search-local (T-0018)\n- Semantic search providers now load from project.config.mjs on every surface (T-0020)\n\n### Changed\n\n- Workspace packages version and release in lockstep with the core (T-0022)\n\n### Security\n\n- sharp overridden to 0.35.0, clearing high-severity libvips CVEs (T-0023)\n\n## 0.1.1 — 2026-07-30\n\n### Changed\n\n- The README introduces the Claude Code plugin and the MCP inventory lists all 30 tools (T-0005)\n\n### Fixed\n\n- Releasing a claim keeps the card status; only doing returns to next (T-0004)\n- The watcher survives Windows 8.3 short paths and idle macOS processes (T-0002)\n- A scalar scope no longer crashes the board: list keys normalize in every mutation (T-0007)\n",
         "internal": "# Changelog\n\n## 0.1.5 — 2026-07-31\n\n### Changed\n\n- Repository scripts and tests run as TypeScript via native type stripping\n\n## 0.1.4 — 2026-07-30\n\n### Changed\n\n- The repository becomes a pnpm monorepo with commit hooks\n"
     }
 }

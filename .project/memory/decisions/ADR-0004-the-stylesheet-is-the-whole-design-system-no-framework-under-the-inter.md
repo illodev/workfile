@@ -1,9 +1,10 @@
 ---
 id: ADR-0004
 title: "The stylesheet is the whole design system: no framework under the interface"
-status: accepted
+status: superseded
 created: 2026-07-31
 updated: 2026-07-31
+superseded_by: [ADR-0005]
 ---
 ## Context
 

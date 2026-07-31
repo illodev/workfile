@@ -316,8 +316,9 @@ try {
         2500
     );
 
-    // One search across every collection.
-    await glide(page.locator(".searchbtn"), 250);
+    // One search across every collection. The trigger is the outline Button
+    // whose label reads "Search N records…" (shadcn shell, ADR-0005).
+    await glide(page.getByRole("button", { name: /Search .*records/ }), 250);
     await click();
     await caption("One search across everything", 300);
     await page.keyboard.type("watcher", { delay: 120 });

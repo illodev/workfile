@@ -1,7 +1,7 @@
 ---
 id: T-0038
 title: Migrate the UI to shadcn/ui with no coexistence
-status: review
+status: done
 type: epic
 priority: high
 area: ui
@@ -42,6 +42,8 @@ Execute the third shadcn migration under ADR-0005's rules. The normative spec is
 
 - 2026-07-31 10:17Z claude-fable-4df73848 · claimed
 - 2026-07-31 11:09Z claude-fable-4df73848 · doing → review
+- 2026-07-31 11:19Z claude-fable-4df73848 · review → done
+- 2026-07-31 11:19Z claude-fable-4df73848 · released
 
 ## Notes
 
@@ -58,3 +60,4 @@ Execute the third shadcn migration under ADR-0005's rules. The normative spec is
   **Runtime evidence.** `pnpm run check` exit 0 — 174 tests, 0 failures, strict ratchet clean (it caught and forced the fix of 1 strict error in the rewritten test). `smoke:package`: tarball installs clean, React absent from the consumer tree. `build:demo` compiles. Full screenshot sweep of all 10 views, light + dark, real workspace served by the real binary. Invariants passed UNEDITED: `dependencies.test.ts`, `demo-parity.test.ts`, `documentation.test.ts` (over the rewritten `docs/ui.md`).
 
   **Debt, recorded not hidden:** the fixed 3 design-system failures were real mid-flight states, not test looseness; `tokens.test.ts`'s theme-parity check was green-but-vacuous before this branch (parser compared light with itself) and now walks braces; there is still no in-UI control to set `data-density` — follow-up card needed if the toggle should exist; the sticky-header fix keys off the registry's `data-slot="table-container"` attribute and would silently revert if the registry renames it (noted in Explorer's code comment).
+- 2026-07-31 11:19Z claude-fable-4df73848 — Merged to main as PR #9 (fc69b96). ADR-0004 formally superseded by ADR-0005 via memory supersede, closing the loop the ADR deferred to landing. The hosted demo and the README media still show the bespoke UI; screenshot and video refresh runs next, outside this card's scope.
