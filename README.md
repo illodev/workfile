@@ -20,7 +20,7 @@ is kept in the browser or in a database.
 repository's own workspace: the real cards, releases, incidents and learnings of
 Workfile's development. Mutations work per browser session and reset on reload.
 
-https://github.com/user-attachments/assets/c86847e8-e141-423e-9593-cbebf5e5d427
+https://github.com/user-attachments/assets/eb3ae94b-6635-4faa-bd58-33197a6d9abc
 
 ## Used by
 
