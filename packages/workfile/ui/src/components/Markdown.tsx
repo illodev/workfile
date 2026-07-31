@@ -1,5 +1,7 @@
 import { Fragment, memo, type ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 /**
  * The record-body renderer, extracted from the old Drawer so every surface
  * (inspector, docs pane, triage reading pane) shares one parser.
@@ -104,10 +106,17 @@ function splitTableRow(line: string) {
 
 export const MarkdownBody = memo(function MarkdownBody({
     source,
-    onOpen
+    onOpen,
+    className
 }: {
     source: string;
     onOpen?: (recordId: string) => void;
+    /**
+     * Applied to the `.typeset` element itself, which is the only place
+     * `--typeset-size` can be set: the stylesheet declares it on `.typeset`,
+     * so a value inherited from a wrapper loses to the local declaration.
+     */
+    className?: string;
 }) {
     const lines = source.split(/\r?\n/);
     const nodes: ReactNode[] = [];
@@ -268,5 +277,5 @@ export const MarkdownBody = memo(function MarkdownBody({
     }
     flushParagraph();
     flushList();
-    return <div className="typeset">{nodes}</div>;
+    return <div className={cn("typeset", className)}>{nodes}</div>;
 });

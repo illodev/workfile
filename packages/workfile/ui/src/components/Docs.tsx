@@ -39,6 +39,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { api } from "../api";
+import { READING_MEASURE } from "../layout";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
@@ -491,7 +492,12 @@ export function DocsView({
                 </div>
             </aside>
 
-            <section className="min-w-0 flex-1 overflow-y-auto px-8.5 py-6.5">
+            {/* The reader ran the full width of the pane, which on a wide
+                display is a line nobody finishes. The measure is on an inner
+                wrapper rather than the scroller so the scrollbar stays at the
+                edge of the pane, where it belongs. */}
+            <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6.5 sm:px-8.5">
+                <div className={READING_MEASURE}>
                 {active ? (
                     <>
                         <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
@@ -669,6 +675,7 @@ export function DocsView({
                             : "Select a document from the list to read it."}
                     </div>
                 )}
+                </div>
             </section>
 
             <Dialog

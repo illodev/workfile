@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/empty";
 import { Kbd } from "@/components/ui/kbd";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
+import { READING_MEASURE } from "../layout";
 import { PRIORITIES, type Priority, type Status, type Task } from "../types";
 import { MarkdownBody } from "./Markdown";
 import { priorityColor, statusColor } from "../theme";
@@ -205,7 +207,7 @@ export function TriageView({
                 </Button>
             </div>
 
-            <div className="max-w-[820px] px-[34px] py-7">
+            <div className={cn(READING_MEASURE, "px-6 py-7 sm:px-8")}>
                 <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
                     <span>{task.id}</span>
                     <span className="text-muted-foreground/60">·</span>

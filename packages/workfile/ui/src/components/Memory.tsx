@@ -1109,7 +1109,12 @@ function DetailPanel({
                     issues={record.lifecycleIssues || []}
                     kind="lifecycle"
                 />
+                {/* `.typeset` inherits the 16px document root, so the record
+                    body rendered a size larger than anything around it — the
+                    panel's own metadata is 11px and the app's body text 14.
+                    This is a side panel, not a document reader. */}
                 <MarkdownBody
+                    className="[--typeset-size:0.875rem]"
                     source={record.body || "No details recorded."}
                     onOpen={onOpenRecord}
                 />
