@@ -9,7 +9,7 @@
       "name": "workfile",
       "source": "./plugins/workfile",
       "description": "Repository-native Work, Docs, History and Memory for humans and agents. Registers the MCP server, adds slash commands, and makes card claims an executable guard rail.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "author": {
         "name": "illodev"
       },
