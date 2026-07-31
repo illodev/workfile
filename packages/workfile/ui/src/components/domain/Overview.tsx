@@ -557,7 +557,7 @@ export function OverviewView({
                             key={task.id}
                             type="button"
                             onClick={() => onOpen(task.id)}
-                            className="flex min-h-[var(--row-h)] items-center gap-2.5 rounded-sm px-1.5 text-left hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                            className="flex min-h-[var(--row-h)] flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-sm px-1.5 py-1 text-left hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                         >
                             <span
                                 aria-hidden="true"
@@ -567,10 +567,15 @@ export function OverviewView({
                             <span className="w-[62px] shrink-0 font-mono text-[11px]">
                                 {task.id}
                             </span>
-                            <span className="flex-1 truncate text-[12.5px]">
+                            <span className="min-w-[9rem] flex-1 truncate text-[12.5px]">
                                 {task.title}
                             </span>
-                            <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70">
+                            {/* The strip is `shrink-0` because abbreviating
+                                "never claimed" tells you nothing; below `sm` it
+                                takes a line of its own instead, indented past
+                                the dot, the id and their two gaps (7+10+62+10)
+                                so it reads as belonging to the title above. */}
+                            <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70 max-sm:basis-full max-sm:pl-[89px]">
                                 {task.priority} · {task.area} · {task.type} ·{" "}
                                 {task.status}
                                 {trail.length && !touched.has(task.id)
@@ -614,7 +619,7 @@ export function OverviewView({
                     {shownTrail.map((row, index) => (
                         <div
                             key={row.key}
-                            className="flex min-h-[var(--row-h)] items-center gap-2.5 px-1.5"
+                            className="flex min-h-[var(--row-h)] flex-wrap items-center gap-x-2.5 gap-y-0.5 px-1.5 py-1"
                         >
                             {/* The day is stated only when it changes. Without
                                 it a feed spanning days reads as though it were
@@ -629,8 +634,16 @@ export function OverviewView({
                             <span className="w-[52px] shrink-0 font-mono text-[11px] text-muted-foreground">
                                 {row.time}Z
                             </span>
+                            {/* Below `sm` the five columns are re-cut into two
+                                lines — when, then who and what — because the
+                                fixed widths add up to 460px and the sentence,
+                                which is the only column carrying meaning, is
+                                the one that falls off a 390px screen. `order`
+                                rather than a second markup path: the actor and
+                                the sentence read as a pair, so they move down
+                                together and the timestamps keep their grid. */}
                             <span
-                                className="w-[178px] shrink-0 truncate font-mono text-[10.5px] text-muted-foreground/70"
+                                className="w-[178px] shrink-0 truncate font-mono text-[10.5px] text-muted-foreground/70 max-sm:order-1 max-sm:w-auto max-sm:max-w-[9rem]"
                                 title={row.actor}
                             >
                                 {row.actor}
@@ -638,7 +651,7 @@ export function OverviewView({
                             {/* Fixed width so the sentence column lines up:
                                 a three-card burst must not push its own verb
                                 out past the single-card rows above it. */}
-                            <span className="flex w-[186px] shrink-0 gap-1.5">
+                            <span className="flex w-[186px] shrink-0 gap-1.5 max-sm:w-auto">
                                 {row.cards.slice(0, 3).map((id) => (
                                     <button
                                         key={id}
@@ -655,7 +668,7 @@ export function OverviewView({
                                     </span>
                                 ) : null}
                             </span>
-                            <span className="flex-1 truncate text-[12.5px] text-muted-foreground">
+                            <span className="flex-1 truncate text-[12.5px] text-muted-foreground max-sm:order-2 max-sm:min-w-[9rem] max-sm:pl-[54px]">
                                 {row.text}
                             </span>
                         </div>
@@ -683,7 +696,7 @@ export function OverviewView({
                 </p>
             )}
 
-            <div className="flex items-center gap-2.5 px-0.5 pt-5 pb-1">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-0.5 pt-5 pb-1">
                 <span className="font-mono text-[11px] text-muted-foreground">
                     {tasks.length.toLocaleString()} cards
                     {moduleCounts.docs == null
@@ -696,8 +709,9 @@ export function OverviewView({
                         ? ` · ${history.length.toLocaleString()} history records`
                         : ""}
                 </span>
-                <span className="flex-1" />
-                <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                {/* `ml-auto` rather than a flex-1 spacer: a spacer element in
+                    a wrapping row claims a line of its own. */}
+                <span className="ml-auto font-mono text-[10.5px] text-muted-foreground/70">
                     {health
                         ? `checked ${new Intl.DateTimeFormat(undefined, {
                               dateStyle: "medium",
@@ -713,11 +727,13 @@ export function OverviewView({
 /** The section rule the two lists share: a label, a hairline, an honest note. */
 function Rule({ label, note }: { label: string; note: string }) {
     return (
-        <div className="flex items-center gap-2.5 px-0.5 pt-5 pb-1">
+        <div className="flex flex-wrap items-center gap-x-2.5 px-0.5 pt-5 pb-1">
             <span className="font-mono text-[11px] tracking-wide uppercase">
                 {label}
             </span>
-            <span className="h-px flex-1 bg-border" />
+            {/* The hairline keeps a minimum so it still reads as a rule once
+                the note wraps below it on a narrow screen. */}
+            <span className="h-px min-w-8 flex-1 bg-border" />
             <span className="font-mono text-[10.5px] text-muted-foreground/70">
                 {note}
             </span>

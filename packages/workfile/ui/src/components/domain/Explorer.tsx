@@ -10,7 +10,7 @@ import {
     type SetStateAction
 } from "react";
 
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -26,6 +26,13 @@ import {
     NativeSelectOption
 } from "@/components/ui/native-select";
 import { Progress } from "@/components/ui/progress";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger
+} from "@/components/ui/sheet";
 import {
     Table,
     TableBody,
@@ -518,65 +525,128 @@ export function Explorer({
         }
     }
 
+    /*
+     * The facets are written once and mounted twice: pinned beside the table
+     * from `lg` up, and behind a sheet below it. The rail is 204px against a
+     * table that already needs more room than a phone has, so at 390 the two
+     * of them left about 180px for nine columns — the facets were not narrow,
+     * they were taking the whole view.
+     */
+    const facets = (
+        <>
+            <FacetGroup
+                title="status"
+                values={STATUSES}
+                counts={counts.status}
+                selected={filters.status}
+                color={statusColor}
+                onSelect={(status) =>
+                    setFilters((current) => ({
+                        ...current,
+                        status: status as Filters["status"]
+                    }))
+                }
+            />
+            <FacetGroup
+                title="priority"
+                values={PRIORITIES}
+                counts={counts.priority}
+                selected={filters.priority}
+                color={priorityColor}
+                onSelect={(priority) =>
+                    setFilters((current) => ({
+                        ...current,
+                        priority: priority as Filters["priority"]
+                    }))
+                }
+            />
+            <FacetGroup
+                title="area"
+                values={areas}
+                counts={counts.area}
+                selected={filters.area}
+                onSelect={(area) =>
+                    setFilters((current) => ({
+                        ...current,
+                        area: area as Filters["area"]
+                    }))
+                }
+            />
+            <FacetGroup
+                title="type"
+                values={TYPES}
+                counts={counts.type}
+                selected={filters.type}
+                onSelect={(type) =>
+                    setFilters((current) => ({
+                        ...current,
+                        type: type as Filters["type"]
+                    }))
+                }
+            />
+        </>
+    );
+
+    const narrowed = [
+        filters.status,
+        filters.priority,
+        filters.area,
+        filters.type
+    ].filter(Boolean).length;
+
     return (
         <div className="flex min-h-0 flex-1">
             <aside
                 aria-label="Backlog facets"
-                className="flex w-[204px] flex-none flex-col gap-5 overflow-y-auto border-r px-3.5 py-4"
+                className="hidden w-[204px] flex-none flex-col gap-5 overflow-y-auto border-r px-3.5 py-4 lg:flex"
             >
-                <FacetGroup
-                    title="status"
-                    values={STATUSES}
-                    counts={counts.status}
-                    selected={filters.status}
-                    color={statusColor}
-                    onSelect={(status) =>
-                        setFilters((current) => ({
-                            ...current,
-                            status: status as Filters["status"]
-                        }))
-                    }
-                />
-                <FacetGroup
-                    title="priority"
-                    values={PRIORITIES}
-                    counts={counts.priority}
-                    selected={filters.priority}
-                    color={priorityColor}
-                    onSelect={(priority) =>
-                        setFilters((current) => ({
-                            ...current,
-                            priority: priority as Filters["priority"]
-                        }))
-                    }
-                />
-                <FacetGroup
-                    title="area"
-                    values={areas}
-                    counts={counts.area}
-                    selected={filters.area}
-                    onSelect={(area) =>
-                        setFilters((current) => ({
-                            ...current,
-                            area: area as Filters["area"]
-                        }))
-                    }
-                />
-                <FacetGroup
-                    title="type"
-                    values={TYPES}
-                    counts={counts.type}
-                    selected={filters.type}
-                    onSelect={(type) =>
-                        setFilters((current) => ({
-                            ...current,
-                            type: type as Filters["type"]
-                        }))
-                    }
-                />
+                {facets}
             </aside>
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <div className="flex flex-none items-center gap-2 px-3.5 pt-2.5 lg:hidden">
+                    <Sheet>
+                        <SheetTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1.5 px-2.5 text-xs"
+                            >
+                                <SlidersHorizontal className="size-3.5" />
+                                Facets
+                                {narrowed ? (
+                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                        {narrowed}
+                                    </span>
+                                ) : null}
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent
+                            side="left"
+                            className="w-[280px] gap-0 sm:max-w-[280px]"
+                        >
+                            <SheetHeader className="pb-2">
+                                <SheetTitle className="font-mono text-[11px] tracking-wide uppercase">
+                                    Facets
+                                </SheetTitle>
+                            </SheetHeader>
+                            <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
+                                {facets}
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                    {/* The table below scrolls sideways rather than becoming a
+                        different view: sorting, selection, inline edit and the
+                        virtualization all measure one grid, and a second
+                        card-shaped implementation of them would be a second
+                        set of bugs. */}
+                    <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                        {sorted.length.toLocaleString()} row
+                        {sorted.length === 1 ? "" : "s"} · scroll sideways for
+                        every column
+                    </span>
+                </div>
+
                 {selected.size > 0 && (
                     <div
                         role="region"
