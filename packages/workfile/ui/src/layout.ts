@@ -13,11 +13,13 @@
 export const READING_MEASURE = "mx-auto w-full max-w-[72ch]";
 
 /**
- * Below this the shell stops being a desktop app: the sidebar yields, the
- * breadcrumb sheds segments, and list-plus-detail views collapse to one column.
+ * List-plus-detail views collapse to one pane below Tailwind's `lg` (1024px),
+ * not at the registry sidebar's 768.
  *
- * Tailwind's `lg` is 1024px and that is where the views measurably break —
- * Memory's fixed 380px columns stop fitting two at a time, and Docs' split pane
- * gives each half less than 400px.
+ * 768 is the worst width in the app, not a safe one: the sidebar still holds
+ * its full 240px there — its overlay mode starts *below* 768 — so a split pane
+ * gets about 260px a side. Measured at 768 before this changed, the Docs reader
+ * wrapped its title over three lines. The two thresholds are deliberate: the
+ * sidebar yields at 768 because that is the registry's contract, and the views
+ * yield at 1024 because that is where they actually stop fitting.
  */
-export const COMPACT_BREAKPOINT = 1024;

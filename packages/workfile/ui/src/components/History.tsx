@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, Plus, X } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -968,7 +968,15 @@ export function HistoryView({
     return (
         <div className="flex min-h-0 flex-1">
             {/* ------------------------------------------------ left rail */}
-            <div className="flex w-[400px] shrink-0 flex-col border-r">
+            {/* Narrow: one pane at a time, the same rule Docs and Memory
+                follow. A 400px rail beside a reader needs a viewport neither
+                768 nor 390 has. */}
+            <div
+                className={cn(
+                    "w-full shrink-0 flex-col border-r lg:flex lg:w-[400px]",
+                    active ? "hidden" : "flex"
+                )}
+            >
                 <div className="flex flex-col gap-2.5 p-3.5 pb-0">
                     <Card className="flex-row items-center gap-2.5 border-primary bg-primary/10 p-3">
                         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -1071,9 +1079,24 @@ export function HistoryView({
             </div>
 
             {/* ----------------------------------------------- right pane */}
-            <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
+            <div
+                className={cn(
+                    "min-w-0 flex-1 overflow-y-auto px-6 py-5",
+                    active ? "block" : "hidden lg:block"
+                )}
+            >
                 {active ? (
                     <>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="-ml-2 mb-2 lg:hidden"
+                            onClick={() => onSelect("")}
+                        >
+                            <ChevronLeft aria-hidden="true" />
+                            All history
+                        </Button>
                         <div className="flex items-center gap-2 font-mono text-[11px]">
                             <span className="text-primary">{active.id}</span>
                             <span className="text-muted-foreground/60">·</span>

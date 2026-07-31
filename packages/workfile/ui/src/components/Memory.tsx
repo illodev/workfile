@@ -1047,7 +1047,7 @@ function DetailPanel({
     // bare `py-2` rendered with 24px underneath it. Setting the variable is how
     // the primitive means for a caller to ask for a denser card.
     return (
-        <Card className="w-[380px] flex-none gap-0 overflow-hidden rounded-xl py-0 [--card-spacing:--spacing(2)]">
+        <Card className="w-full flex-1 gap-0 overflow-hidden rounded-xl py-0 [--card-spacing:--spacing(2)] lg:w-[380px] lg:flex-none">
             <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
                 <span className="font-mono text-[11px] text-muted-foreground">
                     {record.id}
@@ -1286,8 +1286,11 @@ export function MemoryView({
 
     return (
         <>
-            <div className="flex items-center gap-2 px-3.5 pt-3.5">
-                <InputGroup className="w-[260px]">
+            {/* Wraps rather than compressing: the row used to squeeze the
+                search field to about 40px and clip the record count against the
+                edge. The count goes last so it drops to its own line first. */}
+            <div className="flex flex-wrap items-center gap-2 px-3.5 pt-3.5">
+                <InputGroup className="w-full min-w-[180px] sm:w-[260px]">
                     <InputGroupAddon>
                         <Search aria-hidden="true" />
                     </InputGroupAddon>
@@ -1319,7 +1322,7 @@ export function MemoryView({
                     }))}
                     onChange={setStatus}
                 />
-                <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
                     {loading ? (
                         <>
                             <Spinner aria-hidden="true" className="size-3" />
@@ -1341,7 +1344,15 @@ export function MemoryView({
                 </Alert>
             ) : null}
             <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3.5">
-                <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
+                {/* Narrow: the detail replaces the lanes instead of competing
+                    with them for a viewport that fits neither. The panel keeps
+                    its own close control, which is the way back. */}
+                <div
+                    className={cn(
+                        "min-h-0 flex-1 gap-3 overflow-x-auto",
+                        active ? "hidden lg:flex" : "flex"
+                    )}
+                >
                     {lanes.map((lane) => (
                         <Card
                             key={lane.schema.id}

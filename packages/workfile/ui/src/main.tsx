@@ -1110,7 +1110,15 @@ function App() {
             <SidebarInset className="h-svh min-w-0 overflow-hidden">
                 <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
                     <SidebarTrigger className="shrink-0" />
-                    <Breadcrumb aria-label="Breadcrumb" className="min-w-0">
+                    {/* The breadcrumb is the first thing to go when the bar
+                        runs out of room: it repeats what the view header says
+                        one line below, while the search field and New card are
+                        the reason the bar exists. Left in place it simply
+                        overlapped them. */}
+                    <Breadcrumb
+                        aria-label="Breadcrumb"
+                        className="hidden min-w-0 lg:block"
+                    >
                         <BreadcrumbList className="flex-nowrap gap-1.5 font-mono text-xs sm:gap-1.5">
                             <BreadcrumbItem>.project</BreadcrumbItem>
                             <BreadcrumbSeparator>/</BreadcrumbSeparator>
@@ -1139,7 +1147,7 @@ function App() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="ml-auto w-80 min-w-0 shrink justify-start px-2.5 font-normal text-muted-foreground"
+                        className="ml-auto w-full min-w-0 max-w-80 shrink justify-start px-2.5 font-normal text-muted-foreground"
                         onClick={() => setShowPalette(true)}
                     >
                         <Search aria-hidden="true" className="size-3.5" />
@@ -1149,7 +1157,7 @@ function App() {
                                 ? `${indexedTotal.toLocaleString()} records…`
                                 : "records…"}
                         </span>
-                        <Kbd>⌘K</Kbd>
+                        <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
                     </Button>
                     <Button
                         type="button"
@@ -1189,11 +1197,13 @@ function App() {
                     <Button
                         type="button"
                         size="sm"
-                        className="shrink-0"
+                        title="New card"
+                        aria-label="New card"
+                        className="shrink-0 max-sm:size-8 max-sm:px-0"
                         onClick={() => setShowNewCard(true)}
                     >
                         <Plus aria-hidden="true" />
-                        New card
+                        <span className="max-sm:hidden">New card</span>
                     </Button>
                 </header>
 
@@ -1449,6 +1459,12 @@ function App() {
                     aria-label="Agent activity"
                     className="flex h-8 shrink-0 items-center gap-3 overflow-hidden border-t px-3 font-mono text-[10.5px] text-muted-foreground"
                 >
+                    {/* The claim ledger and the status badges used to be
+                        siblings in one row, and neither would yield: below
+                        ~900px they drew straight over each other. The ledger is
+                        the part that can wait — it is a detail of who is working
+                        where, and the badges are the app's health readout. */}
+                    <div className="hidden min-w-0 flex-1 items-center gap-3 overflow-hidden lg:flex">
                     {ledgerClaims.slice(0, 3).map((entry) => {
                         const tone =
                             entry.claim.state === "live"
@@ -1503,7 +1519,8 @@ function App() {
                     {!ledgerClaims.length && !activity?.conflicts.length ? (
                         <span>no active claims</span>
                     ) : null}
-                    <span className="flex-1" />
+                    </div>
+                    <div className="ml-auto flex shrink-0 items-center gap-3">
                     {health ? (
                         <Badge
                             asChild
@@ -1558,11 +1575,12 @@ function App() {
                         the tab and made the one control that means "busy" mean
                         nothing anywhere else in the app. */}
                     {indexedTotal ? (
-                        <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
                             <Database className="size-3" aria-hidden="true" />
                             index {indexedTotal.toLocaleString()} records
                         </span>
                     ) : null}
+                    </div>
                 </footer>
             </SidebarInset>
 

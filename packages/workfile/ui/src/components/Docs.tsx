@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+    ChevronLeft,
     Eye,
     Pencil,
     Search,
@@ -403,9 +404,16 @@ export function DocsView({
 
     return (
         <div className="flex min-h-0 flex-1">
+            {/* Narrow: one pane at a time. The list and the reader split a
+                viewport that cannot carry both — at 768 each got less than
+                400px — so opening a document hands it the whole width and the
+                Back control returns. */}
             <aside
                 aria-label="Documents"
-                className="flex w-[290px] shrink-0 flex-col min-h-0 border-r px-2 py-3"
+                className={cn(
+                    "min-h-0 w-full shrink-0 flex-col border-r px-2 py-3 lg:flex lg:w-[290px]",
+                    active ? "hidden" : "flex"
+                )}
             >
                 <div className="flex flex-col gap-2 pb-2.5">
                     <InputGroup className="h-8">
@@ -496,10 +504,25 @@ export function DocsView({
                 display is a line nobody finishes. The measure is on an inner
                 wrapper rather than the scroller so the scrollbar stays at the
                 edge of the pane, where it belongs. */}
-            <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6.5 sm:px-8.5">
+            <section
+                className={cn(
+                    "min-w-0 flex-1 overflow-y-auto px-6 py-6.5 sm:px-8.5",
+                    active ? "block" : "hidden lg:block"
+                )}
+            >
                 <div className={READING_MEASURE}>
                 {active ? (
                     <>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="-ml-2 mb-2 lg:hidden"
+                            onClick={() => onSelect("")}
+                        >
+                            <ChevronLeft aria-hidden="true" />
+                            All documents
+                        </Button>
                         <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
                             <span>{active.id}</span>
                             {SEPARATOR}

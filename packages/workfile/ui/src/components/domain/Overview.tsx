@@ -506,11 +506,11 @@ export function OverviewView({
                 </p>
             </div>
 
-            <div className="flex gap-2.5">
+            <div className="flex flex-wrap gap-2.5">
                 {tiles.map((tile) => (
                     <Card
                         key={tile.key}
-                        className="relative flex-1 gap-0 p-0"
+                        className="relative min-w-[13rem] flex-1 gap-0 p-0"
                     >
                         <Accent edge="left" color={tile.color} />
                         <button

@@ -171,7 +171,7 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                 ))}
             </div>
 
-            <div className="flex gap-2.5">
+            <div className="flex flex-wrap gap-2.5">
                 {LEVELS.map(({ level, label, hint, zeroHint }) => {
                     const count = report.counts[level];
                     const color =
@@ -181,7 +181,7 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                     return (
                         <Card
                             key={level}
-                            className="relative flex-1 gap-1 py-3 pl-5 pr-3.5"
+                            className="relative min-w-[13rem] flex-1 gap-1 py-3 pl-5 pr-3.5"
                         >
                             <Accent edge="left" color={color} />
                             <span className="flex items-baseline gap-2">
@@ -259,7 +259,7 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                             {issues.map((issue, issueIndex) => (
                                 <div
                                     key={`${issue.id || issue.file}-${issueIndex}`}
-                                    className="flex items-center gap-2.5 border-b px-3 py-[7px] last:border-0"
+                                    className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b px-3 py-[7px] last:border-0"
                                 >
                                     {issue.id ? (
                                         <Button
@@ -275,12 +275,12 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                                             —
                                         </span>
                                     )}
-                                    <span className="flex-1 text-[12.5px] text-muted-foreground">
+                                    <span className="min-w-[12rem] flex-1 text-[12.5px] text-muted-foreground">
                                         {issue.message}
                                     </span>
                                     {issue.file ? (
                                         <span
-                                            className="max-w-80 truncate font-mono text-[10.5px] text-muted-foreground/70"
+                                            className="max-w-full truncate font-mono text-[10.5px] text-muted-foreground/70 sm:max-w-80"
                                             title={issue.file}
                                         >
                                             {issue.file}
