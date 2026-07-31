@@ -128,6 +128,13 @@ export {
     renumberCard,
     reslugStaleCardFiles
 } from "./modules/health/renumber.js";
+export {
+    baselineMissing,
+    diffAgainstBaseline,
+    issueKey,
+    readDoctorBaseline,
+    writeDoctorBaseline
+} from "./modules/health/baseline.js";
 export { runUpgrade } from "./modules/upgrade/index.js";
 
 export { createProjectServer, startProjectServer } from "./server/http.js";

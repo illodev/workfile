@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -1223,4 +1223,86 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+// T-0058. doctor reported absolute state, so on a repository with inherited
+// debt a clean run and an unchanged dirty one looked alike and nothing could
+// require it. The baseline turns "is this clean" into "did I make it worse".
+test("doctor --new gates on what appeared since the accepted baseline", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-baseline-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await run([
+            "card", "create", "--root", root,
+            "--title", "Inherited debt", "--source", "docs/missing-a.md"
+        ]);
+
+        const missing = await outcome(["doctor", "--root", root, "--new", "--json"]);
+        assert.equal(missing.code, 1);
+        assert.equal(
+            JSON.parse(missing.stderr).error.code,
+            "DOCTOR_BASELINE_MISSING",
+            "--new without a baseline must say so rather than call everything new"
+        );
+
+        const accepted = JSON.parse(
+            (await run(["doctor", "--root", root, "--accept-baseline", "--json"])).stdout
+        );
+        assert.ok(accepted.baseline.accepted > 0);
+
+        // The committed file is meant to be read in a diff, not decoded.
+        const written = JSON.parse(
+            await readFile(join(root, ".project", "doctor-baseline.json"), "utf8")
+        );
+        assert.equal(written.version, 1);
+        assert.ok(
+            written.issues.some(
+                (entry) =>
+                    entry.code === "missing-source" &&
+                    entry.id === "T-0003" &&
+                    entry.count === 1
+            ),
+            "the baseline did not record readable fields"
+        );
+
+        const quiet = await outcome(["doctor", "--root", root, "--new", "--json"]);
+        assert.equal(quiet.code, 0, "an unchanged repository must pass the gate");
+        const quietReport = JSON.parse(quiet.stdout);
+        assert.deepEqual(quietReport.issues, []);
+        assert.equal(quietReport.baseline.known, accepted.baseline.accepted);
+        assert.equal(quietReport.baseline.resolved, 0);
+
+        await run([
+            "card", "create", "--root", root,
+            "--title", "Freshly broken", "--source", "docs/brand-new.md"
+        ]);
+        const regressed = await outcome(["doctor", "--root", root, "--new", "--json"]);
+        assert.equal(regressed.code, 1, "a new issue must fail the gate");
+        const report = JSON.parse(regressed.stdout);
+        assert.equal(report.issues.length, 1);
+        assert.equal(report.issues[0].id, "T-0004");
+        assert.equal(report.counts.error, 1);
+
+        // Two issues from one rule against two cards stay distinct, so clearing
+        // the older one is reported as resolved rather than cancelling the new.
+        await mkdir(join(root, "docs"), { recursive: true });
+        await writeFile(join(root, "docs", "missing-a.md"), "# now real\n");
+        const partly = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--new", "--json"])).stdout
+        );
+        assert.equal(partly.baseline.resolved, 1);
+        assert.equal(partly.issues.length, 1, "the resolved issue masked the new one");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// Found while testing the above: a boolean flag left off the no-value list is
+// assumed to consume the next token, so it swallowed the flag after it.
+// `doctor --fix --bogus` accepted `--bogus` and ran the repair anyway.
+test("a boolean flag does not swallow the flag after it", async () => {
+    const failed = await outcome(["doctor", "--fix", "--bogus", "--root", fixture]);
+    assert.equal(failed.code, 1);
+    assert.match(failed.stderr, /CLI_ARGUMENT_UNKNOWN/);
+    assert.match(failed.stderr, /--bogus/);
 });

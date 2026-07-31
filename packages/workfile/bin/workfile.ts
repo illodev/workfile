@@ -37,6 +37,10 @@ import {
     moveManagedDocument,
     normalizeError,
     NotFoundError,
+    baselineMissing,
+    diffAgainstBaseline,
+    readDoctorBaseline,
+    writeDoctorBaseline,
     NEXT_DEFAULT_LIMIT,
     NEXT_MAXIMUM_LIMIT,
     rankNextCards,
@@ -82,7 +86,11 @@ const USAGE: Record<string, string[]> = {
         "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]"
     ],
     schema: ["workfile schema [--root PATH] [--json]"],
-    doctor: ["workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]"],
+    doctor: [
+        "workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]",
+        "workfile doctor --new   # only what appeared since the baseline; exits 1 on anything new",
+        "workfile doctor --accept-baseline   # record the current state as known"
+    ],
     upgrade: [
         "workfile upgrade [--dry-run] [--json]   # resync every owned surface after a version bump"
     ],
@@ -203,7 +211,15 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--no-scripts"
     ],
     schema: [],
-    doctor: ["--rebuild-cache", "--severity", "--max-issues", "--fix", "--actor"],
+    doctor: [
+        "--rebuild-cache",
+        "--severity",
+        "--max-issues",
+        "--fix",
+        "--actor",
+        "--new",
+        "--accept-baseline"
+    ],
     upgrade: [],
     version: [],
     ui: ["--host", "--port", "--verbose"],
@@ -354,6 +370,11 @@ function assertKnownFlags(command) {
     const key = USAGE_ALIASES[command] || command;
     const known = new Set([...GLOBAL_FLAGS, ...(COMMAND_FLAGS[key] || [])]);
     if (!COMMAND_FLAGS[key]) return;
+    // Flags that take no value. Anything not listed here is assumed to consume
+    // the next token, which is how a boolean left off the list silently swallows
+    // the flag after it: `doctor --fix --bogus` accepted `--bogus` and ran the
+    // repair, while `doctor --bogus` correctly refused. Every boolean the
+    // commands actually read belongs here.
     const valueFlags = new Set(
         [...known].filter(
             (flag) =>
@@ -369,7 +390,15 @@ function assertKnownFlags(command) {
                     "--unreleased",
                     "--write",
                     "--with-body",
-                    "--unclaimed"
+                    "--unclaimed",
+                    "--fix",
+                    "--new",
+                    "--accept-baseline",
+                    "--rebuild-cache",
+                    "--duplicates",
+                    "--allow-new",
+                    "--verbose",
+                    "--no-scripts"
                 ].includes(flag)
         )
     );
@@ -1621,15 +1650,35 @@ async function main() {
             }
         }
         const report = await runDoctor(workspace);
+        if (has("--accept-baseline")) {
+            const accepted = await writeDoctorBaseline(workspace, report.issues);
+            return print(
+                has("--json")
+                    ? { baseline: accepted }
+                    : `Baseline accepted: ${accepted.accepted} issues (${accepted.distinct} distinct). \`doctor --new\` now reports only what appears after this.`
+            );
+        }
+        // `--new` answers a different question from plain `doctor`: not "is this
+        // repository clean" but "did I make it worse". On a repository carrying
+        // hundreds of inherited warnings only the second question can be a gate,
+        // which is why the exit code below follows newness here rather than
+        // errors. Anything already accepted is somebody's decision to live with
+        // it, and plain `doctor` is still where you go to see it.
+        let against: ReturnType<typeof diffAgainstBaseline> | null = null;
+        let issues = report.issues;
+        if (has("--new")) {
+            const baseline = await readDoctorBaseline(workspace);
+            if (!baseline) throw baselineMissing(workspace);
+            against = diffAgainstBaseline(report.issues, baseline);
+            issues = against.new;
+        }
         // A report that runs to hundreds of lines gets skimmed and then
         // ignored, which costs the warnings that were worth reading.
         const floor = option("--severity");
         const rank = { error: 0, warning: 1, info: 2 };
         const shown = floor
-            ? report.issues.filter(
-                  (issue) => rank[issue.severity] <= (rank[floor] ?? 2)
-              )
-            : report.issues;
+            ? issues.filter((issue) => rank[issue.severity] <= (rank[floor] ?? 2))
+            : issues;
         const cap = option("--max-issues")
             ? Math.max(0, Number(option("--max-issues")))
             : shown.length;
@@ -1640,27 +1689,31 @@ async function main() {
         // wrapped in everything you had just excluded. The filter now applies to
         // the whole report, and the excluded total stays on one line so it is
         // suppressed rather than hidden.
-        const counts = floor
-            ? shown.reduce(
-                  (totals, issue) => {
-                      totals[issue.severity] += 1;
-                      return totals;
-                  },
-                  { error: 0, warning: 0, info: 0 }
-              )
-            : report.counts;
-        const suppressed = report.issues.length - shown.length;
+        const counts =
+            floor || against
+                ? shown.reduce(
+                      (totals, issue) => {
+                          totals[issue.severity] += 1;
+                          return totals;
+                      },
+                      { error: 0, warning: 0, info: 0 }
+                  )
+                : report.counts;
+        const suppressed = issues.length - shown.length;
         if (has("--json")) {
             print({
                 ...report,
                 counts,
                 ...(floor ? { suppressed } : {}),
+                ...(against
+                    ? { baseline: { known: against.known, resolved: against.resolved } }
+                    : {}),
                 ...(fixed ? { fixed } : {}),
                 issues: shown.slice(0, cap)
             });
         } else {
             console.log(
-                `Workfile doctor: ${counts.error} errors, ${counts.warning} warnings`
+                `Workfile doctor${against ? " (new since baseline)" : ""}: ${counts.error} errors, ${counts.warning} warnings`
             );
             for (const issue of shown.slice(0, cap)) {
                 console.log(
@@ -1687,8 +1740,16 @@ async function main() {
                     console.log(`  ${String(count).padStart(5)}  ${code}`);
                 }
             }
+            if (against) {
+                console.log(
+                    `\n${against.known} known, ${against.resolved} resolved since the baseline.` +
+                        (against.resolved
+                            ? " Re-accept it with `doctor --accept-baseline`."
+                            : "")
+                );
+            }
         }
-        process.exitCode = report.ok ? 0 : 1;
+        process.exitCode = against ? (against.new.length ? 1 : 0) : report.ok ? 0 : 1;
         return;
     }
     if (command === "ui" || command === "serve") {

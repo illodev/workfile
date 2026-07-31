@@ -67,7 +67,16 @@ function resolvePaths(root: string, config: ProjectConfig) {
             "agents.workflowsPath"
         ),
         migrations: inside(root, `${config.storage.root}/migrations`, "storage.migrations"),
-        sources: inside(root, `${config.storage.root}/sources`, "storage.sources")
+        sources: inside(root, `${config.storage.root}/sources`, "storage.sources"),
+        // Tracked, not cached. A baseline under `storage.cache` would be
+        // per-clone and absent in CI, which is the one place a "nothing new"
+        // verdict has to hold. Committing it also puts accepted debt in the
+        // diff, where a reviewer can see it grow.
+        doctorBaseline: inside(
+            root,
+            `${config.storage.root}/doctor-baseline.json`,
+            "storage.doctorBaseline"
+        )
     };
 }
 

@@ -23,10 +23,32 @@ Exit codes: `3` stale revision · `2` configuration error · `1` validation / no
 workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
+workfile doctor --new              # only what appeared since the baseline
+workfile doctor --accept-baseline  # record the current state as known
 workfile upgrade [--dry-run] [--json]
 workfile ui [--host HOST] [--port PORT]
+workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
+
+`next` answers what to pick up now: work you already claimed first, then
+unblocked cards by priority, with unmet dependencies excluded rather than ranked
+low. Every row carries the reason it was offered. It is the same ranking the
+`project_next` MCP tool serves.
+
+`doctor` reports absolute state, which stops being useful the moment a
+repository carries inherited debt: a clean run and an unchanged dirty one look
+alike, so nobody can require it. `--accept-baseline` writes the current issue set
+to `.project/doctor-baseline.json`, and `--new` then reports only what appeared
+afterwards, exiting `1` on anything new and `0` otherwise.
+
+That file is committed on purpose. A baseline under the cache would be
+per-clone and missing in CI, which is the one place a "nothing new" verdict has
+to hold, and keeping it in the tree puts newly accepted debt in the diff where a
+reviewer can see it. Issues are matched on rule, subject and message, so two
+different problems from the same rule against the same card stay distinct.
+`--new` answers "did I make this worse"; plain `doctor` is still where you go to
+ask whether anything is wrong at all.
 
 `search` is lexical by default and becomes hybrid automatically when
 `project.config.mjs` declares an integration with a semantic search provider
