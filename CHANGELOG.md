@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8 — 2026-07-31
+
+### Added
+
+- The Overview states the workspace: one verdict, three proofs and the trail (T-0047)
+
 ## 0.1.7 — 2026-07-31
 
 ### Added
