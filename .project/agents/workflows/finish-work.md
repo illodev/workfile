@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=workflow-finish-work version=0.1.7 digest=sha256:0da282f5f7bb1041cf5fd83b9e0216c6d9a4be1a274e13777fd844827a800c40 -->
+<!-- workfile:begin kind=workflow-finish-work version=0.1.8 digest=sha256:0da282f5f7bb1041cf5fd83b9e0216c6d9a4be1a274e13777fd844827a800c40 -->
 # Finish work
 
 1. Run relevant tests, typecheck, lint and verification.

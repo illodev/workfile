@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-command-context version=0.1.7 digest=sha256:1f6e0e751347297735f95bce3b0b72ccb6755b481cb8baca163d733799f93058 -->
+<!-- workfile:begin kind=claude-command-context version=0.1.8 digest=sha256:1f6e0e751347297735f95bce3b0b72ccb6755b481cb8baca163d733799f93058 -->
 ---
 description: Load the protocol context for a card
 argument-hint: [T-0042]
