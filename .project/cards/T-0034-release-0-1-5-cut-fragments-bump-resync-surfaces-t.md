@@ -1,18 +1,22 @@
 ---
 id: T-0034
 title: "Release 0.1.5: cut fragments, bump, resync surfaces, tag"
-status: deferred
+status: doing
 type: task
 priority: high
 area: infra
 created: 2026-07-31
 updated: 2026-07-31
-scope: [package.json, CHANGELOG.md, .project/changelog, packages/workfile/package.json, packages/search-local/package.json, .claude, .project/agents, plugins/workfile, AGENTS.md, CLAUDE.md, .claude-plugin]
+scope: [package.json, CHANGELOG.md, .project/changelog, packages/workfile/package.json, packages/search-local/package.json, .claude, .project/agents, plugins/workfile, AGENTS.md, CLAUDE.md, .claude-plugin, .project/generated]
+claimed_by: claude-opus-4df73848
+claimed_at: "2026-07-31T09:24:07.154Z"
 ---
 ## Activity
 
 - 2026-07-31 08:52Z claude-opus-4df73848 · claimed
 - 2026-07-31 08:55Z claude-opus-4df73848 · released
+- 2026-07-31 09:24Z unknown · deferred → next
+- 2026-07-31 09:24Z claude-opus-4df73848 · claimed
 
 ## Notes
 

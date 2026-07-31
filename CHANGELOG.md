@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5 — 2026-07-31
+
+### Fixed
+
+- The CLI and the docs no longer teach the removed project binary (T-0035)
+- The interface doc describes the design system that actually ships (T-0036)
+
 ## 0.1.4 — 2026-07-30
 
 ### Added
