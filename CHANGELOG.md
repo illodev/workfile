@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 — 2026-07-31
+
+### Changed
+
+- The interface rides shadcn/ui: zinc look, compact tables, same behaviour (T-0038)
+
 ## 0.1.5 — 2026-07-31
 
 ### Fixed
