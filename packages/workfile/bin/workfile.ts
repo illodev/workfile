@@ -113,7 +113,7 @@ const USAGE: Record<string, string[]> = {
         "workfile changelog add --title TITLE [--type fixed] [--area AREA]",
         "workfile changelog patch ID --json-input FILE [--expected-revision REV]",
         "workfile changelog preview [--fragments CHG-0001,CHG-0002]",
-        "workfile changelog release VERSION [--fragments CHG-0001,CHG-0002]",
+        "workfile changelog release VERSION [--title TITLE] [--date YYYY-MM-DD] [--fragments CHG-0001,CHG-0002]",
         "workfile changelog render [--visibility public|internal] [--write]",
         "workfile changelog verify [--json]"
     ],
