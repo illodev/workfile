@@ -5,6 +5,7 @@ import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
 import { claimState, readAgentSessions } from "./claims.js";
+import { cardFileName } from "./slug.js";
 import {
     isResourceExhaustion,
     mapWithConcurrency
@@ -251,6 +252,27 @@ export async function diagnoseCards({
                     "filename-mismatch",
                     card,
                     `Filename must start with ${card.id}-`
+                )
+            );
+        } else if (
+            card.id &&
+            card.title &&
+            basename(card.file || "") !== cardFileName(card.id, card.title)
+        ) {
+            // Creating a card derives the filename from the title; retitling it
+            // never revisited that, so a file could sit for months named after a
+            // title the card no longer has. The filename is the handle people
+            // and agents grep by, and a stale one misdirects long after anyone
+            // remembers the rename. A warning rather than an error: the record
+            // is intact and only its label has drifted, and renaming on every
+            // title edit would churn history and break open editor buffers —
+            // so the repair is `doctor --fix`, when the reader asks for it.
+            issues.push(
+                issue(
+                    "warning",
+                    "filename-stale",
+                    card,
+                    `Filename no longer matches the title; \`doctor --fix\` renames it to ${cardFileName(card.id, card.title)}`
                 )
             );
         }

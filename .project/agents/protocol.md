@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=canonical-agent-protocol version=0.1.9 digest=sha256:c37c02639918fd1ed9ce76a474036bccc3660aaf18aa559c7140bf7edacd4709 -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.1.9 digest=sha256:f40a8b2ae5fb0a078b9ce2dcd0f2031b611f532afc6d52626c5e524aea1be796 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -49,6 +49,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 
 ## Essential commands
 
+`pnpm workfile next`  
 `pnpm workfile search "query"`  
 `pnpm workfile agents context --card T-0001`  
 `pnpm workfile card show T-0001 --json`  

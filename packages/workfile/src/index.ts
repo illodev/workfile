@@ -123,7 +123,11 @@ export * from "./modules/search/index.js";
 export * from "./modules/integrations/index.js";
 export * from "./modules/mcp/index.js";
 export { runDoctor } from "./modules/health/doctor.js";
-export { healDuplicateCardIds, renumberCard } from "./modules/health/renumber.js";
+export {
+    healDuplicateCardIds,
+    renumberCard,
+    reslugStaleCardFiles
+} from "./modules/health/renumber.js";
 export { runUpgrade } from "./modules/upgrade/index.js";
 
 export { createProjectServer, startProjectServer } from "./server/http.js";

@@ -37,6 +37,9 @@ import {
     moveManagedDocument,
     normalizeError,
     NotFoundError,
+    NEXT_DEFAULT_LIMIT,
+    NEXT_MAXIMUM_LIMIT,
+    rankNextCards,
     patchCard,
     patchCardBody,
     patchChangeFragment,
@@ -49,6 +52,7 @@ import {
     releaseCard,
     renderChangelog,
     renumberCard,
+    reslugStaleCardFiles,
     reopenCard,
     runUpgrade,
     runDoctor,
@@ -152,6 +156,9 @@ const USAGE: Record<string, string[]> = {
     ],
     search: [
         "workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]"
+    ],
+    next: [
+        "workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]   # what to pick up now, and why"
     ]
 };
 
@@ -295,7 +302,8 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     claude: [],
     migrate: ["--source", "--mode"],
     mcp: [],
-    search: ["--kind", "--limit", "--query", "--mode"]
+    search: ["--kind", "--limit", "--query", "--mode"],
+    next: ["--actor", "--area", "--limit"]
 };
 
 /**
@@ -1578,15 +1586,37 @@ async function main() {
         if (has("--rebuild-cache")) {
             await clearIndexCache(workspace);
         }
-        let fixed: Awaited<ReturnType<typeof healDuplicateCardIds>> | null =
-            null;
+        let fixed:
+            | (Awaited<ReturnType<typeof healDuplicateCardIds>> & {
+                  renamed: Awaited<
+                      ReturnType<typeof reslugStaleCardFiles>
+                  >["moves"];
+                  renameSkipped: Awaited<
+                      ReturnType<typeof reslugStaleCardFiles>
+                  >["skipped"];
+              })
+            | null = null;
         if (has("--fix")) {
-            fixed = await healDuplicateCardIds(workspace, {
-                actor: option("--actor") || defaultActor()
-            });
+            const actor = option("--actor") || defaultActor();
+            const healed = await healDuplicateCardIds(workspace, { actor });
+            // Renaming runs after the ID repair: a card that just moved to a
+            // fresh ID keeps the old title slug, and this is what brings the
+            // whole filename back in step.
+            const renamed = await reslugStaleCardFiles(workspace, { actor });
+            // Kept as two shapes rather than one merged list: an ID collision
+            // skipped for living outside the cards tree and a rename skipped
+            // for a name clash are different problems with different repairs.
+            fixed = {
+                ...healed,
+                renamed: renamed.moves,
+                renameSkipped: renamed.skipped
+            };
             if (!has("--json")) {
-                for (const move of fixed.moves) {
+                for (const move of healed.moves) {
                     console.log(`fixed: ${move.from} → ${move.to} (${move.file})`);
+                }
+                for (const move of renamed.moves) {
+                    console.log(`renamed: ${move.from} → ${move.to}`);
                 }
             }
         }
@@ -1712,6 +1742,45 @@ async function main() {
     }
     if (command === "search") {
         await searchCommand(workspace);
+        return;
+    }
+    if (command === "next") {
+        // The ranking shipped inside the MCP tool module and nowhere else, so a
+        // session driving the CLI never met it and rebuilt the sweep by hand out
+        // of `search`. Same service, second surface.
+        const index = await buildProjectIndex(workspace);
+        const { candidates, total } = rankNextCards(index.records, {
+            actor: option("--actor") || defaultActor(),
+            areas: listOption("--area"),
+            limit: option("--limit")
+                ? Math.min(
+                      Math.max(1, Number(option("--limit"))),
+                      NEXT_MAXIMUM_LIMIT
+                  )
+                : NEXT_DEFAULT_LIMIT
+        });
+        if (has("--json")) {
+            return print({
+                records: candidates.map(({ record, reason }) => ({
+                    ...record,
+                    reason
+                })),
+                total,
+                truncated: candidates.length < total
+            });
+        }
+        if (!candidates.length) {
+            console.log("Nothing is ready to start.");
+            return;
+        }
+        for (const { record, reason } of candidates) {
+            console.log(
+                `${record.id}\t${record.status}\t${record.priority}\t${record.title}\t(${reason})`
+            );
+        }
+        if (candidates.length < total) {
+            console.log(`… ${total - candidates.length} more ready`);
+        }
         return;
     }
     if (command === "upgrade") {

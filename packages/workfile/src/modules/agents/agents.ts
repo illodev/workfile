@@ -113,6 +113,7 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Comandos esenciales
 
+\`${workspace.cli} next\`  
 \`${workspace.cli} search "consulta"\`  
 \`${workspace.cli} agents context --card T-0001\`  
 \`${workspace.cli} card show T-0001 --json\`  
@@ -173,6 +174,7 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 
 ## Essential commands
 
+\`${workspace.cli} next\`  
 \`${workspace.cli} search "query"\`  
 \`${workspace.cli} agents context --card T-0001\`  
 \`${workspace.cli} card show T-0001 --json\`  
@@ -247,6 +249,15 @@ When actionable pending work appears during another task:
         "record-knowledge": isEs
             ? `# Registrar conocimiento
 
+Elige primero el registro y después la colección:
+
+- **Nota de tarjeta**: evidencia sobre *esta* tarjeta. Muere con ella.
+- **Memoria**: sobrevive a la tarjeta y cambia cómo se trabajará en el futuro.
+- **Documento**: material de referencia que alguien leerá de principio a fin.
+
+Cuando encajen dos, elige memoria: una nota que nadie volverá a buscar es lo más
+barato de escribir y lo más fácil de perder.
+
 Elige la colección más específica:
 
 - \`learning\`: observación reutilizable aún basada en evidencia acumulable.
@@ -257,6 +268,15 @@ Elige la colección más específica:
 
 Evita duplicados: busca primero. Relaciona tarjetas y documentos. No guardes secretos. Gradúa o supersede registros cuando evolucione el conocimiento.`
             : `# Record knowledge
+
+Choose the record first, then the collection:
+
+- **Card note**: evidence about *this* card. It dies with the card.
+- **Memory**: it outlives the card and changes how future work is done.
+- **Doc**: reference material somebody will read start to finish.
+
+When two fit, prefer memory: a note nobody will search again is the cheapest
+thing to write and the easiest to lose.
 
 Choose the most specific collection:
 

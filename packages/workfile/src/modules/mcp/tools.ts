@@ -1,10 +1,13 @@
 import {
+    NEXT_DEFAULT_LIMIT,
+    NEXT_MAXIMUM_LIMIT,
     appendCardNote,
     archiveCard,
     claimCard,
     createCard,
     patchCard,
     patchCardBody,
+    rankNextCards,
     releaseCard,
     reopenCard,
     transitionCard
@@ -190,74 +193,31 @@ async function listRecords(context, kind, args) {
     };
 }
 
-const PRIORITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
-const READY_STATUSES = new Set(["next", "backlog", "doing"]);
-
 /**
- * The cards worth picking up right now, with the reason attached.
+ * The MCP face of the shared ranking in `modules/cards/next.ts`.
  *
- * Ordering mirrors how a person would choose: work already claimed by this
- * actor first (finish what you started), then unblocked cards by priority.
- * Cards whose dependencies are unmet are excluded rather than ranked low —
- * offering one would waste a turn discovering it cannot be started.
+ * The ranking used to live here, which made it reachable from this surface and
+ * no other: `workfile next` did not exist, so a session driving the CLI had no
+ * way to meet it. Moving it out was the fix; this stays as argument handling
+ * and record projection.
  */
 async function nextCards(context, args) {
-    const actor = actorFor(context, args.actor);
-    const areas = stringList(args.area, "area");
-    const areaSet = areas?.length ? new Set(areas) : null;
     const index = await context.indexStore.get();
-    const byId = new Map<string, any>(
-        index.records.map((record) => [record.id, record])
-    );
-    const satisfied = (id) => {
-        const target = byId.get(id);
-        return !target || target.status === "done" || target.status === "discarded";
-    };
-    const candidates = index.records
-        .filter(
-            (record) =>
-                record.kind === "card" &&
-                READY_STATUSES.has(record.status) &&
-                record.recordType !== "epic" &&
-                (!areaSet || areaSet.has(record.area)) &&
-                (!record.claimed_by || record.claimed_by === actor) &&
-                (record.depends || []).every(satisfied)
-        )
-        .map((record) => ({
-            record,
-            mine: Boolean(actor && record.claimed_by === actor),
-            reason: [
-                actor && record.claimed_by === actor ? "already claimed by you" : null,
-                record.status === "doing" ? "in progress" : null,
-                record.status === "next" ? "queued next" : null,
-                (record.depends || []).length ? "dependencies met" : null,
-                `priority ${record.priority}`
-            ]
-                .filter(Boolean)
-                .join("; ")
-        }))
-        .sort(
-            (left, right) =>
-                Number(right.mine) - Number(left.mine) ||
-                (left.record.status === "doing" ? 0 : 1) -
-                    (right.record.status === "doing" ? 0 : 1) ||
-                (PRIORITY_RANK[left.record.priority] ?? 9) -
-                    (PRIORITY_RANK[right.record.priority] ?? 9) ||
-                String(left.record.updated || "").localeCompare(
-                    String(right.record.updated || "")
-                )
-        );
-    const limit = boundedInteger(args.limit, {
-        name: "limit",
-        fallback: 5,
-        maximum: 20
+    const { candidates, total } = rankNextCards(index.records, {
+        actor: actorFor(context, args.actor),
+        areas: stringList(args.area, "area"),
+        limit: boundedInteger(args.limit, {
+            name: "limit",
+            fallback: NEXT_DEFAULT_LIMIT,
+            maximum: NEXT_MAXIMUM_LIMIT
+        })
     });
     return {
-        records: candidates.slice(0, limit).map(({ record, reason }) => ({
+        records: candidates.map(({ record, reason }) => ({
             ...projectRecord(record, "list"),
             reason
         })),
-        total: candidates.length
+        total
     };
 }
 

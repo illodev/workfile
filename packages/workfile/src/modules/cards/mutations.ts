@@ -18,24 +18,13 @@ import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
 import { ensureWritable } from "../../core/guards.js";
 import { CARD_LIST_KEYS, loadCards, parseCard } from "./cards.js";
+import { slugify } from "./slug.js";
 import {
     applyCardChanges,
     sanitizeCardChanges,
     scopesOverlap,
     validateCardCandidate
 } from "./validation.js";
-
-function slugify(title) {
-    return (
-        String(title)
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 50) || "card"
-    );
-}
 
 function nowTimestamp(now) {
     return (now ? new Date(now) : new Date()).toISOString();

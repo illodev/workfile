@@ -29,6 +29,12 @@ export {
     readAgentSessions,
     recordAgentSignal
 } from "./claims.js";
+export { cardFileName, slugify } from "./slug.js";
+export {
+    NEXT_DEFAULT_LIMIT,
+    NEXT_MAXIMUM_LIMIT,
+    rankNextCards
+} from "./next.js";
 export {
     CARD_PATCHABLE_FIELDS,
     applyCardChanges,

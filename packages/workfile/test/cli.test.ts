@@ -1074,3 +1074,153 @@ test("doctor --severity filters the headline and the rule grouping too", async (
         await rm(root, { recursive: true, force: true });
     }
 });
+
+// T-0057. The ranking shipped inside the MCP tool module, so `workfile next`
+// exited 2 with the usage banner and a session driving the CLI never met it.
+// Both surfaces call one service now, which is what the test pins.
+test("next ranks ready work on the CLI, claimed-by-you first", async () => {
+    const { card } = await import("./support/workspace.ts");
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-next-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await writeFile(
+            join(root, ".project", "cards", "T-0010-blocked.md"),
+            card("T-0010", { status: "backlog", depends: ["T-0011"] }, "Blocked.")
+        );
+        await writeFile(
+            join(root, ".project", "cards", "T-0011-unmet.md"),
+            card("T-0011", { status: "backlog" }, "The dependency.")
+        );
+        await writeFile(
+            join(root, ".project", "cards", "T-0012-mine.md"),
+            card(
+                "T-0012",
+                {
+                    status: "doing",
+                    priority: "low",
+                    claimed_by: "cli-test",
+                    claimed_at: "2026-07-30T10:00:00.000Z"
+                },
+                "Already started."
+            )
+        );
+        await writeFile(
+            join(root, ".project", "cards", "T-0013-theirs.md"),
+            card(
+                "T-0013",
+                {
+                    status: "next",
+                    priority: "critical",
+                    claimed_by: "someone-else",
+                    claimed_at: "2026-07-30T10:00:00.000Z"
+                },
+                "Someone else has it."
+            )
+        );
+
+        const ranked = JSON.parse(
+            (
+                await run([
+                    "next",
+                    "--root",
+                    root,
+                    "--actor",
+                    "cli-test",
+                    "--json"
+                ])
+            ).stdout
+        );
+        const ids = ranked.records.map((record) => record.id);
+
+        assert.equal(ids[0], "T-0012", "work already claimed by the actor ranks first");
+        assert.ok(
+            !ids.includes("T-0013"),
+            "a card claimed by another actor was offered"
+        );
+        assert.ok(
+            !ids.includes("T-0010"),
+            "a card with an unmet dependency was offered"
+        );
+        assert.match(
+            ranked.records[0].reason,
+            /already claimed by you/,
+            "the ranking did not say why"
+        );
+
+        const text = (await run(["next", "--root", root, "--actor", "cli-test"])).stdout;
+        assert.match(text, /T-0012/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// T-0054. Creating a card derives its filename from the title and retitling
+// never revisited it, so a file could sit named after work it no longer
+// described — and doctor said nothing. The repair is opt-in because renaming on
+// every title edit churns history and breaks open editor buffers.
+test("doctor reports a filename that outlived its title, and --fix renames it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-reslug-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const changes = join(root, "retitle.json");
+        await writeFile(
+            changes,
+            JSON.stringify({ title: "Something else entirely" })
+        );
+        await run(["card", "patch", "T-0001", "--root", root, "--json-input", changes]);
+
+        const stale = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        );
+        const drift = stale.issues.find((issue) => issue.code === "filename-stale");
+        assert.ok(drift, "doctor stayed quiet about the drift");
+        assert.equal(drift.severity, "warning");
+        assert.match(drift.message, /T-0001-something-else-entirely\.md/);
+
+        const fixed = JSON.parse(
+            (
+                await outcome([
+                    "doctor",
+                    "--root",
+                    root,
+                    "--fix",
+                    "--actor",
+                    "cli-test",
+                    "--json"
+                ])
+            ).stdout
+        );
+        // Both fixture files were named by hand rather than derived from their
+        // titles, so the pass normalizes them together with the retitled card —
+        // including the archived one. That is the intended reach: the rule knows
+        // "this filename is not what the title would produce", and cannot tell a
+        // hand-named file from a drifted one.
+        assert.deepEqual(fixed.fixed.renamed, [
+            {
+                id: "T-0001",
+                from: "T-0001-example.md",
+                to: "T-0001-something-else-entirely.md"
+            },
+            {
+                id: "T-0002",
+                from: "T-0002-completed.md",
+                to: "T-0002-completed-task.md"
+            }
+        ]);
+
+        const after = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        );
+        assert.ok(
+            !after.issues.some((issue) => issue.code === "filename-stale"),
+            "the rename did not clear the rule"
+        );
+        const shown = JSON.parse(
+            (await run(["card", "show", "T-0001", "--root", root, "--json"])).stdout
+        );
+        assert.equal(shown.file, "T-0001-something-else-entirely.md");
+        assert.equal(shown.title, "Something else entirely");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

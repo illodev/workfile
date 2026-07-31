@@ -10,7 +10,12 @@ import {
 import { parseFrontmatter, patchFrontmatter } from "../../core/frontmatter.js";
 import { ensureWritable } from "../../core/guards.js";
 import { normalizeRepoPath } from "../../core/glob.js";
-import { CARD_LIST_KEYS, loadCards, nextCardSequence } from "../cards/index.js";
+import {
+    CARD_LIST_KEYS,
+    cardFileName,
+    loadCards,
+    nextCardSequence
+} from "../cards/index.js";
 import { activityEntry, appendActivityLine } from "../cards/mutations.js";
 import { buildProjectIndex } from "../records/public.js";
 
@@ -241,6 +246,58 @@ export async function healDuplicateCardIds(
                 review: move.review
             });
         }
+    }
+    return { moves, skipped };
+}
+
+/**
+ * Renames cards whose filename no longer matches their title.
+ *
+ * `createCard` derives the filename from the title and `patchCard` never
+ * revisited it, so a retitled card kept a filename describing work it no longer
+ * described. Nothing rewrites references: cards are linked by ID, and the ID
+ * half of the filename does not move here — only the slug does. A card whose
+ * filename does not even start with its ID is left alone, because that is the
+ * `filename-mismatch` error and renumbering, not renaming, is its repair.
+ *
+ * Collisions are skipped rather than resolved. Two cards can legitimately want
+ * the same slug, and picking a winner would rename a file the caller never
+ * asked about.
+ */
+export async function reslugStaleCardFiles(
+    workspace,
+    { actor = null, now }: any = {}
+) {
+    ensureWritable(workspace);
+    const loaded = await loadCards(workspace);
+    const moves: Array<{ id: string; from: string; to: string }> = [];
+    const skipped: Array<{ id: string; file: string; reason: string }> = [];
+    const taken = new Set(loaded.cards.map((card) => card.file));
+    for (const card of loaded.cards) {
+        if (!card.id || !card.title) continue;
+        if (!card.file?.startsWith(`${card.id}-`)) continue;
+        const target = cardFileName(card.id, card.title);
+        if (target === card.file) continue;
+        if (taken.has(target)) {
+            skipped.push({ id: card.id, file: card.file, reason: "name-taken" });
+            continue;
+        }
+        const directory = card.archived
+            ? workspace.paths.cardArchive
+            : workspace.paths.cards;
+        const content = await readFile(join(directory, card.file), "utf8");
+        const trailed =
+            workspace.config.cards.activityTrail !== false
+                ? appendActivityLine(
+                      content,
+                      activityEntry(actor, `renamed file to ${target}`, now)
+                  )
+                : content;
+        await createFileExclusive(join(directory, target), trailed);
+        await rm(join(directory, card.file), { force: true });
+        taken.delete(card.file);
+        taken.add(target);
+        moves.push({ id: card.id, from: card.file, to: target });
     }
     return { moves, skipped };
 }

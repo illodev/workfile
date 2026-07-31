@@ -1,13 +1,13 @@
 ---
 id: T-0057
 title: "next has no CLI command: expose it or retire it"
-status: backlog
+status: done
 type: task
 priority: medium
 area: core
 source: .project/docs/research/DOC-0001-fube-session-feedback-verified-triage.md
 tags: [fube-feedback, discoverability, cli]
-scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/mcp/tools.ts]
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/cards, packages/workfile/src/modules/mcp/tools.ts]
 created: 2026-07-31
 updated: 2026-07-31
 ---
@@ -36,3 +36,12 @@ found by reading the tool registry, not by using the product.
 
 Related: [[T-0056]] is the same discoverability failure on a command that does
 exist.
+
+## Activity
+
+- 2026-07-31 20:52Z session-fube-triage · claimed
+- 2026-07-31 21:02Z session-fube-triage · doing → done
+
+## Verification
+
+- 2026-07-31 21:01Z session-fube-triage — Exposed, per the decision. The ranking moved out of modules/mcp/tools.ts into modules/cards/next.ts and both surfaces call it — the MCP tool is now argument handling and record projection over the same function, so the two cannot drift. Runtime: `workfile next --actor verify` ranked a queued high card above a backlog medium one, excluded a card whose dependency was unmet, and printed the reason on every row; against this repository it put the three cards claimed by this session first with "already claimed by you; in progress". It appears in the root usage banner and joins the protocol's essential commands, which is where an agent meets it rather than in a tool registry.

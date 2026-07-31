@@ -1,5 +1,14 @@
-<!-- workfile:begin kind=workflow-record-knowledge version=0.1.9 digest=sha256:6e1acd83f31b9c86192f37f9799f44bbda85183772302938eb1e8fb9ac7dd78c -->
+<!-- workfile:begin kind=workflow-record-knowledge version=0.1.9 digest=sha256:3059fc6f92d46dd84cc6e9f5b27c66d8c14e9dd66f50e0e791b259ce439245c3 -->
 # Record knowledge
+
+Choose the record first, then the collection:
+
+- **Card note**: evidence about *this* card. It dies with the card.
+- **Memory**: it outlives the card and changes how future work is done.
+- **Doc**: reference material somebody will read start to finish.
+
+When two fit, prefer memory: a note nobody will search again is the cheapest
+thing to write and the easiest to lose.
 
 Choose the most specific collection:
 
