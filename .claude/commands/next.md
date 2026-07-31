@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-command-next version=0.1.9 digest=sha256:7511d96f02072202f9fea38379814c1e61283fd205d47796276f4d6a9254a2d0 -->
+<!-- workfile:begin kind=claude-command-next version=0.2.0 digest=sha256:7511d96f02072202f9fea38379814c1e61283fd205d47796276f4d6a9254a2d0 -->
 ---
 description: Show the cards that can be started right now
 allowed-tools: Bash(pnpm workfile card list *)
