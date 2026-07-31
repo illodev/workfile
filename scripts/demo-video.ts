@@ -220,6 +220,24 @@ const overlay = () => {
     else document.addEventListener("DOMContentLoaded", install);
 };
 
+/**
+ * The controls `overlay` installs on the page.
+ *
+ * Every `page.evaluate` below runs in the browser, where these exist; this file
+ * is typechecked as Node, where `window` does not — so each call site was an
+ * unresolved name the strict ratchet had written down and stopped looking at.
+ * Declaring the handle with real signatures rather than reaching for `any`
+ * turns them back into checked calls: a wrong argument to `__zoomTo` now fails
+ * the build instead of failing the recording two minutes in.
+ */
+declare const window: {
+    __caption(text: string): void;
+    __cursor(visible: boolean): void;
+    __cursorRestore(): void;
+    __zoomTo(x: number, y: number, scale: number): void;
+    __zoomOut(): void;
+};
+
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const browser = await chromium.launch();

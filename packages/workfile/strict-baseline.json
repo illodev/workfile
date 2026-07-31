@@ -1,5 +1,5 @@
 {
-    "../../scripts/demo-video.ts": 32,
+    "../../scripts/demo-video.ts": 22,
     "../../scripts/screenshot-workspace.ts": 18,
     "../../scripts/sync-workspace-versions.ts": 3,
     "bin/workfile.ts": 18,
