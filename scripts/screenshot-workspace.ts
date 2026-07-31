@@ -25,6 +25,62 @@ function iso(offsetDays) {
     return new Date(Date.now() + offsetDays * DAY).toISOString().slice(0, 10);
 }
 
+/**
+ * The ledger the Overview reads.
+ *
+ * Cards used to be written with a one-line body, which was enough for every
+ * view that photographs metadata — but the Overview renders the `## Activity`
+ * section, so on the old corpus its busiest block came out empty and every
+ * open card was labelled "never claimed". The trail below is generated, not
+ * transcribed: deterministic from the card index so two runs on two machines
+ * produce the same picture, and shaped like real work — a claim precedes the
+ * transition it explains, and a `done` card releases its lock afterwards.
+ *
+ * Cards that never left the backlog get no lines at all. That is the honest
+ * state and it is also the interesting one: it is what puts a real "never
+ * claimed" marker in frame instead of a synthetic one on every row.
+ */
+const TRAIL_ACTORS = ["agent:claude", "maria", "agent:codex", "priya"];
+
+/** Statuses that mean nobody has ever picked the card up. */
+const UNTOUCHED = ["backlog", "next", "deferred"];
+
+function stamp(dayOffset, hour, minute) {
+    return `${iso(dayOffset)} ${String(hour).padStart(2, "0")}:${String(
+        minute
+    ).padStart(2, "0")}Z`;
+}
+
+function activityLines(index, status) {
+    if (UNTOUCHED.includes(status)) return [];
+    const actor = TRAIL_ACTORS[index % TRAIL_ACTORS.length];
+    const closedDay = -(index % 9);
+    const openedDay = closedDay - 1 - (index % 3);
+    const hour = 9 + (index % 9);
+    const minute = (index * 7) % 60;
+
+    // One deliberate burst: three cards closed by the same actor in the same
+    // minute, so the Overview's collapse-by-minute is visible in frame rather
+    // than merely implemented.
+    const burst = index >= 9 && index <= 11;
+    const closeAt = burst
+        ? stamp(-2, 14, 53)
+        : stamp(closedDay, hour, (minute + 26) % 60);
+    const claimAt = stamp(openedDay, (hour + 20) % 24, minute);
+    const claimActor = burst ? TRAIL_ACTORS[0] : actor;
+
+    const lines = [`- ${claimAt} ${claimActor} · claimed`];
+    if (status === "doing") return lines;
+    if (status === "discarded") {
+        lines.push(`- ${closeAt} ${claimActor} · doing → discarded`);
+        lines.push(`- ${closeAt} ${claimActor} · released`);
+        return lines;
+    }
+    lines.push(`- ${closeAt} ${claimActor} · doing → ${status}`);
+    if (status === "done") lines.push(`- ${closeAt} ${claimActor} · released`);
+    return lines;
+}
+
 function slugify(text) {
     return text
         .toLowerCase()
@@ -250,10 +306,14 @@ export async function buildScreenshotWorkspace(root) {
             extra.parent !== undefined
                 ? ` Part of ${idByTitle.get(CARDS[extra.parent][0])}.`
                 : "";
+        const trail = activityLines(index, status);
+        const body = trail.length
+            ? `${title}.${parentRef}\n\n## Activity\n\n${trail.join("\n")}\n`
+            : `${title}.${parentRef}\n`;
         writes.push(
             writeFile(
                 join(root, ".project/cards", `${id}-${slugify(title)}.md`),
-                `${lines.join("\n")}${title}.${parentRef}\n`
+                `${lines.join("\n")}${body}`
             )
         );
     });

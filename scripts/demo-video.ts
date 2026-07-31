@@ -327,15 +327,22 @@ try {
     await page.keyboard.press("Escape");
     await sleep(400);
 
-    // Close where it started, camera settling out.
-    await glide(nav.getByText("Flow", { exact: true }), 250);
+    // Close on the Overview. The tour used to end where it began, on Flow,
+    // which spent its last shot repeating its first; the verdict line answers
+    // a question none of the earlier scenes do, so the call to action lands
+    // over a sentence stating the whole project.
+    await glide(nav.getByText("Overview", { exact: true }), 250);
     await click();
-    await sleep(800);
-    await caption(
+    await sleep(1100);
+    await caption("However many agents are working — one line tells you where it stands", 2600);
+    await snap("scene6-overview");
+    await punchIn(
+        { x: 700, y: 300 },
+        1.6,
         "The repository is the database — npx @illodev/workfile init",
         3400
     );
-    await snap("scene6-close");
+    await snap("scene7-close");
     await sleep(600);
 } finally {
     const video = page.video();

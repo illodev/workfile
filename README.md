@@ -559,6 +559,12 @@ areas, change vocabularies and memory collection statuses; these values are not 
 into the views. File links open the local editor, or the repository web UI when the
 server provides a `repoUrl` (as the hosted demo does).
 
+![Overview: a verdict sentence, three tiles, the whole remaining backlog and the activity trail collapsed by actor and minute](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/overview.png)
+
+The Overview answers "how are we doing" in a sentence chosen worst-first — doctor
+errors, hanging claims, colliding scopes, blocked cards, work in flight — above the
+trail of every move the agents wrote while you were away.
+
 | Explorer with the inspector open | Gantt timeline |
 | --- | --- |
 | ![Explorer with a card selected — claim, scope and metadata in the inspector](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/explorer.png) | ![Gantt timeline: month scale, status-colored bars, dependency arcs and today marker](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/timeline.png) |
