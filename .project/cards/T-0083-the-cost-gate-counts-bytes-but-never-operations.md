@@ -1,7 +1,7 @@
 ---
 id: T-0083
 title: The cost gate counts bytes but never operations
-status: review
+status: done
 type: task
 priority: medium
 area: infra
@@ -33,6 +33,7 @@ Identical across repeated runs, and a count does not care how fast the machine i
 - 2026-08-01 17:25Z illodev@local#e55eab30 · claimed
 - 2026-08-01 17:25Z illodev@local#e55eab30 · claimed
 - 2026-08-01 17:27Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 17:29Z illodev@local#e55eab30 · review → done
 
 ## Notes
 
