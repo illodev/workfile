@@ -6,7 +6,7 @@ severity: medium
 created: 2026-08-01
 updated: 2026-08-01
 resolved_at: 2026-08-01
-corrective_actions: ["T-0077 rewrote id allocation to re-verify the id inside the held reservation, shared across cards, docs, memory and changelog", A regression test spawns concurrent processes with distinct titles and asserts both zero duplicates and exactly N records created, "T-0019 is corrected: its written claim that same-checkout races were handled was the reason nobody looked"]
+corrective_actions: [T-0077, T-0019]
 ---
 ## What happened
 
