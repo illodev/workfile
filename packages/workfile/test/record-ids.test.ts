@@ -40,9 +40,11 @@ async function seedCards(root: string, count: number) {
     const directory = join(root, ".project/cards");
     await rm(directory, { recursive: true, force: true });
     await mkdir(directory, { recursive: true });
+    const writes: Promise<void>[] = [];
     for (let index = 1; index <= count; index += 1) {
         const id = `T-${String(index).padStart(4, "0")}`;
-        await writeFile(
+        writes.push(
+            writeFile(
             join(directory, `${id}-seeded-${index}.md`),
             [
                 "---",
@@ -59,8 +61,10 @@ async function seedCards(root: string, count: number) {
                 "Seed.",
                 ""
             ].join("\n")
+            )
         );
     }
+    await Promise.all(writes);
 }
 
 async function idsIn(directory: string) {
@@ -77,21 +81,30 @@ async function idsIn(directory: string) {
  * exclusive, so a process that had read the sequence before someone else's
  * write took a reservation nobody held any more and minted a duplicate.
  *
- * Measured at these exact parameters before the fix: duplicate ids in 4 of 4
- * rounds. After: 0 of 4. Both assertions below matter — an over-strict fix
- * trades duplicates for spurious allocation failures, and only the count catches
- * that.
+ * Measured at these parameters before the fix: the assertion trips on roughly
+ * half of all rounds, which is why there are five of them. After the fix: never,
+ * across every run. Both assertions matter — an over-strict fix trades
+ * duplicates for spurious allocation failures, and only the count catches that.
  */
 test("concurrent card creation across processes never mints a duplicate id", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-ids-"));
     try {
         await cp(fixture, root, { recursive: true });
-        await seedCards(root, 50);
+        await seedCards(root, 500);
         const cards = join(root, ".project/cards");
         const before = (await idsIn(cards)).length;
 
-        const WRITERS = 32;
-        for (const round of [1, 2]) {
+        // Twelve, not thirty-two. The window widens with either the corpus or
+        // the process count, and this file runs concurrently with the rest of
+        // the suite: thirty-two spawned processes starved a watcher test on a
+        // two-core Windows runner. A larger corpus buys the same detection for
+        // a fraction of the CPU.
+        const WRITERS = 12;
+        const ROUNDS = 5;
+        // Five rounds, not one. Detection per round is roughly even odds even
+        // at this corpus size, so a single round would be a coin flip that
+        // fails in CI weeks after the regression landed.
+        for (let round = 1; round <= ROUNDS; round += 1) {
             const results = await Promise.all(
                 Array.from({ length: WRITERS }, (_, index) =>
                     // Distinct titles on purpose: identical ones would collide
@@ -108,7 +121,7 @@ test("concurrent card creation across processes never mints a duplicate id", asy
         assert.deepEqual(duplicates, [], "two files must never carry one id");
         assert.equal(
             ids.length,
-            before + WRITERS * 2,
+            before + WRITERS * ROUNDS,
             "every writer must produce exactly one card: refusing to allocate is not a fix"
         );
     } finally {
