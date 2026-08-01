@@ -15,15 +15,37 @@ generated protocols and skills always spell it long for that reason.
 
 ## Global options
 
+Four, and they are the whole list. Every other option belongs to the
+subcommands that read it and appears in their usage lines below.
+
 | Option | Meaning |
 | --- | --- |
 | `--root PATH` | Workspace root (default: discovered from the working directory) |
 | `--json` | Machine-readable output |
-| `--expected-revision REV` | Reject the write when the file changed since it was read |
-| `--dry-run` | Preview filesystem changes without applying them |
-| `--force` | Replace conflicting generated files |
-| `--read-only` | Disable MCP mutation tools |
-| `--yes` | Accept initializer defaults without prompting |
+| `--dry-run` | Preview filesystem changes, where the subcommand implements it |
+| `--allow-new` | Accept a directory that is not yet a workspace |
+| `--help`, `-h` | Print the usage for a command without running it |
+
+An option a subcommand does not accept is refused with `CLI_ARGUMENT_UNKNOWN`,
+and one given twice with `CLI_ARGUMENT_CONFLICT`, because only the first is
+read. Pass a list as one comma-separated value.
+
+`--dry-run` is global but not universal. It is accepted everywhere so that no
+caller has to remember where it works, and then refused with
+`CLI_FLAG_UNSUPPORTED` on any command that would have written anyway — naming
+the read-only command to look with instead, such as `changelog preview` or
+`card show`. Silently making the change would be the alternative.
+
+These four read as global for a while and are not. They are listed here because
+the wrong version of this table shipped, and a reader who learned it from that
+one needs to find the correction where the mistake was.
+
+| Option | Subcommands that accept it |
+| --- | --- |
+| `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
+| `--force` — proceed past the check the command would otherwise fail | `agents sync`, `card claim`, `card patch`, `card release`, `card transition`, `ci sync`, `claude install`, `claude sync`, `init`, `migrate apply` |
+| `--read-only` — disable the MCP mutation tools | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio` |
+| `--yes` — accept the initializer defaults without prompting | `init` |
 
 Exit codes: `3` stale revision · `2` configuration error · `1` validation / not found.
 

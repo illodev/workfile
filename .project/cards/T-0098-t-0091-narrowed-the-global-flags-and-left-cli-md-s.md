@@ -1,7 +1,7 @@
 ---
 id: T-0098
 title: T-0091 narrowed the global flags and left cli.md stating the old contract
-status: backlog
+status: review
 type: bug
 priority: medium
 area: docs
@@ -49,6 +49,12 @@ is the check that would have caught this at the time.
 
 ## Acceptance criteria
 
-- [ ] `cli.md`'s global table lists exactly what `GLOBAL_FLAGS` holds
-- [ ] A test fails when a doc gives a subcommand a flag it does not accept
-- [ ] The test fails on cli.md as it stands today
+- [x] `cli.md`'s global table lists exactly what `GLOBAL_FLAGS` holds
+- [x] A test fails when a doc gives a subcommand a flag it does not accept
+- [x] The test fails on cli.md as it stands today
+
+## Activity
+
+- 2026-08-01 23:38Z illodev@local#e55eab30 · claimed
+- 2026-08-01 23:45Z illodev@local#e55eab30 · doing → review
+

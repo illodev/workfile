@@ -40,6 +40,141 @@ async function documents(): Promise<Array<[string, string]>> {
     return result;
 }
 
+/** Spellings the dispatcher accepts for a command it stores under one key. */
+const ALIASES: ReadonlyArray<readonly [string, string]> = [
+    ["docs", "doc"],
+    ["history", "changelog"],
+    ["serve", "ui"]
+];
+
+/**
+ * A bare word that runs something, and the subcommand it runs.
+ *
+ * `workfile mcp` serves, so `workfile mcp --read-only` is a real invocation and
+ * both `docs/cli.md` and `docs/mcp.md` teach it. It is also unvalidated:
+ * `assertKnownFlags` keys on `"mcp serve"`, finds no table for the bare `mcp`,
+ * and returns — which is why `workfile mcp --nonsense` starts the server
+ * instead of refusing. Carded as T-0100. Resolving the default here checks the
+ * documentation against what the command *does*, not against the hole.
+ */
+const DEFAULT_SUBCOMMAND: Record<string, string> = { mcp: "serve" };
+
+/**
+ * The CLI's two flag tables, read out of the source.
+ *
+ * The bin executes on import, so it cannot be imported; `cli.test.ts` reads it
+ * the same way. `COMMAND_FLAGS` is itself pinned against what each branch
+ * actually reads, by "the flag table matches what each subcommand actually
+ * reads", so a documentation check measured against it is measured against
+ * behaviour rather than against a second list.
+ */
+async function dispatchTable() {
+    const source = await readFile(new URL("bin/workfile.ts", packageRoot), "utf8");
+    const slice = (name: string, close: string) => {
+        const start = source.indexOf(`const ${name}`);
+        return source.slice(start, source.indexOf(close, start));
+    };
+
+    const globals = new Set(
+        [...slice("GLOBAL_FLAGS", "\n];").matchAll(/"([^"]+)"/g)].map((m) => m[1])
+    );
+    const table = slice("COMMAND_FLAGS", "\n};");
+    const accepts = new Map<string, Set<string>>();
+    let current: string | null = null;
+    for (const line of table.split("\n")) {
+        const key = line.match(/^ {4}"([^"]+)": \[/);
+        if (key) {
+            current = key[1];
+            accepts.set(current, new Set());
+            continue;
+        }
+        const flag = line.match(/^ {8}"([^"]+)"/);
+        if (flag && current) accepts.get(current)!.add(flag[1]);
+    }
+    // If either table is renamed or reindented these slices yield nothing, and
+    // every documented command then reads as unknown — sixty false positives
+    // that look like a documentation problem. Fail as what it is instead.
+    assert.ok(
+        accepts.size > 40,
+        `read only ${accepts.size} commands out of COMMAND_FLAGS; the extraction broke`
+    );
+    assert.ok(
+        globals.has("--root") && globals.size < 10,
+        `read ${globals.size} global flags; the extraction broke`
+    );
+
+    const known = new Set(accepts.keys());
+    // A bare word is an entry point in its own right; section 19.1 documents
+    // the whole list of them, and `workfile mcp` runs.
+    for (const key of [...known]) known.add(key.split(" ")[0]);
+    for (const [alias, real] of ALIASES) {
+        for (const key of [...known]) {
+            if (key === real) known.add(alias);
+            else if (key.startsWith(`${real} `)) {
+                known.add(`${alias} ${key.slice(real.length + 1)}`);
+            }
+        }
+    }
+    known.add("help");
+
+    /** A documented spelling reduced to the key the tables are stored under. */
+    const canonical = (path: string) => {
+        let resolved = path;
+        for (const [alias, real] of ALIASES) {
+            if (resolved === alias) resolved = real;
+            else if (resolved.startsWith(`${alias} `)) {
+                resolved = `${real} ${resolved.slice(alias.length + 1)}`;
+            }
+        }
+        const fallback = DEFAULT_SUBCOMMAND[resolved];
+        return fallback ? `${resolved} ${fallback}` : resolved;
+    };
+
+    return { globals, accepts, known, canonical };
+}
+
+/**
+ * Code fragments only, as `[line, text]`. Prose is not an instruction: the
+ * README says "loading all workfile memory" and SPEC says "durable workfile
+ * memory", and neither is a command anybody can copy.
+ */
+function fragments(text: string): Array<[number, string]> {
+    const found: Array<[number, string]> = [];
+    const outside: string[] = [];
+    let fenced = false;
+    text.split("\n").forEach((line, index) => {
+        if (/^\s*```/.test(line)) {
+            fenced = !fenced;
+            outside.push("");
+            return;
+        }
+        if (fenced) {
+            found.push([index + 1, line]);
+            outside.push("");
+        } else outside.push(line);
+    });
+    // Spans are read from the fence-stripped text so a fenced line is never
+    // scanned twice, and a span that wraps a line break is still one command:
+    // packages/workfile/README.md writes `workfile agents\nsync`.
+    const prose = outside.join("\n");
+    for (const match of prose.matchAll(/`([^`]+)`/g)) {
+        found.push([
+            prose.slice(0, match.index).split("\n").length,
+            match[1].replace(/\s*\n\s*/g, " ")
+        ]);
+    }
+    return found;
+}
+
+/**
+ * Three bins are declared, and `wf` is one of them — README.md writes
+ * `wf doctor`. Scanning only the long name leaves the short one unchecked. A
+ * subcommand is a lowercase bare word on the same line: never a flag, never an
+ * id like `T-0042`, never a placeholder like `<command>`.
+ */
+const INVOCATION =
+    /(?:^|[\s(&|;$])(?:(?:npx|pnpm|pnpm dlx)\s+)?(?:workfile|wf)[ \t]+([a-z][a-z-]*)(?:[ \t]+([a-z][a-z-]*))?/g;
+
 /**
  * A doc naming a test or script file it cannot point at is either stale or a
  * typo, and both read as authoritative. Paths are resolved from the package
@@ -120,87 +255,13 @@ test("no doc teaches the removed project binary", async () => {
  * lines exit non-zero in a fresh workspace because they use illustrative ids
  * or omit a required flag — a syntax example is not a script, and running them
  * would report the whole catalogue as broken.
- *
- * `COMMAND_FLAGS` is the dispatch table, read out of the source the way
- * `cli.test.ts` reads it: the bin executes on import, so it cannot be imported.
- * That table is itself pinned against what each branch reads, by
- * "the flag table matches what each subcommand actually reads".
  */
 test("no doc teaches a command path the dispatcher does not know", async () => {
-    const source = await readFile(new URL("bin/workfile.ts", packageRoot), "utf8");
-    const start = source.indexOf("const COMMAND_FLAGS");
-    const table = source.slice(start, source.indexOf("\n};", start));
-    const known = new Set(
-        [...table.matchAll(/^ {4}"([^"]+)":/gm)].map((match) => match[1])
-    );
-    // If the table is ever renamed or reindented this slice yields nothing, and
-    // every documented command then reads as unknown — sixty false positives
-    // that look like a documentation problem. Fail as what it is instead.
-    assert.ok(
-        known.size > 40,
-        `read only ${known.size} commands out of COMMAND_FLAGS; the extraction broke`
-    );
-    // A bare word is an entry point in its own right; section 19.1 documents
-    // the whole list of them, and `workfile mcp` runs.
-    for (const key of [...known]) known.add(key.split(" ")[0]);
-    for (const [alias, real] of [
-        ["docs", "doc"],
-        ["history", "changelog"],
-        ["serve", "ui"]
-    ]) {
-        for (const key of [...known]) {
-            if (key === real) known.add(alias);
-            else if (key.startsWith(`${real} `)) {
-                known.add(`${alias} ${key.slice(real.length + 1)}`);
-            }
-        }
-    }
-    known.add("help");
-
-    /**
-     * Code fragments only, as `[line, text]`. Prose is not an instruction: the
-     * README says "loading all workfile memory" and SPEC says "durable
-     * workfile memory", and neither is a command anybody can copy.
-     */
-    const fragments = (text: string) => {
-        const found: Array<[number, string]> = [];
-        const outside: string[] = [];
-        let fenced = false;
-        text.split("\n").forEach((line, index) => {
-            if (/^\s*```/.test(line)) {
-                fenced = !fenced;
-                outside.push("");
-                return;
-            }
-            if (fenced) {
-                found.push([index + 1, line]);
-                outside.push("");
-            } else outside.push(line);
-        });
-        // Spans are read from the fence-stripped text so a fenced line is never
-        // scanned twice, and a span that wraps a line break is still one
-        // command: packages/workfile/README.md writes `workfile agents\nsync`.
-        const prose = outside.join("\n");
-        for (const match of prose.matchAll(/`([^`]+)`/g)) {
-            found.push([
-                prose.slice(0, match.index).split("\n").length,
-                match[1].replace(/\s*\n\s*/g, " ")
-            ]);
-        }
-        return found;
-    };
-
-    // Three bins are declared, and `wf` is one of them — README.md writes
-    // `wf doctor`. Scanning only the long name leaves the short one unchecked.
-    // A subcommand is a lowercase bare word on the same line: never a flag,
-    // never an id like `T-0042`, never a placeholder like `<command>`.
-    const invocation =
-        /(?:^|[\s(&|;$])(?:(?:npx|pnpm|pnpm dlx)\s+)?(?:workfile|wf)[ \t]+([a-z][a-z-]*)(?:[ \t]+([a-z][a-z-]*))?/g;
-
+    const { known } = await dispatchTable();
     const unknown: string[] = [];
     for (const [path, text] of await documents()) {
         for (const [line, code] of fragments(text)) {
-            for (const [, word, next] of code.matchAll(invocation)) {
+            for (const [, word, next] of code.matchAll(INVOCATION)) {
                 // `workfile search release` is a flat command and its QUERY.
                 // Only a word the table gives subcommands takes one.
                 const branching = [...known].some((key) => key.startsWith(`${word} `));
@@ -211,6 +272,113 @@ test("no doc teaches a command path the dispatcher does not know", async () => {
         }
     }
     assert.deepEqual(unknown, [], `\n${unknown.join("\n")}\n`);
+});
+
+/**
+ * The other half of the same question: the path resolves, but does the
+ * subcommand take the flags the line hands it?
+ *
+ * It did not, for seven of them. `docs/cli.md` headed a table **Global
+ * options** and listed `--expected-revision`, `--force`, `--read-only` and
+ * `--yes` under it; all four are refused today with `CLI_ARGUMENT_UNKNOWN` on
+ * anything but the subcommands that read them. The cut that made them
+ * per-subcommand did not reach the table that states the contract, and the
+ * suite compared no documented flag against `COMMAND_FLAGS`, so the reference
+ * and the binary disagreed with nothing between them to notice.
+ *
+ * The flags are attributed to the nearest invocation on their left, because a
+ * fenced line can carry two: `workfile card claim ID | workfile card show ID`.
+ */
+test("no doc gives a subcommand a flag it does not accept", async () => {
+    const { globals, accepts, known, canonical } = await dispatchTable();
+    const wrong: string[] = [];
+    for (const [path, text] of await documents()) {
+        for (const [line, code] of fragments(text)) {
+            const hits = [...code.matchAll(INVOCATION)];
+            hits.forEach((hit, index) => {
+                const [, word, next] = hit;
+                const branching = [...known].some((key) => key.startsWith(`${word} `));
+                const path2 = next && branching ? `${word} ${next}` : null;
+                const command = path2 || word;
+                // Unknown paths are the sibling test's finding, not this one's.
+                if (!known.has(command)) return;
+                const end =
+                    index + 1 < hits.length ? hits[index + 1].index : code.length;
+                const taken = accepts.get(canonical(command)) ?? new Set<string>();
+                for (const [, flag] of code
+                    .slice(hit.index, end)
+                    .matchAll(/(?:^|[\s(\[|])(--[a-z][a-z-]*)/g)) {
+                    if (globals.has(flag) || taken.has(flag)) continue;
+                    wrong.push(
+                        `${path}:${line} gives \`workfile ${command}\` ${flag}, ` +
+                            "which it refuses with CLI_ARGUMENT_UNKNOWN"
+                    );
+                }
+            });
+        }
+    }
+    assert.deepEqual(wrong, [], `\n${wrong.join("\n")}\n`);
+});
+
+/**
+ * `cli.md` opens by naming the flags that work everywhere, and a reader takes
+ * that list as the contract. Enumerating it correctly is not something the
+ * check above can see: a flag wrongly called global is only caught when some
+ * other line hands it to a subcommand that refuses it, and four of these had
+ * no such line.
+ *
+ * The second table is pinned the same way and for the same reason — it exists
+ * to say where the four that moved actually live, and a list of subcommands is
+ * exactly the kind of thing that rots silently.
+ */
+test("cli.md's option tables state the contract the binary enforces", async () => {
+    const { globals, accepts } = await dispatchTable();
+    const text = await readFile(new URL("docs/cli.md", packageRoot), "utf8");
+    const section = text.slice(
+        text.indexOf("## Global options"),
+        text.indexOf("Exit codes:")
+    );
+    assert.ok(section.length > 500, "the Global options section moved or shrank");
+
+    // Two tables in one section, separated by their own `| --- |` rules.
+    const tables: Array<Array<[string, string]>> = [];
+    for (const line of section.split("\n")) {
+        if (/^\|\s*-{3}/.test(line)) tables.push([]);
+        else if (line.startsWith("| `") && tables.length) {
+            const [, option, applies] = line.split("|").map((cell) => cell.trim());
+            tables[tables.length - 1].push([option, applies]);
+        }
+    }
+    assert.equal(tables.length, 2, "cli.md no longer has both option tables");
+    const [universal, perCommand] = tables;
+    const named = (cell: string) =>
+        [...cell.matchAll(/(?:^|[^\w-])(--[a-z-]+|-h)(?![\w-])/g)].map((m) => m[1]);
+
+    assert.deepEqual(
+        universal.flatMap(([option]) => named(option)).sort(),
+        [...globals].sort(),
+        "the global table and GLOBAL_FLAGS disagree about what is global"
+    );
+
+    assert.equal(perCommand.length, 4, "the per-subcommand table lost a row");
+    for (const [option, applies] of perCommand) {
+        const [flag] = named(option);
+        assert.ok(
+            flag && !globals.has(flag),
+            `cli.md lists ${flag} as per-subcommand, but it is global`
+        );
+        const documented = [...applies.matchAll(/`([a-z]+(?: [a-z]+)?)`/g)]
+            .map((match) => match[1])
+            .sort();
+        const actual = [...accepts.keys()]
+            .filter((key) => accepts.get(key)!.has(flag))
+            .sort();
+        assert.deepEqual(
+            documented,
+            actual,
+            `cli.md and COMMAND_FLAGS disagree about which subcommands take ${flag}`
+        );
+    }
 });
 
 /**
