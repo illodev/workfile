@@ -11,9 +11,11 @@ import {
     checkClaudeSurface,
     claimCard,
     claudeCommandFiles,
+    claudeHooksFile,
     createCard,
     loadCards,
     loadWorkspace,
+    PLUGIN_HOOK_RUNTIME,
     releaseCard,
     syncAgentInstructions,
     syncClaudeSurface
@@ -451,6 +453,17 @@ test("the distributable plugin cannot drift from the generated surface", async (
         );
     }
 
+    // The hook wiring was the one hand-maintained file in the plugin, and this
+    // test did not look at it — so when the matchers were corrected, a user
+    // installing from the marketplace kept `Edit|Write|NotebookEdit` and the
+    // heartbeat stayed broken for exactly the people who did not build from
+    // source. It is generated from the same function now, and compared here.
+    assert.equal(
+        await readFile(join(pluginRoot, "hooks/hooks.json"), "utf8"),
+        `${JSON.stringify(claudeHooksFile(PLUGIN_HOOK_RUNTIME), null, 2)}\n`,
+        "run `node scripts/build-plugin.ts`: the packaged hook wiring is stale"
+    );
+
     // Version drift is silent and confusing: a plugin that reports an older
     // version than the package it wraps sends people to the wrong changelog.
     const pkg = JSON.parse(
@@ -665,6 +678,124 @@ test("a claim taken after session start is visible to the guard", async () => {
             fromHook.claims,
             fromMutation.claims,
             "the hook's builder and the core's must produce the same board"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A matcher that stops covering what its handler does is invisible from either
+ * side alone, and this pair shipped that twice.
+ *
+ * T-0082 changed `postToolUse` to refresh presence on *any* tool call — its own
+ * comment says restricting the heartbeat to writes would report an agent that
+ * spent ten minutes investigating as gone — and left the generated matcher at
+ * `Edit|Write|NotebookEdit`. Measured in this repository afterwards:
+ * `lastSignalAt` forty-seven minutes behind the wall clock across a session of
+ * continuous `Bash` calls, and `doctor` reporting that session's own claim as
+ * abandoned while it was working. `SessionStart` had the same shape from the
+ * other direction: it never reads `source`, and enumerated three of them.
+ *
+ * So the assertion is the pair, never the literal. Each case drives the hook
+ * with an event the handler must act on, proves it acted, and then proves the
+ * generated matcher would have let that event reach it.
+ */
+test("every matcher covers the events its handler acts on", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-matchers-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await syncClaudeSurface(workspace);
+        const settings = JSON.parse(
+            await readFile(join(root, ".claude/settings.json"), "utf8")
+        );
+
+        /** How the host reads a matcher: `*` or empty is everything. */
+        const covers = (matcher, value) =>
+            !matcher || matcher === "*"
+                ? true
+                : new RegExp(`^(?:${matcher})$`).test(value);
+
+        const sessionFile = join(
+            root,
+            ".project/.cache/activity/sessions/matchers.json"
+        );
+        const signalledAt = async () => {
+            try {
+                return JSON.parse(await readFile(sessionFile, "utf8")).lastSignalAt;
+            } catch {
+                return null;
+            }
+        };
+
+        // PostToolUse must see a Bash call, because that is what an agent does
+        // between writes and the handler treats it as presence.
+        for (const tool of ["Bash", "Read", "Edit"]) {
+            await rm(sessionFile, { force: true });
+            await runHook(
+                "post-tool-use",
+                {
+                    session_id: "matchers",
+                    tool_name: tool,
+                    ...(tool === "Edit"
+                        ? { tool_input: { file_path: join(root, "src/api/x.ts") } }
+                        : {})
+                },
+                root,
+                env
+            );
+            assert.ok(
+                await signalledAt(),
+                `the handler ignores a ${tool} call, so presence is not "any tool call"`
+            );
+            assert.ok(
+                covers(settings.hooks.PostToolUse[0].matcher, tool),
+                `the handler acts on ${tool} and the matcher would not deliver it`
+            );
+        }
+
+        // SessionStart reads no `source`, so every source must reach it —
+        // including whatever a compaction produces, which is the host's
+        // business and not something an enumeration here can track.
+        for (const source of ["startup", "resume", "clear", "compact"]) {
+            const start = await runHook(
+                "session-start",
+                { session_id: `s-${source}`, source },
+                root,
+                env
+            );
+            assert.match(
+                JSON.parse(start.stdout).hookSpecificOutput.additionalContext,
+                /claimed|No cards are claimed/,
+                `the handler produces a brief for source ${source}`
+            );
+            assert.ok(
+                covers(settings.hooks.SessionStart[0].matcher, source),
+                `the handler answers ${source} and the matcher would not deliver it`
+            );
+        }
+
+        // PreToolUse is the exception and stays narrow: it guards file writes,
+        // it runs before every call it matches, and the budget above is built
+        // on not spawning node for a Bash. So the assertion inverts — it must
+        // NOT be asked about a tool it would ignore.
+        const guard = settings.hooks.PreToolUse[0].matcher;
+        assert.ok(!covers(guard, "Bash"), "PreToolUse must stay off the hot path");
+        for (const tool of ["Edit", "Write", "NotebookEdit"]) {
+            assert.ok(covers(guard, tool), `PreToolUse must guard ${tool}`);
+        }
+        const ignored = await runHook(
+            "pre-tool-use",
+            { session_id: "matchers", tool_name: "Bash", tool_input: {} },
+            root,
+            env
+        );
+        assert.equal(
+            ignored.stdout.trim(),
+            "",
+            "a tool with no file path has nothing for the guard to say"
         );
     } finally {
         await rm(root, { recursive: true, force: true });

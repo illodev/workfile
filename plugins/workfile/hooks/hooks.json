@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|clear",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -24,7 +24,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|NotebookEdit",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",

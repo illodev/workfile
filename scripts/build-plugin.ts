@@ -22,8 +22,18 @@ await cp(
     new URL("runtime/hooks.mjs", plugin)
 );
 
-const { claudeCommandFiles, claudeSkillFile } = await import(
-    new URL("packages/workfile/dist/src/modules/claude/index.js", root).href
+const { claudeCommandFiles, claudeHooksFile, claudeSkillFile, PLUGIN_HOOK_RUNTIME } =
+    await import(
+        new URL("packages/workfile/dist/src/modules/claude/index.js", root).href
+    );
+
+// The hook wiring was the one hand-maintained file in here, which is exactly
+// how the plugin kept shipping `Edit|Write|NotebookEdit` after the matchers
+// were corrected: a user installing from the marketplace got the old ones.
+await mkdir(new URL("hooks/", plugin), { recursive: true });
+await writeFile(
+    new URL("hooks/hooks.json", plugin),
+    `${JSON.stringify(claudeHooksFile(PLUGIN_HOOK_RUNTIME), null, 2)}\n`
 );
 
 await mkdir(new URL("commands/", plugin), { recursive: true });

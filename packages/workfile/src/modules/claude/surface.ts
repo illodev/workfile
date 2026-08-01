@@ -170,16 +170,39 @@ function mcpConfiguration() {
  *
  * `PreToolUse` is deliberately `ask`, never `deny`. A guard rail that blocks
  * too much gets switched off, and then it protects nothing — asking costs one
- * keystroke and keeps the mechanism alive.
+ * keystroke and keeps the mechanism alive. It is also the only narrow matcher
+ * here, and narrow on purpose: it runs before every call it matches, and the
+ * latency budget is built on not spawning node for a `Bash`.
+ *
+ * The other two match everything, because their handlers do not discriminate
+ * and an enumeration that outlives the handler is the defect this pair shipped
+ * twice. `PostToolUse` refreshes presence for any tool — the comment in the
+ * runtime says so — but the matcher listed three, so a session that spent
+ * forty-seven minutes running commands signalled nothing and `doctor` called
+ * its claim abandoned while it was working. `SessionStart` never reads
+ * `source`, so listing sources could only ever go stale: whether compaction
+ * produces one is the host's business, and `*` is right either way.
  */
-function hooksConfiguration() {
-    const runtime =
-        "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs";
+export const NPM_HOOK_RUNTIME =
+    "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs";
+
+/** The plugin runs the same runtime from wherever the marketplace put it. */
+export const PLUGIN_HOOK_RUNTIME =
+    "node ${CLAUDE_PLUGIN_ROOT}/runtime/hooks.mjs";
+
+/**
+ * Exported and parameterised because the distributable plugin ships the same
+ * hooks under a different path, and its copy was hand-maintained — so when the
+ * two matchers below were corrected, the plugin a user installs from the
+ * marketplace kept the broken ones. The script that assembles it says "nothing
+ * here is hand-maintained", and this is what made that true.
+ */
+export function claudeHooksFile(runtime = NPM_HOOK_RUNTIME) {
     return {
         hooks: {
             SessionStart: [
                 {
-                    matcher: "startup|resume|clear",
+                    matcher: "*",
                     hooks: [{ type: "command", command: `${runtime} session-start` }]
                 }
             ],
@@ -191,7 +214,7 @@ function hooksConfiguration() {
             ],
             PostToolUse: [
                 {
-                    matcher: "Edit|Write|NotebookEdit",
+                    matcher: "*",
                     hooks: [
                         {
                             type: "command",
@@ -249,7 +272,7 @@ export function claudeArtifacts(workspace) {
             id: "hooks",
             path: join(".claude", "settings.json"),
             kind: "claude-hooks",
-            json: hooksConfiguration()
+            json: claudeHooksFile()
         }
     ];
 }
@@ -340,7 +363,7 @@ export async function planClaudeSurface(workspace) {
             id: "hooks",
             path: join(workspace.root, ".claude", "settings.json"),
             label: ".claude/settings.json",
-            generated: hooksConfiguration()
+            generated: claudeHooksFile()
         }
     ];
 
