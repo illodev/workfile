@@ -29,12 +29,18 @@ export {
 } from "./mutations.js";
 export {
     LIVE_WINDOW_MS,
+    ORPHAN_WINDOW_MS,
     buildActivitySnapshot,
+    claimBoardChanged,
+    claimBoardEntry,
     claimState,
     readActiveLocks,
+    readClaimBoard,
+    rebuildClaimBoard,
     pruneAgentSessions,
     readAgentSessions,
-    recordAgentSignal
+    recordAgentSignal,
+    updateClaimBoard
 } from "./claims.js";
 export { cardFileName, slugify } from "./slug.js";
 export {

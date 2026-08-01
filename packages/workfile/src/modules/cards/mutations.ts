@@ -4,6 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
 import { reserveRecordId } from "../../core/record-ids.js";
 import { applyAcceptance, parseAcceptance } from "./acceptance.js";
+import { claimBoardChanged, updateClaimBoard } from "./claims.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
     ConflictError,
@@ -218,6 +219,15 @@ async function mutateCard(
                 archived = moveToArchived;
             }
             const card = normalizedSavedCard(current.file, next, archived);
+            // The board the `PreToolUse` scope guard reads. Written here
+            // because a cache of claims belongs to the thing that changes
+            // claims: session start was the only writer, so a claim taken
+            // mid-session was invisible to the guard until the next session —
+            // including a claim taken by another agent in the same tree, which
+            // is the only case the guard exists for.
+            if (claimBoardChanged(current, card)) {
+                await updateClaimBoard(workspace, card);
+            }
             return {
                 id: card.id,
                 file: card.file,

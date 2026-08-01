@@ -9,11 +9,12 @@ import { fileURLToPath } from "node:url";
 import {
     buildActivitySnapshot,
     checkClaudeSurface,
-    claudeCommandFiles,
     claimCard,
+    claudeCommandFiles,
     createCard,
     loadCards,
     loadWorkspace,
+    releaseCard,
     syncAgentInstructions,
     syncClaudeSurface
 } from "../dist/src/index.js";
@@ -575,6 +576,95 @@ test("the hook produces the live half of a claim", async () => {
             gone.claims.find((entry) => entry.id === card.id)?.claim.state,
             "orphaned",
             "silence far past any pause is what orphaned means"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The board is a cache of claims, so a claim has to write it.
+ *
+ * `PreToolUse` cannot read the card corpus — 84 cards measured 27 ms against a
+ * hook budget of about 31 — so it reads a precomputed board. Nothing wrote that
+ * board but `session-start`, which means the guard saw the claims that existed
+ * when the session opened and nothing after. In this repository that was
+ * `{"claims":[]}` from 11:41 while nine cards were claimed between 16:05 and
+ * 16:26: the guard has never fired here, and this is why.
+ *
+ * Every test above seeds its claims *before* starting the session, which is the
+ * one ordering that hides it. This one does it the way a session actually goes.
+ */
+test("a claim taken after session start is visible to the guard", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-board-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+
+        // The session opens against a repository where nothing is claimed.
+        const start = await runHook("session-start", { session_id: "s1" }, root, env);
+        assert.match(
+            JSON.parse(start.stdout).hookSpecificOutput.additionalContext,
+            /No cards are claimed/
+        );
+
+        const later = await createCard(workspace, {
+            title: "Claimed mid-session",
+            area: "api"
+        });
+        await claimCard(workspace, later.id, {
+            actor: "agent-elsewhere",
+            scope: ["src/api"]
+        });
+
+        const guarded = await runHook(
+            "pre-tool-use",
+            {
+                session_id: "s1",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/api/billing.ts") }
+            },
+            root,
+            env
+        );
+        assert.match(
+            JSON.parse(guarded.stdout || "{}").hookSpecificOutput
+                ?.permissionDecisionReason ?? "",
+            /agent-elsewhere/,
+            "a claim taken after session start must reach the guard"
+        );
+
+        // And releasing it clears the way again, without another session start.
+        await releaseCard(workspace, later.id, { actor: "agent-elsewhere" });
+        const free = await runHook(
+            "pre-tool-use",
+            {
+                session_id: "s1",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/api/billing.ts") }
+            },
+            root,
+            env
+        );
+        assert.equal(free.stdout.trim(), "", "a released card guards nothing");
+
+        // The two producers must agree on the shape, because the hook keeps its
+        // own builder for hand-edited files and a fresh clone. `session-start`
+        // rebuilding after a mutation wrote the board must be a no-op but for
+        // the timestamp.
+        await claimCard(workspace, later.id, {
+            actor: "agent-elsewhere",
+            scope: ["src/api"]
+        });
+        const boardPath = join(root, ".project/.cache/activity/board.json");
+        const fromMutation = JSON.parse(await readFile(boardPath, "utf8"));
+        await runHook("session-start", { session_id: "s2" }, root, env);
+        const fromHook = JSON.parse(await readFile(boardPath, "utf8"));
+        assert.deepEqual(
+            fromHook.claims,
+            fromMutation.claims,
+            "the hook's builder and the core's must produce the same board"
         );
     } finally {
         await rm(root, { recursive: true, force: true });

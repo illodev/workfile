@@ -2,6 +2,7 @@ import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { writeFileAtomic } from "../../core/filesystem.js";
+import { withFileLock } from "../../core/locks.js";
 import { exists } from "../../core/fs-utils.js";
 
 /**
@@ -113,6 +114,110 @@ export async function pruneAgentSessions(workspace, { olderThanMs = 86_400_000 }
         }
     }
     return { removed };
+}
+
+/**
+ * The precomputed claim board.
+ *
+ * `PreToolUse` fires before every tool call in a session, so it cannot read the
+ * card corpus — 84 cards measured 27 ms against a hook budget of roughly 31. It
+ * reads this file instead.
+ *
+ * Nothing wrote it but `session-start`. So the board a session consulted was
+ * the one that existed when the session opened, and every claim taken
+ * afterwards — by this agent or by any other agent sharing the working tree —
+ * was invisible to the guard for the rest of the session. Measured in this
+ * repository: `{"claims":[],"builtAt":"...T11:41:17Z"}` while nine cards were
+ * claimed between 16:05 and 16:26. The scope guard has never fired here, and
+ * this is why.
+ *
+ * A cache of claims belongs to the thing that changes claims. Written from the
+ * mutation, it is correct for every surface at once — CLI, HTTP, MCP — and
+ * across sessions, because another agent's `card claim` in the same tree
+ * updates the same file.
+ */
+function boardPath(workspace) {
+    return join(workspace.paths.cache, "activity", "board.json");
+}
+
+/** The board's view of one card, or null when it holds no claim. */
+export function claimBoardEntry(card) {
+    if (!card?.claimed_by) return null;
+    return {
+        id: card.id,
+        title: card.title,
+        status: card.status,
+        claimedBy: card.claimed_by,
+        claimedAt: card.claimed_at,
+        scope: Array.isArray(card.scope)
+            ? card.scope
+            : card.scope
+              ? [card.scope]
+              : []
+    };
+}
+
+export async function readClaimBoard(workspace) {
+    try {
+        return JSON.parse(await readFile(boardPath(workspace), "utf8"));
+    } catch {
+        return { claims: [], builtAt: null };
+    }
+}
+
+async function writeBoard(workspace, claims, now) {
+    claims.sort((left, right) => String(left.id).localeCompare(String(right.id)));
+    await writeFileAtomic(
+        boardPath(workspace),
+        `${JSON.stringify({ claims, builtAt: now.toISOString() })}\n`
+    );
+    return { claims, builtAt: now.toISOString() };
+}
+
+/**
+ * Applies one card's claim to the board.
+ *
+ * A delta rather than a rebuild, for two reasons. A rebuild would re-read every
+ * card, which is the cost T-0081 removed from mutations. And it would be wrong
+ * under concurrency: two agents claiming different cards hold different card
+ * locks, so a rebuild from a listing read before the other claim would drop it.
+ * Touching only this card's entry cannot lose another's.
+ *
+ * The board file has its own lock, always taken inside the card lock and never
+ * the other way round.
+ */
+export async function updateClaimBoard(workspace, card, { now = new Date() } = {}) {
+    return withFileLock(
+        join(workspace.paths.cache, "locks", "board.lock"),
+        async () => {
+            const board = await readClaimBoard(workspace);
+            const claims = (board.claims || []).filter(
+                (claim) => claim.id !== card.id
+            );
+            const entry = claimBoardEntry(card);
+            if (entry) claims.push(entry);
+            return writeBoard(workspace, claims, now);
+        },
+        { metadata: { module: "cards", recordId: "board" } }
+    );
+}
+
+/** The whole board from a listing, for session start and for repair. */
+export async function rebuildClaimBoard(workspace, cards, { now = new Date() } = {}) {
+    return writeBoard(workspace, cards.map(claimBoardEntry).filter(Boolean), now);
+}
+
+/**
+ * Whether a mutation changed anything the board carries.
+ *
+ * Rewriting it for a title-only patch would be harmless and wasteful; the point
+ * is that a claim, a release, a status move and a scope edit all change it, and
+ * all four go through `mutateCard`.
+ */
+export function claimBoardChanged(before, after) {
+    return ["claimed_by", "claimed_at", "status", "title", "scope"].some(
+        (key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key])
+    );
 }
 
 /**
