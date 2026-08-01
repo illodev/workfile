@@ -1,7 +1,7 @@
 ---
 id: T-0091
 title: Flag validation is keyed per word, so subcommand flags drop silently
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -92,3 +92,5 @@ came back empty.
 ## Activity
 
 - 2026-08-01 19:48Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 19:51Z illodev@local#e55eab30 · review → done
+
