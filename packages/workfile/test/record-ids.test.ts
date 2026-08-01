@@ -94,13 +94,16 @@ test("concurrent card creation across processes never mints a duplicate id", asy
         const cards = join(root, ".project/cards");
         const before = (await idsIn(cards)).length;
 
-        // Twelve, not thirty-two. The window widens with either the corpus or
-        // the process count, and this file runs concurrently with the rest of
-        // the suite: thirty-two spawned processes starved a watcher test on a
-        // two-core Windows runner. A larger corpus buys the same detection for
-        // a fraction of the CPU.
-        const WRITERS = 12;
-        const ROUNDS = 5;
+        // Four concurrent writers, sixteen times over — not thirty-two at
+        // once. `node --test` runs test FILES in parallel, so whatever this
+        // spawns competes with a watcher test that has a three second delivery
+        // budget on a two core Windows runner. Thirty-two processes starved it;
+        // so did twelve. The window widens with the corpus as readily as with
+        // the process count, so it is bought with files and repetition instead,
+        // which costs the rest of the suite nothing. Four still detects the
+        // regression in four runs out of four.
+        const WRITERS = 4;
+        const ROUNDS = 16;
         // Five rounds, not one. Detection per round is roughly even odds even
         // at this corpus size, so a single round would be a coin flip that
         // fails in CI weeks after the regression landed.
