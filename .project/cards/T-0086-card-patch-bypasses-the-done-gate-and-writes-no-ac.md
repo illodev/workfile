@@ -1,7 +1,7 @@
 ---
 id: T-0086
 title: card patch bypasses the done gate and writes no activity trail
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -63,3 +63,5 @@ separate card.
 ## Activity
 
 - 2026-08-01 19:06Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 19:12Z illodev@local#e55eab30 · review → done
+

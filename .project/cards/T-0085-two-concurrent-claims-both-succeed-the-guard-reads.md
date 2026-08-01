@@ -1,7 +1,7 @@
 ---
 id: T-0085
 title: "Two concurrent claims both succeed: the guard reads pre-lock state"
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -65,3 +65,5 @@ not twice" still passes.
 ## Activity
 
 - 2026-08-01 19:06Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 19:12Z illodev@local#e55eab30 · review → done
+
