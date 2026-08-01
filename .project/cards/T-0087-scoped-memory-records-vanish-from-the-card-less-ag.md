@@ -1,12 +1,15 @@
 ---
 id: T-0087
 title: Scoped memory records vanish from the card-less agent bundle
-status: backlog
+status: doing
 type: bug
 priority: medium
 area: core
 created: 2026-08-01
 updated: 2026-08-01
+claimed_by: claude-opus-5
+claimed_at: "2026-08-01T20:33:37.550Z"
+scope: [packages/workfile/src/modules/agents/agents.ts, packages/workfile/test/agents.test.ts]
 ---
 `scopeMatches` (`src/modules/agents/agents.ts:454`):
 
@@ -39,6 +42,14 @@ already returns 10 of them in one call.
 
 ## Acceptance criteria
 
-- [ ] An accepted ADR with `scope: [x]` appears in `agents context` with no `--card`
-- [ ] A regression test mirrors T-0080's draft-convention test
-- [ ] Scoped records still filter correctly when a focus card is given
+- [x] An accepted ADR with `scope: [x]` appears in `agents context` with no `--card`
+- [x] A regression test mirrors T-0080's draft-convention test
+- [x] Scoped records still filter correctly when a focus card is given
+
+## Activity
+
+- 2026-08-01 20:33Z claude-opus-5 · claimed
+
+## Notes
+
+- 2026-08-01 20:38Z claude-opus-5 — The card scoped the fix to the card-less case; the discriminator is actually whether the work's scope is known at all. 84 of 94 cards here declare a scope, but for the other 10 passing --card would have left the identical failure in place with an extra flag. One predicate covers both: unknown scope includes. A focus card that does declare a scope still filters exactly as before, asserted in the same test. renderRecordSummary now prints the scope on its own line, so a record included without its scope having been checked can be discarded deliberately rather than read as universal.

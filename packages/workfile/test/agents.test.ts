@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import {
     buildAgentContext,
     checkAgentInstructions,
+    createCard,
     createManagedDocument,
     createMemoryRecord,
     loadWorkspace,
@@ -108,6 +109,73 @@ test("agent context stays bounded and includes related durable knowledge", async
         assert.match(context.markdown, /T-0001 — Example task/);
         assert.match(context.markdown, /API operating guide/);
         assert.ok(context.records.length <= 10);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a scoped record is filtered against a known scope, never against an absent one", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-scope-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        // Related to nothing, so the collection filter is the only way in. The
+        // sibling test above reaches its convention through `related`, which is
+        // exactly what hid this for as long as it did.
+        const api = await createMemoryRecord(workspace, "decisions", {
+            title: "Postgres over SQLite for the API",
+            status: "accepted",
+            scope: ["apps/api"],
+            body: "We chose Postgres."
+        });
+        const www = await createMemoryRecord(workspace, "decisions", {
+            title: "Tailwind for the marketing site",
+            status: "accepted",
+            scope: ["apps/www"],
+            body: "We chose Tailwind."
+        });
+        const unscoped = await createMemoryRecord(workspace, "decisions", {
+            title: "Semver for every package",
+            status: "accepted",
+            body: "We follow semver."
+        });
+        const ids = (context) => new Set(context.records.map((record) => record.id));
+
+        // Session start: no card, so no scope to compare against. Excluding
+        // here is a decision an agent must not contradict, made invisible.
+        const opening = ids(await buildAgentContext(workspace, { limit: 20 }));
+        assert.ok(opening.has(api.id));
+        assert.ok(opening.has(www.id));
+        assert.ok(opening.has(unscoped.id));
+
+        // A focus card that declares no scope is the same absence of a
+        // comparison, and `--card` must not turn "unknown" into "no".
+        const scopeless = ids(
+            await buildAgentContext(workspace, { cardId: "T-0001", limit: 20 })
+        );
+        assert.ok(scopeless.has(api.id));
+        assert.ok(scopeless.has(www.id));
+
+        // A focus card that does declare one is a comparison, and it filters.
+        const card = await createCard(workspace, {
+            title: "Rework the API pagination",
+            type: "task",
+            area: "api",
+            scope: ["apps/api"],
+            body: "Body.\n\n## Acceptance criteria\n\n- [ ] Verifiable check\n"
+        });
+        const focused = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        const matching = ids(focused);
+        assert.ok(matching.has(api.id));
+        assert.ok(!matching.has(www.id), "a foreign scope is still excluded");
+        assert.ok(matching.has(unscoped.id), "an unscoped record is universal");
+
+        // Inclusion without the scope on show is its own quiet lie: a reader
+        // has to be able to discard `apps/www` deliberately.
+        assert.match(focused.markdown, /_scope: apps\/api_/);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

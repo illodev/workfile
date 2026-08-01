@@ -451,9 +451,20 @@ export async function checkAgentInstructions(workspace, options: any = {}) {
     };
 }
 
+/**
+ * Does this record's scope let it into the bundle?
+ *
+ * Three states, not two. A record that declares no scope is universal. A record
+ * weighed against work whose scope is known is a comparison. A record weighed
+ * against work whose scope is *unknown* — no focus card, or a focus card that
+ * declares none — is neither, and answering "no" there is how a scoped record
+ * disappeared from the command the protocol tells agents to run first. That is
+ * the failure T-0080 fixed in the reachability dimension, surviving in this
+ * one. Unknown includes, and the summary carries the scope so a reader can
+ * discard it deliberately instead of never seeing it.
+ */
 function scopeMatches(recordScope, cardScope) {
-    if (!recordScope?.length) return true;
-    if (!cardScope?.length) return false;
+    if (!recordScope?.length || !cardScope?.length) return true;
     return recordScope.some((left) =>
         cardScope.some(
             (right) =>
@@ -466,7 +477,13 @@ function renderRecordSummary(record) {
     const metadata = [record.kind, record.collection, record.status, record.area]
         .filter(Boolean)
         .join(" · ");
-    return `## ${record.id} — ${record.title}\n\n${metadata ? `_${metadata}_\n\n` : ""}${record.body || record.excerpt || ""}`.trim();
+    // On its own line: a scope is a list of paths, and folding it into the
+    // metadata run turns a three-path card into an unreadable one.
+    const scope = Array.isArray(record.scope) ? record.scope : record.scope ? [record.scope] : [];
+    const heading = [metadata && `_${metadata}_`, scope.length && `_scope: ${scope.join(", ")}_`]
+        .filter(Boolean)
+        .join("\n");
+    return `## ${record.id} — ${record.title}\n\n${heading ? `${heading}\n\n` : ""}${record.body || record.excerpt || ""}`.trim();
 }
 
 export async function buildAgentContext(workspace, options: any = {}) {
@@ -523,9 +540,9 @@ export async function buildAgentContext(workspace, options: any = {}) {
             record.confidence !== "low" &&
             scopeMatches(record.scope, focus?.scope)
     );
-    // With no card there is no focus, and every scoped record fell away — which
-    // left `totalAvailable: 0` for the session-start case. What a session
-    // actually needs to know first is what is already in flight.
+    // With no card there is no focus and no direct links, so the session-start
+    // bundle would open on durable knowledge alone. What a session needs to
+    // know first is what is already in flight — including who is holding it.
     const inFlight = cardId
         ? []
         : index.records
