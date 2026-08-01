@@ -1,7 +1,7 @@
 ---
 id: T-0092
 title: A malformed --updated-since returns an empty set instead of an error
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -75,3 +75,5 @@ Filed as [[T-0093]], not fixed here.
 ## Activity
 
 - 2026-08-01 20:09Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 20:13Z illodev@local#e55eab30 · review → done
+
