@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHook } from "node:async_hooks";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,14 +8,19 @@ import { join } from "node:path";
 import { buildBenchWorkspace } from "../scripts/bench-workspace.ts";
 import {
     INDEX_CACHE_FORMAT,
+    archiveCard,
     buildProjectIndex,
+    claimCard,
+    createCard,
     clearIndexCache,
     createProjectIndexStore,
     exists,
     indexConfigSignature,
     loadCards,
     loadWorkspace,
-    searchProjectRecords
+    releaseCard,
+    searchProjectRecords,
+    transitionCard
 } from "../dist/src/index.js";
 
 
@@ -468,6 +474,88 @@ test("a wiki-link is a declared edge, a bare mention is not", async () => {
             record.outgoing.some((link) => link.id === record.id),
             false
         );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The other half of the cost, and the half no byte budget can see.
+ *
+ * Four mutators each loaded the whole card corpus and then called `mutateCard`,
+ * which loaded it again because none of them passed the `snapshot` option it
+ * already accepted. That doubled every claim, release, transition and archive
+ * at every scale — and moved not one byte, so the budgets above stayed green
+ * throughout.
+ *
+ * A timing gate was measured and rejected. The ratio of a mutation to a bare
+ * corpus read separates cleanly on a quiet machine (2.30x before the fix
+ * against 0.93x after) but came out 1.54x against 0.78x on the next run, and a
+ * gate that noisy on a loaded two-core runner is a flaky test, which is worse
+ * than no test.
+ *
+ * Counting filesystem operations is exact. `loadCards` costs what it costs on
+ * any machine; what matters is whether a mutation pays for it once or twice.
+ * Before: 327 operations against 156. After: 171. Identical on every run.
+ */
+test("a mutation reads the corpus once, not twice", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ops-"));
+    try {
+        await buildBenchWorkspace(root, "S");
+        const workspace = await loadWorkspace({ root });
+        const card = await createCard(workspace, {
+            title: "Subject of the measurement",
+            area: "core"
+        });
+
+        let operations = 0;
+        const hook = createHook({
+            init(_id, type) {
+                if (type === "FSREQPROMISE" || type === "FSREQCALLBACK") {
+                    operations += 1;
+                }
+            }
+        });
+        const cost = async (run) => {
+            operations = 0;
+            hook.enable();
+            try {
+                await run();
+            } finally {
+                hook.disable();
+            }
+            return operations;
+        };
+
+        const corpus = await cost(() => loadCards(workspace));
+        assert.ok(corpus > 0, "the baseline must actually read something");
+
+        // Each of the four in a sequence the state machine allows.
+        const measured = {
+            claim: await cost(() =>
+                claimCard(workspace, card.id, { actor: "budget", scope: ["src/x"] })
+            ),
+            release: await cost(() =>
+                releaseCard(workspace, card.id, { actor: "budget" })
+            ),
+            transition: await cost(() =>
+                transitionCard(workspace, card.id, "done", { actor: "budget" })
+            ),
+            archive: await cost(() => archiveCard(workspace, card.id))
+        };
+
+        // 1.10x when the listing is passed through, 2.10x when it is not. The
+        // ceiling sits between the two with room on both sides, because the
+        // point is to catch a doubling, not to police a few extra stats.
+        for (const [label, count] of Object.entries(measured)) {
+            const ratio = count / corpus;
+            assert.ok(
+                ratio < 1.5,
+                `${label} cost ${count} filesystem operations against ${corpus} for a ` +
+                    `bare corpus read (${ratio.toFixed(2)}x). Over 1.5x means the ` +
+                    "listing is being read twice: pass `snapshot` to `mutateCard`."
+            );
+        }
     } finally {
         await rm(root, { recursive: true, force: true });
     }
