@@ -1,7 +1,7 @@
 ---
 id: T-0089
 title: board.json is built only at session start, so the scope guard is inert
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -90,3 +90,5 @@ repairs it.
 ## Activity
 
 - 2026-08-01 19:22Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 19:25Z illodev@local#e55eab30 · review → done
+
