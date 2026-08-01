@@ -25,6 +25,21 @@ function sessionPath(workspace, sessionId) {
 /** Default window within which a session is considered still present. */
 export const LIVE_WINDOW_MS = 90_000;
 
+/**
+ * How long a session must go quiet before its claim is called abandoned.
+ *
+ * Not the live window. An agent that is reading, thinking, or waiting on a
+ * build signals nothing for minutes at a time and is emphatically still there;
+ * calling that claim `orphaned` would put a warning on `doctor` for every
+ * session that paused, and a warning that fires when nothing is wrong is how a
+ * check stops being read.
+ *
+ * Half an hour of silence is a different claim about the world. The pid in the
+ * session file cannot settle it — the hook process that wrote it exits
+ * immediately, so the recorded pid is always dead by the time anyone looks.
+ */
+export const ORPHAN_WINDOW_MS = 1_800_000;
+
 export async function recordAgentSignal(
     workspace,
     { sessionId, actor, cardId = null, files = [], now = new Date() }: any = {}
@@ -110,8 +125,10 @@ export async function pruneAgentSessions(workspace, { olderThanMs = 86_400_000 }
  *
  *  - `live`      — a session is signalling within the live window.
  *  - `stale`     — held longer than the configured lease.
- *  - `orphaned`  — no session signalling, and its recorded process is gone.
- *  - `held`      — claimed, within lease, no live signal either way.
+ *  - `orphaned`  — a session was signalling and has been silent far longer
+ *                  than any pause in normal work.
+ *  - `held`      — claimed, within lease, no live signal either way. Also where
+ *                  a session that is merely between tool calls belongs.
  */
 export function claimState(card, sessions, { leaseHours, now = new Date() }) {
     if (!card.claimed_by) return { state: "unclaimed" };
@@ -132,7 +149,12 @@ export function claimState(card, sessions, { leaseHours, now = new Date() }) {
     if (ageMs != null && ageMs >= leaseHours * 3_600_000) {
         return { ...base, state: "stale" };
     }
-    if (session && !session.live) return { ...base, state: "orphaned" };
+    // Silent, but only for as long as thinking takes: still held. Before there
+    // was a producer this branch could not be reached at all, so "any session
+    // outside the live window is orphaned" cost nothing and read as correct.
+    if (session && (session.ageMs ?? Infinity) > ORPHAN_WINDOW_MS) {
+        return { ...base, state: "orphaned" };
+    }
     return { ...base, state: "held" };
 }
 

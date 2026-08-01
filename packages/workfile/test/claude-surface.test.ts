@@ -7,10 +7,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+    buildActivitySnapshot,
     checkClaudeSurface,
     claudeCommandFiles,
     claimCard,
     createCard,
+    loadCards,
     loadWorkspace,
     syncAgentInstructions,
     syncClaudeSurface
@@ -486,5 +488,95 @@ test("the distributable plugin cannot drift from the generated surface", async (
                 assert.match(hook.command, /\$\{CLAUDE_PLUGIN_ROOT\}/);
             }
         }
+    }
+});
+
+/**
+ * `recordAgentSignal`, `readAgentSessions` and `claimState` were all built and
+ * all correct, and nothing in production called the first one — so `live` and
+ * `orphaned` were unreachable, the doctor rule never fired, and the UI's live
+ * count was structurally zero. The README screenshots and the landing film
+ * showed a state no user could reach, staged by the capture scripts calling the
+ * library directly.
+ *
+ * The producer is the hook, because it is the only thing that fires repeatedly
+ * for as long as an agent is working.
+ */
+test("the hook produces the live half of a claim", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-live-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const card = await createCard(workspace, { title: "Held live", area: "api" });
+        const ownerEnv = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+        await claimCard(workspace, card.id, {
+            actor: "solo@box#feedface",
+            scope: ["src/api"]
+        });
+
+        // Nothing has signalled: the claim is held, and that is all anyone can say.
+        const cold = await buildActivitySnapshot(workspace, (await loadCards(workspace)).cards);
+        assert.equal(cold.sessions.length, 0);
+        assert.equal(
+            cold.claims.find((entry) => entry.id === card.id)?.claim.state,
+            "held"
+        );
+
+        await runHook("session-start", { session_id: "feedface-0000" }, root, ownerEnv);
+        await runHook(
+            "post-tool-use",
+            {
+                session_id: "feedface-0000",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/api/billing.ts") }
+            },
+            root,
+            ownerEnv
+        );
+
+        const warm = await buildActivitySnapshot(workspace, (await loadCards(workspace)).cards);
+        assert.equal(warm.sessions.length, 1, "the session file exists");
+        assert.equal(warm.sessions[0].live, true);
+        assert.equal(
+            warm.sessions[0].actor,
+            "solo@box#feedface",
+            "the session's actor is the string the claim was written with, or nothing matches"
+        );
+        assert.equal(
+            warm.claims.find((entry) => entry.id === card.id)?.claim.state,
+            "live",
+            "a claim held by a signalling session is live"
+        );
+        assert.ok(
+            warm.sessions[0].filesTouched.some((path) => path.includes("billing")),
+            "what the agent touched travels with the signal"
+        );
+
+        // A pause is not an abandonment. Between the live window and the orphan
+        // window a claim stays held — otherwise every agent that spent two
+        // minutes reading would put a warning on the doctor.
+        const paused = await buildActivitySnapshot(
+            workspace,
+            (await loadCards(workspace)).cards,
+            { now: new Date(Date.now() + 5 * 60_000) }
+        );
+        assert.equal(
+            paused.claims.find((entry) => entry.id === card.id)?.claim.state,
+            "held",
+            "five minutes of silence is thinking, not leaving"
+        );
+
+        const gone = await buildActivitySnapshot(
+            workspace,
+            (await loadCards(workspace)).cards,
+            { now: new Date(Date.now() + 45 * 60_000) }
+        );
+        assert.equal(
+            gone.claims.find((entry) => entry.id === card.id)?.claim.state,
+            "orphaned",
+            "silence far past any pause is what orphaned means"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
     }
 });

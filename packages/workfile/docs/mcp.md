@@ -65,8 +65,12 @@ directly, because that skips the lock, the revision check and validation.
 It asks; it never denies. A guard rail that blocks too much gets switched off,
 and then it protects nothing.
 
-**`PostToolUse`** appends one line to `.project/.cache/activity/events.jsonl`,
-asynchronously.
+**`PostToolUse`** refreshes the session heartbeat under
+`.project/.cache/activity/sessions/` and appends one line to
+`.project/.cache/activity/events.jsonl`, asynchronously. The heartbeat is what
+makes a claim `live` rather than merely `held`: a hook is the only thing that
+fires repeatedly for as long as an agent is working, and a one-shot CLI process
+that signalled once would decay into a false `orphaned` ninety seconds later.
 
 The hook runtime (`dist/src/runtime/claude/hooks.mjs`) imports nothing from this
 package. `src/index.js` re-exports thirteen modules and several read
@@ -105,9 +109,9 @@ The server is only half of it; the rest is session-side:
   `SessionStart` rebuilds the claims board and announces which cards are
   being worked on and by whom; `PreToolUse` asks — never denies — before an
   edit that lands inside another actor's claimed scope or touches a protocol
-  record directly; an async `PostToolUse` appends each edit to
-  `.project/.cache/events.jsonl`, which is what the UI's presence indicators
-  read.
+  record directly; an async `PostToolUse` refreshes the session heartbeat under
+  `.project/.cache/activity/sessions/`, which is what the UI's presence
+  indicators read, and appends the edit to `.project/.cache/activity/events.jsonl`.
 
 Both forms exist on purpose. A plugin's `settings.json` accepts only `agent` and
 `subagentStatusLine`, so anything else has to be generated locally; and a

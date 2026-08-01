@@ -49,6 +49,11 @@ try {
 const root = fileURLToPath(new URL("../artifacts/screenshot-workspace/", import.meta.url));
 // The curated corpus already carries its claims; the session signal is what
 // upgrades agent:claude's claim from "held" to visibly live in the frame.
+//
+// This staged the state directly for a long time while nothing in production
+// produced it, so the screenshots showed something no user could reach. The
+// Claude hook is the producer now (T-0082); calling the library here is what a
+// fixture builder does, not a substitute for a path that does not exist.
 const { signalCardId, inspectCardId } = await buildScreenshotWorkspace(root);
 const workspace = await loadWorkspace({ root });
 await recordAgentSignal(workspace, {

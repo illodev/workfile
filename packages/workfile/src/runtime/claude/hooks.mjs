@@ -11,7 +11,7 @@
  * Everything here is one small file read and some string work. The budget is
  * a p95 under 30 ms, pinned by a test.
  */
-import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 const CACHE = ".project/.cache/activity";
@@ -157,10 +157,80 @@ const actorFor = (input) => {
     return `${user}@${host}${suffix}`;
 };
 
+const SESSIONS = `${CACHE}/sessions`;
+
+/**
+ * The live half of a claim.
+ *
+ * Mirrors `recordAgentSignal` in `modules/cards/claims.ts`, deliberately
+ * duplicated: this file imports nothing from the package (see the header) and a
+ * hook runs before every tool call in the session.
+ *
+ * The CLI is not the producer and must not become one. A one-shot process
+ * writes a signal and exits, and once its file ages past the live window it
+ * makes a perfectly healthy claim look abandoned — worse than no signal at all.
+ * A hook is the only thing in the system that fires repeatedly for as long as
+ * an agent is actually working.
+ */
+async function signal(root, input, files = []) {
+    const id = sessionId(input);
+    if (!id) return;
+    const directory = join(root, SESSIONS);
+    const path = join(directory, `${String(id).replace(/[^\w.-]+/g, "_")}.json`);
+    const previous = await readJson(path, {});
+    const now = new Date().toISOString();
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+        path,
+        `${JSON.stringify(
+            {
+                sessionId: String(id),
+                actor: actorFor(input) || previous.actor || null,
+                cardId: previous.cardId ?? null,
+                pid: process.pid,
+                startedAt: previous.startedAt || now,
+                lastSignalAt: now,
+                filesTouched: [
+                    ...new Set([...(previous.filesTouched || []), ...files])
+                ].slice(-50)
+            },
+            null,
+            2
+        )}\n`
+    );
+}
+
+/**
+ * Session files outlive their sessions; something has to sweep them.
+ *
+ * `events.jsonl` grew to 54 KB in this repository with no reader and no
+ * pruning, which is the same mistake one file down.
+ */
+async function pruneSessions(root, olderThanMs = 86_400_000) {
+    const directory = join(root, SESSIONS);
+    let names;
+    try {
+        names = await readdir(directory);
+    } catch {
+        return;
+    }
+    for (const name of names) {
+        if (!name.endsWith(".json")) continue;
+        const path = join(directory, name);
+        const session = await readJson(path, null);
+        const age = Date.now() - Date.parse(session?.lastSignalAt || "");
+        if (!Number.isFinite(age) || age > olderThanMs) {
+            await rm(path, { force: true }).catch(() => undefined);
+        }
+    }
+}
+
 async function sessionStart(input) {
     const root = projectDir(input);
     const board = await buildBoard(root);
     await mkdir(join(root, CACHE), { recursive: true });
+    await pruneSessions(root);
+    await signal(root, input);
     await writeFile(
         join(root, CACHE, "board.json"),
         `${JSON.stringify(board)}\n`
@@ -251,7 +321,15 @@ async function postToolUse(input) {
     const root = projectDir(input);
     const filePath = input.tool_input?.file_path;
     const id = sessionId(input);
-    if (!filePath || !id) return;
+    if (!id) return;
+    // Presence is refreshed by any tool call. Reading and running commands is
+    // working; restricting the heartbeat to writes would report an agent that
+    // spent ten minutes investigating as gone.
+    const touched = filePath
+        ? [relative(root, resolve(root, filePath)).replaceAll("\\", "/")]
+        : [];
+    await signal(root, input, touched);
+    if (!filePath) return;
     await mkdir(join(root, CACHE), { recursive: true });
     // Append-only and one line per event: a file per event would exhaust inodes
     // and make the directory impossible to coalesce.
