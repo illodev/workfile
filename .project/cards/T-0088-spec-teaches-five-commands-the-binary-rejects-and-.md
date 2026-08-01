@@ -1,14 +1,12 @@
 ---
 id: T-0088
 title: SPEC teaches five commands the binary rejects, and no test catches it
-status: doing
+status: done
 type: bug
 priority: medium
 area: docs
 created: 2026-08-01
 updated: 2026-08-01
-claimed_by: claude-opus-5
-claimed_at: "2026-08-01T20:46:21.433Z"
 scope: [packages/workfile/docs/SPEC.md, packages/workfile/test/documentation.test.ts]
 ---
 Five commands SPEC.md teaches do not exist. All five verified today:
@@ -57,9 +55,12 @@ and note them.
 ## Activity
 
 - 2026-08-01 20:46Z claude-opus-5 · claimed
+- 2026-08-01 22:26Z claude-opus-5 · doing → review
+- 2026-08-01 22:26Z claude-opus-5 · review → done
+- 2026-08-01 22:26Z claude-opus-5 · released
 
 ## Notes
 
 - 2026-08-01 20:53Z claude-opus-5 — The test names five, but not the card's five. It catches card edit, docs search, docs open, memory search — and docs index at SPEC:1364, which the card's table missed. It does not catch memory graduate --to convention, which is correct: that path resolves and the defect is in the argument. --to takes record IDs (bin/workfile.ts: listOption("--to") into graduateLearning), so --to convention writes a reference to a record named convention. Two of the six lines are argument semantics and stay hand-fixed, as the card says.
 - 2026-08-01 22:22Z claude-opus-5 — Six lines corrected: card edit -> card patch --json-input; docs search -> search --kind doc; docs open -> docs show; docs index deleted (docs list is four lines up in the same fence); memory search -> memory list --query, which stays in the namespace and is better than redirecting to global search; --to convention -> --to CONV-0001. SPEC:218's --verbose MUST rewritten to describe what is true; the product question is T-0097. Every replacement was run in a throwaway workspace. The audit also found three defects outside this card: T-0095 (card and doc ask for an ID instead of rejecting an unknown subcommand), T-0096 (seven docs still name project as the binary, below the existing test's regex), T-0098 (cli.md still states the pre-T-0091 global flag contract).
-
+- 2026-08-01 22:26Z claude-opus-5 — Runtime evidence: the new test fails on SPEC as it stood, naming all five paths, and passes after the corrections, at 17 ms. Each replacement line was run in a throwaway workspace: card patch --json-input wrote priority: high, docs show returned the record, search --kind doc and memory list --query both returned hits, memory graduate --to CONV-0001 succeeded. pnpm run check green at 203 + 7, ratchet 599 across 59 files, doctor 0/0. CI green on both platforms at a4ee4a2.
