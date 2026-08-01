@@ -72,7 +72,7 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 
 1. Busca el trabajo y el conocimiento relacionado con \`${workspace.cli} search\`.
 2. Abre la tarjeta y sus relaciones antes de modificar código sustancial.
-3. Reclama la tarjeta antes de tocar su scope: \`${workspace.cli} card claim ID --actor ACTOR --scope ruta,ruta\`.
+3. Reclama la tarjeta antes de tocar su scope: \`${workspace.cli} card claim ID --scope ruta,ruta\`. Tu identidad se resuelve sola; \`${workspace.cli} agents whoami\` la muestra. Usa \`--actor\` solo para reclamar en nombre de otro: un actor inventado a mano no coincide con el que ve el guardarraíl de edición.
 4. Revisa claims activos y solapamientos de scope. No sobrescribas el trabajo de otro actor.
 5. Carga solo el contexto necesario; evita inyectar toda la memoria del proyecto.
 
@@ -118,8 +118,8 @@ Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVers
 \`${workspace.cli} search "consulta"\`  
 \`${workspace.cli} agents context --card T-0001\`  
 \`${workspace.cli} card show T-0001 --json\`  
-\`${workspace.cli} card claim T-0001 --actor session-id --scope apps/api\`  
-\`${workspace.cli} card transition T-0001 review --actor session-id\`  
+\`${workspace.cli} card claim T-0001 --scope apps/api\`  
+\`${workspace.cli} card transition T-0001 review\`  
 \`${workspace.cli} changelog add --title "Cambio" --type changed --area api\`  
 \`${workspace.cli} memory add decision --title "Decisión" --status accepted\`  
 \`${workspace.cli} doctor\`
@@ -133,7 +133,7 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 
 1. Search related work and knowledge with \`${workspace.cli} search\`.
 2. Read the card and its relationship neighborhood before substantial code changes.
-3. Claim the card before touching its scope: \`${workspace.cli} card claim ID --actor ACTOR --scope path,path\`.
+3. Claim the card before touching its scope: \`${workspace.cli} card claim ID --scope path,path\`. Your identity resolves on its own and \`${workspace.cli} agents whoami\` prints it. Pass \`--actor\` only to claim on someone else's behalf: an actor invented by hand does not match the one the edit guard sees.
 4. Inspect active claims and overlapping scopes. Do not overwrite another actor's work.
 5. Load the smallest relevant context; do not inject all workfile memory into every prompt.
 
@@ -179,8 +179,8 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 \`${workspace.cli} search "query"\`  
 \`${workspace.cli} agents context --card T-0001\`  
 \`${workspace.cli} card show T-0001 --json\`  
-\`${workspace.cli} card claim T-0001 --actor session-id --scope apps/api\`  
-\`${workspace.cli} card transition T-0001 review --actor session-id\`  
+\`${workspace.cli} card claim T-0001 --scope apps/api\`  
+\`${workspace.cli} card transition T-0001 review\`  
 \`${workspace.cli} changelog add --title "Change" --type changed --area api\`  
 \`${workspace.cli} memory add decision --title "Decision" --status accepted\`  
 \`${workspace.cli} doctor\`
@@ -196,7 +196,7 @@ function workflowBody(workspace, workflow) {
 1. Ejecuta \`${workspace.cli} agents context --card <ID>\`.
 2. Lee la tarjeta, documentación, decisiones, convenciones e incidentes relevantes.
 3. Comprueba claims y scopes solapados.
-4. Reclama la tarjeta con un actor estable para la sesión.
+4. Reclama la tarjeta: \`${workspace.cli} card claim <ID> --scope ruta,ruta\`. No inventes un actor.
 5. Cambia a \`doing\` solo cuando el trabajo empiece realmente.
 6. Confirma criterios de aceptación y plan de verificación antes de editar código.`
             : `# Start work
@@ -204,7 +204,7 @@ function workflowBody(workspace, workflow) {
 1. Run \`${workspace.cli} agents context --card <ID>\`.
 2. Read the card plus relevant docs, decisions, conventions and incidents.
 3. Check active claims and overlapping scopes.
-4. Claim the card with a stable actor identifier for the session.
+4. Claim the card: \`${workspace.cli} card claim <ID> --scope path,path\`. Do not invent an actor.
 5. Move to \`doing\` only when work actually begins.
 6. Confirm acceptance criteria and the verification plan before editing code.`,
         "finish-work": isEs

@@ -1,14 +1,16 @@
 ---
 id: T-0099
 title: The guard asks about your own claim again, now that the board is live
-status: backlog
+status: doing
 type: bug
 priority: high
 area: core
-scope: [packages/workfile/src/runtime/claude/hooks.mjs, packages/workfile/bin/workfile.ts]
+scope: [packages/workfile/src/runtime/claude/hooks.mjs, packages/workfile/bin/workfile.ts, packages/workfile/docs/SPEC.md]
 related: [T-0089]
 created: 2026-08-01
 updated: 2026-08-01
+claimed_by: "illodev@local#e55eab30"
+claimed_at: "2026-08-01T23:22:28.250Z"
 ---
 
 Reproduced by replaying a real payload against the built hook:
@@ -57,6 +59,16 @@ normalized, not raw.
 
 ## Acceptance criteria
 
-- [ ] A claim taken by the session's own default actor does not prompt that session
-- [ ] A claim by a different actor still prompts
-- [ ] A test replays a PreToolUse payload for both cases, mirroring T-0089's
+- [x] A claim taken by the session's own default actor does not prompt that session
+- [x] A claim by a different actor still prompts
+- [x] A test replays a PreToolUse payload for both cases, mirroring T-0089's
+
+## Activity
+
+- 2026-08-01 23:21Z illodev@9230480325690 · claimed
+- 2026-08-01 23:22Z illodev@9230480325690 · released
+- 2026-08-01 23:22Z illodev@local#e55eab30 · claimed
+
+## Notes
+
+- 2026-08-01 23:30Z illodev@local#e55eab30 — The card's diagnosis was wrong and the truth is worse. The two derivations do not disagree: core/actor.ts resolves illodev@local#e55eab30 from CLAUDE_CODE_SESSION_ID, and the hook's actorFor derives the identical string from the payload's session_id. Claiming with no --actor and replaying a PreToolUse for that session produces silence. What broke it was passing --actor claude-opus-5 by hand, which outranks every other rung — and the generated protocol taught exactly that, in four places and two languages: card claim ID --actor ACTOR, card claim T-0001 --actor session-id, and 'Claim the card with a stable actor identifier for the session'. So the failure shipped to every repository that ran agents sync, in the file agents are told to read first. actor.ts:21-24 already named the documentation as the cause; only the code was fixed.

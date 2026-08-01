@@ -1343,7 +1343,7 @@ workfile card list
 workfile card show T-0042
 workfile card create
 workfile card patch T-0042 --json-input changes.json
-workfile card claim T-0042 --actor session-56a30d1b
+workfile card claim T-0042 --scope apps/api
 workfile card release T-0042
 workfile card transition T-0042 review
 workfile card archive T-0042

@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=canonical-agent-protocol version=0.2.0 digest=sha256:f40a8b2ae5fb0a078b9ce2dcd0f2031b611f532afc6d52626c5e524aea1be796 -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.2.0 digest=sha256:68844c761465e6e77d8b7391ee4ff03b2327702fc9a51978ef7ff309376de766 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -7,7 +7,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 
 1. Search related work and knowledge with `pnpm workfile search`.
 2. Read the card and its relationship neighborhood before substantial code changes.
-3. Claim the card before touching its scope: `pnpm workfile card claim ID --actor ACTOR --scope path,path`.
+3. Claim the card before touching its scope: `pnpm workfile card claim ID --scope path,path`. Your identity resolves on its own and `pnpm workfile agents whoami` prints it. Pass `--actor` only to claim on someone else's behalf: an actor invented by hand does not match the one the edit guard sees.
 4. Inspect active claims and overlapping scopes. Do not overwrite another actor's work.
 5. Load the smallest relevant context; do not inject all workfile memory into every prompt.
 
@@ -53,8 +53,8 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 `pnpm workfile search "query"`  
 `pnpm workfile agents context --card T-0001`  
 `pnpm workfile card show T-0001 --json`  
-`pnpm workfile card claim T-0001 --actor session-id --scope apps/api`  
-`pnpm workfile card transition T-0001 review --actor session-id`  
+`pnpm workfile card claim T-0001 --scope apps/api`  
+`pnpm workfile card transition T-0001 review`  
 `pnpm workfile changelog add --title "Change" --type changed --area api`  
 `pnpm workfile memory add decision --title "Decision" --status accepted`  
 `pnpm workfile doctor`

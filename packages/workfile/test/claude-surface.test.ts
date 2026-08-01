@@ -17,6 +17,7 @@ import {
     loadWorkspace,
     PLUGIN_HOOK_RUNTIME,
     releaseCard,
+    resolveActor,
     syncAgentInstructions,
     syncClaudeSurface
 } from "../dist/src/index.js";
@@ -678,6 +679,69 @@ test("a claim taken after session start is visible to the guard", async () => {
             fromHook.claims,
             fromMutation.claims,
             "the hook's builder and the core's must produce the same board"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The guard must not stop the session that took the claim.
+ *
+ * `core/actor.ts` and the hook's `actorFor` derive the same identity from the
+ * same inputs, and neither imports the other: the hook deliberately imports
+ * nothing, because a `PreToolUse` runs before every matching call and the
+ * latency budget depends on it. Two copies of one derivation with nothing
+ * comparing them is how they drift, and drift here is silent — the guard simply
+ * starts asking about your own work until somebody switches it off.
+ *
+ * Behaviour, not internals: claim as the identity the CLI resolves with no
+ * `--actor`, then drive the real hook for that session and require silence.
+ *
+ * This was live in this repository. Cards were claimed `--actor claude-opus-5`
+ * because the generated protocol taught `--actor ACTOR`, so every edit inside
+ * the claimed scope raised a permission prompt — over `bypassPermissions`,
+ * correctly, since a hook's `ask` is the repository speaking — and `card
+ * release` then refused with `CARD_CLAIM_OWNER_MISMATCH`.
+ */
+test("the guard is silent for the session that holds the claim", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-actor-"));
+    const session = "e55eab30-b661-4290-bd58-d3b3a82f3b48";
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    const edit = {
+        session_id: session,
+        tool_name: "Edit",
+        tool_input: { file_path: join(root, "src/api/billing.ts") }
+    };
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const card = await createCard(workspace, { title: "Mine", area: "api" });
+
+        // Exactly what `card claim` writes when no `--actor` is given.
+        const mine = resolveActor({ sessionId: session, env }).actor;
+        assert.equal(mine, "solo@box#e55eab30", "the CLI's derivation moved");
+
+        await claimCard(workspace, card.id, { actor: mine, scope: ["src/api"] });
+        const own = await runHook("pre-tool-use", edit, root, env);
+        assert.equal(
+            own.stdout.trim(),
+            "",
+            `the guard asked about this session's own claim: ${own.stdout}`
+        );
+
+        // The protection itself is untouched: another actor still stops the edit.
+        await releaseCard(workspace, card.id, { actor: mine });
+        await claimCard(workspace, card.id, {
+            actor: "agent-elsewhere",
+            scope: ["src/api"]
+        });
+        const foreign = await runHook("pre-tool-use", edit, root, env);
+        assert.match(
+            JSON.parse(foreign.stdout || "{}").hookSpecificOutput
+                ?.permissionDecisionReason ?? "",
+            /agent-elsewhere/,
+            "a claim held by someone else must still be guarded"
         );
     } finally {
         await rm(root, { recursive: true, force: true });

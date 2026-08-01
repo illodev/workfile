@@ -123,7 +123,7 @@ workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIOR
                     [--start DATE] [--due DATE] [--body TEXT]
 workfile card create --json-input FILE
 workfile card patch ID --json-input FILE [--expected-revision REV]
-workfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]
+workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next]
 workfile card transition ID STATUS [--actor ACTOR]
 workfile card archive ID

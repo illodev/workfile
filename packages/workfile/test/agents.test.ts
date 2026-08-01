@@ -114,6 +114,46 @@ test("agent context stays bounded and includes related durable knowledge", async
     }
 });
 
+/**
+ * The protocol must not teach an actor invented by hand.
+ *
+ * It taught `card claim ID --actor ACTOR` and `--actor session-id` in four
+ * places, and an invented actor arms the edit guard against the session that
+ * invented it: the `PreToolUse` hook derives its own identity and compares, so
+ * it asks about your own claim on every write, and `card release` then refuses
+ * with `CARD_CLAIM_OWNER_MISMATCH`. See claude-surface.test.ts, "the guard is
+ * silent for the session that holds the claim", for the behaviour itself.
+ *
+ * Both languages, because the protocol exists twice and the fixture renders
+ * one. Fixing only the branch a test happens to exercise is how the English
+ * copy would have kept teaching it.
+ *
+ * Every file the sync writes, because AGENTS.md is a fourteen-line pointer and
+ * the text an agent reads is `.project/agents/protocol.md` and the workflows.
+ */
+test("no generated instruction teaches an actor the guard will not recognize", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-actor-docs-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        for (const language of ["es", "en"]) {
+            workspace.config.language = language;
+            const synced = await syncAgentInstructions(workspace, {
+                targets: ["agents-md"]
+            });
+            for (const file of synced.files) {
+                assert.doesNotMatch(
+                    await readFile(join(root, file.path), "utf8"),
+                    /card claim[^\n`]*--actor/,
+                    `${file.path} teaches a hand-invented actor in ${language}`
+                );
+            }
+        }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("a scoped record is filtered against a known scope, never against an absent one", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-scope-"));
     await cp(fixture, root, { recursive: true });

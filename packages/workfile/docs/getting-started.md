@@ -53,8 +53,8 @@ All of it is plain markdown with frontmatter — commit everything except
 ```bash
 workfile ui                       # local board at http://127.0.0.1:4747
 workfile card create --title "Ship the login page" --area web
-workfile card claim T-0001 --actor agent-a1 --scope apps/web
-workfile card transition T-0001 review --actor agent-a1
+workfile card claim T-0001 --scope apps/web
+workfile card transition T-0001 review
 ```
 
 Agents claim cards with scoped paths so two of them never touch the same files;

@@ -136,7 +136,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
         "workfile card patch ID --json-input FILE [--expected-revision REV]",
-        "workfile card claim ID --actor ACTOR [--scope PATH,PATH] [--force --reason TEXT]",
+        "workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]",
         "workfile card release ID [--actor ACTOR] [--status next]",
         "workfile card transition ID STATUS [--actor ACTOR]",
         "workfile card archive ID",
@@ -935,6 +935,34 @@ function defaultActor() {
     return resolveActor().actor;
 }
 
+/**
+ * A claim taken under a name this session does not answer to.
+ *
+ * `--actor` outranks every other rung, and that is right: CI claims as a bot,
+ * and a person can claim on a colleague's behalf. What it also does is arm two
+ * traps at once. The PreToolUse guard compares `claimed_by` against the identity
+ * it derives for itself, so an invented string makes it ask about your own claim
+ * on every edit — the exact behaviour `core/actor.ts` was written to end, and
+ * "how a guard rail teaches people to turn it off". And `card release` then
+ * refuses with `CARD_CLAIM_OWNER_MISMATCH` until you reproduce the string,
+ * which locks you out of your own card.
+ *
+ * Both were reachable straight from the generated protocol, which taught
+ * `--actor ACTOR` and `--actor session-id` in four places. Those are gone, but
+ * every repository that already ran `agents sync` still has the old text in its
+ * `AGENTS.md`, so the warning is the part that reaches them.
+ */
+function warnActorMismatch(claimed) {
+    const resolved = resolveActor().actor;
+    if (!resolved || !claimed || claimed === resolved) return;
+    console.error(
+        `Warning: claimed as "${claimed}", but this session is "${resolved}". ` +
+            `The edit guard will ask about this claim, and releasing it needs ` +
+            `--actor "${claimed}". Run \`${INVOKED_AS} agents whoami\` to see ` +
+            `which identity is yours.`
+    );
+}
+
 async function jsonInput() {
     const path = option("--json-input");
     if (!path) return null;
@@ -1253,6 +1281,7 @@ async function cardCommand(workspace, action) {
         return print(has("--json") ? result.card : `${id} updated`);
     }
     if (action === "claim") {
+        warnActorMismatch(option("--actor"));
         const result = await claimCard(workspace, id, {
             actor: option("--actor") || defaultActor(),
             scope: listOption("--scope"),
