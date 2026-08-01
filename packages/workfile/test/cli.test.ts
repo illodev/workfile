@@ -653,38 +653,150 @@ test("unknown options are refused instead of ignored", async () => {
  * documented options. Nothing in the unit suite exercised it; the package
  * smoke test failed on a clean consumer.
  */
-test("every flag the CLI reads is a flag the CLI accepts", async () => {
+test("the flag table matches what each subcommand actually reads", async () => {
     const { readFile } = await import("node:fs/promises");
     const source = await readFile(
         new URL("../bin/workfile.ts", import.meta.url),
         "utf8"
     );
 
+    const READ = /\b(?:option|listOption|has|repeatedNumbers)\("(--?[\w-]+)"\)/g;
+
+    /** The balanced `{...}` starting at `open`. */
+    const block = (text, open) => {
+        let depth = 0;
+        for (let index = open; index < text.length; index += 1) {
+            if (text[index] === "{") depth += 1;
+            else if (text[index] === "}" && (depth -= 1) === 0) {
+                return text.slice(open, index + 1);
+            }
+        }
+        return text.slice(open);
+    };
+
+    const bodies = new Map();
+    for (const match of source.matchAll(/^(?:async )?function (\w+)\s*\(/gm)) {
+        bodies.set(
+            match[1],
+            block(source, source.indexOf("{", match.index + match[0].length - 1))
+        );
+    }
+
+    // A flag read through a helper is read by the branch that calls it:
+    // `card list` never names `--status`, `filterCards` does.
+    const flagsOf = (text, seen = new Set()) => {
+        const flags = new Set([...text.matchAll(READ)].map((match) => match[1]));
+        for (const call of text.matchAll(/\b(\w+)\s*\(/g)) {
+            const name = call[1];
+            if (!bodies.has(name) || seen.has(name)) continue;
+            seen.add(name);
+            for (const flag of flagsOf(bodies.get(name), seen)) flags.add(flag);
+        }
+        return flags;
+    };
+
+    const WORDS = {
+        card: "cardCommand",
+        doc: "documentCommand",
+        changelog: "changelogCommand",
+        memory: "memoryCommand",
+        agents: "agentsCommand",
+        ci: "ciCommand",
+        claude: "claudeCommand",
+        migrate: "migrationCommand",
+        mcp: "mcpCommand"
+    };
+
+    const reads: Record<string, Set<string>> = {
+        init: flagsOf(bodies.get("initCommand"))
+    };
+    for (const [word, handler] of Object.entries(WORDS)) {
+        const body = bodies.get(handler);
+        assert.ok(body, `handler not found: ${handler}`);
+        const branches: Record<string, Set<string>> = {};
+        const pattern = /if \(([^)]*action === "[^"]+"[^)]*)\)\s*\{/g;
+        let match;
+        while ((match = pattern.exec(body))) {
+            const names = [
+                ...match[1].matchAll(/action === "([^"]+)"/g)
+            ].map((entry) => entry[1]);
+            const inside = flagsOf(
+                block(body, body.indexOf("{", match.index + match[0].length - 1))
+            );
+            for (const name of names) {
+                branches[name] = new Set([...(branches[name] || []), ...inside]);
+            }
+        }
+        // Anything read at the handler's own level applies to every branch,
+        // which is precisely what makes it invisible — so it is asserted away
+        // rather than tolerated.
+        const inBranches = new Set(
+            Object.values(branches).flatMap((set) => [...set])
+        );
+        const loose = [...flagsOf(body)].filter((flag) => !inBranches.has(flag));
+        assert.deepEqual(
+            loose.sort(),
+            [],
+            `${word} reads ${loose.join(", ")} above its branches, so every ` +
+                "subcommand accepts them and most ignore them. Move the read " +
+                "into the branches that use it."
+        );
+        for (const [name, flags] of Object.entries(branches)) {
+            reads[`${word} ${name}`] = flags;
+        }
+    }
+
     const listed = new Set();
+    const table = source.slice(
+        source.indexOf("const COMMAND_FLAGS"),
+        source.indexOf("\n};", source.indexOf("const COMMAND_FLAGS"))
+    );
     const globals = source.slice(
         source.indexOf("const GLOBAL_FLAGS"),
         source.indexOf("];", source.indexOf("const GLOBAL_FLAGS"))
     );
-    const commands = source.slice(
-        source.indexOf("const COMMAND_FLAGS"),
-        source.indexOf("\n};", source.indexOf("const COMMAND_FLAGS"))
-    );
-    for (const block of [globals, commands]) {
-        for (const match of block.matchAll(/"(--?[\w-]+)"/g)) listed.add(match[1]);
+    for (const match of globals.matchAll(/"(--?[\w-]+)"/g)) listed.add(match[1]);
+    const global = new Set(listed);
+
+    const declared: Record<string, Set<string>> = {};
+    for (const entry of table.matchAll(/"([\w ]+)": \[([^\]]*)\]/g)) {
+        declared[entry[1]] = new Set(
+            [...entry[2].matchAll(/"(--?[\w-]+)"/g)].map((match) => match[1])
+        );
     }
 
-    const read = new Set(
-        [...source.matchAll(/\b(?:option|listOption|has)\("(--[\w-]+)"\)/g)].map(
-            (match) => match[1]
-        )
-    );
+    // Direction one: nothing a subcommand reads may be missing from its row.
+    // `init` refused `--areas`, `--docs` and `--no-scripts` while
+    // `askInitOptions` was reading all three — the initializer rejecting its
+    // own documented options, found by a package smoke test rather than here.
+    const unlisted: string[] = [];
+    for (const [key, flags] of Object.entries(reads)) {
+        for (const flag of flags) {
+            if (global.has(flag) || declared[key]?.has(flag)) continue;
+            unlisted.push(`${key} ${flag}`);
+        }
+    }
+    assert.deepEqual(unlisted.sort(), [], `read but refused: ${unlisted.join(", ")}`);
 
-    const missing = [...read].filter((flag) => !listed.has(flag)).sort();
-    assert.deepEqual(
-        missing,
-        [],
-        `read by the CLI but rejected by assertKnownFlags: ${missing.join(", ")}`
+    // Direction two, which is the one that was missing: nothing may be listed
+    // that the subcommand never reads. Without it the table drifts into a union
+    // and every subcommand accepts its siblings' flags and ignores them.
+    const unread: string[] = [];
+    for (const [key, flags] of Object.entries(declared)) {
+        if (!(key in reads)) continue;
+        for (const flag of flags) {
+            if (!reads[key].has(flag)) unread.push(`${key} ${flag}`);
+        }
+    }
+    assert.deepEqual(unread.sort(), [], `accepted but ignored: ${unread.join(", ")}`);
+
+    // And every row must name a subcommand that exists, or a command word that
+    // takes none.
+    const flat = new Set(["doctor", "ui", "next", "schema", "upgrade", "version", "search", "init"]);
+    const orphans = Object.keys(declared).filter(
+        (key) => !(key in reads) && !flat.has(key)
     );
+    assert.deepEqual(orphans, [], `listed for no subcommand: ${orphans.join(", ")}`);
 });
 
 /**
@@ -704,31 +816,44 @@ test("--dry-run is refused where it is not implemented", async () => {
         "utf8"
     );
 
-    const declared = new Set(
-        [
-            ...source
-                .slice(source.indexOf("const DRY_RUN_COMMANDS"))
-                .slice(0, 200)
-                .matchAll(/"([\w-]+)"/g)
-        ].map((match) => match[1])
+    const table = source.slice(
+        source.indexOf("const DRY_RUN_COMMANDS"),
+        source.indexOf("]);", source.indexOf("const DRY_RUN_COMMANDS"))
     );
-    assert.ok(declared.size >= 4, "expected the supported commands to be listed");
+    const declared = [...table.matchAll(/"([\w -]+)"/g)].map((match) => match[1]);
+    assert.ok(declared.length >= 6, "expected the supported subcommands to be listed");
 
-    // Each one really does read the flag; a stale entry would re-open the hole.
-    for (const command of declared) {
-        const handler = source.indexOf(`async function ${command}Command`);
-        const region =
-            handler === -1
-                ? source
-                : source.slice(handler, handler + 12000);
+    const HANDLERS = {
+        card: "cardCommand",
+        agents: "agentsCommand",
+        ci: "ciCommand",
+        claude: "claudeCommand",
+        migrate: "migrationCommand"
+    };
+
+    // Each entry really does read the flag; a stale one re-opens the hole the
+    // guard exists to close, and a missing one refuses a preview that works —
+    // which is what `card reap --dry-run` did, while naming a binary that has
+    // not existed since the rename.
+    for (const key of declared) {
+        const [word, action] = key.split(" ");
+        const handler = source.indexOf(
+            `async function ${HANDLERS[word] || `${word}Command`}`
+        );
+        let region = handler === -1 ? source : source.slice(handler, handler + 12000);
+        if (action) {
+            const branch = region.indexOf(`action === "${action}"`);
+            assert.notEqual(branch, -1, `${key} names no branch that exists`);
+            region = region.slice(branch, branch + 1200);
+        }
         assert.match(
             region,
             /has\("--dry-run"\)|dryRun:/,
-            `${command} is listed as supporting --dry-run but never reads it`
+            `${key} is listed as supporting --dry-run but never reads it`
         );
     }
 
-    assert.match(source, /assertDryRunSupported\(command\);/);
+    assert.match(source, /assertDryRunSupported\(command, subcommand\(\)\);/);
 });
 
 test("search is lexical by default and hybrid when the config declares a provider", async () => {

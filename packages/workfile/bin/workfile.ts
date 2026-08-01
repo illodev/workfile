@@ -209,153 +209,367 @@ const USAGE_ALIASES: Record<string, string> = {
     history: "changelog"
 };
 
+/**
+ * Flags every command accepts.
+ *
+ * Deliberately short. A flag that lives here is accepted by all 46 subcommands,
+ * so anything only some of them read belongs in the table below instead —
+ * `--folder` was global and ignored by `doctor`, `--json-input` was global and
+ * ignored by `next`, and both exited 0.
+ *
+ * `--dry-run` stays global because it has its own guard: `assertDryRunSupported`
+ * refuses it where it is not implemented, and names the preview command instead.
+ */
 const GLOBAL_FLAGS = [
     "--root",
     "--json",
-    "--folder",
-    "--expected-revision",
-    "--json-input",
     "--dry-run",
-    "--force",
-    "--read-only",
-    "--yes",
     "--allow-new",
     "--help",
     "-h"
 ];
 
-// Flags each command word accepts, on top of the global ones. Unknown flags are
-// refused rather than ignored: `card list --status doing` used to silently
-// return the whole backlog, which is worse than failing because the caller
-// believes the filter was applied.
+/**
+ * Flags each SUBCOMMAND accepts, on top of the global ones.
+ *
+ * Keyed per `"word subcommand"`, not per word. It used to be per word, so
+ * `COMMAND_FLAGS.card` was a 35-flag union shared across fourteen subcommands
+ * and every one of them accepted every other one's flags — and then ignored
+ * them. Measured before the change, all exiting 0: `card patch ID --json-input
+ * p.json --title "..."` silently discarded the title, `card show ID --status
+ * doing` ignored the filter, `doctor --folder xyz` and `next --json-input
+ * p.json` were read by nobody. The docs asserted the opposite the whole time.
+ *
+ * Silent flag-dropping is the worst failure shape for an agent: it cannot
+ * notice that its instruction evaporated, and the exit code says it worked.
+ *
+ * Generated once from what each branch actually reads, and pinned by a test in
+ * both directions — nothing listed here that the subcommand does not read, and
+ * nothing read that is not listed.
+ */
 const COMMAND_FLAGS: Record<string, string[]> = {
-    // Kept in step with `askInitOptions`, which reads every one of these. The
-    // list started as the subset named in `USAGE` and left `--areas`, `--docs`
-    // and `--no-scripts` unlisted though the code read them, so the initializer
-    // rejected its own documented flags — caught by the package smoke test
-    // rather than by anything in the unit suite.
-    init: [
-        "--name",
-        "--language",
-        "--areas",
-        "--docs",
-        "--agents",
-        "--ci",
-        "--package-manager",
-        "--no-scripts"
+    "agents check": [
+        "--targets"
     ],
-    schema: [],
-    doctor: [
-        "--rebuild-cache",
-        "--severity",
-        "--max-issues",
-        "--fix",
-        "--actor",
-        "--new",
-        "--accept-baseline"
+    "agents context": [
+        "--card",
+        "--limit"
     ],
-    upgrade: [],
-    version: [],
-    ui: ["--host", "--port", "--verbose"],
-    card: [
+    "agents status": [
+        "--targets"
+    ],
+    "agents sync": [
+        "--force",
+        "--targets"
+    ],
+    "agents whoami": [],
+    "card ac": [
         "--check",
-        "--uncheck",
-        "--title",
+        "--expected-revision",
+        "--uncheck"
+    ],
+    "card archive": [
+        "--expected-revision"
+    ],
+    "card claim": [
+        "--actor",
+        "--expected-revision",
+        "--force",
+        "--reason",
+        "--scope"
+    ],
+    "card create": [
         "--area",
-        "--type",
-        "--priority",
-        "--status",
         "--body",
-        "--scope",
-        "--tags",
-        "--tag",
-        "--parent",
-        "--source",
         "--depends",
-        "--milestone",
-        "--effort",
-        "--related",
-        "--start",
         "--due",
+        "--effort",
+        "--json-input",
+        "--milestone",
+        "--parent",
+        "--priority",
+        "--related",
+        "--scope",
+        "--source",
+        "--start",
+        "--status",
+        "--tags",
+        "--title",
+        "--type"
+    ],
+    "card list": [
+        "--area",
         "--claimed-by",
-        "--unclaimed",
-        "--updated-since",
+        "--fields",
         "--limit",
         "--offset",
-        "--fields",
-        "--with-body",
-        "--actor",
-        "--reason",
-        "--older-than",
-        "--text",
-        "--section",
-        "--body-file",
-        "--to",
-        "--duplicates"
-    ],
-    doc: [
-        "--query",
-        "--managed",
-        "--title",
-        "--kind",
+        "--parent",
+        "--priority",
         "--status",
+        "--tag",
+        "--type",
+        "--unclaimed",
+        "--updated-since",
+        "--with-body"
+    ],
+    "card note": [
+        "--actor",
+        "--expected-revision",
+        "--section",
+        "--text"
+    ],
+    "card patch": [
+        "--actor",
+        "--expected-revision",
+        "--force",
+        "--json-input"
+    ],
+    "card reap": [
+        "--older-than"
+    ],
+    "card release": [
+        "--actor",
+        "--expected-revision",
+        "--force",
+        "--status"
+    ],
+    "card renumber": [
+        "--actor",
+        "--duplicates",
+        "--to"
+    ],
+    "card reopen": [
+        "--expected-revision",
+        "--status"
+    ],
+    "card show": [],
+    "card transition": [
+        "--actor",
+        "--expected-revision",
+        "--force",
+        "--scope"
+    ],
+    "card write": [
+        "--body-file",
+        "--expected-revision"
+    ],
+    "changelog add": [
+        "--area",
         "--body",
+        "--cards",
+        "--decisions",
+        "--issues",
+        "--json-input",
+        "--related",
+        "--tags",
+        "--title",
+        "--type",
+        "--visibility"
+    ],
+    "changelog create": [
+        "--area",
+        "--body",
+        "--cards",
+        "--decisions",
+        "--issues",
+        "--json-input",
+        "--related",
+        "--tags",
+        "--title",
+        "--type",
+        "--visibility"
+    ],
+    "changelog list": [
+        "--unreleased",
+        "--visibility"
+    ],
+    "changelog patch": [
+        "--expected-revision",
+        "--json-input"
+    ],
+    "changelog preview": [
+        "--fragments",
+        "--visibility"
+    ],
+    "changelog release": [
+        "--body",
+        "--commit",
+        "--date",
+        "--fragments",
+        "--json-input",
+        "--tags",
+        "--title"
+    ],
+    "changelog render": [
+        "--visibility",
+        "--write"
+    ],
+    "changelog show": [],
+    "changelog verify": [],
+    "ci check": [
+        "--targets"
+    ],
+    "ci status": [
+        "--targets"
+    ],
+    "ci sync": [
+        "--force",
+        "--targets"
+    ],
+    "claude check": [],
+    "claude install": [
+        "--force"
+    ],
+    "claude sync": [
+        "--force"
+    ],
+    "doc create": [
+        "--body",
+        "--folder",
+        "--json-input",
+        "--kind",
         "--owners",
         "--related",
         "--scope",
+        "--status",
         "--tags",
-        "--limit"
+        "--title"
     ],
-    changelog: [
-        "--title",
-        "--type",
-        "--area",
-        "--body",
-        "--visibility",
-        "--cards",
-        "--issues",
-        "--decisions",
-        "--date",
-        "--commit",
-        "--tags",
-        "--unreleased",
-        "--state",
-        "--fragments",
-        "--write",
+    "doc list": [
         "--limit",
+        "--managed",
         "--query"
     ],
-    memory: [
-        "--collection",
-        "--title",
-        "--status",
+    "doc move": [
+        "--expected-revision",
+        "--folder"
+    ],
+    "doc patch": [
+        "--expected-revision",
+        "--json-input"
+    ],
+    "doc show": [],
+    "doctor": [
+        "--rebuild-cache",
+        "--fix",
+        "--actor",
+        "--severity",
+        "--max-issues",
+        "--new",
+        "--accept-baseline"
+    ],
+    "init": [
+        "--agents",
+        "--areas",
+        "--ci",
+        "--docs",
+        "--force",
+        "--language",
+        "--name",
+        "--no-scripts",
+        "--yes"
+    ],
+    "mcp config": [
+        "--read-only"
+    ],
+    "mcp inspect": [
+        "--read-only"
+    ],
+    "mcp serve": [
+        "--read-only"
+    ],
+    "mcp stdio": [
+        "--read-only"
+    ],
+    "memory add": [
+        "--actions",
         "--body",
         "--category",
         "--confidence",
+        "--deciders",
+        "--expires",
+        "--json-input",
         "--occurrences",
+        "--related",
+        "--resolved-at",
+        "--review-after",
+        "--scope",
         "--severity",
         "--started-at",
-        "--resolved-at",
-        "--expires",
-        "--review-after",
-        "--related",
+        "--status",
         "--supersedes",
-        "--deciders",
-        "--scope",
-        "--actions",
         "--tags",
-        "--to",
-        "--by",
+        "--title"
+    ],
+    "memory create": [
+        "--actions",
+        "--body",
+        "--category",
+        "--confidence",
+        "--deciders",
+        "--expires",
+        "--json-input",
+        "--occurrences",
+        "--related",
+        "--resolved-at",
+        "--review-after",
+        "--scope",
+        "--severity",
+        "--started-at",
+        "--status",
+        "--supersedes",
+        "--tags",
+        "--title"
+    ],
+    "memory graduate": [
+        "--expected-revision",
+        "--to"
+    ],
+    "memory list": [
+        "--collection",
         "--limit",
+        "--query",
+        "--status"
+    ],
+    "memory patch": [
+        "--expected-revision",
+        "--json-input"
+    ],
+    "memory show": [],
+    "memory supersede": [
+        "--by",
+        "--expected-revision"
+    ],
+    "memory verify": [],
+    "migrate apply": [
+        "--force",
+        "--mode",
+        "--source"
+    ],
+    "migrate plan": [
+        "--mode",
+        "--source"
+    ],
+    "migrate schema": [],
+    "next": [
+        "--actor",
+        "--area",
+        "--limit"
+    ],
+    "schema": [],
+    "search": [
+        "--kind",
+        "--limit",
+        "--mode",
         "--query"
     ],
-    agents: ["--targets", "--card", "--limit"],
-    ci: ["--targets"],
-    claude: [],
-    migrate: ["--source", "--mode"],
-    mcp: [],
-    search: ["--kind", "--limit", "--query", "--mode"],
-    next: ["--actor", "--area", "--limit"]
+    "ui": [
+        "--host",
+        "--port",
+        "--verbose"
+    ],
+    "upgrade": [],
+    "version": []
 };
 
 /**
@@ -366,22 +580,26 @@ const COMMAND_FLAGS: Record<string, string[]> = {
  * parser actually sees, not an idealized one.
  */
 /**
- * Commands that actually implement `--dry-run`.
+ * Subcommands that actually implement `--dry-run`.
  *
- * The flag is global, so `assertKnownFlags` accepted it everywhere and the
- * commands that never read it simply went ahead and did the thing. Running
- * `changelog release 0.7.0 --dry-run` printed what looked like a preview and
- * had already moved 73 fragments out of `unreleased/`. A preview flag that
- * silently performs the action is worse than no flag at all, so anywhere it is
- * not implemented it is now an error that names the real preview command.
+ * The flag is global, so it parsed everywhere and the subcommands that never
+ * read it went ahead and did the thing. `changelog release 0.7.0 --dry-run`
+ * printed what looked like a preview and had already moved 73 fragments out of
+ * `unreleased/`.
+ *
+ * Keyed per subcommand, like the flag table, and for the same reason: keyed per
+ * word it refused `card reap --dry-run`, which reads the flag and honours it.
  */
 const DRY_RUN_COMMANDS = new Set([
     "init",
-    "agents",
-    "ci",
-    "claude",
-    "migrate",
-    "upgrade"
+    "upgrade",
+    "card reap",
+    "agents sync",
+    "ci sync",
+    "claude install",
+    "claude sync",
+    "migrate schema",
+    "migrate apply"
 ]);
 
 const DRY_RUN_ALTERNATIVE = {
@@ -391,78 +609,129 @@ const DRY_RUN_ALTERNATIVE = {
     memory: "`workfile memory list`"
 };
 
-function assertDryRunSupported(command) {
-    const key = USAGE_ALIASES[command] || command;
-    if (!has("--dry-run") || DRY_RUN_COMMANDS.has(key)) return;
-    const alternative = DRY_RUN_ALTERNATIVE[key];
+function assertDryRunSupported(command, action) {
+    const word = USAGE_ALIASES[command] || command;
+    if (!has("--dry-run")) return;
+    if (DRY_RUN_COMMANDS.has(word) || DRY_RUN_COMMANDS.has(`${word} ${action}`)) {
+        return;
+    }
+    const alternative = DRY_RUN_ALTERNATIVE[word];
     throw new ValidationError(
         "CLI_FLAG_UNSUPPORTED",
-        `\`project ${key}\` does not implement --dry-run, and would have made the change anyway.` +
+        `\`${INVOKED_AS} ${word}${action ? ` ${action}` : ""}\` does not implement ` +
+            "--dry-run, and would have made the change anyway." +
             (alternative ? ` Use ${alternative} to look first.` : "")
     );
 }
 
-function assertKnownFlags(command) {
-    const key = USAGE_ALIASES[command] || command;
-    const known = new Set([...GLOBAL_FLAGS, ...(COMMAND_FLAGS[key] || [])]);
+/** Booleans. Everything else consumes the token after it. */
+const BOOLEAN_FLAGS = new Set([
+    "--json",
+    "--dry-run",
+    "--force",
+    "--read-only",
+    "--yes",
+    "--help",
+    "-h",
+    "--managed",
+    "--unreleased",
+    "--write",
+    "--with-body",
+    "--unclaimed",
+    "--fix",
+    "--new",
+    "--accept-baseline",
+    "--rebuild-cache",
+    "--duplicates",
+    "--allow-new",
+    "--verbose",
+    "--no-scripts"
+]);
+
+/**
+ * Flags a caller may repeat, because something reads every occurrence.
+ *
+ * `option()` returns the first match and drops the rest. For anything not
+ * listed here that is a silently discarded instruction, so it is refused.
+ */
+const REPEATABLE_FLAGS = new Set(["--check", "--uncheck"]);
+
+/**
+ * Refuses flags the subcommand does not know, instead of ignoring them.
+ *
+ * Values are skipped by position, so `--title --json` is read as a title of
+ * "--json" exactly the way `option()` reads it — this validates the shape the
+ * parser actually sees, not an idealized one. A boolean left off
+ * `BOOLEAN_FLAGS` silently swallows the flag after it, which is how
+ * `doctor --fix --bogus` used to pass while `doctor --bogus` failed.
+ */
+function assertKnownFlags(command, action) {
+    const word = USAGE_ALIASES[command] || command;
+    // The subcommand's own table, or the word's when it takes no subcommand.
+    // An unrecognised subcommand has no table and is left to the dispatcher,
+    // which reports it by name.
+    const key = action && `${word} ${action}` in COMMAND_FLAGS
+        ? `${word} ${action}`
+        : word;
     if (!COMMAND_FLAGS[key]) return;
-    // Flags that take no value. Anything not listed here is assumed to consume
-    // the next token, which is how a boolean left off the list silently swallows
-    // the flag after it: `doctor --fix --bogus` accepted `--bogus` and ran the
-    // repair, while `doctor --bogus` correctly refused. Every boolean the
-    // commands actually read belongs here.
-    const valueFlags = new Set(
-        [...known].filter(
-            (flag) =>
-                ![
-                    "--json",
-                    "--dry-run",
-                    "--force",
-                    "--read-only",
-                    "--yes",
-                    "--help",
-                    "-h",
-                    "--managed",
-                    "--unreleased",
-                    "--write",
-                    "--with-body",
-                    "--unclaimed",
-                    "--fix",
-                    "--new",
-                    "--accept-baseline",
-                    "--rebuild-cache",
-                    "--duplicates",
-                    "--allow-new",
-                    "--verbose",
-                    "--no-scripts"
-                ].includes(flag)
-        )
-    );
+    const known = new Set([...GLOBAL_FLAGS, ...COMMAND_FLAGS[key]]);
+    const seen = new Set();
     const argv = process.argv.slice(3);
     for (let index = 0; index < argv.length; index += 1) {
         const token = argv[index];
         if (!token.startsWith("-") || token === "-") continue;
         const name = token.includes("=") ? token.split("=")[0] : token;
         if (!known.has(name)) {
+            const elsewhere = Object.keys(COMMAND_FLAGS).filter(
+                (candidate) =>
+                    candidate !== key &&
+                    candidate.startsWith(`${word} `) &&
+                    COMMAND_FLAGS[candidate].includes(name)
+            );
             throw new ValidationError(
                 "CLI_ARGUMENT_UNKNOWN",
-                `Unknown option for "${key}": ${name}. Run \`${INVOKED_AS} ${key} --help\`.`
+                `Unknown option for "${key}": ${name}.` +
+                    (elsewhere.length
+                        ? ` It belongs to ${elsewhere
+                              .map((candidate) => `\`${candidate}\``)
+                              .join(", ")}.`
+                        : "") +
+                    ` Run \`${INVOKED_AS} ${word} --help\`.`
             );
         }
-        if (valueFlags.has(name) && !token.includes("=")) index += 1;
+        // Repeating a flag nothing reads twice is an instruction that
+        // evaporates: `card create --tags a,b --tags c,d` kept `a,b` and exited
+        // 0. Refusing is the only way the caller finds out.
+        if (seen.has(name) && !REPEATABLE_FLAGS.has(name)) {
+            throw new ValidationError(
+                "CLI_ARGUMENT_CONFLICT",
+                `${name} was given more than once and only the first is read. ` +
+                    `Pass it once${
+                        BOOLEAN_FLAGS.has(name)
+                            ? ""
+                            : ", with a comma-separated value if it takes a list"
+                    }.`
+            );
+        }
+        seen.add(name);
+        if (!BOOLEAN_FLAGS.has(name) && !token.includes("=")) index += 1;
     }
 }
 
+// Only what every subcommand really accepts. `--folder`, `--expected-revision`,
+// `--force`, `--read-only`, `--yes` and `--json-input` were listed here and
+// were global, which is how `doctor --folder xyz` and `next --json-input f.json`
+// exited 0 having read neither. They are per-subcommand now and appear in each
+// subcommand's own usage line.
 const GLOBAL_OPTIONS = `Global options:
   --root PATH              Workspace root
   --json                   Machine-readable output
-  --folder PATH            Document folder below docs.managedPath
-  --expected-revision REV  Reject writes when the file has changed
-  --dry-run                Preview filesystem changes
-  --force                  Replace conflicting generated files
-  --read-only              Disable MCP mutation tools
+  --dry-run                Preview filesystem changes, where implemented
   --allow-new              Accept a directory that is not yet a workspace
-  --yes                    Accept initializer defaults without prompting`;
+
+Options a subcommand does not accept are refused with CLI_ARGUMENT_UNKNOWN, and
+an option given twice with CLI_ARGUMENT_CONFLICT, because only the first is
+read. Pass a list as one comma-separated value.`;
 
 const DOCUMENT_FOLDERS = `Document folders:
   Managed documents are read recursively, so folders can be created by hand.
@@ -868,7 +1137,6 @@ async function cardCommand(workspace, action) {
             `card ${action} requires an ID`
         );
     }
-    const expectedRevision = option("--expected-revision") || undefined;
     if (action === "ac") {
         const check = repeatedNumbers("--check");
         const uncheck = repeatedNumbers("--uncheck");
@@ -892,7 +1160,7 @@ async function cardCommand(workspace, action) {
         const result = await setCardAcceptance(workspace, id, {
             check,
             uncheck,
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         if (has("--json")) return print(result);
         console.log(`${id} — ${acceptanceSummary(result.acceptance)} met`);
@@ -906,7 +1174,7 @@ async function cardCommand(workspace, action) {
             text: option("--text"),
             section: option("--section") || "Notes",
             actor: option("--actor") || defaultActor(),
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} noted`);
     }
@@ -950,7 +1218,7 @@ async function cardCommand(workspace, action) {
             : await readAllStdin();
         const result = await patchCardBody(workspace, id, {
             body,
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} body written`);
     }
@@ -963,7 +1231,7 @@ async function cardCommand(workspace, action) {
             );
         }
         const result = await patchCard(workspace, id, changes, {
-            expectedRevision,
+            expectedRevision: option("--expected-revision") || undefined,
             actor: option("--actor") || defaultActor(),
             force: has("--force")
         });
@@ -975,7 +1243,7 @@ async function cardCommand(workspace, action) {
             scope: listOption("--scope"),
             force: has("--force"),
             reason: option("--reason"),
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(
             has("--json")
@@ -992,7 +1260,7 @@ async function cardCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             status: option("--status"),
             force: has("--force"),
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} released to ${result.card.status}`);
     }
@@ -1012,18 +1280,18 @@ async function cardCommand(workspace, action) {
             // anyone whose claim is held under a different name — including the
             // plugin's own `/done`, which transitions without an actor.
             force: has("--force"),
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);
     }
     if (action === "archive") {
-        const result = await archiveCard(workspace, id, { expectedRevision });
+        const result = await archiveCard(workspace, id, { expectedRevision: option("--expected-revision") || undefined });
         return print(has("--json") ? result.card : `${id} archived`);
     }
     if (action === "reopen") {
         const result = await reopenCard(workspace, id, {
             status: option("--status") || "backlog",
-            expectedRevision
+            expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} reopened`);
     }
@@ -1458,10 +1726,9 @@ async function memoryCommand(workspace, action) {
 }
 
 async function agentsCommand(workspace, action) {
-    const targets = listOption("--targets");
     if (action === "sync") {
         const result = await syncAgentInstructions(workspace, {
-            targets,
+            targets: listOption("--targets"),
             force: has("--force"),
             dryRun: has("--dry-run")
         });
@@ -1470,7 +1737,9 @@ async function agentsCommand(workspace, action) {
         return;
     }
     if (action === "check" || action === "status") {
-        const result = await checkAgentInstructions(workspace, { targets });
+        const result = await checkAgentInstructions(workspace, {
+            targets: listOption("--targets")
+        });
         if (has("--json")) print(result);
         else {
             console.log(`Agent instructions: ${result.counts.current} current, ${result.counts.stale} stale, ${result.counts.missing} missing`);
@@ -1506,10 +1775,9 @@ async function agentsCommand(workspace, action) {
 }
 
 async function ciCommand(workspace, action) {
-    const targets = listOption("--targets");
     if (action === "sync") {
         const result = await syncCiTemplates(workspace, {
-            targets,
+            targets: listOption("--targets"),
             force: has("--force"),
             dryRun: has("--dry-run")
         });
@@ -1518,7 +1786,9 @@ async function ciCommand(workspace, action) {
         return;
     }
     if (action === "check" || action === "status") {
-        const result = await checkCiTemplates(workspace, { targets });
+        const result = await checkCiTemplates(workspace, {
+            targets: listOption("--targets")
+        });
         if (has("--json")) print(result);
         else {
             console.log(`CI templates: ${result.counts.current} current, ${result.counts.stale} stale, ${result.counts.missing} missing`);
@@ -1566,6 +1836,20 @@ async function claudeCommand(workspace, action) {
     );
 }
 
+/**
+ * Where the legacy `.planning` import reads from, and how it moves files.
+ *
+ * A function rather than a read at the top of the handler: read above the
+ * branches, `--source` and `--mode` are accepted by `migrate schema` too, which
+ * never looks at them.
+ */
+function legacyPlan(workspace) {
+    return planLegacyMigration(workspace, {
+        source: option("--source") || ".planning",
+        mode: option("--mode") || "copy"
+    });
+}
+
 async function migrationCommand(workspace, action) {
     // Schema migration is a different job from the legacy `.planning` import
     // and must not pay for planning it, so it branches before that runs.
@@ -1591,11 +1875,8 @@ async function migrationCommand(workspace, action) {
         return;
     }
 
-    const plan = await planLegacyMigration(workspace, {
-        source: option("--source") || ".planning",
-        mode: option("--mode") || "copy"
-    });
     if (!action || action === "plan") {
+        const plan = await legacyPlan(workspace);
         if (has("--json")) return print(plan);
         console.log(`Legacy migration: ${plan.counts.total} files, ${plan.counts.ready} ready, ${plan.counts.conflicts} conflicts`);
         console.log(`Cards: ${plan.counts.cards}; archived: ${plan.counts.archivedCards}; assets: ${plan.counts.assets}; sources: ${plan.counts.sources}`);
@@ -1605,7 +1886,7 @@ async function migrationCommand(workspace, action) {
         return;
     }
     if (action === "apply") {
-        const result = await applyLegacyMigration(workspace, plan, {
+        const result = await applyLegacyMigration(workspace, await legacyPlan(workspace), {
             force: has("--force"),
             dryRun: has("--dry-run")
         });
@@ -1660,14 +1941,18 @@ async function searchCommand(workspace) {
 }
 
 
+/** `--read-only` narrows what the server exposes; config can force it. */
+function mcpReadOnly(workspace) {
+    return has("--read-only") || !workspace.config.mcp.allowMutations;
+}
+
 async function mcpCommand(workspace, action) {
-    const readOnly = has("--read-only") || !workspace.config.mcp.allowMutations;
     if (!workspace.config.mcp.enabled) {
         throw new ValidationError("MCP_DISABLED", "MCP is disabled in project.config.mjs");
     }
     if (!action || action === "serve" || action === "stdio") {
         const server = startMcpStdioServer(workspace, {
-            readOnly,
+            readOnly: mcpReadOnly(workspace),
             version: PACKAGE_VERSION
         });
         await server.closed;
@@ -1676,13 +1961,15 @@ async function mcpCommand(workspace, action) {
     if (action === "inspect") {
         return print(
             inspectMcpServer(workspace, {
-                readOnly,
+                readOnly: mcpReadOnly(workspace),
                 version: PACKAGE_VERSION
             })
         );
     }
     if (action === "config") {
-        return print(mcpClientConfiguration(workspace, { readOnly }));
+        return print(
+            mcpClientConfiguration(workspace, { readOnly: mcpReadOnly(workspace) })
+        );
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",
@@ -1715,8 +2002,8 @@ async function main() {
         printCommandUsage(command);
         return;
     }
-    assertKnownFlags(command);
-    assertDryRunSupported(command);
+    assertKnownFlags(command, subcommand());
+    assertDryRunSupported(command, subcommand());
     if (command === "init") {
         await initCommand(root);
         return;

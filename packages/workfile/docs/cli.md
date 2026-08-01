@@ -168,9 +168,18 @@ AND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for
 it with `--with-body`, or pick exactly what you need with `--fields`. Responses
 carry `total`, `offset` and `truncated`.
 
-Options a command does not recognise are refused with `CLI_ARGUMENT_UNKNOWN`
-rather than ignored, so a mistyped filter fails instead of quietly returning
-everything.
+Options are validated per **subcommand**, not per command word. `card show
+--status doing` and `card patch ID --json-input p.json --title "..."` are
+refused with `CLI_ARGUMENT_UNKNOWN`, and the message names the subcommand the
+flag does belong to. They used to exit 0 having silently dropped the flag, which
+an agent cannot detect.
+
+An option given twice is refused with `CLI_ARGUMENT_CONFLICT`, because only the
+first occurrence is read — pass a list as one comma-separated value. `card ac
+--check` and `--uncheck` are the exception and may repeat, because something
+reads every occurrence.
+
+Only `--root`, `--json`, `--dry-run` and `--allow-new` are global.
 
 A claim has a lifecycle, not just a flag. The card records `claimed_by` and
 `claimed_at`; the live signal lives in `.project/.cache/activity/sessions/` and
