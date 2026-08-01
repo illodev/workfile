@@ -1,7 +1,7 @@
 ---
 id: T-0090
 title: The SessionStart matcher omits compact, so the board is never restored
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -54,3 +54,5 @@ inside this one.
 ## Activity
 
 - 2026-08-01 20:23Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 20:29Z illodev@local#e55eab30 · review → done
+

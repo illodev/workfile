@@ -1,7 +1,7 @@
 ---
 id: T-0093
 title: The heartbeat is wired for three tools and claims to cover all
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -76,3 +76,5 @@ packaged copy by hand and watching the test fail.
 ## Activity
 
 - 2026-08-01 20:26Z illodev@local#e55eab30 · review → review
+- 2026-08-01 20:29Z illodev@local#e55eab30 · review → done
+
