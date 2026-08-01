@@ -37,6 +37,41 @@ https://github.com/user-attachments/assets/c08ef385-009c-4718-a61c-772f59ff176a
   </tr>
 </table>
 
+## Boundaries
+
+Workfile records work. It does not configure agents.
+
+The two get confused because both live next to the same repository. Ecosystem
+configurators — [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) is a
+good example — install a persona, curated skills, model routing, MCP servers and
+review gates into the agents you already use, across many agents at once. Their
+question is *how your agent works*. Workfile's question is *what was done, who holds
+it and on what evidence*, and its answer is Markdown files that outlive the agent,
+the session and this package.
+
+They compose. A well-configured agent still needs somewhere durable to write down
+what it did.
+
+What is here, and is not a configurator's job:
+
+- **The repository is canonical.** A card is a file in the pull request: reviewed in
+  the diff, reported by `workfile doctor` when malformed. No exclusive state in a
+  browser, a database or `~/.config`. Remove the package and the records stay
+  readable.
+- **Claims are enforced, not agreed.** Ownership is checked at the mutation, so a
+  card another actor holds refuses your transition with `CARD_CLAIM_OWNER_MISMATCH`
+  instead of quietly accepting it — a guarantee no sentence in a prompt can make.
+- **`review` is not `done`.** `done` requires evidence from somewhere the code
+  actually ran. A merge is not evidence.
+- **Humans read the same records.** The UI, the rendered changelog and the releases
+  are derived from exactly what the agent writes; there is no machine view and human
+  view to keep in sync.
+
+What is deliberately absent: Workfile does not install or update agents, ship a
+persona, route models or curate a skill catalogue. It syncs its own protocol into
+the instruction files an agent already reads (`workfile agents sync`) and exposes
+every operation over MCP — vendor neutral, but a server, not an ecosystem.
+
 ## Requirements
 
 - Node.js 22 or newer.

@@ -40,6 +40,17 @@ npx workfile mcp                     # MCP server (stdio)
 
 Workfile never sends repository content to a network service by itself.
 
+## What it is not
+
+Workfile is not an agent configurator. It does not install agents, ship a
+persona, route models or curate skills — tools like
+[gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) do that, and the
+two compose, because a well-configured agent still needs somewhere durable to
+write down what it did. Workfile answers what was done, who holds it and on what
+evidence, in files that outlive the agent, the session and this package. The
+[boundaries section](https://github.com/illodev/workfile#boundaries) of the
+repository README makes the distinction concrete.
+
 ## Documentation
 
 Shipped inside this package under `docs/`:
