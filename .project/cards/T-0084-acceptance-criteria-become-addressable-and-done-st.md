@@ -1,7 +1,7 @@
 ---
 id: T-0084
 title: Acceptance criteria become addressable, and done stops being a vibe
-status: review
+status: done
 type: feature
 priority: high
 area: core
@@ -35,6 +35,7 @@ scope: [packages/workfile/src/modules/cards, packages/workfile/bin/workfile.ts, 
 - 2026-08-01 17:49Z illodev@local#e55eab30 · review → done
 - 2026-08-01 17:49Z illodev@local#e55eab30 · claimed
 - 2026-08-01 17:52Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 17:56Z illodev@local#e55eab30 · review → done
 
 ## Acceptance criteria
 
