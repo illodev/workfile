@@ -653,7 +653,11 @@ const TOOL_DEFINITIONS = [
                 context.workspace,
                 requiredString(args.id, "id"),
                 plainObject(args.changes, "changes"),
-                { expectedRevision: optionalString(args.expectedRevision) }
+                {
+                    expectedRevision: optionalString(args.expectedRevision),
+                    actor: actorFor(context, args.actor),
+                    force: args.force === true
+                }
             );
             invalidate(context);
             return recordResult(recordFromCard(context.workspace, result.card));

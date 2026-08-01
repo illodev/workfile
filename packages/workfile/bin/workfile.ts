@@ -963,7 +963,9 @@ async function cardCommand(workspace, action) {
             );
         }
         const result = await patchCard(workspace, id, changes, {
-            expectedRevision
+            expectedRevision,
+            actor: option("--actor") || defaultActor(),
+            force: has("--force")
         });
         return print(has("--json") ? result.card : `${id} updated`);
     }

@@ -51,6 +51,7 @@ import {
     recordFromRelease,
     searchProjectRecords
 } from "../modules/records/public.js";
+import { resolveActor } from "../core/actor.js";
 import { runDoctor } from "../modules/health/doctor.js";
 import { searchProjectRecordsHybrid } from "../modules/search/index.js";
 import { createIntegrationRegistry } from "../modules/integrations/registry.js";
@@ -1359,7 +1360,9 @@ export function createProjectServer(
                             )
                         );
                     const result = await patchCard(workspace, id, changes, {
-                        expectedRevision: expectedRevision(request, body)
+                        expectedRevision: expectedRevision(request, body),
+                        actor: body.actor ?? resolveActor().actor,
+                        force: body.force === true
                     });
                     indexStore.invalidate();
                     return sendJson(
@@ -1393,9 +1396,14 @@ export function createProjectServer(
                         id,
                         body.status,
                         {
-                            actor: body.actor,
+                            // Omitting the field must not be a way past the
+                            // ownership guard: it reads `claimed_by && actor`,
+                            // so an absent actor deleted the check. T-0079
+                            // fixed this on the CLI and left the HTTP route.
+                            actor: body.actor ?? resolveActor().actor,
                             scope: body.scope,
                             now: body.now,
+                            force: body.force === true,
                             expectedRevision: expectedRevision(request, body)
                         }
                     );

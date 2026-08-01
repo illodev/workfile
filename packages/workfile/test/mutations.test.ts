@@ -15,6 +15,7 @@ import {
     loadCards,
     loadWorkspace,
     patchCard,
+    releaseCard,
     reopenCard,
     transitionCard
 } from "../dist/src/index.js";
@@ -143,6 +144,90 @@ test("list-typed card fields accept the scalar clients actually send", async () 
             scope: "src/api"
         });
         assert.deepEqual(claimed.card.scope, ["src/api"]);
+    } finally {
+        await cleanup();
+    }
+});
+
+/**
+ * The guard has to read the file, not the listing.
+ *
+ * `mutateCard` takes an optional `snapshot` so a bulk edit does not re-read the
+ * whole directory per card. That listing is read *before* the lock, and for a
+ * while the guards were handed the version of the card it remembered — so two
+ * agents claiming the same card at the same moment both passed a guard that
+ * asked "is this already claimed?" and both wrote. Twelve rounds, twelve
+ * double-claims. The loser held a card the file no longer said was theirs.
+ *
+ * The sequential test above cannot see this: it claims, then claims again, and
+ * the second call reloads. Only overlapping calls put a write between the
+ * listing and the lock.
+ */
+test("two agents claiming at once: exactly one wins", async () => {
+    for (let round = 0; round < 6; round += 1) {
+        const { workspace, cleanup } = await createTestWorkspace({
+            prefix: "workfile-race-"
+        });
+        try {
+            const { id } = await createCard(workspace, {
+                title: `Contended ${round}`,
+                area: "api"
+            });
+
+            const settled = await Promise.allSettled([
+                claimCard(workspace, id, { actor: "agent-a" }),
+                claimCard(workspace, id, { actor: "agent-b" })
+            ]);
+            const won = settled.filter((result) => result.status === "fulfilled");
+            const lost = settled.filter((result) => result.status === "rejected");
+
+            assert.equal(won.length, 1, "a card cannot be held by two actors");
+            assert.equal(lost[0].reason.code, "CARD_ALREADY_CLAIMED");
+
+            // And the winner is the one the file agrees with, which is the part
+            // that actually matters to whoever reads the card next.
+            const { cards } = await loadCards(workspace);
+            const stored = cards.find((card) => card.id === id);
+            assert.equal(stored.claimed_by, won[0].value.card.claimed_by);
+        } finally {
+            await cleanup();
+        }
+    }
+});
+
+/**
+ * Release and transition carry the same ownership guard, so they inherit the
+ * same hole. Archive's terminal-status check is a guard too, written pre-lock.
+ */
+test("release and transition refuse a foreign claim under contention", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-race-guard-"
+    });
+    try {
+        const { id } = await createCard(workspace, {
+            title: "Held by someone else",
+            area: "api"
+        });
+        await claimCard(workspace, id, { actor: "agent-a" });
+
+        for (const attempt of [
+            () => transitionCard(workspace, id, "review", { actor: "agent-b" }),
+            () => claimCard(workspace, id, { actor: "agent-b" })
+        ]) {
+            await assert.rejects(attempt, (error: any) => {
+                assert.match(
+                    error.code,
+                    /CARD_CLAIM_OWNER_MISMATCH|CARD_ALREADY_CLAIMED/
+                );
+                return true;
+            });
+        }
+
+        // Releasing without an explicit status reads the status from disk, so a
+        // card moved to done by its holder is not demoted back to next.
+        await transitionCard(workspace, id, "done", { actor: "agent-a" });
+        const released = await releaseCard(workspace, id, { actor: "agent-a" });
+        assert.equal(released.card.status, "done");
     } finally {
         await cleanup();
     }

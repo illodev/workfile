@@ -135,19 +135,26 @@ async function mutateCard(
     }: any = {}
 ) {
     ensureWritable(workspace);
-    changes = normalizeListValues(changes);
     return withFileLock(
         cardLockPath(workspace, id),
         async () => {
-            // A caller may supply the directory listing it already has. Only
-            // the file being written has to be re-read under the lock — that is
-            // what the revision check is for — while the rest of the listing
-            // exists to resolve the ID and validate cross-card constraints.
-            // Reloading it per card turned a bulk edit of twenty cards into
-            // twenty full directory reads.
+            // A caller may supply the directory listing it already has. It
+            // resolves the ID and validates cross-card constraints, and nothing
+            // else: reloading it per card turned a bulk edit of twenty cards
+            // into twenty full directory reads.
+            //
+            // What it must never be is the version of *this* card the guards
+            // see. That listing was read before the lock, so between the read
+            // and the lock another writer can claim, release or close the card,
+            // and a guard asking "is it already claimed?" would answer from
+            // before that happened. It did: two concurrent claims both
+            // succeeded, twelve times out of twelve, and the loser held a card
+            // the file no longer said was theirs. `expectedRevision` catches
+            // the same race, but only a caller holding a revision passes it,
+            // and neither the CLI nor the MCP tools do.
             const loaded = snapshot || (await loadCards(workspace));
-            const current = locateUniqueCard(loaded.cards, id);
-            const sourcePath = pathForCard(workspace, current);
+            const located = locateUniqueCard(loaded.cards, id);
+            const sourcePath = pathForCard(workspace, located);
             const content = await readFile(sourcePath, "utf8");
             const actualRevision = revisionForContent(content);
             if (expectedRevision && expectedRevision !== actualRevision) {
@@ -163,20 +170,34 @@ async function mutateCard(
                         expectedRevision,
                         actualRevision,
                         current: normalizedSavedCard(
-                            current.file,
+                            located.file,
                             content,
-                            current.archived
+                            located.archived
                         )
                     }
                 );
             }
+            // The card as it is on disk right now, under the lock. Every guard
+            // and every validation below reads this, never the listing.
+            const current = normalizedSavedCard(
+                located.file,
+                content,
+                located.archived
+            );
             if (guard) await guard(current, loaded.cards);
             // A body-only write touches no frontmatter field, which the field
             // sanitizer rightly refuses as an empty patch — so say what is
             // actually changing instead of inventing a field to satisfy it.
+            // Changes may be a function of the locked state for the same
+            // reason the guards are: `releaseCard` decides what status a
+            // released card keeps by looking at the one it has, and deciding
+            // that from the pre-lock listing writes the status the card had
+            // before somebody else moved it.
+            const requested =
+                typeof changes === "function" ? changes(current) : changes;
             const allowed = bodyOnly
                 ? {}
-                : sanitizeCardChanges(changes);
+                : sanitizeCardChanges(normalizeListValues(requested));
             const candidate = applyCardChanges(current, allowed);
             validateCardCandidate(workspace, candidate, loaded.cards, id);
             let next = patchFrontmatter(content, allowed, {
@@ -250,6 +271,37 @@ function trailEnabled(workspace) {
     return workspace.config.cards.activityTrail !== false;
 }
 
+/**
+ * `done` means verified where the code actually ran.
+ *
+ * This lived inside `transitionCard`, which is one of four ways to set a
+ * status. `card patch --json-input '{"status":"done"}'`, the HTTP PATCH routes
+ * and `project_card_patch` all walked past it, and so did
+ * `card release --status done` — so the rule the README leads with was enforced
+ * on the path a human takes and not on any of the paths an agent takes. It is a
+ * function now because a guarantee with four entrances needs one gate, not the
+ * discipline to remember it four times.
+ */
+function assertAcceptanceMet(id, current, status, force) {
+    if (status !== "done" || force) return;
+    const pending = parseAcceptance(current.body).unchecked;
+    if (!pending.length) return;
+    throw new ConflictError(
+        "CARD_ACCEPTANCE_UNMET",
+        `${id} has ${pending.length} unproven acceptance criteria: ` +
+            `${pending
+                .map((item) => `#${item.index} ${item.text}`)
+                .join("; ")}. Check them, or pass force.`,
+        {
+            id,
+            unchecked: pending.map((item) => ({
+                index: item.index,
+                text: item.text
+            }))
+        }
+    );
+}
+
 export async function createCard(workspace, input, { maxRetries = 32, now }: any = {}) {
     ensureWritable(workspace);
     if (!input?.title?.trim()) {
@@ -310,8 +362,45 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
     );
 }
 
-export async function patchCard(workspace, id, changes, options: any = {}) {
-    return mutateCard(workspace, id, changes, options);
+/**
+ * A field-level write, including a status change.
+ *
+ * A status change here is the same protocol event it is through `transition`:
+ * it passes the same gate and it leaves the same trail line. It did neither.
+ * Reproduced before the fix: a card with one unchecked acceptance criterion was
+ * refused by `card transition done` and accepted by `card patch` with
+ * `{"status":"done"}` — 200 on both HTTP routes and through MCP as well —
+ * leaving a file that read `status: done` whose last trail entry said
+ * "claimed". Four surfaces, one of them the only one a human uses, and the
+ * three an agent uses were the leaky ones.
+ */
+export async function patchCard(
+    workspace,
+    id,
+    changes,
+    { actor, force = false, now, guard, transformContent, ...options }: any = {}
+) {
+    const wanted = changes?.status;
+    return mutateCard(workspace, id, changes, {
+        ...options,
+        guard: async (current, cards) => {
+            if (guard) await guard(current, cards);
+            if (wanted && wanted !== current.status) {
+                assertAcceptanceMet(id, current, wanted, force);
+            }
+        },
+        transformContent: (content, current, candidate) => {
+            const next = transformContent
+                ? transformContent(content, current, candidate)
+                : content;
+            if (!trailEnabled(workspace)) return next;
+            if (!wanted || wanted === current.status) return next;
+            return appendActivityLine(
+                next,
+                activityEntry(actor, `${current.status} → ${wanted}`, now)
+            );
+        }
+    });
 }
 
 function claimIsStale(card, leaseHours, now) {
@@ -417,23 +506,30 @@ export async function releaseCard(
     { actor, status, force = false, expectedRevision }: any = {}
 ) {
     const loaded = await loadCards(workspace);
-    const snapshot = locateUniqueCard(loaded.cards, id);
+    // Existence first, so a missing card reports CARD_NOT_FOUND instead of a
+    // complaint about a status it does not have.
+    locateUniqueCard(loaded.cards, id);
     if (status === "doing") {
         throw new ValidationError(
             "CARD_RELEASE_STATUS_INVALID",
             "A released card cannot remain doing."
         );
     }
-    // Without an explicit target the card keeps the status it already has:
-    // releasing the claim on a card just transitioned to done must not
-    // silently demote it. Only `doing` cannot survive a release — active
-    // work without a claimant is a contradiction — so it becomes `next`.
-    const resolved =
-        status || (snapshot.status === "doing" ? "next" : snapshot.status);
     return mutateCard(
         workspace,
         id,
-        { status: resolved, claimed_by: null, claimed_at: null },
+        // Without an explicit target the card keeps the status it already has:
+        // releasing the claim on a card just transitioned to done must not
+        // silently demote it. Only `doing` cannot survive a release — active
+        // work without a claimant is a contradiction — so it becomes `next`.
+        // Read under the lock, so "the status it already has" is the one on
+        // disk and not the one the listing remembered.
+        (current) => ({
+            status:
+                status || (current.status === "doing" ? "next" : current.status),
+            claimed_by: null,
+            claimed_at: null
+        }),
         {
             expectedRevision,
             snapshot: loaded,
@@ -449,6 +545,13 @@ export async function releaseCard(
                       )
                 : undefined,
             guard: (current) => {
+                // `release --status done` is a way to reach done, so it is a
+                // way to reach the gate. Only when it actually moves the card
+                // there: a card that is already done stays releasable, or a
+                // forced close would leave its own claim stuck.
+                if (status && status !== current.status) {
+                    assertAcceptanceMet(id, current, status, force);
+                }
                 if (
                     current.claimed_by &&
                     actor &&
@@ -497,12 +600,12 @@ export async function transitionCard(
             moveToArchived,
             snapshot: loaded,
             transformContent: trailEnabled(workspace)
-                ? (content) =>
+                ? (content, current) =>
                       appendActivityLine(
                           content,
                           activityEntry(
                               actor,
-                              `${snapshot.status} → ${status}`,
+                              `${current.status} → ${status}`,
                               now
                           )
                       )
@@ -512,30 +615,9 @@ export async function transitionCard(
             // claimed by someone else and silently drop their claim, no reason
             // required — which made the guard on release decorative.
             guard: (current) => {
-                // `done` means verified where it actually runs. That was a rule
-                // with nothing behind it but a doctor warning nobody had to
-                // read, on a card that had already shipped. Refusing here is
-                // what turns it into a mechanism; `--force` is the documented
-                // way past it, for the cases the criteria did not anticipate.
-                if (status === "done" && !force) {
-                    const pending = parseAcceptance(current.body).unchecked;
-                    if (pending.length) {
-                        throw new ConflictError(
-                            "CARD_ACCEPTANCE_UNMET",
-                            `${id} has ${pending.length} unproven acceptance ` +
-                                `criteria: ${pending
-                                    .map((item) => `#${item.index} ${item.text}`)
-                                    .join("; ")}. Check them, or pass force.`,
-                            {
-                                id,
-                                unchecked: pending.map((item) => ({
-                                    index: item.index,
-                                    text: item.text
-                                }))
-                            }
-                        );
-                    }
-                }
+                // `--force` is the documented way past it, for the cases the
+                // criteria did not anticipate.
+                assertAcceptanceMet(id, current, status, force);
                 if (
                     current.claimed_by &&
                     actor &&
@@ -687,6 +769,8 @@ export async function archiveCard(workspace, id, { expectedRevision }: any = {})
             path: pathForCard(workspace, snapshot)
         };
     }
+    // Checked again under the lock below. This one only spares the caller a
+    // lock acquisition for the common, uncontended refusal.
     if (!["done", "discarded"].includes(snapshot.status)) {
         throw new ValidationError(
             "CARD_ARCHIVE_STATUS_INVALID",
@@ -696,8 +780,22 @@ export async function archiveCard(workspace, id, { expectedRevision }: any = {})
     return mutateCard(
         workspace,
         id,
-        { status: snapshot.status },
-        { expectedRevision, moveToArchived: true, snapshot: loaded }
+        (current) => ({ status: current.status }),
+        {
+            expectedRevision,
+            moveToArchived: true,
+            snapshot: loaded,
+            // A card that stopped being terminal between the listing and the
+            // lock must not be filed away as though it were.
+            guard: (current) => {
+                if (!["done", "discarded"].includes(current.status)) {
+                    throw new ValidationError(
+                        "CARD_ARCHIVE_STATUS_INVALID",
+                        "Only done or discarded cards can be archived."
+                    );
+                }
+            }
+        }
     );
 }
 

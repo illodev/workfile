@@ -5,13 +5,19 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createTestWorkspace, withServer } from "./support/workspace.ts";
+
 import {
     applyAcceptance,
     createCard,
+    createMcpProtocolServer,
     loadCards,
     loadWorkspace,
+    MCP_LEGACY_PROTOCOL_VERSION,
     parseAcceptance,
+    patchCard,
     patchCardBody,
+    releaseCard,
     setCardAcceptance,
     transitionCard
 } from "../dist/src/index.js";
@@ -176,4 +182,142 @@ test("a stale revision cannot address a criterion by the wrong number", async ()
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+/**
+ * `done` had one gate and four doors.
+ *
+ * T-0084 put the acceptance check inside `transitionCard`, which is the door a
+ * human uses. `card patch`, both HTTP PATCH routes and `project_card_patch` set
+ * `status` directly through `patchCard` and never reached it — so the rule the
+ * README leads with was enforced on the one surface agents do not use. The same
+ * omission dropped the Activity line: a card could read `status: done` with a
+ * trail whose last entry said "claimed".
+ */
+test("every door to done passes the same gate, and leaves the same trail", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-ac-doors-"
+    });
+    try {
+        const unproven = async (title) => {
+            const { id } = await createCard(workspace, { title, area: "api" });
+            await patchCardBody(workspace, id, { body: BODY });
+            return id;
+        };
+
+        // The library layer every surface calls.
+        for (const [door, attempt] of [
+            ["patch", (id) => patchCard(workspace, id, { status: "done" })],
+            [
+                "release",
+                (id) =>
+                    releaseCard(workspace, id, {
+                        status: "done",
+                        actor: "tester"
+                    })
+            ]
+        ] as const) {
+            const id = await unproven(`Closed through ${door}`);
+            await assert.rejects(attempt.bind(null, id), (error: any) => {
+                assert.equal(error.code, "CARD_ACCEPTANCE_UNMET");
+                assert.equal(error.details.unchecked.length, 3);
+                return true;
+            });
+        }
+
+        // Forced, the write goes through and the trail records it — the point
+        // being that a status change is a protocol event whichever door it
+        // came through.
+        const forced = await unproven("Forced through patch");
+        const result = await patchCard(
+            workspace,
+            forced,
+            { status: "done" },
+            { force: true, actor: "tester", now: "2026-08-01T10:00:00.000Z" }
+        );
+        assert.equal(result.card.status, "done");
+        assert.match(
+            result.card.body,
+            /- 2026-08-01 10:00Z tester · backlog → done/
+        );
+
+        // A patch that does not touch the status is not a transition and must
+        // not invent a trail line.
+        const quiet = await patchCard(
+            workspace,
+            forced,
+            { priority: "high" },
+            { actor: "tester" }
+        );
+        assert.equal(
+            (quiet.card.body.match(/ · /g) || []).length,
+            1,
+            "only the status change is a protocol event"
+        );
+
+        // And a card whose criteria are all met closes through patch like any
+        // other door.
+        const proven = await unproven("Proven through patch");
+        await setCardAcceptance(workspace, proven, { check: [1, 3, 4] });
+        const closed = await patchCard(workspace, proven, { status: "done" });
+        assert.equal(closed.card.status, "done");
+    } finally {
+        await cleanup();
+    }
+});
+
+test("the gate holds over HTTP and over MCP, not only in process", async () => {
+    await withServer(async ({ workspace, url }) => {
+        const { id } = await createCard(workspace, {
+            title: "Closed from the wire",
+            area: "api"
+        });
+        await patchCardBody(workspace, id, { body: BODY });
+
+        for (const path of [`/api/v2/cards/${id}`, `/api/tasks/${id}`]) {
+            const response = await fetch(`${url}${path}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ status: "done" })
+            });
+            const payload = (await response.json()) as {
+                error: { code: string };
+            };
+            assert.equal(
+                response.status,
+                409,
+                `${path} let an unproven card through`
+            );
+            assert.equal(payload.error.code, "CARD_ACCEPTANCE_UNMET");
+        }
+
+        const server = createMcpProtocolServer(workspace, { version: "0.0.0" });
+        await server.handle({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
+                capabilities: {},
+                clientInfo: { name: "test-client", version: "1.0.0" }
+            }
+        });
+        await server.handle({
+            jsonrpc: "2.0",
+            method: "notifications/initialized"
+        });
+        const called = await server.handle({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+                name: "project_card_patch",
+                arguments: { id, changes: { status: "done" } }
+            }
+        });
+        assert.match(
+            JSON.stringify("result" in called ? called.result : called.error),
+            /CARD_ACCEPTANCE_UNMET/
+        );
+    }, { prefix: "workfile-ac-wire-" });
 });
