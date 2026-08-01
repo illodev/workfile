@@ -1,4 +1,10 @@
 export {
+    acceptanceSummary,
+    applyAcceptance,
+    parseAcceptance
+} from "./acceptance.js";
+export type { AcceptanceItem, AcceptanceReading } from "./acceptance.js";
+export {
     CARD_LIST_KEYS,
     CARD_REQUIRED_KEYS,
     cardIdPattern,
@@ -9,6 +15,7 @@ export {
 } from "./cards.js";
 export {
     appendCardNote,
+    setCardAcceptance,
     archiveCard,
     bulkPatchCards,
     claimCard,

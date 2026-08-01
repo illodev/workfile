@@ -71,7 +71,10 @@ import {
     transitionCard,
     writeRenderedChangelog,
     applyInitialization,
+    acceptanceSummary,
+    parseAcceptance,
     resolveActor,
+    setCardAcceptance,
     ValidationError
 } from "../src/index.js";
 
@@ -138,6 +141,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card reopen ID [--status backlog]",
         "workfile card reap [--dry-run] [--older-than HOURS] [--json]",
         "workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]",
+        "workfile card ac ID [--check N] [--uncheck N]   # repeatable; no flags lists them",
         "workfile card write ID [--body-file FILE]   # or pipe the body on stdin",
         "workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]",
         "workfile card renumber --duplicates [--actor ACTOR]   # heal after a merge"
@@ -254,6 +258,8 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     version: [],
     ui: ["--host", "--port", "--verbose"],
     card: [
+        "--check",
+        "--uncheck",
         "--title",
         "--area",
         "--type",
@@ -588,6 +594,32 @@ function projectCard(card) {
     return { ...rest, bodyBytes: Buffer.byteLength(body || "", "utf8") };
 }
 
+/**
+ * Every occurrence of a flag, comma-lists included.
+ *
+ * `option` returns the first match and silently drops the rest, which is fine
+ * for a value that can only be given once and wrong for an instruction that can
+ * repeat. An agent that writes `--check 1 --check 3` and has the second one
+ * quietly ignored cannot tell that it happened.
+ */
+function repeatedNumbers(name) {
+    const values: number[] = [];
+    for (let index = 0; index < process.argv.length; index += 1) {
+        if (process.argv[index] !== name) continue;
+        for (const part of String(process.argv[index + 1] || "").split(",")) {
+            const value = Number(part.trim());
+            if (!Number.isInteger(value) || value < 1) {
+                throw new ValidationError(
+                    "CLI_ARGUMENT_INVALID",
+                    `${name} takes 1-based criterion numbers; got "${part.trim()}".`
+                );
+            }
+            values.push(value);
+        }
+    }
+    return values;
+}
+
 function listOption(name) {
     const value = option(name);
     return value
@@ -741,7 +773,13 @@ async function cardCommand(workspace, action) {
         const { cards } = await loadCards(workspace);
         const card = cards.find((candidate) => candidate.id === id);
         if (!card) throw new NotFoundError("CARD_NOT_FOUND", `Card not found: ${id}`);
-        return print(card);
+        // Derived, not stored: the body is the record. Attached here rather
+        // than in the normalizer because `card list` would then pay to parse
+        // every body to answer a question nobody asked of a listing.
+        const acceptance = parseAcceptance(card.body);
+        return print(
+            acceptance.present ? { ...card, acceptance } : card
+        );
     }
     if (action === "reap") {
         // A claim held past its lease belongs to a process that is almost
@@ -831,6 +869,38 @@ async function cardCommand(workspace, action) {
         );
     }
     const expectedRevision = option("--expected-revision") || undefined;
+    if (action === "ac") {
+        const check = repeatedNumbers("--check");
+        const uncheck = repeatedNumbers("--uncheck");
+        if (!check.length && !uncheck.length) {
+            const { cards } = await loadCards(workspace);
+            const card = cards.find((candidate) => candidate.id === id);
+            if (!card) {
+                throw new NotFoundError("CARD_NOT_FOUND", `Card not found: ${id}`);
+            }
+            const reading = parseAcceptance(card.body);
+            if (has("--json")) return print(reading);
+            if (!reading.present) {
+                return console.log(`${id} declares no acceptance criteria`);
+            }
+            console.log(`${id} — ${acceptanceSummary(reading)} met`);
+            for (const item of reading.items) {
+                console.log(`  ${item.checked ? "x" : " "} #${item.index} ${item.text}`);
+            }
+            return;
+        }
+        const result = await setCardAcceptance(workspace, id, {
+            check,
+            uncheck,
+            expectedRevision
+        });
+        if (has("--json")) return print(result);
+        console.log(`${id} — ${acceptanceSummary(result.acceptance)} met`);
+        for (const item of result.changed) {
+            console.log(`  ${item.checked ? "checked" : "unchecked"} #${item.index} ${item.text}`);
+        }
+        return;
+    }
     if (action === "note") {
         const result = await appendCardNote(workspace, id, {
             text: option("--text"),

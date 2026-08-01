@@ -131,7 +131,20 @@ workfile card reopen ID [--status backlog]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
 workfile card renumber --duplicates [--actor ACTOR]
+workfile card ac ID                              # list criteria with their numbers
+workfile card ac ID --check 1,3 --check 5        # repeatable, comma lists accepted
+workfile card ac ID --uncheck 2
 ```
+
+Acceptance criteria are the `- [ ]` items under a `## Acceptance criteria` heading.
+The storage does not change — it renders on GitHub and `grep` finds it. What `ac` adds
+is that they are addressable. Numbers are positional, and every write carries the usual
+lock and revision check, so a concurrent reorder is refused rather than quietly applied
+to the wrong line.
+
+`card transition ID done` refuses while any criterion is unproven and names the ones
+that are, because `done` means verified where the code actually runs. `--force` gets
+through for the cases the criteria did not anticipate.
 
 `card create --json-input FILE` is the form to reach for when the card has a
 body. It takes the whole record — title, body, parent, source, tags, scope — in

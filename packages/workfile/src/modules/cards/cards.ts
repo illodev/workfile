@@ -4,6 +4,7 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
+import { parseAcceptance } from "./acceptance.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { cardFileName } from "./slug.js";
 import {
@@ -138,7 +139,13 @@ export async function loadCards(workspace) {
     };
 }
 
-function issue(severity, code, card, message, details = null) {
+function issue(
+    severity,
+    code,
+    card,
+    message,
+    details: Record<string, unknown> | null = null
+) {
     return {
         severity,
         code,
@@ -148,14 +155,6 @@ function issue(severity, code, card, message, details = null) {
         message,
         ...(details ? { details } : {})
     };
-}
-
-function uncheckedAcceptanceCount(body = "") {
-    const acceptance = body.match(
-        /##\s+Acceptance criteria\b([\s\S]*?)(?=\n##\s+|$)/i
-    );
-    if (!acceptance) return 0;
-    return (acceptance[1].match(/^\s*[-*]\s+\[\s\]/gm) || []).length;
 }
 
 function hierarchyDepth(card, byId) {
@@ -401,14 +400,20 @@ export async function diagnoseCards({
                 )
             );
         }
-        const unchecked = uncheckedAcceptanceCount(card.body);
-        if (card.status === "done" && unchecked) {
+        // Naming them is the difference between a number to dismiss and a
+        // list to work through. The count alone told a reviewer that something
+        // was unproven but never which thing, so the only way to act on it was
+        // to open the card and read.
+        const pending = parseAcceptance(card.body).unchecked;
+        if (card.status === "done" && pending.length) {
             issues.push(
                 issue(
                     "warning",
                     "done-unchecked",
                     card,
-                    `Done card has ${unchecked} unchecked acceptance criteria`
+                    `Done card has ${pending.length} unproven acceptance criteria: ` +
+                        pending.map((item) => `#${item.index} ${item.text}`).join("; "),
+                    { unchecked: pending.map(({ index, text }) => ({ index, text })) }
                 )
             );
         }

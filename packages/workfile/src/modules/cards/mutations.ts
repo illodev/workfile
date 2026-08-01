@@ -3,6 +3,7 @@ import { basename, dirname, join } from "node:path";
 
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
 import { reserveRecordId } from "../../core/record-ids.js";
+import { applyAcceptance, parseAcceptance } from "./acceptance.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
     ConflictError,
@@ -511,6 +512,30 @@ export async function transitionCard(
             // claimed by someone else and silently drop their claim, no reason
             // required — which made the guard on release decorative.
             guard: (current) => {
+                // `done` means verified where it actually runs. That was a rule
+                // with nothing behind it but a doctor warning nobody had to
+                // read, on a card that had already shipped. Refusing here is
+                // what turns it into a mechanism; `--force` is the documented
+                // way past it, for the cases the criteria did not anticipate.
+                if (status === "done" && !force) {
+                    const pending = parseAcceptance(current.body).unchecked;
+                    if (pending.length) {
+                        throw new ConflictError(
+                            "CARD_ACCEPTANCE_UNMET",
+                            `${id} has ${pending.length} unproven acceptance ` +
+                                `criteria: ${pending
+                                    .map((item) => `#${item.index} ${item.text}`)
+                                    .join("; ")}. Check them, or pass force.`,
+                            {
+                                id,
+                                unchecked: pending.map((item) => ({
+                                    index: item.index,
+                                    text: item.text
+                                }))
+                            }
+                        );
+                    }
+                }
                 if (
                     current.claimed_by &&
                     actor &&
@@ -554,6 +579,59 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
             return `${content.slice(0, parsed.prefixLength)}${next ? `${next}\n` : ""}`;
         }
     });
+}
+
+/**
+ * Checks or unchecks acceptance criteria by index.
+ *
+ * The narrow write that makes "`done` requires evidence" mean something. An
+ * agent that has just proven one criterion says so without sending the whole
+ * document back — which matters because a full-body write is how an agent
+ * destroys the human context around it.
+ *
+ * Runs through the same lock and revision check as every other mutation, and
+ * that is what makes positional indices safe: a concurrent reorder changes the
+ * revision, so a stale address is refused rather than applied to the wrong line.
+ */
+export async function setCardAcceptance(
+    workspace,
+    id,
+    { check = [], uncheck = [], expectedRevision }: any = {}
+) {
+    if (!check.length && !uncheck.length) {
+        throw new ValidationError(
+            "CARD_ACCEPTANCE_EMPTY",
+            "Pass at least one criterion to check or uncheck."
+        );
+    }
+    let changed = [];
+    const result = await mutateCard(workspace, id, {}, {
+        expectedRevision,
+        bodyOnly: true,
+        transformContent: (content) => {
+            const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
+            const body = content.slice(parsed.prefixLength);
+            let applied;
+            try {
+                applied = applyAcceptance(body, { check, uncheck });
+            } catch (error: any) {
+                if (error?.code === "CARD_ACCEPTANCE_INDEX_UNKNOWN") {
+                    throw new ValidationError(error.code, error.message, {
+                        index: error.index,
+                        available: error.available
+                    });
+                }
+                throw error;
+            }
+            changed = applied.changed;
+            return `${content.slice(0, parsed.prefixLength)}${applied.body}`;
+        }
+    });
+    return {
+        ...result,
+        changed,
+        acceptance: parseAcceptance(result.card?.body || "")
+    };
 }
 
 /**
