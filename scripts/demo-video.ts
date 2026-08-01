@@ -49,179 +49,9 @@ await recordAgentSignal(workspace, {
 });
 const server = await startProjectServer(workspace, { port: 0 });
 
-// Installed via init script so an in-tour navigation cannot lose the stage.
-const overlay = () => {
-    const install = () => {
-        if (document.getElementById("demo-stage")) return;
-        const app = document.getElementById("root");
-        if (!app) {
-            setTimeout(install, 30);
-            return;
-        }
-
-        // The stage: gradient backdrop, a browser-window chrome, and the app
-        // scaled into it. Fixed elements inside the app become relative to
-        // the transformed content box, which conveniently keeps the app's own
-        // overlays (the palette) inside the frame.
-        const K = 0.85;
-        const stage = document.createElement("div");
-        stage.id = "demo-stage";
-        stage.innerHTML =
-            '<div id="demo-window">' +
-            '<div id="demo-topbar">' +
-            '<span class="demo-dot" style="background:#FF5F57"></span>' +
-            '<span class="demo-dot" style="background:#FEBC2E"></span>' +
-            '<span class="demo-dot" style="background:#28C840"></span>' +
-            '<span id="demo-url">workfile.illodev.com</span>' +
-            "</div>" +
-            '<div id="demo-content"><div id="demo-scaler"></div></div>' +
-            "</div>";
-        const style = document.createElement("style");
-        style.textContent = `
-            #demo-stage { position: fixed; inset: 0; z-index: 2147483000;
-                display: flex; align-items: center; justify-content: center;
-                background: radial-gradient(1300px 850px at 68% 12%, #2a3161 0%, #14172a 55%, #0b0d17 100%); }
-            #demo-window { border-radius: 14px; overflow: hidden;
-                box-shadow: 0 40px 90px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.08);
-                transform-origin: 0 0;
-                transition: transform 950ms cubic-bezier(.45,0,.18,1); }
-            #demo-topbar { height: 38px; background: #E9EAEF; display: flex;
-                align-items: center; gap: 8px; padding: 0 14px; position: relative; }
-            .demo-dot { width: 12px; height: 12px; border-radius: 50%; }
-            #demo-url { position: absolute; left: 50%; transform: translateX(-50%);
-                background: #fff; color: #4a4d57; border-radius: 6px;
-                font: 500 12.5px/1 system-ui, sans-serif; padding: 6px 40px; }
-            #demo-content { width: ${1440 * K}px; height: ${900 * K}px; overflow: hidden; }
-            #demo-scaler { width: 1440px; height: 900px;
-                transform: scale(${K}); transform-origin: 0 0; }
-            @keyframes demo-pulse { from { transform: scale(.5); opacity: .9 }
-                to { transform: scale(2); opacity: 0 } }
-        `;
-        document.head.append(style);
-        document.body.append(stage);
-        stage.querySelector("#demo-scaler").append(app);
-
-        const cursor = document.createElement("div");
-        cursor.id = "demo-cursor";
-        cursor.innerHTML =
-            '<svg width="26" height="26" viewBox="0 0 24 24">' +
-            '<path d="M6.6 2.6 L6.6 18.9 L10.6 15.3 L12.9 20.9 L15.9 19.6 L13.5 14.1 L18.7 13.7 Z" ' +
-            'fill="#101321" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-        Object.assign(cursor.style, {
-            position: "fixed",
-            left: "0px",
-            top: "0px",
-            zIndex: "2147483647",
-            pointerEvents: "none",
-            // Hidden until it has somewhere to be. The element is created at
-            // 0,0 and only moves when Playwright dispatches its first
-            // mousemove, which is three scenes in — so it used to sit pinned
-            // to the top-left corner through the whole opening.
-            opacity: "0",
-            transition: "opacity 350ms ease, scale 120ms ease",
-            filter: "drop-shadow(0 2px 5px rgba(0,0,0,.5))"
-        });
-        const caption = document.createElement("div");
-        caption.id = "demo-caption";
-        Object.assign(caption.style, {
-            position: "fixed",
-            left: "50%",
-            bottom: "26px",
-            transform: "translateX(-50%)",
-            zIndex: "2147483646",
-            pointerEvents: "none",
-            background: "rgba(16,19,33,0.9)",
-            border: "1px solid rgba(255,255,255,.14)",
-            color: "#fff",
-            font: "500 17.5px/1.45 system-ui, -apple-system, sans-serif",
-            letterSpacing: "-0.01em",
-            padding: "11px 22px",
-            borderRadius: "12px",
-            opacity: "0",
-            transition: "opacity 280ms ease",
-            maxWidth: "76%",
-            textAlign: "center"
-        });
-        document.body.append(cursor, caption);
-
-        document.addEventListener(
-            "mousemove",
-            (event) => {
-                cursor.style.left = `${event.clientX}px`;
-                cursor.style.top = `${event.clientY}px`;
-            },
-            true
-        );
-        document.addEventListener(
-            "mousedown",
-            (event) => {
-                cursor.style.scale = "0.82";
-                const pulse = document.createElement("div");
-                Object.assign(pulse.style, {
-                    position: "fixed",
-                    left: `${event.clientX - 15}px`,
-                    top: `${event.clientY - 15}px`,
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "50%",
-                    border: "3px solid #6f86ff",
-                    zIndex: "2147483645",
-                    pointerEvents: "none",
-                    animation: "demo-pulse 480ms ease-out forwards"
-                });
-                document.body.append(pulse);
-                setTimeout(() => pulse.remove(), 520);
-            },
-            true
-        );
-        document.addEventListener(
-            "mouseup",
-            () => {
-                cursor.style.scale = "1";
-            },
-            true
-        );
-
-        window.__caption = (text) => {
-            caption.style.opacity = "0";
-            setTimeout(() => {
-                if (text) {
-                    caption.textContent = text;
-                    caption.style.opacity = "1";
-                }
-            }, 300);
-        };
-        // `__cursor(true)` arms the pointer for the rest of the tour; a camera
-        // push hides it and asks for it back with `__cursorRestore`, which
-        // stays silent until the tour has armed it. Without the distinction the
-        // first push would end by revealing a pointer that has never moved.
-        let armed = false;
-        window.__cursor = (visible) => {
-            if (visible) armed = true;
-            cursor.style.opacity = visible ? "1" : "0";
-        };
-        window.__cursorRestore = () => {
-            if (armed) cursor.style.opacity = "1";
-        };
-        // Camera: center (tx, ty) — screen coordinates at rest — at scale s.
-        const frame = stage.querySelector("#demo-window");
-        let rest = null;
-        window.__zoomTo = (tx, ty, s) => {
-            if (!rest) rest = frame.getBoundingClientRect();
-            const dx = innerWidth / 2 - rest.left - s * (tx - rest.left);
-            const dy = innerHeight / 2 - rest.top - s * (ty - rest.top);
-            frame.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
-        };
-        window.__zoomOut = () => {
-            frame.style.transform = "";
-        };
-    };
-    if (document.body) install();
-    else document.addEventListener("DOMContentLoaded", install);
-};
 
 /**
- * The controls `overlay` installs on the page.
+ * The controls `demo-stage.mjs` installs on the page.
  *
  * Every `page.evaluate` below runs in the browser, where these exist; this file
  * is typechecked as Node, where `window` does not — so each call site was an
@@ -245,10 +75,16 @@ const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
     colorScheme: "light",
+    // English months, same reason as the stills: the app formats through
+    // `Intl` with no locale, so an August capture on a Spanish machine wrote
+    // "1 ago" into the trail — which reads as a word, not a date.
+    locale: "en-US",
     recordVideo: { dir: outDir, size: { width: 1440, height: 900 } }
 });
 const page = await context.newPage();
-await page.addInitScript(overlay);
+await page.addInitScript({
+    path: fileURLToPath(new URL("./demo-stage.mjs", import.meta.url))
+});
 
 async function center(target) {
     const box = await target.boundingBox();
@@ -365,8 +201,14 @@ try {
     await sleep(420);
     await glide(page.getByText(signalCardId, { exact: true }).first(), 500);
     await click();
+    // Wait for the drawer rather than a fixed sleep, and read the claim from
+    // inside it: an unscoped `getByText("claim")` also matches the presence
+    // strip along the footer, which is where the camera was aiming when the
+    // inspector was invisible and nobody could tell the difference.
+    const inspector = page.locator('[aria-label="Inspector"]');
+    await inspector.waitFor({ state: "visible", timeout: 10_000 });
     await sleep(950);
-    const claim = await center(page.getByText("claim", { exact: true }).first());
+    const claim = await center(inspector.getByText(/^claim$/i).first());
     await snap("scene2-inspector");
     await punchIn(
         { x: claim.x + 90, y: claim.y + 30 },
@@ -405,11 +247,16 @@ try {
     await glide(page.getByRole("button", { name: /Search .*records/ }), 250);
     await click();
     await caption("One search across everything", 300);
-    await page.keyboard.type("watcher", { delay: 120 });
+    // Typed into the located input rather than at whatever holds focus. The
+    // palette autofocuses itself, but the stage moves its portal into the
+    // frame a tick later, and a bare `keyboard.type` was landing in the gap.
+    const query = page.locator("[data-slot=command-input]");
+    await query.waitFor({ state: "visible", timeout: 10_000 });
+    await query.pressSequentially("watcher", { delay: 120 });
     await sleep(1700);
     await snap("scene5-search");
     await page.keyboard.press("Escape");
-    await sleep(400);
+    await sleep(600);
 
     // Close on the Overview. The tour used to end where it began, on Flow,
     // which spent its last shot repeating its first; the verdict line answers

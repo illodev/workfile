@@ -69,7 +69,14 @@ try {
         const context = await browser.newContext({
             viewport: { width: 1440, height: 900 },
             deviceScaleFactor: 2,
-            colorScheme: theme
+            colorScheme: theme,
+            // The interface formats dates through `Intl` with no locale, so it
+            // speaks whatever the machine does — and the media is English. It
+            // stayed invisible while the fixture sat in July, which is spelled
+            // the same either way; the first capture in August rendered "1 ago"
+            // in a caption nobody would read as a date. Pinned here rather than
+            // in the app: a Spanish workspace should keep its Spanish months.
+            locale: "en-US"
         });
         const page = await context.newPage();
         for (const view of VIEWS) {
