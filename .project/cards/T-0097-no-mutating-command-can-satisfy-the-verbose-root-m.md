@@ -50,3 +50,7 @@ A decision either way belongs in memory, not in a commit message.
 - [ ] The call is made and recorded as an ADR
 - [ ] If accepted, `--verbose` prints the resolved root before the mutation runs
 - [ ] SPEC.md:218 matches the outcome
+
+## Notes
+
+- 2026-08-01 23:16Z claude-opus-5 — A second instance of the same shape, found in T-0096. SPEC:1299 read 'Running project with no subcommand starts the UI unless configuration disables that behavior.' The first clause is true — bin/workfile.ts:1995 is const command = process.argv[2] || "ui" — but no configuration disables it: the default is applied before any config is read, and workspace.config.ui is {host, port, open, defaultView} with no such flag. The clause was dropped and the line now says so explicitly. Whether a headless repository should be able to turn it off belongs in the same ADR as the --verbose call.

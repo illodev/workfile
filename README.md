@@ -98,8 +98,10 @@ and an unrelated `wf` exists on the registry — so `npx wf` would fetch someone
 else's tool where `npx workfile` fails outright.
 
 `pnpm dlx @illodev/workfile init` is fine for one-shot initialization, but keep the
-package as a devDependency afterwards: that is what makes the `project` scripts that
-`init` adds to package.json resolve.
+package as a devDependency afterwards: that is what makes the `project*` scripts that
+`init` adds to package.json resolve. That prefix is an npm script namespace — `pnpm
+project` opens the UI, `pnpm project:doctor` runs the checks — and has nothing to do
+with the old binary name.
 
 ## TypeScript API
 

@@ -9,11 +9,12 @@ files inside your repository. This guide takes you from zero to a working worksp
 pnpm add -D @illodev/workfile     # per repository (recommended)
 pnpm workfile doctor              # dependency bins run through pnpm / npx
 
-pnpm add -g @illodev/workfile     # or globally: `project` lands on your PATH
+pnpm add -g @illodev/workfile     # or globally: `workfile` lands on your PATH
 ```
 
 `pnpm dlx @illodev/workfile init` works for one-shot initialization, but keep the
-package installed afterwards — that is what makes the `project` commands resolve.
+package installed afterwards — that is what makes the `project*` scripts `init`
+adds to package.json resolve.
 
 ## Initialize a workspace
 

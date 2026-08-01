@@ -60,27 +60,51 @@ test("every test and script file named in the docs exists", async () => {
 });
 
 /**
- * `project` was renamed to `workfile`. Only `workfile` and `workfile-mcp` are
- * declared as bins, so every `project <command>` in a doc is a line a reader
- * can copy and cannot run. Prose about "the project card" is not the target,
- * so the check only looks inside code spans and fenced blocks.
+ * `project` was renamed to `workfile`. Three bins are declared — `workfile`,
+ * `wf` and `workfile-mcp` — so every `project <command>` in a doc is a line a
+ * reader can copy and cannot run. Prose about "the project card" is not the
+ * target, so the check only looks inside code spans and fenced blocks.
+ *
+ * Naming the binary *alone* was the wider miss, and the worse one. SPEC.md's
+ * header read "CLI name: `project`" and its locked Phase 0 decision read "The
+ * executable is `project`" — the document stating normatively what the thing is
+ * called, naming the wrong thing, under a test written to prevent exactly that.
+ * A copyable `project card list` is a broken line; those two were the contract.
+ *
+ * `project:agents` and `.project/` are a script namespace and the storage root.
+ * Both are current, both must keep passing, which is why the bare form is
+ * matched as a whole span rather than as a prefix.
  */
 test("no doc teaches the removed project binary", async () => {
+    const declared = JSON.parse(
+        await readFile(new URL("package.json", packageRoot), "utf8")
+    ).bin;
+    assert.deepEqual(
+        Object.keys(declared).sort(),
+        ["wf", "workfile", "workfile-mcp"],
+        "the declared bins changed; the vocabulary below is no longer closed"
+    );
+
     const commands =
         "card|doc|docs|changelog|memory|agents|ci|claude|migrate|mcp|search|doctor|init|ui|upgrade|schema|version|index|hook";
-    const inCodeSpan = new RegExp(`\`project (?:${commands})\\b`);
-    const inFence = new RegExp(`^\\s*project (?:${commands})\\b`, "m");
+    const checks: ReadonlyArray<readonly [RegExp, string]> = [
+        [new RegExp(`\`project (?:${commands})\\b`), "in a code span"],
+        [new RegExp(`^\\s*project (?:${commands})\\b`, "m"), "in a code block"],
+        // A span holding nothing but the word is the binary being named, not a
+        // path (`.project/`), a script (`project:mcp`) or a file
+        // (`project.config.mjs`) — none of which can match a closing backtick
+        // straight after the `t`.
+        [/`project`/, "as a bare name in a code span"],
+        [/^\s*project\s*$/m, "as a bare name in a code block"]
+    ];
     for (const [path, text] of await documents()) {
-        assert.doesNotMatch(
-            text,
-            inCodeSpan,
-            `${path} names the removed project binary in a code span`
-        );
-        assert.doesNotMatch(
-            text,
-            inFence,
-            `${path} names the removed project binary in a code block`
-        );
+        for (const [pattern, where] of checks) {
+            assert.doesNotMatch(
+                text,
+                pattern,
+                `${path} names the removed project binary ${where}`
+            );
+        }
     }
 });
 

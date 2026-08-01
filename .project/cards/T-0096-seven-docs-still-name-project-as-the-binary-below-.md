@@ -1,7 +1,7 @@
 ---
 id: T-0096
 title: Seven docs still name project as the binary, below the test's regex
-status: backlog
+status: doing
 type: bug
 priority: medium
 area: docs
@@ -9,6 +9,8 @@ scope: [packages/workfile/docs/SPEC.md, packages/workfile/docs/getting-started.m
 created: 2026-08-01
 updated: 2026-08-01
 related: [T-0088]
+claimed_by: claude-opus-5
+claimed_at: "2026-08-01T23:07:32.092Z"
 ---
 
 `documentation.test.ts` has a test called "no doc teaches the removed project
@@ -48,6 +50,14 @@ namespace, not the binary, and must keep passing.
 
 ## Acceptance criteria
 
-- [ ] The test fails on the seven lines as they stand
-- [ ] The seven lines name `workfile`, and SPEC section 19.3 script keys still pass
-- [ ] No shipped doc names a binary that is not declared in package.json
+- [x] The test fails on the seven lines as they stand
+- [x] The seven lines name `workfile`, and SPEC section 19.3 script keys still pass
+- [x] No shipped doc names a binary that is not declared in package.json
+
+## Activity
+
+- 2026-08-01 23:07Z claude-opus-5 · claimed
+
+## Notes
+
+- 2026-08-01 23:16Z claude-opus-5 — Seven lines, six corrected and one left alone. README.md:101 was right: init writes a project* npm script namespace (project, project:doctor, project:agents, project:mcp), so that sentence was about scripts, not the binary. But the bare span is indistinguishable from the old binary at a glance, which is the whole reason the header survived, so the sentence now names the namespace explicitly and the test forbids the ambiguous form outright. Two lines were wrong beyond the name: SPEC:1299 also claimed configuration can disable the UI default, which nothing implements (noted on T-0097), and getting-started.md:12-16 turned out to be the stale twin of a README passage somebody had already fixed. Criterion 3 is met by a closed vocabulary rather than a general check: the test now asserts package.json declares exactly workfile, wf and workfile-mcp, so adding or removing a bin fails the test and forces a look. It cannot detect an invented name like wrkfile.

@@ -4,7 +4,7 @@
 >
 > Product name: **Workfile**  
 > Package name: `@illodev/workfile`  
-> CLI name: `project`  
+> CLI name: `workfile` (alias `wf`; the MCP server is `workfile-mcp`)  
 > Default storage root: `.project/`
 >
 > This document defines a portable, repository-native operating protocol for project work,
@@ -195,7 +195,7 @@ The following split MAY occur after at least two independent consumers require i
 @illodev/workfile
 ```
 
-The metapackage would preserve the same `project` command and configuration contract.
+The metapackage would preserve the same `workfile` command and configuration contract.
 
 ### 6.3 Runtime requirements
 
@@ -1296,8 +1296,8 @@ workfile mcp
 workfile search
 ```
 
-Running `project` with no subcommand starts the UI unless configuration disables that
-behavior.
+Running `workfile` with no subcommand starts the UI. Nothing in configuration
+disables that: the command word defaults to `ui` before any config is read.
 
 ### 19.2 Initialization
 
@@ -2072,7 +2072,7 @@ The following decisions are locked for the v2 implementation. Changes require a 
 amendment and, when they affect canonical files, an explicit schema compatibility analysis.
 
 1. **Product and CLI** — the technical product name is **Workfile**; the formal
-   standard remains **Repository Workfile**. The executable is `project`.
+   standard remains **Repository Workfile**. The executable is `workfile`.
 2. **Default root** — canonical managed data uses `.project/`. Every path remains
    configurable to support compatibility and specialized repositories.
 3. **Package scope** — the initial package is `@illodev/workfile`. The package is internally
