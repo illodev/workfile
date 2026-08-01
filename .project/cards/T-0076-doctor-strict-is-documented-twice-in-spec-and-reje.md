@@ -1,7 +1,7 @@
 ---
 id: T-0076
 title: doctor --strict is documented twice in SPEC and rejected by the CLI
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -21,4 +21,5 @@ Either implement the flag or correct both SPEC sites. Part of a wider SPEC drift
 - 2026-08-01 16:21Z agent:claude · claimed
 - 2026-08-01 16:21Z agent:claude · claimed
 - 2026-08-01 16:26Z agent:claude · doing → review
+- 2026-08-01 16:46Z agent:claude · review → done
 

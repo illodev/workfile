@@ -1,7 +1,7 @@
 ---
 id: T-0078
 title: CLAUDE_SESSION_ID is a phantom var, so a session has three actor identities
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -37,4 +37,5 @@ Acceptance: two processes with different session ids in one checkout must produc
 - 2026-08-01 16:05Z agent:claude · claimed
 - 2026-08-01 16:05Z agent:claude · claimed
 - 2026-08-01 16:26Z agent:claude · doing → review
+- 2026-08-01 16:46Z agent:claude · review → done
 

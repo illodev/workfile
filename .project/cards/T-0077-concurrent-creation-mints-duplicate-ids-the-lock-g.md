@@ -1,7 +1,7 @@
 ---
 id: T-0077
 title: "Concurrent creation mints duplicate IDs: the lock guards the ID, not the path"
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -39,4 +39,5 @@ Breaks the published guarantee "collision-safe ID reservations" (README).
 - 2026-08-01 16:10Z agent:claude · claimed
 - 2026-08-01 16:10Z agent:claude · claimed
 - 2026-08-01 16:26Z agent:claude · doing → review
+- 2026-08-01 16:46Z agent:claude · review → done
 

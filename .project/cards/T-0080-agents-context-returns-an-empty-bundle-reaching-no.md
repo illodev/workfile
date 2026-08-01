@@ -1,7 +1,7 @@
 ---
 id: T-0080
 title: agents context returns an empty bundle, reaching no decisions or learnings
-status: review
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -29,4 +29,5 @@ Only wire a PreCompact hook after this — a hook that emits an empty brief is w
 - 2026-08-01 16:22Z agent:claude · claimed
 - 2026-08-01 16:22Z agent:claude · claimed
 - 2026-08-01 16:26Z agent:claude · doing → review
+- 2026-08-01 16:46Z agent:claude · review → done
 

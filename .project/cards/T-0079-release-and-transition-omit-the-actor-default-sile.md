@@ -1,7 +1,7 @@
 ---
 id: T-0079
 title: release and transition omit the actor default, silently skipping the guard
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -31,4 +31,5 @@ Add `|| defaultActor()` at both sites, in the same commit that wires `force: has
 - 2026-08-01 16:05Z agent:claude · claimed
 - 2026-08-01 16:05Z agent:claude · claimed
 - 2026-08-01 16:26Z agent:claude · doing → review
+- 2026-08-01 16:46Z agent:claude · review → done
 

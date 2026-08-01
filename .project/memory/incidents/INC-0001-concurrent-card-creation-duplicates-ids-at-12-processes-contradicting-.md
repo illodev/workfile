@@ -1,7 +1,7 @@
 ---
 id: INC-0001
 title: Concurrent card creation duplicates IDs at 12 processes, contradicting T-0019
-status: open
+status: resolved
 severity: medium
 created: 2026-08-01
 updated: 2026-08-01

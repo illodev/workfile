@@ -1,7 +1,7 @@
 ---
 id: T-0081
 title: Four mutators read the corpus twice (and postings are not the win they looked)
-status: review
+status: done
 type: task
 priority: medium
 area: search
@@ -50,4 +50,5 @@ Reverted. Preserving the postings would be a regression for typical queries. Mak
 
 - 2026-08-01 16:26Z agent:claude · doing → review
 - 2026-08-01 16:27Z illodev@local#e55eab30 · renamed file to T-0081-four-mutators-read-the-corpus-twice-and-postings-a.md
+- 2026-08-01 16:46Z agent:claude · review → done
 
