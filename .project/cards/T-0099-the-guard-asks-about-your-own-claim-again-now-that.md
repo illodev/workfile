@@ -1,7 +1,7 @@
 ---
 id: T-0099
 title: The guard asks about your own claim again, now that the board is live
-status: doing
+status: done
 type: bug
 priority: high
 area: core
@@ -9,8 +9,6 @@ scope: [packages/workfile/src/runtime/claude/hooks.mjs, packages/workfile/bin/wo
 related: [T-0089]
 created: 2026-08-01
 updated: 2026-08-01
-claimed_by: "illodev@local#e55eab30"
-claimed_at: "2026-08-01T23:22:28.250Z"
 ---
 
 Reproduced by replaying a real payload against the built hook:
@@ -68,7 +66,11 @@ normalized, not raw.
 - 2026-08-01 23:21Z illodev@9230480325690 · claimed
 - 2026-08-01 23:22Z illodev@9230480325690 · released
 - 2026-08-01 23:22Z illodev@local#e55eab30 · claimed
+- 2026-08-01 23:33Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 23:33Z illodev@local#e55eab30 · review → done
+- 2026-08-01 23:33Z illodev@local#e55eab30 · released
 
 ## Notes
 
 - 2026-08-01 23:30Z illodev@local#e55eab30 — The card's diagnosis was wrong and the truth is worse. The two derivations do not disagree: core/actor.ts resolves illodev@local#e55eab30 from CLAUDE_CODE_SESSION_ID, and the hook's actorFor derives the identical string from the payload's session_id. Claiming with no --actor and replaying a PreToolUse for that session produces silence. What broke it was passing --actor claude-opus-5 by hand, which outranks every other rung — and the generated protocol taught exactly that, in four places and two languages: card claim ID --actor ACTOR, card claim T-0001 --actor session-id, and 'Claim the card with a stable actor identifier for the session'. So the failure shipped to every repository that ran agents sync, in the file agents are told to read first. actor.ts:21-24 already named the documentation as the cause; only the code was fixed.
+- 2026-08-01 23:33Z illodev@local#e55eab30 — Runtime evidence: with the claim held by this session's resolved identity, replaying a real PreToolUse payload against the built hook produces no output; with a foreign actor it returns permissionDecision ask naming that actor. Both tests were confirmed to fail against a perturbed derivation and against the pre-fix protocol text, in each language separately. The CLI warning was checked in a throwaway workspace: it prints on an invented actor and is silent on the default. pnpm run check green at 205 + 7, ratchet 599 across 59 files, doctor 0/0. CI green on both platforms at 6636918.
