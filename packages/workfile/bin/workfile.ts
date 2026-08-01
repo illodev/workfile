@@ -10,6 +10,7 @@ import {
     applyLegacyMigration,
     applySchemaMigration,
     archiveCard,
+    dateBoundary,
     buildAgentContext,
     checkAgentInstructions,
     checkCiTemplates,
@@ -75,7 +76,8 @@ import {
     parseAcceptance,
     resolveActor,
     setCardAcceptance,
-    ValidationError
+    ValidationError,
+    wholeNumber
 } from "../src/index.js";
 
 const PACKAGE_VERSION = JSON.parse(
@@ -814,7 +816,7 @@ function filterCards(cards) {
     const parent = option("--parent");
     const claimedBy = option("--claimed-by");
     const unclaimed = has("--unclaimed");
-    const updatedSince = option("--updated-since");
+    const updatedSince = dateOption("--updated-since");
 
     return cards.filter((card) => {
         if (statuses && !statuses.includes(card.status)) return false;
@@ -835,9 +837,8 @@ function filterCards(cards) {
 }
 
 function paginate(records) {
-    const offset = Math.max(0, Number(option("--offset") || 0));
-    const limitValue = option("--limit");
-    const limit = limitValue ? Math.max(0, Number(limitValue)) : records.length;
+    const offset = numberOption("--offset") ?? 0;
+    const limit = numberOption("--limit") ?? records.length;
     return {
         page: records.slice(offset, offset + limit),
         total: records.length,
@@ -887,6 +888,20 @@ function repeatedNumbers(name) {
         }
     }
     return values;
+}
+
+/** A date filter, refused rather than silently matching nothing. */
+function dateOption(name) {
+    return dateBoundary(option(name), { label: name, code: "CLI_OPTION_INVALID" });
+}
+
+/** A numeric option, refused rather than silently paging to nothing. */
+function numberOption(name, bounds: any = {}) {
+    return wholeNumber(option(name), {
+        label: name,
+        code: "CLI_OPTION_INVALID",
+        ...bounds
+    });
 }
 
 function listOption(name) {
@@ -1066,11 +1081,11 @@ async function cardCommand(workspace, action) {
             .filter(({ claim }) =>
                 ["stale", "orphaned"].includes(claim.state)
             )
-            .filter(({ claim }) =>
-                option("--older-than")
-                    ? (claim.ageHours ?? 0) >= Number(option("--older-than"))
-                    : true
-            );
+            .filter(({ claim }) => {
+                const olderThan = numberOption("--older-than");
+                if (olderThan === undefined) return true;
+                return (claim.ageHours ?? 0) >= olderThan;
+            });
         if (has("--dry-run")) {
             return print(
                 has("--json")
@@ -1308,7 +1323,7 @@ async function documentCommand(workspace, action) {
         const result = searchProjectRecords(
             index.records,
             option("--query") || "",
-            { kinds: ["doc"], limit: Number(option("--limit") || 500) }
+            { kinds: ["doc"], limit: numberOption("--limit", { min: 1 }) ?? 500 }
         );
         const records = has("--managed")
             ? result.records.filter((record) => record.managed)
@@ -1571,7 +1586,7 @@ async function memoryCommand(workspace, action) {
         const query = option("--query") || "";
         let records = searchProjectRecords(index.records, query, {
             kinds: ["memory"],
-            limit: Number(option("--limit") || 1000)
+            limit: numberOption("--limit", { min: 1 }) ?? 1000
         }).records;
         const collection = option("--collection");
         const status = option("--status");
@@ -1623,7 +1638,7 @@ async function memoryCommand(workspace, action) {
                 ? { confidence: option("--confidence") }
                 : {}),
             ...(option("--occurrences")
-                ? { occurrences: Number(option("--occurrences")) }
+                ? { occurrences: numberOption("--occurrences", { min: 0 }) }
                 : {}),
             ...(option("--severity") ? { severity: option("--severity") } : {}),
             ...(option("--started-at")
@@ -1753,7 +1768,7 @@ async function agentsCommand(workspace, action) {
     if (action === "context") {
         const result = await buildAgentContext(workspace, {
             cardId: option("--card"),
-            limit: Number(option("--limit") || 20)
+            limit: numberOption("--limit", { min: 1 }) ?? 20
         });
         return print(has("--json") ? result : result.markdown);
     }
@@ -1928,7 +1943,7 @@ async function searchCommand(workspace) {
     const result = await searchProjectRecordsHybrid(index.records, query, {
         provider,
         kinds: listOption("--kind") || [],
-        limit: Number(option("--limit") || 100),
+        limit: numberOption("--limit", { min: 1 }) ?? 100,
         semanticWeight: workspace.config.search.semanticWeight,
         maxProviderRecords: workspace.config.search.maxProviderRecords
     });
@@ -2085,9 +2100,7 @@ async function main() {
         const shown = floor
             ? issues.filter((issue) => rank[issue.severity] <= (rank[floor] ?? 2))
             : issues;
-        const cap = option("--max-issues")
-            ? Math.max(0, Number(option("--max-issues")))
-            : shown.length;
+        const cap = numberOption("--max-issues") ?? shown.length;
         // `--severity` used to filter the issue list and nothing else: the
         // headline still read off `report.counts` and the rule grouping still
         // walked `report.issues`, so asking for errors on a repository with
@@ -2163,7 +2176,7 @@ async function main() {
             verbose: has("--verbose"),
             host: option("--host") || workspace.config.ui.host,
             port: option("--port")
-                ? Number(option("--port"))
+                ? numberOption("--port", { min: 0, max: 65535 })
                 : workspace.config.ui.port
         });
         console.log(`Workfile → ${server.url}`);
@@ -2219,12 +2232,10 @@ async function main() {
         const { candidates, total } = rankNextCards(index.records, {
             actor: option("--actor") || defaultActor(),
             areas: listOption("--area"),
-            limit: option("--limit")
-                ? Math.min(
-                      Math.max(1, Number(option("--limit"))),
-                      NEXT_MAXIMUM_LIMIT
-                  )
-                : NEXT_DEFAULT_LIMIT
+            limit: Math.min(
+                numberOption("--limit", { min: 1 }) ?? NEXT_DEFAULT_LIMIT,
+                NEXT_MAXIMUM_LIMIT
+            )
         });
         if (has("--json")) {
             return print({

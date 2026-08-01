@@ -418,3 +418,65 @@ test("listing tools answer what is in the workspace without a search query", asy
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * The MCP half of the same defect.
+ *
+ * `updatedSince` was declared as a bare `{ type: "string" }` and compared as a
+ * raw string, so `2026-7-1` matched nothing and the tool returned `total: 0`
+ * with no error — the shape an agent reads as "nothing changed". Both surfaces
+ * share the validator now, so they cannot disagree about what a date is.
+ */
+test("an MCP filter refuses a date it cannot parse", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-mcp-dates-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const workspace = await loadWorkspace({ root });
+        const server = createMcpProtocolServer(workspace, { version: "0.6.0" });
+        await initialize(server);
+
+        let id = 200;
+        // `handle` returns a result-or-error union, so narrowing once here
+        // keeps every assertion below reading the shape it means.
+        const send = async (params) => {
+            const response = await server.handle(request(++id, "tools/call", params));
+            if (!("result" in response)) {
+                assert.fail(`no result: ${JSON.stringify(response)}`);
+            }
+            return response.result;
+        };
+        const listed = (updatedSince) =>
+            send({ name: "project_card_list", arguments: { updatedSince } });
+
+        for (const bad of ["2026-7-1", "last week", "yesterday"]) {
+            const result = await listed(bad);
+            assert.equal(
+                result.isError,
+                true,
+                `${bad} was accepted and quietly matched nothing`
+            );
+            assert.match(
+                JSON.stringify(result.structuredContent),
+                /MCP_ARGUMENT_INVALID/
+            );
+        }
+
+        const good = await listed("2020-01-01");
+        assert.equal(good.isError, undefined);
+        assert.ok(good.structuredContent.total > 0);
+
+        // The tool's own schema has to say so, or a client gets no signal at
+        // all until the call comes back empty.
+        const tools = await server.handle(request(++id, "tools/list"));
+        if (!("result" in tools)) assert.fail("tools/list returned no result");
+        const listing = tools.result.tools.find(
+            (tool) => tool.name === "project_card_list"
+        );
+        assert.match(
+            listing.inputSchema.properties.updatedSince.description,
+            /YYYY-MM-DD/
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

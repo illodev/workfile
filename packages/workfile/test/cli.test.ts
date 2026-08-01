@@ -660,7 +660,8 @@ test("the flag table matches what each subcommand actually reads", async () => {
         "utf8"
     );
 
-    const READ = /\b(?:option|listOption|has|repeatedNumbers)\("(--?[\w-]+)"\)/g;
+    const READ =
+        /\b(?:option|listOption|dateOption|numberOption|has|repeatedNumbers)\(\s*"(--?[\w-]+)"/g;
 
     /** The balanced `{...}` starting at `open`. */
     const block = (text, open) => {
@@ -1476,5 +1477,87 @@ test("the CLI answers in the name it was invoked under", { skip: process.platfor
         assert.match(long.stdout, /^ {2}workfile card list/m);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A filter that cannot parse its input has two honest answers, and gave
+ * neither.
+ *
+ * `--updated-since 2026-7-1` compared as a raw string against `YYYY-MM-DD`,
+ * matched nothing, and exited 0 with `"total": 0`. `--limit abc` produced
+ * `NaN`, and `slice(NaN, NaN)` returned an empty page under `"total": 3` — the
+ * count said three records existed and none came back. Both read to an agent as
+ * "nothing here", which is the one answer a broken filter must never give: a
+ * wrong result that looks valid is worse than an error, because nothing
+ * downstream can tell.
+ */
+test("a filter refuses a value it cannot parse instead of matching nothing", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "workfile-filters-"));
+    try {
+        await cp(fixture, workspace, { recursive: true });
+        for (const args of [
+            ["card", "list", "--updated-since", "2026-7-1"],
+            ["card", "list", "--updated-since", "last week"],
+            ["card", "list", "--limit", "abc"],
+            ["card", "list", "--offset", "abc"],
+            ["card", "list", "--limit", "-5"],
+            ["next", "--limit", "many"],
+            ["doctor", "--max-issues", "lots"]
+        ]) {
+            const result = await outcome([...args, "--root", workspace]);
+            assert.equal(
+                result.code,
+                1,
+                `${args.join(" ")} exited 0 instead of refusing`
+            );
+            assert.match(result.stderr + result.stdout, /CLI_OPTION_INVALID/);
+        }
+
+        // A well-formed value is untouched.
+        const listed = await outcome([
+            "card",
+            "list",
+            "--updated-since",
+            "2020-01-01",
+            "--limit",
+            "2",
+            "--json",
+            "--root",
+            workspace
+        ]);
+        assert.equal(listed.code, 0);
+        assert.equal(JSON.parse(listed.stdout).records.length, 2);
+
+        // A timestamp is read as its date. Records store `updated` as a plain
+        // date, so comparing `2026-08-01T10:00:00Z` as a string sorted it after
+        // `2026-08-01` and dropped everything changed that day — the boundary a
+        // caller is most likely to hit.
+        await outcome([
+            "card",
+            "create",
+            "--title",
+            "Written today",
+            "--area",
+            "api",
+            "--root",
+            workspace
+        ]);
+        const sameDay = await outcome([
+            "card",
+            "list",
+            "--updated-since",
+            `${new Date().toISOString().slice(0, 10)}T23:59:59Z`,
+            "--json",
+            "--root",
+            workspace
+        ]);
+        assert.equal(sameDay.code, 0);
+        assert.ok(
+            JSON.parse(sameDay.stdout).records.length > 0,
+            "a timestamp must not exclude the day it names"
+        );
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
     }
 });

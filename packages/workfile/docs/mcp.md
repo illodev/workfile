@@ -18,7 +18,9 @@ workfile mcp config --json      # portable client process configuration
 `project_memory_list` answer "what is in here" without needing a search query.
 They take filters (`status`, `area`, `type`, `priority`, `parent`, `claimedBy`,
 `unclaimed`, `tags`, `updatedSince`) and return a compact row per record — no
-Markdown body, no `revision`.
+Markdown body, no `revision`. `updatedSince` takes `YYYY-MM-DD`, or an RFC 3339
+timestamp read as its date; anything else is refused with
+`MCP_ARGUMENT_INVALID` rather than applied as a filter that matches nothing.
 
 `project_next` answers the question an agent actually has: which cards can be
 started now. It excludes epics and anything with unmet dependencies, puts work

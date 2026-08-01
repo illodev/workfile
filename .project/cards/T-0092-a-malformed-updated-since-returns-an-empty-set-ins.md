@@ -1,47 +1,77 @@
 ---
 id: T-0092
 title: A malformed --updated-since returns an empty set instead of an error
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 created: 2026-08-01
 updated: 2026-08-01
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/docs]
 ---
-`--updated-since` compares dates as raw strings, with no validation, at two
-call sites: `bin/workfile.ts:558` and `src/modules/mcp/tools.ts:160`.
+A filter given a value it cannot parse has two honest answers: refuse, or ignore
+the filter. It gave neither.
 
-Measured today:
+Measured before the change, all exiting 0:
 
-| value | result |
+| command | result |
 |---|---|
-| `2026-07-01` | `"total": 84` |
-| `2026-7-1` | `"total": 0` |
-| `last week` | `"total": 0` |
-| `garbage` | `"total": 0` |
+| `card list --updated-since 2026-07-01` | `total: 84` |
+| `card list --updated-since 2026-7-1` | `total: 0` |
+| `card list --updated-since "last week"` | `total: 0` |
+| `card list --limit abc` | `total: 3`, **0 records** |
+| `card list --offset abc` | `total: 3`, **0 records** |
+| `project_card_list {updatedSince:"2026-7-1"}` | `total: 0` |
 
-Exit 0 every time, no error. MCP behaves identically, and `tools.ts:359`
-declares `updatedSince: { type: "string" }`, so a client gets no signal at all.
-`docs/cli.md:117` documents it only as `[--updated-since DATE]`.
+`--limit abc` is the worse half and was not in the original report: `Number("abc")`
+is `NaN`, `slice(NaN, NaN)` is empty, and the response says three records exist
+and returns none. An agent reads either shape as "nothing here", which is the
+one answer a broken filter must never give — a wrong result that looks valid is
+worse than an error, because nothing downstream can tell.
 
-A filter that returns an empty set for a malformed input is the worst failure
-shape for an agent, which reads `total: 0` as "nothing changed" and moves on.
+## What shipped
 
-## The fix
+`src/core/inputs.ts`, shared by the CLI and the MCP tools so the two surfaces
+cannot disagree about what a date is.
 
-Reject anything that is not `YYYY-MM-DD` with `CLI_OPTION_INVALID` naming the
-expected format. Optionally accept an RFC 3339 timestamp by truncating to its
-first ten characters, since a same-day boundary currently mis-sorts against the
-shorter stored value. State the format in `docs/cli.md:117` and `docs/mcp.md:20`,
-and tighten the MCP input schema.
+- `dateBoundary` takes `YYYY-MM-DD`, or an RFC 3339 timestamp read as its date.
+  Anything else is refused, naming the format and the value it got.
+- `wholeNumber` matches the text before converting, because `Number("")` is 0
+  and `Number(" 3 ")` is 3 — exactly the leniency that lets a typo through.
+  Bounds are checked too, so `--limit -5` is refused rather than paging to
+  nothing.
 
-Do **not** ship `card stale` or a `card-stale-in-progress` doctor rule, which is
-what the originating item proposed: `card reap` already covers the lease, and
-`doing` cannot exist without a claim (`validation.ts:172`).
+Wired at every site that used to coerce: `--updated-since`, `--limit`,
+`--offset`, `--max-issues`, `--older-than`, `--occurrences`, `--port`, and
+`updatedSince` on `project_card_list` — whose input schema said only
+`{ type: "string" }`, so a client got no signal at all until the call came back
+empty. It now carries the format in its description and a pattern.
+
+## The same-day boundary
+
+Records store `updated` as a plain date. Compared as strings,
+`"2026-08-01" < "2026-08-01T10:00:00Z"` is true, so passing a timestamp silently
+dropped everything changed that day — the boundary a caller is most likely to
+hit. Truncating to the date fixes it, and a test covers it.
+
+## Found while doing this
+
+The heartbeat is wired for three tools while its code claims to cover all of
+them, so `doctor` reported this session's own claim as abandoned mid-work.
+Filed as [[T-0093]], not fixed here.
 
 ## Acceptance criteria
 
-- [ ] A malformed `--updated-since` is refused, on the CLI and over MCP
-- [ ] The MCP input schema states the format
-- [ ] A well-formed date behaves exactly as it does today
-- [ ] The format is documented in both places
+- [x] A malformed `--updated-since` is refused on the CLI, with the format named
+- [x] The same value is refused over MCP, with `MCP_ARGUMENT_INVALID`
+- [x] The MCP input schema states the format
+- [x] A malformed `--limit` or `--offset` is refused instead of returning an empty page
+- [x] A negative `--limit` is refused
+- [x] An RFC 3339 timestamp is accepted and does not exclude the day it names
+- [x] A well-formed value behaves exactly as it did
+- [x] The tests fail on the code as it was
+- [x] Both docs state the accepted format
+
+## Activity
+
+- 2026-08-01 20:09Z illodev@local#e55eab30 · doing → review

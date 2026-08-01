@@ -24,6 +24,7 @@ import {
     patchManagedDocument
 } from "../docs/index.js";
 import { resolveActor } from "../../core/actor.js";
+import { dateBoundary } from "../../core/inputs.js";
 import { runDoctor } from "../health/doctor.js";
 import {
     createMemoryRecord,
@@ -135,7 +136,13 @@ async function listRecords(context, kind, args) {
     };
     const parent = optionalString(args.parent);
     const claimedBy = optionalString(args.claimedBy);
-    const updatedSince = optionalString(args.updatedSince);
+    // Same validator the CLI uses, so the two surfaces cannot disagree about
+    // what a date is. Unvalidated, `2026-7-1` matched nothing and returned
+    // `total: 0` — which an agent reads as "nothing changed".
+    const updatedSince = dateBoundary(args.updatedSince, {
+        label: "updatedSince",
+        code: "MCP_ARGUMENT_INVALID"
+    });
     const index = await context.indexStore.get();
 
     const matches = index.records.filter((record) => {
@@ -356,7 +363,12 @@ const TOOL_DEFINITIONS = [
             claimedBy: { type: "string" },
             unclaimed: { type: "boolean" },
             tags: STRING_ARRAY,
-            updatedSince: { type: "string" },
+            updatedSince: {
+                type: "string",
+                description:
+                    "Only records updated on or after this date. YYYY-MM-DD; an RFC 3339 timestamp is read as its date.",
+                pattern: "^\\d{4}-\\d{2}-\\d{2}"
+            },
             limit: { type: "integer", minimum: 1, maximum: 200 },
             offset: { type: "integer", minimum: 0 }
         }),

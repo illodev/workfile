@@ -108,6 +108,8 @@ export { ensureWritable } from "./core/guards.js";
 export { createWorkspaceWatcher } from "./core/watcher.js";
 export { exists } from "./core/fs-utils.js";
 export { revisionForContent } from "./core/revision.js";
+export { dateBoundary, wholeNumber } from "./core/inputs.js";
+export type { InputOptions } from "./core/inputs.js";
 export { discoverWorkspaceRoot } from "./workspace/discover.js";
 export { effectiveSchema, loadWorkspace } from "./workspace/load-workspace.js";
 export type { LoadWorkspaceOptions } from "./workspace/load-workspace.js";

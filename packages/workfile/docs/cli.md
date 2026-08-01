@@ -181,6 +181,13 @@ reads every occurrence.
 
 Only `--root`, `--json`, `--dry-run` and `--allow-new` are global.
 
+A value a filter cannot parse is refused with `CLI_OPTION_INVALID`, never
+applied as a filter that matches nothing. `--updated-since` takes `YYYY-MM-DD`
+(an RFC 3339 timestamp is accepted and read as its date); `--limit`, `--offset`,
+`--max-issues`, `--older-than`, `--occurrences` and `--port` take whole numbers.
+`--updated-since 2026-7-1` used to exit 0 with `"total": 0`, and `--limit abc`
+to return an empty page under a non-zero `total`.
+
 A claim has a lifecycle, not just a flag. The card records `claimed_by` and
 `claimed_at`; the live signal lives in `.project/.cache/activity/sessions/` and
 therefore outside git, because a heartbeat written into frontmatter would leave
