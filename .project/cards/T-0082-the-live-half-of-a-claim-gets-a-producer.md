@@ -1,7 +1,7 @@
 ---
 id: T-0082
 title: The live half of a claim gets a producer
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -42,3 +42,5 @@ Before the identity fix (T-0078) this could not have worked: `claimState` matche
 ## Activity
 
 - 2026-08-01 17:14Z illodev@local#e55eab30 · doing → review
+- 2026-08-01 17:17Z illodev@local#e55eab30 · review → done
+
