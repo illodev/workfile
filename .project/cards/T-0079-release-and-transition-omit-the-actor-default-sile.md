@@ -1,12 +1,13 @@
 ---
 id: T-0079
 title: release and transition omit the actor default, silently skipping the guard
-status: backlog
+status: review
 type: bug
 priority: high
 area: core
 created: 2026-08-01
 updated: 2026-08-01
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/core, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/src/runtime/claude/hooks.mjs, packages/workfile/test]
 ---
 
 At `bin/workfile.ts:917` (`release`) and `:933` (`transition`) the actor is `option("--actor")` with no `|| defaultActor()` — unlike `note` (:835), `claim` (:899) and `next` (:1842).
@@ -24,3 +25,10 @@ No test covers release-without-actor.
 ## Fix
 
 Add `|| defaultActor()` at both sites, in the same commit that wires `force: has("--force")` into `transitionCard` and documents it — the default alone turns a silent force into an unescapable wall for `/done`. Depends on the identity fix landing first.
+
+## Activity
+
+- 2026-08-01 16:05Z agent:claude · claimed
+- 2026-08-01 16:05Z agent:claude · claimed
+- 2026-08-01 16:26Z agent:claude · doing → review
+

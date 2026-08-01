@@ -1,12 +1,13 @@
 ---
 id: T-0077
 title: "Concurrent creation mints duplicate IDs: the lock guards the ID, not the path"
-status: backlog
+status: review
 type: bug
 priority: high
 area: core
 created: 2026-08-01
 updated: 2026-08-01
+scope: [packages/workfile/src/modules]
 ---
 
 The reservation lock at `.project/.cache/locks/ids/<ID>.lock` protects the **ID**. The durable guard — `createFileExclusive(path)` — protects the **path**, and the path is `${id}-${slugify(title)}.md`. Two processes with different titles never collide on the path, so the second writes a second file carrying the first one's ID. The lock is released in `finally` the moment the file is written, so a process that read `nextCardSequence()` before that write still believes the ID is free.
@@ -32,3 +33,10 @@ Re-verify the ID is unclaimed *inside* the held reservation, then `createFileExc
 Assert both zero duplicates **and** exactly N cards created: an over-strict fix trades duplicates for spurious `CARD_ID_ALLOCATION_FAILED`.
 
 Breaks the published guarantee "collision-safe ID reservations" (README).
+
+## Activity
+
+- 2026-08-01 16:10Z agent:claude · claimed
+- 2026-08-01 16:10Z agent:claude · claimed
+- 2026-08-01 16:26Z agent:claude · doing → review
+

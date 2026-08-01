@@ -87,6 +87,8 @@ export { createFileExclusive, writeFileAtomic } from "./core/filesystem.js";
 export { discoverFiles, globToRegExp, matchesAnyGlob, normalizeRepoPath } from "./core/glob.js";
 export { containedPath, readMarkdownTree } from "./core/paths.js";
 export type { ReadMarkdownTreeOptions } from "./core/paths.js";
+export { resolveActor, resolveSessionId } from "./core/actor.js";
+export type { ResolveActorOptions, ResolvedActor } from "./core/actor.js";
 export {
     ConfigError,
     ConflictError,

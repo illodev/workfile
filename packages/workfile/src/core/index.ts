@@ -9,6 +9,8 @@ export {
     normalizeError
 } from "./errors.js";
 export type { ProtocolErrorOptions } from "./errors.js";
+export { resolveActor, resolveSessionId } from "./actor.js";
+export type { ResolveActorOptions, ResolvedActor } from "./actor.js";
 export { ensureWritable } from "./guards.js";
 export { exists } from "./fs-utils.js";
 export {

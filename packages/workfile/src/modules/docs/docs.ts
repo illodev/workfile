@@ -12,6 +12,7 @@ import {
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
+import { reserveRecordId } from "../../core/record-ids.js";
 import { discoverFiles, normalizeRepoPath } from "../../core/glob.js";
 import { containedPath, readMarkdownTree } from "../../core/paths.js";
 import {
@@ -454,26 +455,20 @@ export async function createManagedDocument(
     };
     validateManagedDocument(workspace, base, loaded.documents, null);
     const folder = targetFolder(workspace, input, base.kind);
-    let sequence = await nextDocumentSequence(workspace);
-    const prefix = workspace.config.docs.idPrefix;
-    for (let attempt = 0; attempt < maxRetries; attempt += 1, sequence += 1) {
-        const id = `${prefix}-${String(sequence).padStart(4, "0")}`;
-        const name = `${id}-${slugify(input.title)}.md`;
-        const file = folder ? `${folder}/${name}` : name;
-        const path = join(workspace.paths.docs, file);
-        const reservation = join(
-            workspace.paths.cache,
-            "locks",
-            "ids",
-            `${id}.lock`
-        );
-        let reserved = false;
-        try {
-            await createFileExclusive(
-                reservation,
-                `${JSON.stringify({ id, pid: process.pid, createdAt: instant.toISOString() })}\n`
-            );
-            reserved = true;
+    return reserveRecordId(
+        {
+            prefix: workspace.config.docs.idPrefix,
+            // Managed documents nest in folders, so this listing has to be
+            // recursive — a flat one is a half-fix that still mints duplicates.
+            directories: [workspace.paths.docs],
+            lockDirectory: join(workspace.paths.cache, "locks", "ids"),
+            maxRetries,
+            code: "DOC_ID_ALLOCATION_FAILED"
+        },
+        async (id) => {
+            const name = `${id}-${slugify(input.title)}.md`;
+            const file = folder ? `${folder}/${name}` : name;
+            const path = join(workspace.paths.docs, file);
             const metadata = { ...base, id };
             validateManagedDocument(workspace, metadata, loaded.documents, null);
             const content = renderManagedDocument(metadata, input.body);
@@ -488,15 +483,7 @@ export async function createManagedDocument(
                 sizeBytes: info.size
             });
             return { id, file, path, revision: document.revision, document };
-        } catch (error) {
-            if (error?.code !== "EEXIST") throw error;
-        } finally {
-            if (reserved) await rm(reservation, { force: true }).catch(() => undefined);
         }
-    }
-    throw new ConflictError(
-        "DOC_ID_ALLOCATION_FAILED",
-        `Unable to allocate a document ID after ${maxRetries} retries.`
     );
 }
 

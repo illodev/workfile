@@ -123,7 +123,39 @@ function scopeCovers(scope, repoPath) {
     });
 }
 
-const sessionId = (input) => input.session_id || process.env.CLAUDE_SESSION_ID;
+/**
+ * The session id, used as a ledger key.
+ *
+ * `CLAUDE_SESSION_ID` was the only name read here and Claude Code sets
+ * `CLAUDE_CODE_SESSION_ID`, so outside a hook payload this resolved to nothing.
+ */
+const sessionId = (input) =>
+    input.session_id ||
+    process.env.WORKFILE_SESSION_ID ||
+    process.env.CLAUDE_CODE_SESSION_ID ||
+    process.env.CLAUDE_SESSION_ID;
+
+/**
+ * Who this session is, in the same terms `claimed_by` is written in.
+ *
+ * A deliberate duplicate of `core/actor.ts`. This file imports nothing from the
+ * package on purpose — see the header — and the two are pinned together by a
+ * test that fails if they ever disagree.
+ *
+ * The bug this replaces: the guard below compared `claimed_by` against a
+ * session UUID. They never matched, so it asked about every claim including
+ * your own, which is how a guard rail teaches people to turn it off.
+ */
+const actorFor = (input) => {
+    const configured = (process.env.WORKFILE_ACTOR || "").trim();
+    if (configured) return configured;
+    const user = (process.env.USER || "").trim();
+    if (!user) return undefined;
+    const host = (process.env.HOSTNAME || "").trim() || "local";
+    const session = (sessionId(input) || "").replace(/[^A-Za-z0-9]/g, "");
+    const suffix = session ? `#${session.slice(0, 8).toLowerCase()}` : "";
+    return `${user}@${host}${suffix}`;
+};
 
 async function sessionStart(input) {
     const root = projectDir(input);
@@ -190,7 +222,7 @@ async function preToolUse(input) {
     }
 
     const board = await readBoard(root);
-    const mine = sessionId(input);
+    const mine = actorFor(input);
     const conflict = board.claims.find(
         (claim) =>
             claim.status === "doing" &&

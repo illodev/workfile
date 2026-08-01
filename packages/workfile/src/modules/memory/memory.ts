@@ -3,6 +3,7 @@ import { join, relative, resolve } from "node:path";
 
 import { MEMORY_DEFINITIONS } from "../../config/defaults.js";
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
+import { reserveRecordId } from "../../core/record-ids.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
     ConflictError,
@@ -341,17 +342,16 @@ export async function createMemoryRecord(workspace, collection, input, { now }: 
         updated: date
     };
     validateMemoryRecord(workspace, collection, base, collectionRecords);
-    let sequence = (await maxSequence(collectionRecords, definition.idPrefix)) + 1;
-    for (let attempt = 0; attempt < 64; attempt += 1, sequence += 1) {
-        const id = `${definition.idPrefix}-${String(sequence).padStart(4, "0")}`;
-        const reservation = join(workspace.paths.cache, "locks", "ids", `${id}.lock`);
-        let reserved = false;
-        try {
-            await createFileExclusive(
-                reservation,
-                `${JSON.stringify({ id, pid: process.pid, createdAt: instant.toISOString() })}\n`
-            );
-            reserved = true;
+    return reserveRecordId(
+        {
+            prefix: definition.idPrefix,
+            // One collection owns one prefix, so its own directory is the
+            // complete domain for this id.
+            directories: [join(workspace.paths.memory, collection)],
+            lockDirectory: join(workspace.paths.cache, "locks", "ids"),
+            code: "MEMORY_ID_ALLOCATION_FAILED"
+        },
+        async (id) => {
             const metadata = { ...base, id };
             validateMemoryRecord(
                 workspace,
@@ -371,17 +371,7 @@ export async function createMemoryRecord(workspace, collection, input, { now }: 
                 content
             });
             return { id, file, path, revision: record.revision, record };
-        } catch (error) {
-            if (error?.code !== "EEXIST") throw error;
-        } finally {
-            if (reserved) {
-                await rm(reservation, { force: true }).catch(() => undefined);
-            }
         }
-    }
-    throw new ConflictError(
-        "MEMORY_ID_ALLOCATION_FAILED",
-        `Unable to allocate a ${collection} ID.`
     );
 }
 

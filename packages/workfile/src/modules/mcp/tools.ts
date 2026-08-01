@@ -23,6 +23,7 @@ import {
     moveManagedDocument,
     patchManagedDocument
 } from "../docs/index.js";
+import { resolveActor } from "../../core/actor.js";
 import { runDoctor } from "../health/doctor.js";
 import {
     createMemoryRecord,
@@ -97,14 +98,10 @@ function invalidate(context) {
  * coordination mechanism actually gets used.
  */
 function actorFor(context, provided) {
-    return (
-        optionalString(provided) ||
-        (context.clientInfo?.name
-            ? `mcp:${context.clientInfo.name}`
-            : undefined) ||
-        process.env.CLAUDE_SESSION_ID ||
-        (process.env.USER ? `${process.env.USER}@local` : undefined)
-    );
+    return resolveActor({
+        provided: optionalString(provided),
+        clientName: context.clientInfo?.name
+    }).actor;
 }
 
 function recordResult(record, extra: any = {}) {

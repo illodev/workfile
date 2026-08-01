@@ -10,6 +10,7 @@ import {
 import { basename, join, relative, resolve } from "node:path";
 
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
+import { acquireRecordId } from "../../core/record-ids.js";
 import { discoverFiles, normalizeRepoPath } from "../../core/glob.js";
 import {
     ConflictError,
@@ -332,25 +333,27 @@ async function maxSequence(paths, prefix) {
     }, 0);
 }
 
-async function allocateId(workspace, { prefix, ids, maxRetries = 64 }) {
-    let sequence = (await maxSequence(ids, prefix)) + 1;
-    for (let attempt = 0; attempt < maxRetries; attempt += 1, sequence += 1) {
-        const id = `${prefix}-${String(sequence).padStart(4, "0")}`;
-        const reservation = join(workspace.paths.cache, "locks", "ids", `${id}.lock`);
-        try {
-            await createFileExclusive(
-                reservation,
-                `${JSON.stringify({ id, pid: process.pid, createdAt: new Date().toISOString() })}\n`
-            );
-            return { id, reservation };
-        } catch (error) {
-            if (error?.code !== "EEXIST") throw error;
-        }
-    }
-    throw new ConflictError(
-        "RECORD_ID_ALLOCATION_FAILED",
-        `Unable to allocate an ID with prefix ${prefix}.`
-    );
+/**
+ * Reserves a fragment or release id.
+ *
+ * The caller keeps the reservation until its record exists on disk, which is
+ * why this hands back a handle instead of taking a callback: assembling a
+ * release moves a staged directory, and nesting that inside a callback would
+ * obscure the ordering that matters. Both directories are always scanned —
+ * consuming a fragment moves it under the release, so an unreleased-only
+ * listing would happily mint an id that is already spent.
+ */
+async function allocateId(workspace, { prefix, maxRetries = 64 }) {
+    return acquireRecordId({
+        prefix,
+        directories: [
+            workspace.paths.changelogFragments,
+            workspace.paths.changelogReleases
+        ],
+        lockDirectory: join(workspace.paths.cache, "locks", "ids"),
+        maxRetries,
+        code: "RECORD_ID_ALLOCATION_FAILED"
+    });
 }
 
 export async function createChangeFragment(workspace, input, { now }: any = {}) {
@@ -378,8 +381,7 @@ export async function createChangeFragment(workspace, input, { now }: any = {}) 
     };
     validateFragment(workspace, base, loaded.fragments);
     const allocation = await allocateId(workspace, {
-        prefix: workspace.config.changelog.idPrefix,
-        ids: loaded.fragments.map((fragment) => fragment.id)
+        prefix: workspace.config.changelog.idPrefix
     });
     try {
         const metadata = { ...base, id: allocation.id };
@@ -608,8 +610,7 @@ export async function createRelease(workspace, input, { now }: any = {}) {
                 );
             }
             const allocation = await allocateId(workspace, {
-                prefix: workspace.config.changelog.releasePrefix,
-                ids: loaded.releases.map((release) => release.id)
+                prefix: workspace.config.changelog.releasePrefix
             });
             const releaseDirName = slugify(version, "release");
             const finalDirectory = join(workspace.paths.changelogReleases, releaseDirName);

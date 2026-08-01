@@ -10,6 +10,7 @@ import {
     syncManagedFile
 } from "../generated/managed-files.js";
 import { buildProjectIndex, findProjectRecord } from "../records/public.js";
+import type { ProjectRecord } from "../../types.js";
 
 const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../../../package.json", import.meta.url), "utf8")
@@ -473,7 +474,10 @@ export async function buildAgentContext(workspace, options: any = {}) {
     // produce a few hundred bytes. Callers that already hold one pass it in.
     const index = options.index || (await buildProjectIndex(workspace));
     const cardId = options.cardId || options.card;
-    let focus = null;
+    // Annotated because `null` alone infers `never`, and every property read
+    // through the optional chain below then counts as an error the ratchet has
+    // to carry. The bundle's own shape is the honest type here.
+    let focus: ProjectRecord | null = null;
     if (cardId) {
         focus = findProjectRecord(index, cardId);
         if (!focus || focus.kind !== "card") {
@@ -489,13 +493,50 @@ export async function buildAgentContext(workspace, options: any = {}) {
         ...(focus?.incoming || []).map((item) => item.id)
     ]);
     const direct = index.records.filter((record) => directIds.has(record.id));
+    // Draft is included deliberately. A convention that has been written down
+    // but not yet promoted is still the house rule an agent is about to break,
+    // and dropping it silently is how this repository's own CONV-0001 became
+    // unreachable from the command the protocol tells agents to run first. The
+    // rendered summary carries the status, so a draft still reads as a draft.
     const conventions = index.records.filter(
         (record) =>
             record.kind === "memory" &&
             record.collection === "conventions" &&
-            record.status === "active" &&
+            ["active", "draft"].includes(record.status) &&
             scopeMatches(record.scope, focus?.scope)
     );
+    // Decisions and learnings were reachable from no path at all, so every ADR
+    // and LRN in a workspace was invisible to the bundle. A decision is exactly
+    // the thing an agent must not silently contradict.
+    const decisions = index.records.filter(
+        (record) =>
+            record.kind === "memory" &&
+            record.collection === "decisions" &&
+            record.status === "accepted" &&
+            scopeMatches(record.scope, focus?.scope)
+    );
+    const learnings = index.records.filter(
+        (record) =>
+            record.kind === "memory" &&
+            record.collection === "learnings" &&
+            record.status !== "superseded" &&
+            record.confidence !== "low" &&
+            scopeMatches(record.scope, focus?.scope)
+    );
+    // With no card there is no focus, and every scoped record fell away — which
+    // left `totalAvailable: 0` for the session-start case. What a session
+    // actually needs to know first is what is already in flight.
+    const inFlight = cardId
+        ? []
+        : index.records
+              .filter(
+                  (record) =>
+                      record.kind === "card" &&
+                      ["doing", "review"].includes(record.status)
+              )
+              .sort((left, right) =>
+                  String(left.id).localeCompare(String(right.id))
+              );
     const incidents = index.records.filter(
         (record) =>
             record.kind === "memory" &&
@@ -512,7 +553,16 @@ export async function buildAgentContext(workspace, options: any = {}) {
     );
     const prioritized = [];
     const seen = new Set();
-    for (const record of [focus, ...direct, ...conventions, ...incidents, ...contexts]) {
+    for (const record of [
+        focus,
+        ...direct,
+        ...inFlight,
+        ...conventions,
+        ...decisions,
+        ...incidents,
+        ...learnings,
+        ...contexts
+    ]) {
         if (!record || seen.has(record.id)) continue;
         seen.add(record.id);
         prioritized.push(record);

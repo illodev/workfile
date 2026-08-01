@@ -1,12 +1,13 @@
 ---
 id: T-0078
 title: CLAUDE_SESSION_ID is a phantom var, so a session has three actor identities
-status: backlog
+status: review
 type: bug
 priority: high
 area: core
 created: 2026-08-01
 updated: 2026-08-01
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/core, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/src/runtime/claude/hooks.mjs, packages/workfile/test]
 ---
 
 Claude Code sets `CLAUDE_CODE_SESSION_ID`. Three call sites read `CLAUDE_SESSION_ID`, which is never set:
@@ -30,3 +31,10 @@ One `resolveActor()` in a shared module: `$WORKFILE_ACTOR` then `cards.actor` th
 Ship `workfile agents whoami` printing the resolved actor and which rung produced it, with a USAGE line in the same change.
 
 Acceptance: two processes with different session ids in one checkout must produce `CARD_ALREADY_CLAIMED`. Today they do not.
+
+## Activity
+
+- 2026-08-01 16:05Z agent:claude · claimed
+- 2026-08-01 16:05Z agent:claude · claimed
+- 2026-08-01 16:26Z agent:claude · doing → review
+

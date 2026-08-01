@@ -231,11 +231,19 @@ workfile memory verify
 workfile agents sync [--targets agents-md,claude,cursor,copilot]
 workfile agents check [--targets ...]
 workfile agents context --card T-0001 [--limit 20]
+workfile agents whoami [--json]
 ```
 
 `sync` writes compact managed blocks (version + SHA-256 digest) into `AGENTS.md`,
 `CLAUDE.md`, `.cursor/rules/` or `.github/copilot-instructions.md` without touching
 unrelated content. `context` returns a bounded, prioritized context bundle for a card.
+
+`whoami` prints the actor every surface attributes mutations to, and which rung
+produced it. Resolution order: an explicit `--actor`, then `$WORKFILE_ACTOR`, then
+`user@host` — discriminated by a short session prefix when a session id is present,
+because two agent sessions in one checkout are two actors and a shared username
+would let them silently take each other's claims. Set `$WORKFILE_ACTOR` to pin a
+stable name.
 
 ## CI templates
 

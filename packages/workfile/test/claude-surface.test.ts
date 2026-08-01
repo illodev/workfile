@@ -25,16 +25,26 @@ const runtime = resolve(
     )
 );
 
+type HookRun = { stdout: string; stderr: string };
+
 /** Drives a hook the way Claude Code does: JSON on stdin, JSON on stdout. */
-function runHook(command, input, cwd) {
-    return new Promise((done) => {
+function runHook(command, input, cwd, extraEnv = {}): Promise<HookRun> {
+    return new Promise<HookRun>((done) => {
         const child = execFile(
             process.execPath,
             [runtime, command],
-            { cwd, env: { ...process.env, CLAUDE_PROJECT_DIR: cwd } },
-            (_error, stdout, stderr) => done({ stdout, stderr })
+            {
+                cwd,
+                env: {
+                    ...process.env,
+                    CLAUDE_PROJECT_DIR: cwd,
+                    ...extraEnv
+                }
+            },
+            (_error, stdout, stderr) =>
+                done({ stdout: String(stdout), stderr: String(stderr) })
         );
-        child.stdin.end(JSON.stringify(input));
+        child.stdin?.end(JSON.stringify(input));
     });
 }
 
@@ -175,6 +185,56 @@ test("hooks make the claim executable without slowing the session", async () => 
             root
         );
         assert.equal(free.stdout.trim(), "");
+
+        // Editing inside YOUR OWN claim is silent — the case that shipped
+        // broken. The guard compared `claimed_by` against a session UUID, which
+        // never matched anything, so it asked about every claim including the
+        // one this session was holding. Nothing covered it: the surrounding
+        // test only ever exercised *another* actor's scope.
+        //
+        // The actor is written here exactly as `core/actor.ts` resolves it,
+        // which is what pins the hook's inline copy to the shared module: if
+        // either side changes its format, this stops matching and fails.
+        const ownerEnv = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+        const own = await createCard(workspace, { title: "Mine", area: "web" });
+        await claimCard(workspace, own.id, {
+            actor: "solo@box#deadbeef",
+            scope: ["src/web"]
+        });
+        await runHook("session-start", { session_id: "deadbeef-0000" }, root, ownerEnv);
+        const mineNow = await runHook(
+            "pre-tool-use",
+            {
+                session_id: "deadbeef-0000",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/web/page.tsx") }
+            },
+            root,
+            ownerEnv
+        );
+        assert.equal(
+            mineNow.stdout.trim(),
+            "",
+            "the guard rail must not ask about the claim this session holds"
+        );
+
+        // A different session, same machine and username, is a different actor
+        // and must still be stopped. Before the fix both resolved to the same
+        // string and neither could see the other.
+        const neighbour = await runHook(
+            "pre-tool-use",
+            {
+                session_id: "facefeed-1111",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/web/page.tsx") }
+            },
+            root,
+            ownerEnv
+        );
+        assert.match(
+            JSON.parse(neighbour.stdout).hookSpecificOutput.permissionDecisionReason,
+            /solo@box#deadbeef/
+        );
 
         // Writing a protocol record outside the protocol skips the lock, the
         // revision check and validation, so it always asks.

@@ -1203,9 +1203,10 @@ Semantic search is optional and disabled by default. When enabled:
 
 ```bash
 workfile doctor
-workfile doctor --changed
 workfile doctor --json
-workfile doctor --strict
+workfile doctor --severity error
+workfile doctor --new
+workfile doctor --accept-baseline
 workfile doctor --fix
 ```
 
@@ -1242,10 +1243,18 @@ The doctor validates at least:
 - generated agent instructions out of sync;
 - uncommitted schema migrations where detectable.
 
-### 18.4 Changed mode
+### 18.4 Baseline mode
 
-`--changed` obtains changed protocol files from Git and limits detailed reporting to impacted
-records while still loading enough global state to detect duplicates and broken references.
+`--accept-baseline` records the current issues as known, and `--new` then exits non-zero only
+on issues that appeared since. This is the adoption path for an existing repository and the
+recommended CI gate.
+
+A per-diff mode was specified here for a long time and never built. It is not planned: rule
+evaluation is 3–5% of the command's cost at every measured scale — the rest is reading the
+corpus, which a scoped run cannot skip and which is cold in CI regardless, since the cache
+directory is not committed. Several rules are also global by nature (a stale claim, an expired
+context, a duplicate id), so a run scoped to touched records would report them only after the
+merge that made them matter.
 
 ### 18.5 Rule registry
 
@@ -1925,7 +1934,7 @@ The repository SHOULD include fixtures for:
 Recommended workflow:
 
 ```bash
-workfile doctor --changed --strict
+workfile doctor --new
 workfile agents check
 workfile changelog verify
 ```

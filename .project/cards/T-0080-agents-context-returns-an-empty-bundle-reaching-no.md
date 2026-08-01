@@ -1,12 +1,13 @@
 ---
 id: T-0080
 title: agents context returns an empty bundle, reaching no decisions or learnings
-status: backlog
+status: review
 type: bug
 priority: medium
 area: mcp
 created: 2026-08-01
 updated: 2026-08-01
+scope: [packages/workfile/src/modules/agents]
 ---
 
 Measured in this repository: `pnpm workfile agents context --json` returns `totalAvailable: 0` and an empty `records` array. The repo that defines the protocol produces an empty session brief.
@@ -22,3 +23,10 @@ Measured in this repository: `pnpm workfile agents context --json` returns `tota
 A card-less bundle: claims held by this actor, cards in `doing`/`review`, high-confidence learnings, active **and draft** conventions (draft marked, not dropped), unexpired context. Hard byte cap with a documented drop order.
 
 Only wire a PreCompact hook after this — a hook that emits an empty brief is worse than no hook.
+
+## Activity
+
+- 2026-08-01 16:22Z agent:claude · claimed
+- 2026-08-01 16:22Z agent:claude · claimed
+- 2026-08-01 16:26Z agent:claude · doing → review
+

@@ -71,6 +71,7 @@ import {
     transitionCard,
     writeRenderedChangelog,
     applyInitialization,
+    resolveActor,
     ValidationError
 } from "../src/index.js";
 
@@ -170,7 +171,8 @@ const USAGE: Record<string, string[]> = {
     agents: [
         "workfile agents sync [--targets agents-md,claude,cursor,copilot]",
         "workfile agents check [--targets ...]",
-        "workfile agents context --card T-0001 [--limit 20]"
+        "workfile agents context --card T-0001 [--limit 20]",
+        "workfile agents whoami [--json]"
     ],
     ci: [
         "workfile ci sync [--targets github,gitlab,generic]",
@@ -608,12 +610,13 @@ async function readAllStdin() {
  * Claims exist to keep two agents out of the same files and were never used,
  * because every invocation had to invent an identifier by hand — the docs
  * suggested things like `agent-56a30d1b`.
+ *
+ * The resolution itself lives in `core/actor.ts` so that the MCP server and the
+ * Claude hook reach the same string. They did not: this read a variable nothing
+ * sets, and the three surfaces disagreed on every invocation.
  */
 function defaultActor() {
-    return (
-        process.env.CLAUDE_SESSION_ID ||
-        (process.env.USER ? `${process.env.USER}@${process.env.HOSTNAME || "local"}` : undefined)
-    );
+    return resolveActor().actor;
 }
 
 async function jsonInput() {
@@ -914,7 +917,7 @@ async function cardCommand(workspace, action) {
     }
     if (action === "release") {
         const result = await releaseCard(workspace, id, {
-            actor: option("--actor"),
+            actor: option("--actor") || defaultActor(),
             status: option("--status"),
             force: has("--force"),
             expectedRevision
@@ -930,8 +933,13 @@ async function cardCommand(workspace, action) {
             );
         }
         const result = await transitionCard(workspace, id, status, {
-            actor: option("--actor"),
+            actor: option("--actor") || defaultActor(),
             scope: listOption("--scope"),
+            // Wired together with the actor default on purpose. The default
+            // alone turns what was a silent bypass into an unescapable wall for
+            // anyone whose claim is held under a different name — including the
+            // plugin's own `/done`, which transitions without an actor.
+            force: has("--force"),
             expectedRevision
         });
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);
@@ -1407,6 +1415,17 @@ async function agentsCommand(workspace, action) {
             limit: Number(option("--limit") || 20)
         });
         return print(has("--json") ? result : result.markdown);
+    }
+    // Identity was wrong for a long time without being visible: three surfaces
+    // resolved three different strings and nothing printed any of them, so the
+    // first symptom was a guard rail firing on your own claim. This makes the
+    // resolution inspectable in one command.
+    if (action === "whoami") {
+        const resolved = resolveActor();
+        if (has("--json")) return print(resolved);
+        console.log(`${resolved.actor || "(unresolved)"}\t${resolved.source}`);
+        if (resolved.sessionId) console.log(`session\t${resolved.sessionId}`);
+        return;
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",

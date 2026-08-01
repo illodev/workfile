@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
+import { reserveRecordId } from "../../core/record-ids.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
     ConflictError,
@@ -282,22 +283,19 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
     };
     validateCardCandidate(workspace, base, loaded.cards, null);
 
-    let sequence = await nextCardSequence(workspace);
-    const prefix = workspace.config.cards.idPrefix;
-    for (let attempt = 0; attempt < maxRetries; attempt += 1, sequence += 1) {
-        const id = `${prefix}-${String(sequence).padStart(4, "0")}`;
-        const file = `${id}-${slugify(input.title)}.md`;
-        const path = join(workspace.paths.cards, file);
-        const reservation = join(workspace.paths.cache, "locks", "ids", `${id}.lock`);
-        const metadata = { ...base, id };
-        let reserved = false;
-        try {
-            await createFileExclusive(
-                reservation,
-                `${JSON.stringify({ id, pid: process.pid, createdAt: timestamp })}\n`
-            );
-            reserved = true;
-            const content = renderCard(metadata, input.body);
+    return reserveRecordId(
+        {
+            prefix: workspace.config.cards.idPrefix,
+            // Both, always. A card living only in the archive still owns its id.
+            directories: [workspace.paths.cards, workspace.paths.cardArchive],
+            lockDirectory: join(workspace.paths.cache, "locks", "ids"),
+            maxRetries,
+            code: "CARD_ID_ALLOCATION_FAILED"
+        },
+        async (id) => {
+            const file = `${id}-${slugify(input.title)}.md`;
+            const path = join(workspace.paths.cards, file);
+            const content = renderCard({ ...base, id }, input.body);
             await createFileExclusive(path, content);
             const card = normalizedSavedCard(file, content, false);
             return {
@@ -307,15 +305,7 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
                 card,
                 path
             };
-        } catch (error) {
-            if (error?.code !== "EEXIST") throw error;
-        } finally {
-            if (reserved) await rm(reservation, { force: true }).catch(() => undefined);
         }
-    }
-    throw new ConflictError(
-        "CARD_ID_ALLOCATION_FAILED",
-        `Unable to allocate a card ID after ${maxRetries} retries.`
     );
 }
 
@@ -367,6 +357,9 @@ export async function claimCard(
         },
         {
             expectedRevision,
+            // The listing is already in hand; `mutateCard` re-reads the whole
+            // directory when it is not passed one, which doubled every claim.
+            snapshot: loaded,
             guard: (current) => {
                 const claimedByOther =
                     current.claimed_by && current.claimed_by !== actor;
@@ -442,6 +435,7 @@ export async function releaseCard(
         { status: resolved, claimed_by: null, claimed_at: null },
         {
             expectedRevision,
+            snapshot: loaded,
             transformContent: trailEnabled(workspace)
                 ? (content, current) =>
                       appendActivityLine(
@@ -500,6 +494,7 @@ export async function transitionCard(
         {
             expectedRevision,
             moveToArchived,
+            snapshot: loaded,
             transformContent: trailEnabled(workspace)
                 ? (content) =>
                       appendActivityLine(
@@ -624,7 +619,7 @@ export async function archiveCard(workspace, id, { expectedRevision }: any = {})
         workspace,
         id,
         { status: snapshot.status },
-        { expectedRevision, moveToArchived: true }
+        { expectedRevision, moveToArchived: true, snapshot: loaded }
     );
 }
 
