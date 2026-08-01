@@ -1,7 +1,7 @@
 ---
 id: T-0075
 title: The README says what Workfile is not, and what it composes with
-status: review
+status: done
 type: task
 priority: medium
 area: docs
@@ -27,11 +27,13 @@ Rationale and the constraints this puts on future work are in ADR-0006.
 ## Evidence
 
 - `pnpm workfile doctor` — 0 errors, 0 warnings.
-- Pending: the rendered section and the `#boundaries` anchor checked on
-  github.com after push.
+- Rendered on github.com at f50aab8: the `Boundaries` heading, its four
+  guarantees and the named link all appear, and the `#boundaries` anchor the
+  package README points at resolves.
 
 ## Activity
 
 - 2026-08-01 11:52Z agent:claude · doing → review
 - 2026-08-01 11:52Z agent:claude · released
+- 2026-08-01 11:52Z agent:claude · review → done
 
