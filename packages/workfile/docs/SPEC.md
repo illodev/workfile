@@ -215,7 +215,9 @@ The CLI discovers a workspace using this order:
 4. Current Git worktree root.
 5. Current working directory.
 
-Commands that mutate data MUST print the resolved workspace root in verbose mode.
+`workfile ui` prints the resolved root when it starts. No other command does, and
+`--verbose` is accepted only there, so a caller who needs certainty about which
+workspace a mutation will reach passes `--root` explicitly.
 
 A workspace is loaded through one function:
 
@@ -1340,7 +1342,7 @@ The package manager prefix is detected; the protocol itself does not require the
 workfile card list
 workfile card show T-0042
 workfile card create
-workfile card edit T-0042
+workfile card patch T-0042 --json-input changes.json
 workfile card claim T-0042 --actor session-56a30d1b
 workfile card release T-0042
 workfile card transition T-0042 review
@@ -1358,10 +1360,9 @@ workfile card create --json-input card.json --json
 
 ```bash
 workfile docs list
-workfile docs search "billing retry"
 workfile docs create --kind architecture
-workfile docs open DOC-0012
-workfile docs index
+workfile docs show DOC-0012
+workfile search "billing retry" --kind doc
 ```
 
 ### 19.6 Changelog commands
@@ -1382,9 +1383,9 @@ workfile memory add decision
 workfile memory add incident
 workfile memory add convention
 workfile memory add context
-workfile memory search "deployment verification"
+workfile memory list --query "deployment verification"
 workfile memory supersede ADR-0008
-workfile memory graduate LRN-0017 --to convention
+workfile memory graduate LRN-0017 --to CONV-0001
 ```
 
 ### 19.8 Exit codes
