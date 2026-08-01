@@ -1,7 +1,7 @@
 ---
 id: T-0096
 title: Seven docs still name project as the binary, below the test's regex
-status: doing
+status: done
 type: bug
 priority: medium
 area: docs
@@ -9,8 +9,6 @@ scope: [packages/workfile/docs/SPEC.md, packages/workfile/docs/getting-started.m
 created: 2026-08-01
 updated: 2026-08-01
 related: [T-0088]
-claimed_by: claude-opus-5
-claimed_at: "2026-08-01T23:07:32.092Z"
 ---
 
 `documentation.test.ts` has a test called "no doc teaches the removed project
@@ -57,7 +55,11 @@ namespace, not the binary, and must keep passing.
 ## Activity
 
 - 2026-08-01 23:07Z claude-opus-5 · claimed
+- 2026-08-01 23:18Z claude-opus-5 · doing → review
+- 2026-08-01 23:18Z claude-opus-5 · review → done
+- 2026-08-01 23:18Z claude-opus-5 · released
 
 ## Notes
 
 - 2026-08-01 23:16Z claude-opus-5 — Seven lines, six corrected and one left alone. README.md:101 was right: init writes a project* npm script namespace (project, project:doctor, project:agents, project:mcp), so that sentence was about scripts, not the binary. But the bare span is indistinguishable from the old binary at a glance, which is the whole reason the header survived, so the sentence now names the namespace explicitly and the test forbids the ambiguous form outright. Two lines were wrong beyond the name: SPEC:1299 also claimed configuration can disable the UI default, which nothing implements (noted on T-0097), and getting-started.md:12-16 turned out to be the stale twin of a README passage somebody had already fixed. Criterion 3 is met by a closed vocabulary rather than a general check: the test now asserts package.json declares exactly workfile, wf and workfile-mcp, so adding or removing a bin fails the test and forces a look. It cannot detect an invented name like wrkfile.
+- 2026-08-01 23:18Z claude-opus-5 — Runtime evidence: the widened checks were run against git show HEAD:<file> for all eleven docs before the fix and caught exactly the seven lines the card lists; after the fix the suite is green. pnpm run check green at 203 + 7, ratchet 599 across 59 files, doctor 0/0. CI green on both platforms at 81c7a45.
