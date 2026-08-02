@@ -360,6 +360,39 @@ function assertAcceptanceMet(id, current, status, force) {
     );
 }
 
+/**
+ * You do not act on a card another actor is holding.
+ *
+ * `transitionCard` and `releaseCard` each carried their own copy of this and
+ * `patchCard` carried none, so writing the frontmatter directly walked around
+ * both of them. A patch that cleared `claimed_by` alongside a status change
+ * dropped another actor's claim with no refusal, no force and no reason, and
+ * one that simply wrote a different name took the card over outright — the
+ * card's own trail still naming the actor who no longer held it.
+ *
+ * That is the guard that keeps two agents in one checkout out of each other's
+ * way, and it was enforced on two doors of three. Third time this module has
+ * had a rule at some of its entrances, after `assertAcceptanceMet` and the
+ * activity trail.
+ *
+ * `claimCard` keeps its own, richer rule rather than calling this: taking a
+ * claim over is the job it exists for, so it also weighs staleness and demands
+ * a reason it writes into the card. This is the floor the other three share.
+ */
+function assertClaimOwnership(id, current, actor, force) {
+    if (!current.claimed_by || !actor || current.claimed_by === actor || force) {
+        return;
+    }
+    throw new ConflictError(
+        "CARD_CLAIM_OWNER_MISMATCH",
+        `${id} is claimed by ${current.claimed_by}. Pass force with a reason to take it over.`,
+        { id, claimedBy: current.claimed_by }
+    );
+}
+
+/** The frontmatter a patch must hold a claim to touch. */
+const CLAIM_GUARDED_FIELDS = ["status", "claimed_by", "claimed_at"];
+
 export async function createCard(workspace, input, { maxRetries = 32, now }: any = {}) {
     ensureWritable(workspace);
     if (!input?.title?.trim()) {
@@ -452,6 +485,16 @@ export async function patchCard(
         ...options,
         guard: async (current, cards) => {
             if (guard) await guard(current, cards);
+            // Only the fields the other two doors already defend. A patch that
+            // sets a priority on somebody else's card was never refused by
+            // `transition` or `release` either, and refusing it here would be
+            // a new rule rather than the missing half of an old one.
+            if (
+                changes &&
+                CLAIM_GUARDED_FIELDS.some((field) => field in changes)
+            ) {
+                assertClaimOwnership(id, current, actor, force);
+            }
             if (wanted && wanted !== current.status) {
                 assertAcceptanceMet(id, current, wanted, force);
             }
@@ -460,10 +503,21 @@ export async function patchCard(
             const next = transformContent
                 ? transformContent(content, current, candidate)
                 : content;
-            return appendMilestone(workspace, next, {
+            const moved = appendMilestone(workspace, next, {
                 actor,
                 text: `${current.status} → ${wanted}`,
                 redundant: !wanted || wanted === current.status,
+                now
+            });
+            // A patch can hand the card to someone or let it go, which `claim`
+            // and `release` both record and this door did not — so the trail
+            // depended on which command you used rather than on what happened.
+            return appendMilestone(workspace, moved, {
+                actor,
+                text: candidate.claimed_by ? "claimed" : "released",
+                redundant:
+                    (candidate.claimed_by || null) ===
+                    (current.claimed_by || null),
                 now
             });
         }
@@ -622,17 +676,7 @@ export async function releaseCard(
                 if (status && status !== current.status) {
                     assertAcceptanceMet(id, current, status, force);
                 }
-                if (
-                    current.claimed_by &&
-                    actor &&
-                    current.claimed_by !== actor &&
-                    !force
-                ) {
-                    throw new ConflictError(
-                        "CARD_CLAIM_OWNER_MISMATCH",
-                        `${id} is claimed by ${current.claimed_by}.`
-                    );
-                }
+                assertClaimOwnership(id, current, actor, force);
             }
         }
     );
@@ -697,18 +741,7 @@ export async function transitionCard(
                 // `--force` is the documented way past it, for the cases the
                 // criteria did not anticipate.
                 assertAcceptanceMet(id, current, status, force);
-                if (
-                    current.claimed_by &&
-                    actor &&
-                    current.claimed_by !== actor &&
-                    !force
-                ) {
-                    throw new ConflictError(
-                        "CARD_CLAIM_OWNER_MISMATCH",
-                        `${id} is claimed by ${current.claimed_by}. Pass force with a reason to take it over.`,
-                        { id, claimedBy: current.claimed_by }
-                    );
-                }
+                assertClaimOwnership(id, current, actor, force);
             }
         }
     );

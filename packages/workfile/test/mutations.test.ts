@@ -440,3 +440,97 @@ test("the durable trail records moves, not commands", async () => {
         await cleanup();
     }
 });
+
+// `patchCard` writes frontmatter directly, and `claimed_by` is a frontmatter
+// field, so for as long as the ownership rule lived inside `transitionCard` and
+// `releaseCard` a patch walked around both. Claims are the whole mechanism by
+// which two agents in one checkout stay out of each other's way, so a door that
+// skips the check does not weaken the guard, it removes it.
+test("a patch cannot take a card another actor is holding", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Held",
+            area: "api",
+            type: "task"
+        });
+        const id = created.id;
+        await claimCard(workspace, id, { actor: "alice" });
+
+        // Writing a different name took the card outright, and the trail was
+        // left naming the actor who no longer held it.
+        await assert.rejects(
+            patchCard(
+                workspace,
+                id,
+                {
+                    claimed_by: "mallory",
+                    claimed_at: "2026-08-02T10:00:00.000Z"
+                },
+                { actor: "mallory" }
+            ),
+            (error) => {
+                assert.ok(error instanceof ConflictError);
+                assert.equal(error.code, "CARD_CLAIM_OWNER_MISMATCH");
+                return true;
+            }
+        );
+
+        // Clearing the claim alongside a status change kept the "claimed cards
+        // are doing" invariant satisfied, which is how it slipped past: the
+        // invariant was doing the refusing, and only by accident.
+        await assert.rejects(
+            patchCard(
+                workspace,
+                id,
+                { status: "review", claimed_by: null, claimed_at: null },
+                { actor: "mallory" }
+            ),
+            (error) => {
+                assert.ok(error instanceof ConflictError);
+                assert.equal(error.code, "CARD_CLAIM_OWNER_MISMATCH");
+                return true;
+            }
+        );
+
+        const held = (await loadCards(workspace)).cards.find(
+            (card) => card.id === id
+        );
+        assert.equal(held.claimed_by, "alice", "the card is still alice's");
+        assert.equal(held.status, "doing");
+
+        // A field neither `transition` nor `release` ever defended stays
+        // patchable: this is the missing half of an old rule, not a new one.
+        const triaged = await patchCard(
+            workspace,
+            id,
+            { priority: "high" },
+            { actor: "mallory" }
+        );
+        assert.equal(triaged.card.priority, "high");
+        assert.equal(triaged.card.claimed_by, "alice");
+
+        // Taking it over deliberately still works, and still says why.
+        const taken = await claimCard(workspace, id, {
+            actor: "bob",
+            force: true,
+            reason: "alice is out"
+        });
+        assert.equal(taken.card.claimed_by, "bob");
+        assert.match(taken.card.body, /bob replaced alice's claim: alice is out/);
+
+        // And a patch that does let the card go now records it, so the trail
+        // no longer depends on which command was used.
+        const let_go = await patchCard(
+            workspace,
+            id,
+            { status: "review", claimed_by: null, claimed_at: null },
+            { actor: "bob" }
+        );
+        const lines = trail(let_go.card);
+        assert.match(lines[lines.length - 1], /bob · released$/);
+        assert.match(lines[lines.length - 2], /doing → review$/);
+    } finally {
+        await cleanup();
+    }
+});
