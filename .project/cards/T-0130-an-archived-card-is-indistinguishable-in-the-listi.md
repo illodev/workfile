@@ -1,7 +1,7 @@
 ---
 id: T-0130
 title: An archived card is indistinguishable in the listings agents read
-status: backlog
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -42,8 +42,46 @@ a separate view.
 
 ## Acceptance criteria
 
-- [ ] An agent listing cards can tell an archived one from a live one without
+- [x] An agent listing cards can tell an archived one from a live one without
       parsing a path
-- [ ] The choice between carrying the field and filtering the rows is recorded,
+- [x] The choice between carrying the field and filtering the rows is recorded,
       since they answer different questions
-- [ ] Whatever is decided is pinned by a test, as the axis half now is
+- [x] Whatever is decided is pinned by a test, as the axis half now is
+
+## Activity
+
+- 2026-08-02 19:26Z illodev@local#aed59c5e · claimed
+- 2026-08-02 19:29Z illodev@local#aed59c5e · doing → done
+
+## Notes
+
+- 2026-08-02 19:29Z illodev@local#aed59c5e — Decision on the second criterion: carry the field, leave the rows alone.
+
+Comparing the surfaces settled it. The CLI's `card list` does not filter
+archived cards either — `filterCards` in bin/workfile.ts has no archived
+predicate — but its output carries `archived`, so the two are distinguishable
+there. The disagreement between CLI and MCP was never about which cards exist,
+only about whether you could tell. Filtering MCP's rows would have introduced
+the first kind of disagreement to fix the second.
+
+The argument that decides it rather than merely favours it: `project_card_reopen`
+exists, and its whole job is moving an archived card back into the live backlog.
+A listing that hid archived cards would leave an agent nothing to reopen — the
+tool would be reachable only by already knowing an id.
+
+So `archived` joins `SUMMARY_FIELDS`, and lands as an explicit `false` on live
+cards rather than being absent. "No such key" and "not archived" are the same
+shape to a reader, which is the bug this had.
+
+    antes:  T-0001 archived=undefined  T-0002 archived=undefined
+    ahora:  T-0001 archived=false      T-0002 archived=true
+
+Scoped to `archived` on purpose. The same projection also drops `scope`,
+`effort`, `start`, `due`, `source` and `assets`, which this card's body raised —
+but those are a size-against-usefulness question, and this one was a correctness
+question: an agent could act on work that had been put away. Left for whoever
+wants to argue the payload, rather than folded in here where it would ride along
+unexamined.
+
+Pinned by a test in mcp.test.ts against the fixture's own archived card.
+235 + 7 tests pass, strict holds at baseline.

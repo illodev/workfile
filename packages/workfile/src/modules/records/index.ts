@@ -748,6 +748,13 @@ const SUMMARY_FIELDS = Object.freeze([
     "type",
     "priority",
     "area",
+    // Listings carry archived cards alongside live ones, and without this the
+    // only thing telling them apart was `/archive/` inside `path` — a
+    // convention nothing declares. `project_card_list` handed agents cards
+    // that had been deliberately put away, indistinguishable from open work.
+    // Carried rather than filtered out, because `project_card_reopen` exists:
+    // a listing that hid them would leave nothing to reopen.
+    "archived",
     "parent",
     "milestone",
     "tags",

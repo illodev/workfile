@@ -480,3 +480,50 @@ test("an MCP filter refuses a date it cannot parse", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * An agent listing cards has to be able to tell the ones that were put away.
+ *
+ * `project_card_list` returns archived cards alongside live ones, and the
+ * projection behind it kept a fixed list of field names that `archived` was
+ * not on — so the only thing distinguishing them was `/archive/` inside
+ * `path`, a convention nothing declares and nothing enforces. `status` is not
+ * the signal either: a card can be done and live, and an archived one keeps
+ * whichever terminal status it had.
+ *
+ * Carried rather than filtered out. `project_card_reopen` exists to move an
+ * archived card back into the backlog, and a listing that hid them would leave
+ * an agent nothing to reopen.
+ */
+test("a listing says which cards are archived", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-archived-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const workspace = await loadWorkspace({ root });
+        const server = createMcpProtocolServer(workspace, { version: "0.6.0" });
+        await initialize(server);
+
+        const response = await server.handle(
+            request(700, "tools/call", {
+                name: "project_card_list",
+                arguments: {}
+            })
+        );
+        // A JSON-RPC reply is a result or an error, never both, so narrowing is
+        // the assertion.
+        assert.ok("result" in response, JSON.stringify(response));
+        assert.equal(response.result.isError, undefined);
+        const { records } = response.result.structuredContent;
+
+        const live = records.find((record) => record.id === "T-0001");
+        const archived = records.find((record) => record.id === "T-0002");
+        assert.ok(live, "the live card is listed");
+        assert.ok(archived, "and so is the archived one, which is the point");
+        assert.equal(archived.archived, true);
+        // Explicitly false rather than absent: "no such key" and "not archived"
+        // are the same shape to a reader, and one of them was the bug.
+        assert.equal(live.archived, false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
