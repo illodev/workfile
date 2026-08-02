@@ -80,6 +80,11 @@ import { recordCollection, severityColor, since, statusColor } from "./theme";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
+    drawableCount,
+    preferredMode,
+    type TimelineMode
+} from "./timeline";
+import {
     PRIORITIES,
     STATUSES,
     TYPES,
@@ -495,6 +500,23 @@ function App() {
     );
     const [showNewCard, setShowNewCard] = useState(false);
     const [showPalette, setShowPalette] = useState(false);
+    /**
+     * Which dates the Timeline draws, when somebody has said. Null until then,
+     * so the view can open on whichever reading this workspace has data for
+     * instead of on a default that is empty half the time.
+     *
+     * Kept beside the collapsed columns and the timeline grouping, in storage
+     * rather than the URL: it is a reading somebody set up, not part of what
+     * a link points at.
+     */
+    const [datesChoice, setDatesChoice] = useState<TimelineMode | null>(() => {
+        try {
+            const stored = localStorage.getItem("workfile-timeline-dates");
+            return stored === "plan" || stored === "actual" ? stored : null;
+        } catch {
+            return null;
+        }
+    });
     const [health, setHealth] = useState<HealthReport | null>(null);
     const [activity, setActivity] = useState<ActivitySnapshot | null>(null);
     const [moduleCounts, setModuleCounts] = useState<{
@@ -787,6 +809,53 @@ function App() {
         () => filterTasks(tasks, effectiveFilters),
         [effectiveFilters, tasks]
     );
+    const timelineMode = useMemo(
+        () => datesChoice ?? preferredMode(tasks),
+        [datesChoice, tasks]
+    );
+    const chooseDates = useCallback((mode: TimelineMode) => {
+        setDatesChoice(mode);
+        try {
+            localStorage.setItem("workfile-timeline-dates", mode);
+        } catch {
+            // Blocked or full: the choice still applies for this session.
+        }
+    }, []);
+    /**
+     * The rows each Timeline mode gets, which are not the same set.
+     *
+     * "Show closed" hides finished work because finished work is not what a
+     * backlog is for. A chart of what actually happened is the one place that
+     * reverses: every card on it is finished by construction, so applying the
+     * filter there empties the view by definition rather than by choice. Every
+     * other filter — area, type, priority, the search — still applies.
+     */
+    const timelineRows = useMemo(
+        () => ({
+            plan: visibleTasks,
+            actual: filterTasks(tasks, {
+                ...effectiveFilters,
+                showClosed: true
+            })
+        }),
+        [effectiveFilters, tasks, visibleTasks]
+    );
+    const timelineTasks = timelineRows[timelineMode];
+    /**
+     * Both modes measured over the set each would actually draw.
+     *
+     * Counting the other mode against the current mode's rows is how the empty
+     * state came to offer "3 cards" and then show 128: switching the mode
+     * switches the set under it, so a count taken before the switch is a count
+     * of the wrong thing.
+     */
+    const timelineCounts = useMemo(
+        () => ({
+            plan: drawableCount(timelineRows.plan, "plan"),
+            actual: drawableCount(timelineRows.actual, "actual")
+        }),
+        [timelineRows]
+    );
     const scopeConflicts = useMemo(() => {
         const doing = tasks.filter(
             (task) =>
@@ -966,8 +1035,12 @@ function App() {
                 .length,
             flow,
             epics: openTasks.filter((task) => task.type === "epic").length,
-            timeline: openTasks.filter((task) => task.start || task.due)
-                .length,
+            // The one badge measured over the filtered set rather than the
+            // whole corpus, because it is the one whose view states its own
+            // count two inches away: a sidebar reading 130 beside a chart
+            // reading 128 is a defect to anyone who looks at both, and nobody
+            // can see that Triage ignores the search box.
+            timeline: timelineCounts[timelineMode],
             docs: moduleCounts.docs,
             memory: moduleCounts.memory,
             history: moduleCounts.unreleased,
@@ -975,7 +1048,7 @@ function App() {
                 ? health.counts.error + health.counts.warning + health.counts.info
                 : null
         };
-    }, [health, moduleCounts, openTasks]);
+    }, [health, moduleCounts, openTasks, timelineCounts, timelineMode]);
 
     const viewMeta = useMemo(() => {
         switch (view) {
@@ -998,7 +1071,9 @@ function App() {
             case "epics":
                 return `${navCounts.epics ?? 0} epics`;
             case "timeline":
-                return `${navCounts.timeline ?? 0} cards with dates`;
+                return timelineMode === "actual"
+                    ? `${navCounts.timeline ?? 0} cards with a recorded trail`
+                    : `${navCounts.timeline ?? 0} cards with dates`;
             case "docs":
                 return moduleCounts.docs == null
                     ? ""
@@ -1023,6 +1098,7 @@ function App() {
         schema.memory.collections.length,
         scopeConflicts.length,
         tasks.length,
+        timelineMode,
         view,
         visibleTasks.length
     ]);
@@ -1487,9 +1563,12 @@ function App() {
                                     />
                                 ) : view === "timeline" ? (
                                     <TimelineView
-                                        tasks={visibleTasks}
+                                        tasks={timelineTasks}
                                         epicIds={epicIds}
                                         axes={schema.cards.axes}
+                                        mode={timelineMode}
+                                        counts={timelineCounts}
+                                        onModeChange={chooseDates}
                                         onOpen={selectRecord}
                                     />
                                 ) : view === "docs" ? (

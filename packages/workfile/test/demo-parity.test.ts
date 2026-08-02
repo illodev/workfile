@@ -3,6 +3,8 @@ import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { activitySpan, planSpan } from "../ui/src/timeline.ts";
+
 const uiRoot = fileURLToPath(new URL("../ui/src/", import.meta.url));
 
 async function sources(directory = uiRoot, found = []) {
@@ -54,6 +56,30 @@ test("the live stream stays disabled in demo builds", async () => {
         live,
         /VITE_DEMO === "1"\) return;/,
         "a static host has no event stream, and EventSource retries forever"
+    );
+});
+
+/**
+ * The Timeline was empty on the hosted demo for every visitor: the snapshot
+ * replays this repository, and not one of its cards has ever carried `start`
+ * or `due`. One of ten nav entries opened on an empty state in the shop
+ * window, and nothing failed to say so — the view was behaving exactly as
+ * written.
+ *
+ * Asserted against the snapshot rather than the source because that is the
+ * thing that ships: `build-demo-data.ts` could stop sending card bodies and
+ * every unit test here would still pass.
+ */
+test("the demo snapshot has a timeline to draw", async () => {
+    const snapshot = JSON.parse(
+        await readFile(new URL("../ui/src/demo-data.json", import.meta.url), "utf8")
+    );
+    const drawable = snapshot.tasks.tasks.filter(
+        (task) => planSpan(task) || activitySpan(task.body)
+    );
+    assert.ok(
+        drawable.length > 0.5 * snapshot.tasks.tasks.length,
+        `only ${drawable.length} of ${snapshot.tasks.tasks.length} demo cards can be placed on the timeline`
     );
 });
 

@@ -27,6 +27,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Accent } from "../Accent";
 import { priorityColor, severityColor, statusColor } from "../../theme";
+import {
+    axisFor,
+    spanOf,
+    spanTitle,
+    type Span,
+    type TimelineMode
+} from "../../timeline";
 import type { Status, Task } from "../../types";
 
 const NO_CARDS: Task[] = [];
@@ -750,31 +757,30 @@ export function EpicsView({
 
 // ------------------------------------------------------------------ Timeline
 
-const DAY = 86_400_000;
 const GANTT_LABEL = 300;
 const SCALE_H = 30;
 
-const parseDay = (value: string) => Date.parse(`${value}T00:00:00Z`);
-
 function TimelineRow({
     task,
+    span,
+    mode,
     epicId,
     pct,
     onOpen
 }: {
     task: Task;
+    span: Span;
+    mode: TimelineMode;
     epicId?: string;
     pct: (time: number) => number;
     onOpen: (id: string) => void;
 }) {
-    const start = task.start ? parseDay(task.start) : null;
-    const due = task.due ? parseDay(task.due) : null;
     const color = statusColor(task.status);
     return (
         <button
             type="button"
             onClick={() => onOpen(task.id)}
-            title={`${task.start || "?"} → ${task.due || "?"} · ${task.status}${
+            title={`${spanTitle(task, mode, span)} · ${task.status}${
                 epicId && epicId !== task.id ? ` · epic ${epicId}` : ""
             }`}
             className="flex w-full cursor-pointer items-center border-b bg-transparent p-0 text-left transition-colors hover:bg-muted"
@@ -798,24 +804,10 @@ function TimelineRow({
                 className="relative block flex-1"
                 style={{ height: "var(--row-h)" }}
             >
-                {start != null && due != null ? (
-                    <span
-                        style={{
-                            position: "absolute",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            height: 12,
-                            minWidth: 6,
-                            borderRadius: 3,
-                            background: color,
-                            display: "block",
-                            left: `${pct(start)}%`,
-                            width: `${Math.max(pct(due + DAY) - pct(start), 0.8)}%`
-                        }}
-                    />
-                ) : (
-                    // A card with only one of the two dates shows as a diamond
-                    // at that date rather than a zero-width bar.
+                {span.point ? (
+                    // A card that marks a moment — one of the two dates set,
+                    // or a trail whose entries share a minute — shows as a
+                    // diamond there rather than as a zero-width bar.
                     <span
                         style={{
                             position: "absolute",
@@ -826,7 +818,22 @@ function TimelineRow({
                             borderRadius: 2,
                             background: color,
                             display: "block",
-                            left: `${pct((start ?? due)!)}%`
+                            left: `${pct(span.from)}%`
+                        }}
+                    />
+                ) : (
+                    <span
+                        style={{
+                            position: "absolute",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            height: 12,
+                            minWidth: 6,
+                            borderRadius: 3,
+                            background: color,
+                            display: "block",
+                            left: `${pct(span.from)}%`,
+                            width: `${Math.max(pct(span.to) - pct(span.from), 0.8)}%`
                         }}
                     />
                 )}
@@ -839,12 +846,31 @@ export function TimelineView({
     tasks,
     epicIds,
     axes = {},
+    mode,
+    counts,
+    onModeChange,
     onOpen
 }: {
     tasks: Task[];
     epicIds: Map<string, string>;
     /** Declared axes, name to vocabulary. Empty for a project with none. */
     axes?: Record<string, string[]>;
+    /**
+     * Which dates the chart draws. Held by the caller rather than here, unlike
+     * the grouping beside it: the mode decides which cards are on the chart at
+     * all, so the nav badge and the view header have to agree with it, and a
+     * choice this component kept to itself would leave them counting rows it
+     * is not drawing.
+     */
+    mode: TimelineMode;
+    /**
+     * Rows each mode would have, measured by the caller over the set each one
+     * actually gets. Not derivable here: this component only ever holds the
+     * current mode's rows, so the other mode's count taken from them is a
+     * count of the wrong list.
+     */
+    counts: Record<TimelineMode, number>;
+    onModeChange: (mode: TimelineMode) => void;
     onOpen: (id: string) => void;
 }) {
     /**
@@ -908,14 +934,25 @@ export function TimelineView({
         [epicIds, grouping]
     );
 
+    /** Every card the current mode can place, by id. */
+    const spans = useMemo(() => {
+        const found = new Map<string, Span>();
+        for (const task of tasks) {
+            const span = spanOf(task, mode);
+            if (span) found.set(task.id, span);
+        }
+        return found;
+    }, [mode, tasks]);
+
     const scheduled = useMemo(() => {
         const byDate = (left: Task, right: Task) =>
-            String(left.start || left.due).localeCompare(
-                String(right.start || right.due)
-            );
-        const dated = tasks
-            .filter((task) => task.start || task.due)
-            .sort(byDate);
+            // Ties break on id rather than being left to sort stability: in
+            // `actual` a burst of agent work puts several cards in the same
+            // minute, and rows that reshuffle between renders drag the
+            // dependency arrows with them.
+            (spans.get(left.id)!.from - spans.get(right.id)!.from ||
+                left.id.localeCompare(right.id));
+        const dated = tasks.filter((task) => spans.has(task.id)).sort(byDate);
         if (grouping === "none") return dated;
         // Grouping only reorders: every scheduled card stays on the chart, so
         // switching the grouping never hides work.
@@ -928,7 +965,7 @@ export function TimelineView({
             if (!one !== !other) return one ? -1 : 1;
             return one.localeCompare(other) || byDate(left, right);
         });
-    }, [bucketOf, grouping, tasks]);
+    }, [bucketOf, grouping, spans, tasks]);
 
     /**
      * Header rows interleaved with the cards, so a bucket is something you can
@@ -965,11 +1002,6 @@ export function TimelineView({
             ),
         [rows]
     );
-    const byId = useMemo(
-        () => new Map(scheduled.map((task) => [task.id, task])),
-        [scheduled]
-    );
-
     /** Dependency edges, drawn from the `depends` field: the one view whose
      *  whole job is showing how work relates over time. */
     const edges = useMemo(() => {
@@ -983,60 +1015,51 @@ export function TimelineView({
         }
         return found;
     }, [rowIndex, scheduled]);
-    const range = useMemo(() => {
-        const times = scheduled.flatMap((task) =>
-            [task.start, task.due]
-                .filter((value): value is string => Boolean(value))
-                .map(parseDay)
-        );
-        if (!times.length) return null;
-        // Pad the range to whole months so the scale starts on a gridline.
-        const min = new Date(Math.min(...times));
-        const max = new Date(Math.max(...times));
-        const start = Date.UTC(min.getUTCFullYear(), min.getUTCMonth(), 1);
-        const end = Date.UTC(max.getUTCFullYear(), max.getUTCMonth() + 1, 1);
-        const months: Array<{ key: number; label: string; left: number }> = [];
-        const pct = (time: number) => ((time - start) / (end - start)) * 100;
-        for (
-            let cursor = start;
-            cursor < end;
-            cursor = Date.UTC(
-                new Date(cursor).getUTCFullYear(),
-                new Date(cursor).getUTCMonth() + 1,
-                1
-            )
-        ) {
-            const date = new Date(cursor);
-            months.push({
-                key: cursor,
-                label: date.toLocaleDateString("en", {
-                    month: "short",
-                    ...(cursor === start || date.getUTCMonth() === 0
-                        ? { year: "numeric" }
-                        : {}),
-                    timeZone: "UTC"
-                }),
-                left: pct(cursor)
-            });
-        }
-        const now = Date.now();
-        return {
-            pct,
-            months,
-            today: now >= start && now <= end ? pct(now) : null
-        };
-    }, [scheduled]);
+    const range = useMemo(
+        () =>
+            axisFor(
+                scheduled.map((task) => spans.get(task.id)!),
+                Date.now()
+            ),
+        [scheduled, spans]
+    );
+
+    // So an empty chart can point at the reading that is not empty, instead of
+    // only saying no.
+    const otherCount = counts[mode === "plan" ? "actual" : "plan"];
 
     if (!scheduled.length || !range)
         return (
             <Empty className="flex-1 p-6">
                 <EmptyHeader>
                     <EmptyTitle className="text-sm">
-                        Nothing scheduled
+                        {mode === "plan"
+                            ? "Nothing scheduled"
+                            : "Nothing recorded"}
                     </EmptyTitle>
                     <EmptyDescription className="text-[11.5px]">
-                        Add a start or due date to a card.
+                        {mode === "plan"
+                            ? "Add a start or due date to a card."
+                            : "Cards record a trail as they are claimed and moved."}
                     </EmptyDescription>
+                    {otherCount > 0 ? (
+                        <EmptyDescription className="text-[11.5px]">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-2 text-[12.5px] font-medium"
+                                onClick={() =>
+                                    onModeChange(
+                                        mode === "plan" ? "actual" : "plan"
+                                    )
+                                }
+                            >
+                                {mode === "plan"
+                                    ? `show what actually happened · ${otherCount} cards`
+                                    : `show the schedule · ${otherCount} cards`}
+                            </Button>
+                        </EmptyDescription>
+                    ) : null}
                 </EmptyHeader>
             </Empty>
         );
@@ -1045,7 +1068,9 @@ export function TimelineView({
         <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex flex-none items-center gap-2.5 border-b bg-card px-3.5 py-2">
                 <span className="font-mono text-[11px] text-muted-foreground">
-                    {scheduled.length} scheduled · {edges.length} dependenc
+                    {scheduled.length}{" "}
+                    {mode === "actual" ? "recorded" : "scheduled"} ·{" "}
+                    {edges.length} dependenc
                     {edges.length === 1 ? "y" : "ies"}
                 </span>
                 <DropdownMenu>
@@ -1053,8 +1078,45 @@ export function TimelineView({
                         <Button
                             variant="outline"
                             size="sm"
-                            aria-label="group"
+                            aria-label="dates"
                             className="ml-auto text-[12.5px] font-medium"
+                        >
+                            dates
+                            <span className="font-normal text-muted-foreground">
+                                {mode}
+                            </span>
+                            <ChevronDown className="size-[13px] text-muted-foreground" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuRadioGroup
+                            value={mode}
+                            onValueChange={(value) =>
+                                onModeChange(value as TimelineMode)
+                            }
+                        >
+                            {/* Both readings are always offered, including the
+                                one with nothing in it. A project that has never
+                                set a date is exactly the project that needs to
+                                find out the Gantt is there, and hiding the
+                                option is how a feature stops being discovered
+                                by anyone who does not already know it. */}
+                            <DropdownMenuRadioItem value="plan">
+                                plan
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="actual">
+                                actual
+                            </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="group"
+                            className="text-[12.5px] font-medium"
                         >
                             group
                             <span className="font-normal text-muted-foreground">
@@ -1097,33 +1159,33 @@ export function TimelineView({
                             card
                         </span>
                         <span className="relative flex-1">
-                            {range.months.map((month, monthIndex) => (
+                            {range.ticks.map((tick, tickIndex) => (
                                 <span
-                                    key={month.key}
+                                    key={tick.key}
                                     className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
                                     style={{
                                         position: "absolute",
                                         top: "50%",
                                         transform: "translateY(-50%)",
-                                        left: `${month.left}%`,
-                                        // Clipped at the next month's boundary
+                                        left: `${tick.left}%`,
+                                        // Clipped at the next tick's boundary
                                         // so a long label ("Jan 2026") cannot
                                         // run under its neighbour.
                                         width: `${
-                                            (range.months[monthIndex + 1]
-                                                ?.left ?? 100) - month.left
+                                            (range.ticks[tickIndex + 1]?.left ??
+                                                100) - tick.left
                                         }%`,
                                         overflow: "hidden",
                                         paddingLeft: 8,
                                         whiteSpace: "nowrap"
                                     }}
                                 >
-                                    {month.label}
+                                    {tick.label}
                                 </span>
                             ))}
                         </span>
                     </div>
-                    {/* Month gridlines and the today marker span the whole
+                    {/* Scale gridlines and the today marker span the whole
                         scrollable area, behind the rows. */}
                     <div
                         aria-hidden="true"
@@ -1135,11 +1197,11 @@ export function TimelineView({
                             right: 0
                         }}
                     >
-                        {range.months.map((month) => (
+                        {range.ticks.map((tick) => (
                             <span
-                                key={month.key}
+                                key={tick.key}
                                 className="absolute inset-y-0 w-px bg-border"
-                                style={{ left: `${month.left}%` }}
+                                style={{ left: `${tick.left}%` }}
                             />
                         ))}
                         {range.today != null && (
@@ -1171,13 +1233,11 @@ export function TimelineView({
                                 }}
                             >
                                 {edges.map((edge) => {
-                                    const from = byId.get(edge.from)!;
-                                    const to = byId.get(edge.to)!;
-                                    const fromEnd = from.due || from.start;
-                                    const toStart = to.start || to.due;
-                                    if (!fromEnd || !toStart) return null;
-                                    const x1 = range.pct(parseDay(fromEnd));
-                                    const x2 = range.pct(parseDay(toStart));
+                                    const from = spans.get(edge.from);
+                                    const to = spans.get(edge.to);
+                                    if (!from || !to) return null;
+                                    const x1 = range.pct(from.to);
+                                    const x2 = range.pct(to.from);
                                     const y1 = rowIndex.get(edge.from)! + 0.5;
                                     const y2 = rowIndex.get(edge.to)! + 0.5;
                                     // A dependency that points backwards in
@@ -1216,6 +1276,8 @@ export function TimelineView({
                                 <TimelineRow
                                     key={row.task.id}
                                     task={row.task}
+                                    span={spans.get(row.task.id)!}
+                                    mode={mode}
                                     epicId={epicIds.get(row.task.id)}
                                     pct={range.pct}
                                     onOpen={onOpen}
