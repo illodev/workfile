@@ -7,6 +7,7 @@ import { revisionForContent } from "../../core/revision.js";
 import { parseAcceptance } from "./acceptance.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { cardFileName } from "./slug.js";
+import { declaredAxes } from "./validation.js";
 import {
     isResourceExhaustion,
     mapWithConcurrency
@@ -32,6 +33,13 @@ export const CARD_REQUIRED_KEYS = Object.freeze([
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+
+/** Work that is over: nothing about it is worth prompting anyone to change. */
+const CLOSED_STATUSES = new Set(["done", "discarded"]);
+
+function closed(card) {
+    return card.archived || CLOSED_STATUSES.has(card.status);
+}
 
 export function cardIdPattern(prefix = "T") {
     return new RegExp(`^${prefix.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}-\\d{4,}$`);
@@ -228,6 +236,7 @@ export async function diagnoseCards({
         area: workspace.config.cards.areas,
         effort: CARD_EFFORTS
     };
+    const axes = declaredAxes(workspace);
     const idRe = cardIdPattern(workspace.config.cards.idPrefix);
     for (const card of cards) {
         const missing = CARD_REQUIRED_KEYS.filter((key) => !card[key]);
@@ -289,6 +298,40 @@ export async function diagnoseCards({
             if (card[key] && !allowed.includes(card[key])) {
                 issues.push(
                     issue("error", "invalid-enum", card, `Invalid ${key}: ${card[key]}`)
+                );
+            }
+        }
+        for (const [axis, allowed] of axes) {
+            const value = card[axis];
+            if (value && !allowed.includes(value)) {
+                // An error, because it is a typo that matches nothing: the
+                // whole point of declaring an axis is that `context: tresury`
+                // stops being written and silently filtering to an empty set.
+                issues.push(
+                    issue(
+                        "error",
+                        "invalid-axis",
+                        card,
+                        `Invalid ${axis}: ${value}. Declared values: ${allowed.join(", ")}`,
+                        { axis, value, allowed }
+                    )
+                );
+            } else if (!value && !closed(card)) {
+                // A warning, and only on work still in play. Declaring an axis
+                // on an existing repository must not turn it red — but a
+                // warning per record floods just as badly in yellow: this
+                // repository would have emitted one for each of its hundred-odd
+                // closed cards, and nobody classifies finished work
+                // retroactively. Doctor output that nobody can act on is
+                // output nobody reads.
+                issues.push(
+                    issue(
+                        "warning",
+                        "missing-axis",
+                        card,
+                        `No ${axis}; declared values: ${allowed.join(", ")}`,
+                        { axis, allowed }
+                    )
                 );
             }
         }

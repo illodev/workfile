@@ -132,7 +132,7 @@ const USAGE: Record<string, string[]> = {
     version: ["workfile version"],
     ui: ["workfile ui [--host HOST] [--port PORT] [--verbose]"],
     card: [
-        "workfile card list [--json]",
+        "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
         "workfile card show ID [--json]",
         "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
@@ -333,6 +333,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card list": [
         "--area",
+        "--axis",
         "--claimed-by",
         "--fields",
         "--limit",
@@ -929,6 +930,12 @@ function wantsHelp() {
 function filterCards(cards) {
     const statuses = listOption("--status");
     const areas = listOption("--area");
+    // The same flag as the write path, read as a list: `--axis context=a,b`
+    // matches either, and a second `--axis` for another name ANDs with it —
+    // which is how every other filter here already combines.
+    const axes: Array<[string, string[]]> = Object.entries(
+        axisOptions("--axis") || {}
+    ).map(([name, value]) => [name, value.split(",").map((item) => item.trim())]);
     const types = listOption("--type");
     const priorities = listOption("--priority");
     const tags = listOption("--tag");
@@ -950,6 +957,9 @@ function filterCards(cards) {
         }
         if (tags && !tags.some((tag) => (card.tags || []).includes(tag))) {
             return false;
+        }
+        for (const [name, values] of axes) {
+            if (!values.includes(card[name])) return false;
         }
         return true;
     });
@@ -1032,6 +1042,17 @@ function axisOptions(flag) {
             throw new ValidationError(
                 "CLI_ARGUMENT_INVALID",
                 `${flag} takes name=value; got "${raw}".`
+            );
+        }
+        // Repeating one axis is the same evaporating instruction the
+        // duplicate-flag guard refuses everywhere else: `--axis context=a
+        // --axis context=b` would keep only one, and the caller cannot tell
+        // which. The flag repeats across axes, not within one.
+        if (name in axes) {
+            throw new ValidationError(
+                "CLI_ARGUMENT_CONFLICT",
+                `${flag} ${name} was given more than once. ` +
+                    "Repeat it once per axis, with a comma-separated value where a list is meant."
             );
         }
         axes[name] = raw.slice(at + 1).trim();

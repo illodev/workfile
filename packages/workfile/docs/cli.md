@@ -152,7 +152,8 @@ to their first 20,000; an invalid pattern fails with `SEARCH_REGEX_INVALID`.
 ```bash
 workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent ID]
                   [--claimed-by ACTOR] [--unclaimed] [--tag TAG] [--updated-since DATE]
-                  [--limit N] [--offset N] [--fields a,b] [--with-body] [--json]
+                  [--axis NAME=VALUE] [--limit N] [--offset N] [--fields a,b]
+                  [--with-body] [--json]
 workfile card show ID [--json]
 workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
                     [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
@@ -197,6 +198,19 @@ accepts; an undeclared axis and a value outside its vocabulary are both refused,
 and the message carries the list. It repeats, once per axis, because the axis
 name is per project and a flag per axis is not something a static table can
 offer. `--axis context=` with nothing after the `=` clears it.
+
+`card list --axis context=treasury` filters on the same axis, and combines with
+every other filter. A comma list is an OR within one axis
+(`--axis context=treasury,billing`); a second `--axis` for a different name is
+an AND. Repeating the *same* name is refused with `CLI_ARGUMENT_CONFLICT`,
+because only one value would survive and the caller could not tell which.
+
+`doctor` reports on declared axes the way it reports on areas: a value outside
+the vocabulary is an **error**, since it is a typo that silently matches
+nothing, and an open card with no value at all is a **warning**. Cards that are
+`done`, `discarded` or archived are exempt from the warning — declaring an axis
+on an existing repository must not emit one line per finished card, which is a
+flood nobody acts on rather than a signal.
 
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.

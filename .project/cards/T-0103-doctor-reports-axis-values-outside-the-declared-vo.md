@@ -1,11 +1,11 @@
 ---
 id: T-0103
 title: doctor reports axis values outside the declared vocabulary
-status: backlog
+status: review
 type: feature
 priority: medium
 area: core
-scope: [packages/workfile/src/modules/health]
+scope: [packages/workfile/src/modules/cards/cards.ts, packages/workfile/bin/workfile.ts, packages/workfile/docs]
 related: [T-0060]
 created: 2026-08-02
 updated: 2026-08-02
@@ -26,6 +26,13 @@ an error, because it is a typo that silently matches nothing.
 
 ## Acceptance criteria
 
-- [ ] An axis value outside the vocabulary is a doctor error naming the card
-- [ ] A card with no value for a declared axis is a warning, not an error
-- [ ] `card list --axis context=treasury` filters, and combines with the others
+- [x] An axis value outside the vocabulary is a doctor error naming the card
+- [x] A card with no value for a declared axis is a warning, not an error
+- [x] `card list --axis context=treasury` filters, and combines with the others
+
+## Activity
+
+- 2026-08-02 10:55Z illodev@local#e55eab30 · claimed
+- 2026-08-02 11:02Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 11:02Z illodev@local#e55eab30 · released
+

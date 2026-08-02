@@ -19,7 +19,7 @@ import {
     patchCard,
     startProjectServer
 } from "../dist/src/index.js";
-import { createTestWorkspace } from "./support/workspace.ts";
+import { card, createTestWorkspace } from "./support/workspace.ts";
 
 const execute = promisify(execFile);
 const cli = resolve(fileURLToPath(new URL("../dist/bin/workfile.js", import.meta.url)));
@@ -45,6 +45,22 @@ async function workspaceWithAxes(axes) {
         )
     );
     return { ...created, workspace: await loadWorkspace({ root: created.root }) };
+}
+
+/** `doctor --json`'s report, whether it exited 0 or 1 on the errors it found. */
+async function doctorJson(root) {
+    try {
+        const { stdout } = await execute(
+            process.execPath,
+            [cli, "doctor", "--json", "--root", root],
+            { encoding: "utf8" }
+        );
+        return stdout;
+    } catch (error) {
+        const failed = error as { stdout?: string; stderr?: string };
+        assert.ok(failed.stdout, `doctor produced no report: ${failed.stderr}`);
+        return failed.stdout;
+    }
 }
 
 /** Re-reads one card from disk, so an assertion sees the file and not a return value. */
@@ -428,6 +444,134 @@ test("the HTTP routes carry axes too, and refuse the same values", async () => {
         assert.equal(rejected.body.error.code, "CARD_AXIS_VALUE_INVALID");
     } finally {
         await server.close();
+        await cleanup();
+    }
+});
+
+test("doctor errors on a value outside the vocabulary and warns on a missing one", async () => {
+    const { root, cleanup } = await workspaceWithAxes({
+        context: ["treasury", "billing"]
+    });
+    try {
+        // Written by hand, which is the case that matters: write-time
+        // validation only ever sees cards written after the axis was declared,
+        // and the repository this was designed for has a hundred that were not.
+        await writeFile(
+            join(root, ".project/cards/T-9001-typo.md"),
+            card("T-9001", { context: "tresury" })
+        );
+        await writeFile(
+            join(root, ".project/cards/T-9002-absent.md"),
+            card("T-9002")
+        );
+        await writeFile(
+            join(root, ".project/cards/T-9003-closed.md"),
+            card("T-9003", { status: "done" })
+        );
+
+        // Through the binary rather than `diagnoseCards` directly: doctor reads
+        // the project index, not the card loader, and a rule that works on one
+        // and not the other is a rule that does nothing where it is used.
+        // `doctor` exits 1 on any error, which is the case under test, so the
+        // report has to be read off the rejection rather than the resolution.
+        const report = JSON.parse(await doctorJson(root));
+        const found = (code) =>
+            report.issues.filter((entry) => entry.code === code);
+
+        const invalid = found("invalid-axis");
+        assert.equal(invalid.length, 1);
+        assert.equal(invalid[0].severity, "error");
+        assert.equal(invalid[0].id, "T-9001");
+        assert.match(invalid[0].message, /treasury, billing/);
+
+        const missing = found("missing-axis");
+        assert.equal(missing[0].severity, "warning");
+        // T-0001 (fixture, backlog) and T-9002 (written above, backlog) are the
+        // only cards that are both open and unclassified. The three exclusions
+        // are each a different reason, and all three matter:
+        //
+        //   T-9001  has a value — a wrong one, reported as the error above
+        //   T-9003  done, and nobody classifies finished work retroactively
+        //   T-0002  archived, for the same reason
+        //
+        // Closed work being exempt is the point. Declaring an axis must not
+        // turn a repository red, and a warning per finished card floods just as
+        // badly in yellow: this repository would have emitted a hundred. Doctor
+        // output nobody can act on is output nobody reads.
+        assert.deepEqual(
+            missing.map((entry) => entry.id).sort(),
+            ["T-0001", "T-9002"],
+            "open and unclassified, and only those"
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+test("card list --axis filters, combines and refuses a repeated axis", async () => {
+    const { root, cleanup } = await workspaceWithAxes({
+        context: ["treasury", "billing"],
+        layer: ["api", "web"]
+    });
+    const run = (args: string[]) =>
+        execute(process.execPath, [cli, ...args, "--root", root], {
+            encoding: "utf8"
+        });
+    const ids = async (args: string[]) =>
+        JSON.parse((await run([...args, "--json"])).stdout).records.map(
+            (record) => record.id
+        );
+    try {
+        const a = JSON.parse(
+            (
+                await run([
+                    "card", "create", "--json", "--title", "Treasury api",
+                    "--axis", "context=treasury", "--axis", "layer=api"
+                ])
+            ).stdout
+        );
+        const b = JSON.parse(
+            (
+                await run([
+                    "card", "create", "--json", "--title", "Billing web",
+                    "--axis", "context=billing", "--axis", "layer=web"
+                ])
+            ).stdout
+        );
+
+        assert.deepEqual(await ids(["card", "list", "--axis", "context=treasury"]), [a.id]);
+        // A comma list is an OR within one axis, exactly like --status and
+        // --area, so the flag reads the same way everywhere.
+        assert.deepEqual(
+            (await ids(["card", "list", "--axis", "context=treasury,billing"])).sort(),
+            [a.id, b.id].sort()
+        );
+        // A second --axis is an AND across axes.
+        assert.deepEqual(
+            await ids(["card", "list", "--axis", "context=billing", "--axis", "layer=api"]),
+            []
+        );
+        assert.deepEqual(
+            await ids(["card", "list", "--axis", "context=billing", "--axis", "layer=web"]),
+            [b.id]
+        );
+        // And it composes with the filters that were already there.
+        assert.deepEqual(
+            await ids(["card", "list", "--axis", "layer=web", "--status", "done"]),
+            []
+        );
+
+        await assert.rejects(
+            run(["card", "list", "--axis", "context=treasury", "--axis", "context=billing"]),
+            (error: any) => {
+                // Repeating one axis keeps one value and drops the other, which
+                // the caller cannot detect — the same reason every other flag
+                // here refuses to repeat.
+                assert.match(error.stderr, /CLI_ARGUMENT_CONFLICT/);
+                return true;
+            }
+        );
+    } finally {
         await cleanup();
     }
 });

@@ -603,6 +603,11 @@ Rules:
 - an *undeclared* frontmatter key remains legal and unvalidated — declaring an
   axis is what turns a free-text note into something that fails loudly.
 
+Health checks MUST report a card value outside the declared vocabulary as an
+error. A card carrying no value for a declared axis SHOULD be a warning, and
+only while the work is open: declaring an axis on an existing repository must
+not produce one diagnostic per finished record.
+
 The schema surface reports the declared axes, so an agent discovers them the way
 it discovers areas rather than by reading the config file.
 
