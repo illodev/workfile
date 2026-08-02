@@ -3,8 +3,8 @@ id: ADR-0005
 title: "The third shadcn migration: no coexistence, the framework look wins"
 status: accepted
 created: 2026-07-31
-updated: 2026-07-31
-supersedes: [ADR-0004]
+updated: 2026-08-02
+supersedes: [ADR-0004, ADR-0001]
 ---
 ## Context
 
@@ -36,3 +36,4 @@ Migrate the UI to shadcn/ui under the note's rules:
 - The mockup is normative for structure, components and behaviour — **not for copy language**. It renders in Spanish; the shipped UI is and stays English unless the owner decides otherwise ([[workfile-records-in-english]] logic applies to the UI's public surface).
 - The density claim — that the 40px compact row preserves today's Explorer scanning density — is asserted by the note, not demonstrated by the mockup. The migration must prove it on the real Explorer with real data before the bespoke stylesheet is deleted, because after deletion there is no cheap way back.
 - `pnpm dlx shadcn add` regains a place in the workflow, and with it the guard rails: registry writes go through `-D` corrections exactly as `docs/ui.md` will re-teach.
+- **The design package no longer exists in the working tree.** On 2026-08-02 the owner deleted `design/` — mockups, note and the DC runtime — once the migration had shipped. The two files this decision calls normative are recoverable from git: `git show 0136a0e:design/shadcn-redesign.dc.html` and `git show 0136a0e:design/shadcn-migration-note.dc.html`. The shipped UI, not the mockup, is now the reference for what was built.

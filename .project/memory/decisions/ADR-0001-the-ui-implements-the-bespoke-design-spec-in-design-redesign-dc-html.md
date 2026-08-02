@@ -1,9 +1,10 @@
 ---
 id: ADR-0001
 title: The UI implements the bespoke design spec in design/redesign.dc.html
-status: accepted
+status: superseded
 created: 2026-07-30
-updated: 2026-07-30
+updated: 2026-08-02
+superseded_by: [ADR-0005]
 ---
 ## Context
 
