@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=workflow-record-knowledge version=0.2.0 digest=sha256:3059fc6f92d46dd84cc6e9f5b27c66d8c14e9dd66f50e0e791b259ce439245c3 -->
+<!-- workfile:begin kind=workflow-record-knowledge version=0.3.0 digest=sha256:3059fc6f92d46dd84cc6e9f5b27c66d8c14e9dd66f50e0e791b259ce439245c3 -->
 # Record knowledge
 
 Choose the record first, then the collection:

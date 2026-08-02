@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=claude-skill version=0.2.0 digest=sha256:46082888477f12911225a30457ee7f3c6cfeeb1ca4f3d562390940324fb125a1 -->
+<!-- workfile:begin kind=claude-skill version=0.3.0 digest=sha256:dd8f50d96a81a179140360a78c912f6546f9ea5fc4761754265fc5309bfa0473 -->
 ---
 name: workfile
 description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
@@ -27,7 +27,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 
 1. Search related work and knowledge with `pnpm workfile search`.
 2. Read the card and its relationship neighborhood before substantial code changes.
-3. Claim the card before touching its scope: `pnpm workfile card claim ID --actor ACTOR --scope path,path`.
+3. Claim the card before touching its scope: `pnpm workfile card claim ID --scope path,path`. Your identity resolves on its own and `pnpm workfile agents whoami` prints it. Pass `--actor` only to claim on someone else's behalf: an actor invented by hand does not match the one the edit guard sees.
 4. Inspect active claims and overlapping scopes. Do not overwrite another actor's work.
 5. Load the smallest relevant context; do not inject all workfile memory into every prompt.
 
@@ -73,8 +73,8 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 `pnpm workfile search "query"`  
 `pnpm workfile agents context --card T-0001`  
 `pnpm workfile card show T-0001 --json`  
-`pnpm workfile card claim T-0001 --actor session-id --scope apps/api`  
-`pnpm workfile card transition T-0001 review --actor session-id`  
+`pnpm workfile card claim T-0001 --scope apps/api`  
+`pnpm workfile card transition T-0001 review`  
 `pnpm workfile changelog add --title "Change" --type changed --area api`  
 `pnpm workfile memory add decision --title "Decision" --status accepted`  
 `pnpm workfile doctor`
