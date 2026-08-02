@@ -1,7 +1,7 @@
 ---
 id: T-0073
 title: card reopen accepts --actor and then demands one
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -68,3 +68,5 @@ so a fix in one place cannot leave the other two as they were.
 ## Activity
 
 - 2026-08-02 00:47Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
+

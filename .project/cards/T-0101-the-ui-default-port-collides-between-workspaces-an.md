@@ -1,7 +1,7 @@
 ---
 id: T-0101
 title: The UI default port collides between workspaces, and reports INTERNAL_ERROR
-status: review
+status: done
 type: bug
 priority: medium
 area: ui
@@ -57,4 +57,5 @@ the board is at a URL you can remember.
 
 - 2026-08-02 00:36Z illodev@local#e55eab30 · claimed
 - 2026-08-02 00:37Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
 

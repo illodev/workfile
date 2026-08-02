@@ -1,7 +1,7 @@
 ---
 id: T-0071
 title: No command corrects a release record once it is cut
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -82,4 +82,5 @@ frontmatter before the write lands.
 
 - 2026-08-02 00:59Z illodev@local#e55eab30 · claimed
 - 2026-08-02 00:59Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
 

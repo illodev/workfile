@@ -1,7 +1,7 @@
 ---
 id: T-0094
 title: Verify compaction restores the brief, and wire PreCompact if not
-status: review
+status: done
 type: task
 priority: low
 area: core
@@ -59,3 +59,5 @@ reach for `PreCompact` the same way.
 ## Activity
 
 - 2026-08-02 00:47Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
+

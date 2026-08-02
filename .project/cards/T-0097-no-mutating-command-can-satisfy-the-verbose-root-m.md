@@ -1,7 +1,7 @@
 ---
 id: T-0097
 title: No mutating command can satisfy the verbose-root MUST, and none accepts the flag
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -59,4 +59,5 @@ A decision either way belongs in memory, not in a commit message.
 
 - 2026-08-02 00:59Z illodev@local#e55eab30 · claimed
 - 2026-08-02 00:59Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
 

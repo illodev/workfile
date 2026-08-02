@@ -1,7 +1,7 @@
 ---
 id: T-0105
 title: The derived actor is POSIX-only, so claims do not work on Windows
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -59,4 +59,5 @@ Windows case and it passes for the wrong reason.
 
 - 2026-08-02 01:10Z illodev@local#e55eab30 · claimed
 - 2026-08-02 01:10Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
 

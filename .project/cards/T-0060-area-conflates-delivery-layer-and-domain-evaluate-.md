@@ -1,7 +1,7 @@
 ---
 id: T-0060
 title: "area conflates delivery layer and domain: evaluate a separate bc field"
-status: review
+status: done
 type: idea
 priority: low
 area: core
@@ -44,6 +44,7 @@ contract, and a field added for one project's vocabulary is hard to withdraw.
 - 2026-07-31 22:45Z session-fube-triage · released
 - 2026-08-02 01:02Z illodev@local#e55eab30 · claimed
 - 2026-08-02 01:02Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:13Z illodev@local#e55eab30 · review → done
 
 ## Findings
 
