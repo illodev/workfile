@@ -2328,10 +2328,21 @@ async function main() {
             host: option("--host") || workspace.config.ui.host,
             port: option("--port")
                 ? numberOption("--port", { min: 0, max: 65535 })
-                : workspace.config.ui.port
+                : workspace.config.ui.port,
+            // A port nobody named may move; a port somebody named may not.
+            searchForFreePort: !option("--port")
         });
         console.log(`Workfile → ${server.url}`);
         console.log(`Workspace: ${workspace.root}`);
+        if (server.displaced) {
+            const holder = server.displaced.holder;
+            console.log(
+                `Port ${server.displaced.port} is in use` +
+                    (holder ? ` by ${holder.name} (${holder.root})` : "") +
+                    `, so this board is on ${server.port}. Set ui.port in ` +
+                    `project.config.mjs to keep it on a port you can remember.`
+            );
+        }
         console.log("The v2 API is active. The packaged UI is served when dist/ui is present.");
         return;
     }

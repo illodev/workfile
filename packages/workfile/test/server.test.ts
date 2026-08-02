@@ -770,3 +770,68 @@ test("large JSON responses are gzipped only when the client asks", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * Two projects, one default port.
+ *
+ * `ui.port` is 4747 in every workspace, so the second repository a user opens
+ * collides by construction — and the answer was `INTERNAL_ERROR: listen
+ * EADDRINUSE: address already in use 127.0.0.1:4747`, the code reserved for a
+ * bug in Workfile itself, with no mention of `--port`, of `ui.port`, or of the
+ * fact that the holder is almost certainly the board they were just looking
+ * at. The reaction it invited was to kill the first server, which is what made
+ * the surface feel single-project.
+ *
+ * A port nobody named may move. A port somebody named may not, so an explicit
+ * `--port` still fails — but says what is there and how to get past it.
+ */
+test("a taken default port moves aside; a taken explicit one is refused", async () => {
+    const first = await mkdtemp(join(tmpdir(), "workfile-port-a-"));
+    const second = await mkdtemp(join(tmpdir(), "workfile-port-b-"));
+    await cp(fixture, first, { recursive: true });
+    await cp(fixture, second, { recursive: true });
+    const held = await startProjectServer(await loadWorkspace({ root: first }), {
+        port: 0
+    });
+    const taken = held.port;
+    const guest = await loadWorkspace({ root: second });
+    try {
+        const moved = await startProjectServer(guest, {
+            port: taken,
+            searchForFreePort: true
+        });
+        try {
+            assert.notEqual(moved.port, taken, "the second server did not move");
+            assert.equal(moved.requested, taken);
+            assert.equal(moved.displaced.port, taken);
+            // Naming the project, not just the port: an unrelated process
+            // holding it wants different advice from a second board, and only
+            // a probe of the API the UI serves can tell them apart.
+            assert.equal(
+                moved.displaced.holder.root,
+                first,
+                "the message cannot say which project is already there"
+            );
+            const answering = await fetch(`${moved.url}/api/v2/workspace`);
+            const served = (await answering.json()) as { root: string };
+            assert.equal(served.root, second, "the moved server changed project");
+        } finally {
+            await moved.close();
+        }
+
+        await assert.rejects(
+            startProjectServer(guest, { port: taken }),
+            (error: any) => {
+                assert.equal(error.code, "UI_PORT_IN_USE");
+                assert.match(error.message, /--port/);
+                assert.match(error.message, /ui\.port/);
+                assert.match(error.message, new RegExp(first));
+                return true;
+            }
+        );
+    } finally {
+        await held.close();
+        await rm(first, { recursive: true, force: true });
+        await rm(second, { recursive: true, force: true });
+    }
+});

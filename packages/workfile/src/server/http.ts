@@ -1632,6 +1632,56 @@ export function createProjectServer(
     return server;
 }
 
+/** How far past the configured port to look before giving up. */
+const PORT_SEARCH_LIMIT = 20;
+
+/**
+ * Who holds a port, when the answer is another Workfile UI.
+ *
+ * `EADDRINUSE` cannot tell a second board apart from an unrelated process, and
+ * the two want different advice. One probe of the API the UI serves answers
+ * it, and lets the message name the project the user is already looking at.
+ */
+async function heldBy(host: string, port: number) {
+    const reachable = ["0.0.0.0", "::", ""].includes(host) ? "127.0.0.1" : host;
+    try {
+        const response = await fetch(
+            `http://${reachable}:${port}/api/v2/workspace`,
+            { signal: AbortSignal.timeout(750) }
+        );
+        if (!response.ok) return null;
+        const body: any = await response.json();
+        return typeof body?.root === "string"
+            ? { name: body.name as string, root: body.root as string }
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+function listenOnce(server, port: number, host: string) {
+    return new Promise<void>((resolve, reject) => {
+        const onStartupError = (error) => {
+            server.off("error", onStartupError);
+            reject(error);
+        };
+        server.once("error", onStartupError);
+        server.listen(port, host, () => {
+            // The startup listener has to come off once we are listening.
+            // Leaving it registered meant a later socket error called `reject`
+            // on a settled promise: a silent no-op, and an unhandled 'error'
+            // event on the server if nothing else was listening.
+            server.off("error", onStartupError);
+            server.on("error", (error) => {
+                process.emitWarning(
+                    `project server error: ${error?.message || error}`
+                );
+            });
+            resolve();
+        });
+    });
+}
+
 export async function startProjectServer(
     workspace,
     {
@@ -1639,7 +1689,19 @@ export async function startProjectServer(
         port = workspace.config.ui.port,
         uiDir = DEFAULT_UI_DIR,
         allowedHosts,
-        verbose = false
+        verbose = false,
+        /**
+         * Move to the next free port when this one is taken.
+         *
+         * On for the configured default and off for an explicit `--port`,
+         * because those are different requests. `ui.port` is 4747 in every
+         * workspace, so the second project a user opens collides by
+         * construction and the failure said `INTERNAL_ERROR: listen
+         * EADDRINUSE` — the reaction it invited was to kill the first board.
+         * A port somebody typed is a port they want, and moving off it
+         * silently would be its own surprise.
+         */
+        searchForFreePort = false
     }: any = {}
 ) {
     // Binding to a non-loopback address is deliberate, so that address has to
@@ -1669,29 +1731,46 @@ export async function startProjectServer(
     server.keepAliveTimeout = 65_000;
     server.headersTimeout = 70_000;
     server.requestTimeout = 300_000;
-    await new Promise<void>((resolve, reject) => {
-        const onStartupError = (error) => reject(error);
-        server.once("error", onStartupError);
-        server.listen(port, host, () => {
-            // The startup listener has to come off once we are listening.
-            // Leaving it registered meant a later socket error called `reject`
-            // on a settled promise: a silent no-op, and an unhandled 'error'
-            // event on the server if nothing else was listening.
-            server.off("error", onStartupError);
-            server.on("error", (error) => {
-                process.emitWarning(
-                    `project server error: ${error?.message || error}`
+    let displaced: { port: number; holder: Awaited<ReturnType<typeof heldBy>> } | null =
+        null;
+    for (let attempt = 0; ; attempt += 1) {
+        const candidate = port + attempt;
+        try {
+            await listenOnce(server, candidate, host);
+            break;
+        } catch (error) {
+            if ((error as { code?: string })?.code !== "EADDRINUSE") throw error;
+            // Asked once, on the port the caller actually named: the holder of
+            // 4759 after nine hops is noise, and the probe costs a round trip.
+            if (!displaced) {
+                displaced = { port: candidate, holder: await heldBy(host, candidate) };
+            }
+            const exhausted = attempt >= PORT_SEARCH_LIMIT || candidate >= 65_535;
+            if (!searchForFreePort || exhausted) {
+                const who = displaced.holder
+                    ? ` by the Workfile UI for ${displaced.holder.root}`
+                    : "";
+                throw new ValidationError(
+                    "UI_PORT_IN_USE",
+                    exhausted && searchForFreePort
+                        ? `Ports ${port} to ${candidate} are all in use. Pass ` +
+                              "--port, or set ui.port in project.config.mjs."
+                        : `${host}:${port} is already in use${who}. Pass a ` +
+                              "different --port, or set ui.port in " +
+                              "project.config.mjs."
                 );
-            });
-            resolve();
-        });
-    });
+            }
+        }
+    }
     const address = server.address();
     const actualPort = typeof address === "object" && address ? address.port : port;
     return {
         server,
         host,
         port: actualPort,
+        requested: port,
+        /** The port that was taken, and who had it — null when none was. */
+        displaced: actualPort === port ? null : displaced,
         url: `http://${host}:${actualPort}`,
         events: (server as any).projectEvents,
         close: () =>

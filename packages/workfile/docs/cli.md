@@ -69,6 +69,14 @@ workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
 
+`ui` serves the board on `ui.port` from `project.config.mjs`, which is `4747`
+until a workspace says otherwise. Two projects therefore ask for the same port,
+so a taken default moves aside: the board comes up on the next free port and
+says which project holds the one it wanted. A port you named yourself does not
+move — an explicit `--port` that is in use fails with `UI_PORT_IN_USE` rather
+than landing somewhere you did not ask for. Set `ui.port` per project to keep
+each board at an address you can remember.
+
 `next` answers what to pick up now: work you already claimed first, then
 unblocked cards by priority, with unmet dependencies excluded rather than ranked
 low. Every row carries the reason it was offered. It is the same ranking the

@@ -1,15 +1,14 @@
 ---
 id: T-0101
 title: The UI default port collides between workspaces, and reports INTERNAL_ERROR
-status: backlog
+status: review
 type: bug
 priority: medium
 area: ui
-scope: [packages/workfile/src/server/http.ts, packages/workfile/bin/workfile.ts]
+scope: [packages/workfile/src/server/http.ts]
 created: 2026-08-02
 updated: 2026-08-02
 ---
-
 `ui.port` defaults to `4747` for every workspace (config/defaults.ts:210-215),
 so the second project a user opens cannot start:
 
@@ -38,14 +37,24 @@ Workfile UI from an unrelated process — a probe of `/api/v2/workspace` on the
 held port answers that, and lets the message say which project is already
 there.
 
-Whether the default should stay fixed is the open question. A port derived from
-the workspace path would remove the collision entirely but breaks the promise
-that the board is at a URL you can remember. Fixing the error first is worth
-doing either way.
+Decided: the default stays fixed and moves aside. A port nobody named may move,
+so `wf ui` on a taken 4747 serves on the next free port and says which project
+holds the one it wanted. A port somebody named may not, so an explicit `--port`
+still fails — with the same diagnosis instead of a raw Node string. Deriving the
+port from the workspace path was the alternative, and it breaks the promise that
+the board is at a URL you can remember.
 
 ## Acceptance criteria
 
-- [ ] A port already in use is reported with a workspace-level code, not `INTERNAL_ERROR`
-- [ ] The message names `--port` and `ui.port`
-- [ ] It says which workspace holds the port when the holder is a Workfile UI
-- [ ] A test starts two servers on one port and pins the answer
+- [x] A port already in use is reported with a workspace-level code, not `INTERNAL_ERROR`
+- [x] The message names `--port` and `ui.port`
+- [x] It says which workspace holds the port when the holder is a Workfile UI
+- [x] `wf ui` on a taken default serves on the next free port and says so
+- [x] An explicit --port that is taken still fails, naming the holder
+- [x] A test starts two servers on one port and pins both answers
+
+## Activity
+
+- 2026-08-02 00:36Z illodev@local#e55eab30 · claimed
+- 2026-08-02 00:37Z illodev@local#e55eab30 · doing → review
+
