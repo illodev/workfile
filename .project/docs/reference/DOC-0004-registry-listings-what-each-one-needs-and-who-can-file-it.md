@@ -17,7 +17,8 @@ The rest are forms behind a human session, and no amount of repository
 configuration automates them.
 
 [[T-0133]] tracks which of the manual ones are actually filed. This document
-stays the reference: requirements, copy, and order.
+stays the reference: requirements, copy, and order. Every field list below was
+read off the live form, except where it says otherwise.
 
 ## Published from CI
 
@@ -45,8 +46,10 @@ Validate a change without publishing:
 mcp-publisher validate
 ```
 
-Downstream registries mirror this one. Listing here is what eventually feeds
-the aggregators below, so it is the only entry that compounds.
+This is the only entry that compounds, and it compounds more than "eventually
+the aggregators mirror it" suggested: PulseMCP states it ingests the official
+registry daily and processes weekly. Assume any aggregator may arrive on its
+own, and check before filing.
 
 ## Indexed without asking
 
@@ -59,21 +62,42 @@ descriptions the server already returns, so it improves when those do.
 Its score badge resolves for any repository path, filled in once the crawler
 arrives — so a listing that embeds the badge is never broken, only unscored.
 
+### PulseMCP — `pulsemcp.com`
+
+Ingests the official MCP Registry daily, processes weekly. The form at
+<https://www.pulsemcp.com/submit> is a fallback, not the path: it asks only
+whether you are submitting a server or a client, and for one URL. Corrections
+to an existing listing go to `hello@pulsemcp.com`, not through the form.
+
+Check for the listing before submitting one.
+
 ## Forms only the maintainer can file
 
 Each of these needs a browser session and an account. None of them can be
 driven from this repository.
 
-### Anthropic plugin directory
+### Claude Code community marketplace
 
-- Form: <https://clau.de/plugin-directory-submission>
-- Directory: `anthropics/claude-plugins-official`
-- Needs: a public marketplace with `.claude-plugin/marketplace.json`, and a
-  plugin that meets Anthropic's quality and security review.
-- This repository is already a marketplace. The entry carries `displayName`,
-  `category` and `keywords` because the directory sorts on them.
-- The only one with a review queue behind it, so the one where waiting costs
-  the most. File it first.
+The old link, `clau.de/plugin-directory-submission`, now 302s to the plugins
+documentation rather than to a form. Two things it corrects:
+
+- Submissions land in **`anthropics/claude-plugins-community`**, installed by
+  users as `@claude-community`. They do not land in
+  `claude-plugins-official`, which Anthropic curates at its own discretion
+  with no application process at all.
+- There are two forms, and which one applies depends on the account.
+  <https://claude.ai/admin-settings/directory/submissions/plugins/new> needs a
+  Team or Enterprise organisation with directory management access. Individual
+  authors use the Console instead:
+  <https://platform.claude.com/plugins/submit>.
+
+Run `claude plugin validate ./plugins/workfile` first. The review pipeline runs
+the same check, alongside automated safety screening. As of writing it **fails**
+— see [[T-0134]] — so this submission is blocked until that card closes.
+
+After approval the plugin is pinned to a commit SHA in the community catalog
+and CI bumps the pin as the repository moves. The public catalog syncs
+nightly, so absence right after approval is expected rather than a problem.
 
 ### mcpservers.org — `wong2/awesome-mcp-servers`
 
@@ -81,25 +105,34 @@ driven from this repository.
 - Reads like a pull request target and is not one. The README says so in its
   second line, and the repository has pull requests and issues both disabled:
   `GET /repos/wong2/awesome-mcp-servers/pulls` returns 404, and `gh pr create`
-  fails with a permissions error that never names the real cause.
+  fails with a permissions error that never names the cause.
+- Fields, all required: Server Name, Short Description, Link (GitHub or docs),
+  Category, Contact Email. Category is a fixed dropdown — `Productivity`,
+  `Development` and `Memory` are the three that fit.
+- There is an optional "Premium Submit" checkbox carrying a $39 one-time fee.
+  Nothing requires it.
+
+### Smithery — `smithery.ai`
+
+Takes a local stdio server, contrary to the earlier note here that it needed a
+hosted one. Two routes, and only the second applies to Workfile:
+
+- A public HTTPS endpoint, entered at <https://smithery.ai/new>.
+- An `.mcpb` bundle for servers that run locally, uploaded through the site or
+  with `smithery mcp publish ./server.mcpb -n illodev/workfile`.
+
+The current documentation names no required `smithery.yaml`. A
+`/.well-known/mcp/server-card.json` is offered as optional metadata for when
+automatic scanning fails.
+
+Building the `.mcpb` is work this repository does not do yet. It has no card;
+file one before starting rather than folding it into a submission.
 
 ### mcp.so
 
 - Submit button on the site, or an issue on their GitHub repository.
-- Needs: repository URL and a description. The server.json listing is the
-  stronger signal; this one is reach.
-
-### PulseMCP — `pulsemcp.com`
-
-- Submit button in the site navigation.
-- Needs: repository URL, description, category. Publishes an estimated weekly
-  visitor count per server, which makes it the only one of these that reports
-  back whether the listing did anything.
-
-### Smithery — `smithery.ai`
-
-- Needs: a publisher account and a manifest naming the server, its tools and
-  its auth method. Costs an account, not a secret.
+- Unverified: the site answers automated requests with HTTP 403, so the field
+  list here is the only one not read off the live form. Confirm in a browser.
 
 ## Pull requests
 
@@ -131,6 +164,7 @@ like one project rather than four.
   Registry's limit — do not extend it without checking.)
 - **Repository**: <https://github.com/illodev/workfile>
 - **Demo**: <https://workfiledemo.illodev.com>
+- **Contact**: the address on the npm package
 - **License**: MIT
 - **Category**: productivity
 - **Install**: `npx -y @illodev/workfile mcp` — the invocation the registry
@@ -140,4 +174,12 @@ like one project rather than four.
 
 The MCP Registry entry only exists once a tag ships it, because it names a
 version npm must already serve. `v0.4.0` was that tag, so the entry is live
-and every submission below it can be filed now — several of them ask for it.
+and everything downstream of it can proceed.
+
+1. Close [[T-0134]]. It blocks the Claude Code submission and nothing else
+   waits on it.
+2. File the Claude Code community marketplace form. It is the only one with a
+   review queue behind it, so it is where waiting costs the most.
+3. File mcpservers.org and mcp.so.
+4. Check Glama and PulseMCP rather than filing: both arrive on their own.
+5. Smithery last, once something builds the `.mcpb`.
