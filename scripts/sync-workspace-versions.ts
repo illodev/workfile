@@ -8,13 +8,14 @@
  * carries `packages/*` inside the same bump commit — and `--check` lets CI
  * and the test suite refuse any commit where the versions drift apart.
  */
+import type { Dirent } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const check = process.argv.includes("--check");
 const root = JSON.parse(await readFile("package.json", "utf8"));
 
-let entries = [];
+let entries: Dirent[] = [];
 try {
     entries = (await readdir("packages", { withFileTypes: true })).filter(
         (entry) => entry.isDirectory()
@@ -23,7 +24,7 @@ try {
     process.exit(0);
 }
 
-const drift = [];
+const drift: string[] = [];
 for (const entry of entries) {
     const path = join("packages", entry.name, "package.json");
     let raw;
@@ -48,6 +49,40 @@ for (const entry of entries) {
         )
     );
     console.log(`${pkg.name}: ${pkg.version} → ${root.version}`);
+}
+
+// server.json states the version twice — once for the MCP server and once for
+// the npm package it resolves to — and the MCP Registry refuses a version npm
+// does not serve yet. So a stale copy here does not publish something slightly
+// wrong, it fails the release after npm has already been written to.
+let manifest;
+try {
+    manifest = await readFile("server.json", "utf8");
+} catch {
+    manifest = null;
+}
+if (manifest) {
+    const server = JSON.parse(manifest);
+    const stale = [
+        ...new Set(
+            [server.version, ...(server.packages || []).map((pkg) => pkg.version)]
+                .filter(Boolean)
+                .filter((version) => version !== root.version)
+        )
+    ];
+    if (stale.length && check) {
+        drift.push(`server.json is ${stale.join(", ")}, root is ${root.version}`);
+    } else if (stale.length) {
+        let next = manifest;
+        for (const version of stale) {
+            next = next.replaceAll(
+                `"version": "${version}"`,
+                `"version": "${root.version}"`
+            );
+        }
+        await writeFile("server.json", next);
+        console.log(`server.json: ${stale.join(", ")} → ${root.version}`);
+    }
 }
 
 if (drift.length) {

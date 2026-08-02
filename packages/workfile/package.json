@@ -2,6 +2,7 @@
   "name": "@illodev/workfile",
   "version": "0.3.0",
   "type": "module",
+  "mcpName": "io.github.illodev/workfile",
   "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",
   "repository": {
     "type": "git",
@@ -139,8 +140,11 @@
   "keywords": [
     "project-management",
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "agents",
+    "ai-agents",
+    "claude-code",
     "markdown",
     "backlog",
     "documentation",

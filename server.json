@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.illodev/workfile",
+  "title": "Workfile",
+  "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",
+  "version": "0.3.0",
+  "websiteUrl": "https://workfiledemo.illodev.com",
+  "repository": {
+    "url": "https://github.com/illodev/workfile",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@illodev/workfile",
+      "version": "0.3.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "valueHint": "mcp",
+          "value": "mcp",
+          "isRequired": true,
+          "description": "Starts the stdio MCP server."
+        },
+        {
+          "type": "named",
+          "name": "--root",
+          "description": "Workspace root. Defaults to the working directory, searching upwards for .project/.",
+          "isRequired": false
+        },
+        {
+          "type": "named",
+          "name": "--read-only",
+          "description": "Serves the read tools only, refusing every mutation.",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

@@ -65,3 +65,22 @@ jobs:
                   for package in packages/*/; do
                       (cd "$package" && npm publish --tag latest)
                   done
+            # The MCP Registry stores metadata, never artifacts, and validates
+            # it against the package it points at: `mcpName` in the published
+            # package.json has to match `name` in server.json, and the version
+            # has to be one npm already serves. Both make this a step after the
+            # publish loop rather than beside it.
+            - name: Install mcp-publisher
+              run: |
+                  curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+            - name: Publish to the MCP Registry
+              run: |
+                  # `github-oidc` reuses the id-token permission trusted
+                  # publishing already requires, so the registry write adds no
+                  # stored credential. That is why the server is named under
+                  # io.github.illodev/ and not a com.illodev/ namespace: the
+                  # nicer string is only reachable with an Ed25519 private key
+                  # in repository secrets, and this workflow was built to hold
+                  # none.
+                  ./mcp-publisher login github-oidc
+                  ./mcp-publisher publish

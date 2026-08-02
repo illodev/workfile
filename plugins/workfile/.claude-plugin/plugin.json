@@ -1,5 +1,6 @@
 {
   "name": "workfile",
+  "displayName": "Workfile",
   "description": "Work, Docs, History and Memory as Markdown in the repository, with an MCP server and claim-aware guard rails.",
   "version": "0.3.0",
   "author": {

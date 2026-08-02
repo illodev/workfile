@@ -1,6 +1,5 @@
 {
     "../../scripts/screenshot-workspace.ts": 18,
-    "../../scripts/sync-workspace-versions.ts": 3,
     "bin/workfile.ts": 18,
     "scripts/bench-workspace.ts": 8,
     "scripts/bench.ts": 1,
