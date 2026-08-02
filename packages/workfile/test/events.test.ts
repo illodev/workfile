@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -305,6 +305,120 @@ test("the SSE channel reports writes made outside the server", async () => {
         assert.ok(listed.tasks.some((task) => task.id === "T-9100"));
     } finally {
         await stream?.cancel();
+        await running.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * An open stream and a stream that can deliver are different things.
+ *
+ * The watcher starts on the first subscriber and is not awaited, so `hello`
+ * goes out while it is still arming — and it can finish unable to deliver at
+ * all, which is the designed behaviour on a network filesystem. The interface
+ * stops polling the moment `hello` arrives, so for as long as the frame said
+ * nothing about the watcher, a workspace `fs.watch` is silent about left the
+ * board permanently still: no stream, no poll, and nothing on screen saying so.
+ */
+test("the stream says whether it can deliver, not only that it is open", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ready-"));
+    await buildBenchWorkspace(root, "S");
+    const workspace = await loadWorkspace({ root });
+    const running = await startProjectServer(workspace, { port: 0 });
+    let first;
+    let second;
+
+    try {
+        first = readStream(await fetch(`${running.url}/api/v2/events`));
+        for (let waited = 0; waited < 3000 && !first.frames.length; waited += 25) {
+            await sleep(25);
+        }
+        // The first subscriber is the one that starts it, so it cannot be told
+        // anything better than "not yet".
+        assert.equal(first.frames[0]?.type, "hello");
+        assert.equal(first.frames[0].data.watcher.mode, "pending");
+
+        const watching = await watcherReady(running.url);
+        assert.ok(watching, "the watcher never came up");
+        if (watching.mode !== "watch") return;
+
+        // And it is told when that changes, rather than having to poll for it.
+        for (let waited = 0; waited < 3000; waited += 25) {
+            if (first.frames.some((frame) => frame.type === "watch.state")) break;
+            await sleep(25);
+        }
+        const settled = first.frames.find(
+            (frame) => frame.type === "watch.state"
+        );
+        assert.ok(settled, "the watcher settling is announced");
+        assert.equal(settled.data.mode, "watch");
+        assert.ok(settled.data.directories > 0);
+
+        // A client arriving later gets the answer in `hello` itself.
+        second = readStream(await fetch(`${running.url}/api/v2/events`));
+        for (let waited = 0; waited < 3000 && !second.frames.length; waited += 25) {
+            await sleep(25);
+        }
+        assert.equal(second.frames[0].data.watcher.mode, "watch");
+    } finally {
+        await first?.cancel();
+        await second?.cancel();
+        await running.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// The probe asks whether one notification arrived inside half a second, which
+// a loaded machine can fail on a filesystem that works — and the answer used to
+// be cached for the life of the process, so a bad half second turned push off
+// until the server was restarted.
+test("a watcher that came up unable to deliver is tried again", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-retry-"));
+    await buildBenchWorkspace(root, "S");
+    // A file where the probe wants its directory, so `mkdir` fails and the
+    // watcher decides the platform does not deliver. Chosen over revoking
+    // permissions because that is a no-op on the Windows runner.
+    const inTheWay = join(root, ".project/.cache/watch");
+    await mkdir(join(root, ".project/.cache"), { recursive: true });
+    await writeFile(inTheWay, "in the way");
+
+    const workspace = await loadWorkspace({ root });
+    const running = await startProjectServer(workspace, {
+        port: 0,
+        watchRetryMs: 200
+    });
+
+    try {
+        await fetch(`${running.url}/api/v2/events`).then((response) =>
+            response.body?.cancel()
+        );
+        const failed = await watcherReady(running.url);
+        assert.equal(failed?.mode, "unavailable", "the probe was refused");
+
+        // The obstacle goes away, as a busy machine becomes quiet again.
+        await rm(inTheWay, { force: true });
+        await sleep(250);
+
+        await fetch(`${running.url}/api/v2/events`).then((response) =>
+            response.body?.cancel()
+        );
+        // Not `watcherReady`: it answers as soon as the mode is settled, and
+        // the mode reads "unavailable" from the failed attempt until the retry
+        // finishes. The handle count is what says the retry succeeded.
+        let recovered: { mode: string; directories: number } | null = null;
+        for (let waited = 0; waited < 10000; waited += 25) {
+            const metrics = (await fetch(`${running.url}/api/v2/metrics`).then(
+                (response) => response.json()
+            )) as { watcher: { mode: string; directories: number } };
+            if (metrics.watcher.directories > 0) {
+                recovered = metrics.watcher;
+                break;
+            }
+            await sleep(25);
+        }
+        assert.ok(recovered, "a later subscriber tries again");
+        assert.equal(recovered.mode, "watch");
+    } finally {
         await running.close();
         await rm(root, { recursive: true, force: true });
     }

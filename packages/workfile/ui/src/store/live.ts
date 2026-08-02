@@ -51,6 +51,18 @@ export function createLiveConnection({
         fallbackTimer = null;
     }
 
+    /**
+     * Polling stops only once the server says it is watching.
+     *
+     * `pending` keeps it running rather than assuming the best: the watcher is
+     * started on the first subscriber and takes anywhere from milliseconds to
+     * half a second to arm, and `unavailable` means it never will.
+     */
+    function applyWatchState(mode?: string) {
+        if (mode === "watch") stopFallback();
+        else startFallback();
+    }
+
     function connect() {
         // The static demo has no server behind it: no stream, and no polling
         // either, because nothing can change underneath it.
@@ -63,14 +75,32 @@ export function createLiveConnection({
 
         source.addEventListener("hello", (event) => {
             failures = 0;
-            stopFallback();
             const data = JSON.parse((event as MessageEvent).data);
+            // An open stream is not a working one. The server starts its
+            // watcher lazily and answers before it is up, and the watcher can
+            // come up unable to deliver at all — so stopping the poll on
+            // `hello` alone is how this connection used to go quiet for good on
+            // a filesystem `fs.watch` says nothing about.
+            applyWatchState(data.watcher?.mode);
             // A different process means its event ids restarted, so anything
             // held from before it is untrustworthy.
             if (serverId && serverId !== data.serverId) {
                 emit({ paths: [], reset: true, epoch: ++epoch });
             }
             serverId = data.serverId;
+        });
+
+        // Sent once the watcher settles, and again if a later attempt succeeds
+        // where an earlier one failed.
+        source.addEventListener("watch.state", (event) => {
+            const data = JSON.parse((event as MessageEvent).data || "{}");
+            applyWatchState(data.mode);
+            // Either way: whatever happened while nothing was watching went
+            // unreported, so the corpus is suspect. It also settles the
+            // connection indicator, which re-reads the mode only when a change
+            // arrives and would otherwise keep claiming "sse live" on a
+            // connection that had already fallen back to polling.
+            emit({ paths: [], reset: true, epoch: ++epoch });
         });
 
         source.addEventListener("records.changed", (event) => {

@@ -328,7 +328,7 @@ function createEventHub({ bufferSize = 512 } = {}) {
             if (buffer.length > bufferSize) buffer.shift();
             for (const response of [...clients]) write(response, event);
         },
-        subscribe(request, response) {
+        subscribe(request, response, hello: any = {}) {
             response.writeHead(200, {
                 "Content-Type": "text/event-stream; charset=utf-8",
                 "Cache-Control": "no-cache",
@@ -342,8 +342,12 @@ function createEventHub({ bufferSize = 512 } = {}) {
 
             // `hello` first, so a client can tell a reconnection to the same
             // process from one to a restarted process whose ids began again.
+            // It carries the watcher's state because the stream being open and
+            // the stream being able to deliver are different things, and a
+            // client that cannot tell them apart stops polling on the strength
+            // of the first.
             response.write(
-                `event: hello\ndata: ${JSON.stringify({ serverId, lastEventId: nextId - 1 })}\n\n`
+                `event: hello\ndata: ${JSON.stringify({ serverId, lastEventId: nextId - 1, ...hello })}\n\n`
             );
 
             const since = Number(request.headers["last-event-id"]);
@@ -680,8 +684,46 @@ export function createProjectServer(
     // the filesystem, so a server nobody is streaming from has no reason to
     // hold hundreds of watch descriptors.
     let watching = null;
+    // "pending" until `start()` settles, then whatever the watcher decided.
+    // Reported in `hello` and announced on `watch.state`, because the interface
+    // stops polling when the stream opens and had no way to learn that the
+    // stream would never deliver anything — which is the failure its own
+    // fallback exists to prevent.
+    let watchState = "pending";
+    let attemptedAt = 0;
+    // A degraded verdict is not cached. The probe asks whether one filesystem
+    // notification arrived inside half a second, which a busy machine can fail
+    // on a filesystem that works perfectly; caching that answer turned a bad
+    // half second into push being off for the life of the process. Retried on
+    // a later subscriber, but not on every one: a genuinely silent filesystem
+    // would otherwise pay the probe on every reconnect, and `EventSource`
+    // reconnects on its own.
+    const retryAfterMs = options.watchRetryMs ?? 30_000;
     const ensureWatching = () => {
-        if (!watching) watching = watcher.start();
+        if (watching) return watching;
+        if (watchState !== "pending" && Date.now() - attemptedAt < retryAfterMs) {
+            return null;
+        }
+        attemptedAt = Date.now();
+        watching = watcher.start().then(
+            (started) => {
+                watchState = started.mode;
+                if (started.mode !== "watch") watching = null;
+                events.publish("watch.state", {
+                    mode: watchState,
+                    directories: started.watchedDirectories
+                });
+                return started;
+            },
+            () => {
+                watchState = "unavailable";
+                watching = null;
+                events.publish("watch.state", {
+                    mode: watchState,
+                    directories: 0
+                });
+            }
+        );
         return watching;
     };
     const hosts =
@@ -766,7 +808,12 @@ export function createProjectServer(
 
             if (method === "GET" && url.pathname === "/api/v2/events") {
                 void ensureWatching();
-                return events.subscribe(request, response);
+                return events.subscribe(request, response, {
+                    watcher: {
+                        mode: watchState,
+                        directories: watcher.watchedDirectories
+                    }
+                });
             }
             if (method === "GET" && url.pathname === "/api/v2/metrics") {
                 return sendJson(
@@ -1703,7 +1750,13 @@ export async function startProjectServer(
          * A port somebody typed is a port they want, and moving off it
          * silently would be its own surprise.
          */
-        searchForFreePort = false
+        searchForFreePort = false,
+        /**
+         * How long a watcher that came up unable to deliver is left alone
+         * before a later subscriber tries again. Worth raising on a filesystem
+         * known to be silent, where every retry buys a probe and nothing else.
+         */
+        watchRetryMs
     }: any = {}
 ) {
     // Binding to a non-loopback address is deliberate, so that address has to
@@ -1719,7 +1772,8 @@ export async function startProjectServer(
     const server = createProjectServer(workspace, {
         uiDir,
         allowedHosts: resolvedHosts,
-        verbose
+        verbose,
+        watchRetryMs
     });
     // A malformed request or a socket that dies mid-response must not be able
     // to end the process. `clientError` in particular fires outside the request
