@@ -660,8 +660,13 @@ test("the flag table matches what each subcommand actually reads", async () => {
         "utf8"
     );
 
+    // Every helper that reads argv, and each takes the flag name as its first
+    // argument — which is what makes the read visible here at all. A helper
+    // that hardcoded its own flag would be invisible to this guard and could
+    // sit in COMMAND_FLAGS unread, so the argument is a requirement, not a
+    // style: `axisOptions("--axis")` rather than `axisOptions()`.
     const READ =
-        /\b(?:option|listOption|dateOption|numberOption|has|repeatedNumbers)\(\s*"(--?[\w-]+)"/g;
+        /\b(?:option|listOption|dateOption|numberOption|has|repeatedNumbers|axisOptions)\(\s*"(--?[\w-]+)"/g;
 
     /** The balanced `{...}` starting at `open`. */
     const block = (text, open) => {

@@ -1,5 +1,7 @@
 import {
     AGENT_TARGET_IDS,
+    AXIS_NAME_RE,
+    CARD_RESERVED_KEYS,
     CI_TARGET_IDS,
     DOC_LAYOUTS,
     MEMORY_DEFINITIONS,
@@ -60,6 +62,50 @@ function validateStringList(
                 `Duplicate ${path} values: ${duplicates.join(", ")}`
             )
         );
+    }
+}
+
+/**
+ * `cards.axes`: a name mapped to the vocabulary its values must come from.
+ *
+ * An axis is only worth declaring for what declaring buys — a value outside the
+ * list fails loudly instead of matching nothing. So the two ways to declare one
+ * that buys nothing are refused here rather than at the write path: an empty
+ * vocabulary validates everything, and a name a card already uses validates the
+ * wrong field.
+ */
+function validateCardAxes(issues: ConfigIssue[], axes) {
+    if (axes === undefined) return;
+    if (!axes || typeof axes !== "object" || Array.isArray(axes)) {
+        issues.push(
+            issue(
+                "CONFIG_CARDS_AXES_INVALID",
+                "cards.axes",
+                "cards.axes must be an object mapping an axis name to its values"
+            )
+        );
+        return;
+    }
+    for (const [name, values] of Object.entries(axes)) {
+        const path = `cards.axes.${name}`;
+        if (!AXIS_NAME_RE.test(name)) {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_AXIS_NAME_INVALID",
+                    path,
+                    `Axis name "${name}" must be lowercase letters, digits and underscores, and start with a letter`
+                )
+            );
+        } else if (CARD_RESERVED_KEYS.includes(name as never)) {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_AXIS_RESERVED",
+                    path,
+                    `Axis name "${name}" is already a card field; pick another name`
+                )
+            );
+        }
+        validateStringList(issues, values, path);
     }
 }
 
@@ -130,6 +176,7 @@ export function validateProjectConfig(config: any) {
                 );
             }
         }
+        validateCardAxes(issues, config.cards.axes);
         validatePrefix(
             issues,
             config.cards.idPrefix,

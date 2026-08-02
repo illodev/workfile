@@ -136,7 +136,9 @@ const USAGE: Record<string, string[]> = {
         "workfile card show ID [--json]",
         "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
+        "workfile card create --title TITLE --axis context=treasury   # repeatable; see `workfile schema`",
         "workfile card patch ID --json-input FILE [--expected-revision REV]",
+        "workfile card patch ID --axis context=billing   # repeatable; empty value clears the axis",
         "workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]",
         "workfile card release ID [--actor ACTOR] [--status next]",
         "workfile card transition ID STATUS [--actor ACTOR]",
@@ -311,6 +313,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card create": [
         "--area",
+        "--axis",
         "--body",
         "--depends",
         "--due",
@@ -351,6 +354,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card patch": [
         "--actor",
+        "--axis",
         "--expected-revision",
         "--force",
         "--json-input"
@@ -692,7 +696,7 @@ const BOOLEAN_FLAGS = new Set([
  * `option()` returns the first match and drops the rest. For anything not
  * listed here that is a silently discarded instruction, so it is refused.
  */
-const REPEATABLE_FLAGS = new Set(["--check", "--uncheck"]);
+const REPEATABLE_FLAGS = new Set(["--check", "--uncheck", "--axis"]);
 
 /**
  * Refuses flags the subcommand does not know, instead of ignoring them.
@@ -1005,6 +1009,36 @@ function repeatedNumbers(name) {
     return values;
 }
 
+/**
+ * `--axis name=value`, repeated once per axis.
+ *
+ * A flag per axis is not available: `COMMAND_FLAGS` is the static table the
+ * unknown-flag guard reads, and axes are declared per project. So the axis name
+ * travels in the value, and the workspace — not this table — decides whether it
+ * is one the project declares.
+ *
+ * `--axis context=` with nothing after the `=` clears the axis, the way an
+ * empty value clears any card field. That is why the split is on the first `=`
+ * and an empty right-hand side is kept rather than rejected.
+ */
+function axisOptions(flag) {
+    const axes: Record<string, string> = {};
+    for (let index = 0; index < process.argv.length; index += 1) {
+        if (process.argv[index] !== flag) continue;
+        const raw = String(process.argv[index + 1] ?? "");
+        const at = raw.indexOf("=");
+        const name = (at === -1 ? raw : raw.slice(0, at)).trim();
+        if (at === -1 || !name) {
+            throw new ValidationError(
+                "CLI_ARGUMENT_INVALID",
+                `${flag} takes name=value; got "${raw}".`
+            );
+        }
+        axes[name] = raw.slice(at + 1).trim();
+    }
+    return Object.keys(axes).length ? axes : undefined;
+}
+
 /** A date filter, refused rather than silently matching nothing. */
 function dateOption(name) {
     return dateBoundary(option(name), { label: name, code: "CLI_OPTION_INVALID" });
@@ -1285,7 +1319,8 @@ async function cardCommand(workspace, action) {
                 : {}),
             ...(listOption("--related")
                 ? { related: listOption("--related") }
-                : {})
+                : {}),
+            ...(axisOptions("--axis") ? { axes: axisOptions("--axis") } : {})
         };
         const result = await createCard(workspace, input);
         return print(has("--json") ? result.card : `${result.id} ${result.file}`);
@@ -1387,11 +1422,15 @@ async function cardCommand(workspace, action) {
         return print(has("--json") ? result.card : `${id} body written`);
     }
     if (action === "patch") {
-        const changes = await jsonInput();
-        if (!changes) {
+        const axes = axisOptions("--axis");
+        const changes = {
+            ...((await jsonInput()) || {}),
+            ...(axes ? { axes } : {})
+        };
+        if (!Object.keys(changes).length) {
             throw new ValidationError(
                 "CLI_ARGUMENT_REQUIRED",
-                "card patch requires --json-input FILE"
+                "card patch requires --json-input FILE or --axis name=value"
             );
         }
         const result = await patchCard(workspace, id, changes, {

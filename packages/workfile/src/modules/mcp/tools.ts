@@ -54,6 +54,11 @@ import {
 
 const OBJECT = { type: "object", additionalProperties: false };
 const STRING_ARRAY = { type: "array", items: { type: "string" } };
+/** Project-declared classification axes: `{ context: "treasury" }`. */
+const AXES_OBJECT = {
+    type: "object",
+    additionalProperties: { type: "string" }
+};
 
 function schema(properties, required = []) {
     return {
@@ -469,7 +474,12 @@ const TOOL_DEFINITIONS = [
                 effort: { type: "string" },
                 start: { type: "string" },
                 due: { type: "string" },
-                body: { type: "string" }
+                body: { type: "string" },
+                // A container rather than a property per axis: this schema is
+                // static and axes are declared per project, so the axis name
+                // has to travel in the data. `project_workspace` reports which
+                // ones exist and what each accepts.
+                axes: AXES_OBJECT
             },
             ["title"]
         ),
@@ -648,7 +658,8 @@ const TOOL_DEFINITIONS = [
         name: "project_card_patch",
         title: "Patch a work card",
         description:
-            "Patch allowed card metadata using optimistic concurrency. Use expectedRevision whenever the card was read earlier.",
+            "Patch allowed card metadata using optimistic concurrency. Use expectedRevision whenever the card was read earlier. " +
+            "Declared axes go in changes.axes as { name: value }; an empty value clears one.",
         inputSchema: schema(
             {
                 id: { type: "string", minLength: 1 },

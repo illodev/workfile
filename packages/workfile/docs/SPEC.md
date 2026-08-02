@@ -266,6 +266,7 @@ export default defineProject({
         maxHierarchyDepth: 2,
         claimLeaseHours: 24,
         areas: ["api", "web", "infra", "docs"],
+        axes: { context: ["treasury", "verifactu", "billing", "iam"] },
         tags: []
     },
 
@@ -343,6 +344,7 @@ The following are protocol-defined and stable in schema version 2:
 The following are project-configurable:
 
 - areas;
+- additional classification axes (`cards.axes`);
 - optional custom tags;
 - source globs;
 - enabled memory collections;
@@ -567,7 +569,44 @@ verified in an appropriate running environment.
 
 Priority MUST not encode workflow state or effort.
 
-### 11.6 Hierarchy
+### 11.6 Classification axes
+
+`area` is one axis and it is shaped like a delivery layer. A project that also
+needs a domain axis — bounded contexts, products, customers — declares one under
+`cards.axes`:
+
+```js
+cards: {
+    areas: ["api", "web", "infra"],
+    axes: { context: ["treasury", "verifactu", "billing", "iam"] }
+}
+```
+
+Each declared axis becomes a flat frontmatter key on the card:
+
+```yaml
+area: api
+context: treasury
+```
+
+Flat, not a nested `axes:` mapping, so the value stays greppable and the
+existing query grammar reads it without a second index: `search
+"context:treasury"` already filters on any frontmatter key.
+
+Rules:
+
+- an axis name MUST NOT collide with a field a card already owns;
+- an axis MUST declare a non-empty vocabulary;
+- a card value outside the declared vocabulary is invalid, the way an unknown
+  `area` is;
+- an axis is optional on a card unless a project rule says otherwise;
+- an *undeclared* frontmatter key remains legal and unvalidated — declaring an
+  axis is what turns a free-text note into something that fails loudly.
+
+The schema surface reports the declared axes, so an agent discovers them the way
+it discovers areas rather than by reading the config file.
+
+### 11.7 Hierarchy
 
 The default hierarchy is:
 
@@ -585,7 +624,7 @@ Rules:
 - deleting a parent is forbidden while references remain;
 - `depends:` is an ordering hint, not a hard execution lock.
 
-### 11.7 Claims and scope
+### 11.8 Claims and scope
 
 A claim is an advisory lease treated as binding by protocol-aware agents.
 
@@ -611,7 +650,7 @@ Rules:
 5. A card outside `doing` MUST NOT retain `claimed_by` or `claimed_at`.
 6. The CLI SHOULD provide atomic `claim`, `release` and `transition` operations.
 
-### 11.8 Scheduling
+### 11.9 Scheduling
 
 `start` and `due` are optional calendar dates used for planning views.
 
@@ -621,7 +660,7 @@ Rules:
 - a future date on a completed card is not treated as lateness;
 - scheduling is not a commitment unless another configured policy says so.
 
-### 11.9 Assets
+### 11.10 Assets
 
 Assets are stored by card ID:
 
@@ -639,7 +678,7 @@ Rules:
 - images may be rendered inline and other files offered as local links;
 - Git suitability must be communicated before adding large binaries.
 
-### 11.10 Archiving
+### 11.11 Archiving
 
 - `done` and `discarded` cards may be moved to the configured archive directory.
 - Archiving is explicit, never automatic.

@@ -97,7 +97,17 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
             types: [...CARD_TYPES],
             priorities: [...CARD_PRIORITIES],
             efforts: [...CARD_EFFORTS],
-            areas: [...config.cards.areas]
+            areas: [...config.cards.areas],
+            // Reported so an agent discovers a project's axes the way it
+            // discovers its areas. Without this the only way to learn that
+            // `context:` exists and what it accepts is to read the config file,
+            // which the MCP surface deliberately does not expose.
+            axes: Object.fromEntries(
+                Object.entries(config.cards.axes || {}).map(([name, values]) => [
+                    name,
+                    [...(values as string[])]
+                ])
+            )
         },
         docs: {
             kinds: [...config.docs.kinds],

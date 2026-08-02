@@ -157,9 +157,10 @@ workfile card show ID [--json]
 workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
                     [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
                     [--depends ID,ID] [--related ID,ID] [--milestone M] [--effort S|M|L]
-                    [--start DATE] [--due DATE] [--body TEXT]
+                    [--start DATE] [--due DATE] [--body TEXT] [--axis NAME=VALUE]
 workfile card create --json-input FILE
 workfile card patch ID --json-input FILE [--expected-revision REV]
+workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clears it
 workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next]
 workfile card transition ID STATUS [--actor ACTOR]
@@ -189,6 +190,14 @@ one call, and a JSON file survives backticks, `$` and accents that a shell
 heredoc quietly mangles. The flag form above writes the same fields; it is the
 body that argues for the file.
 
+`--axis NAME=VALUE` writes a classification axis the project declares under
+`cards.axes` — a second axis alongside `area`, for domains rather than delivery
+layers. Run `workfile schema --json` to see which axes exist and what each
+accepts; an undeclared axis and a value outside its vocabulary are both refused,
+and the message carries the list. It repeats, once per axis, because the axis
+name is per project and a flag per axis is not something a static table can
+offer. `--axis context=` with nothing after the `=` clears it.
+
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.
 
@@ -213,8 +222,8 @@ an agent cannot detect.
 
 An option given twice is refused with `CLI_ARGUMENT_CONFLICT`, because only the
 first occurrence is read — pass a list as one comma-separated value. `card ac
---check` and `--uncheck` are the exception and may repeat, because something
-reads every occurrence.
+--check`, `--uncheck` and `card create|patch --axis` are the exceptions and may
+repeat, because something reads every occurrence.
 
 Only `--root`, `--json`, `--dry-run` and `--allow-new` are global.
 

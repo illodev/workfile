@@ -45,6 +45,12 @@ export interface ProjectCardsConfig {
     maxHierarchyDepth: number;
     claimLeaseHours: number;
     areas: string[];
+    /**
+     * A second classification axis per project — `{ context: ["treasury"] }`
+     * makes `context:` a validated flat frontmatter key on every card. Declared
+     * here rather than named in the schema; see ADR-0008.
+     */
+    axes: Record<string, string[]>;
     tags: string[];
 }
 
@@ -183,6 +189,8 @@ export interface EffectiveProjectSchema {
         priorities: CardPriority[];
         efforts: CardEffort[];
         areas: string[];
+        /** Project-declared classification axes, name → vocabulary. */
+        axes: Record<string, string[]>;
     };
     docs: {
         kinds: string[];

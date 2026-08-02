@@ -13,7 +13,6 @@
     "src/modules/cards/cards.ts": 2,
     "src/modules/cards/claims.ts": 16,
     "src/modules/cards/mutations.ts": 4,
-    "src/modules/cards/validation.ts": 6,
     "src/modules/changelog/changelog.ts": 11,
     "src/modules/changelog/validation.ts": 2,
     "src/modules/ci/ci.ts": 16,

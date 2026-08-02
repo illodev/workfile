@@ -1,11 +1,11 @@
 ---
 id: T-0102
 title: Declare cards.axes and validate card writes against it
-status: backlog
+status: review
 type: feature
 priority: medium
 area: core
-scope: [packages/workfile/src/config/validate-config.ts, packages/workfile/src/modules/cards/mutations.ts]
+scope: [packages/workfile/src/config, packages/workfile/src/modules/cards, packages/workfile/src/modules/mcp, packages/workfile/src/workspace, packages/workfile/bin/workfile.ts, packages/workfile/docs]
 related: [T-0060]
 created: 2026-08-02
 updated: 2026-08-02
@@ -38,7 +38,15 @@ only the half that makes an axis declared rather than incidental.
 
 ## Acceptance criteria
 
-- [ ] A card written with an undeclared axis value is refused, naming the vocabulary
-- [ ] An axis colliding with a reserved frontmatter key is a config error
-- [ ] `--axis` round-trips through create, patch and the MCP equivalents
-- [ ] `workfile schema` lists the declared axes
+- [x] A card written with an undeclared axis value is refused, naming the vocabulary
+- [x] An axis colliding with a reserved frontmatter key is a config error
+- [x] `--axis` round-trips through create, patch and the MCP equivalents
+- [x] `workfile schema` lists the declared axes
+
+## Activity
+
+- 2026-08-02 10:27Z illodev@local#e55eab30 · claimed
+- 2026-08-02 10:27Z illodev@local#e55eab30 · claimed
+- 2026-08-02 10:46Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 10:46Z illodev@local#e55eab30 · released
+

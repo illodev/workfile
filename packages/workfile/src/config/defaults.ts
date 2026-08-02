@@ -31,6 +31,51 @@ export const CARD_PRIORITIES = Object.freeze([
 
 export const CARD_EFFORTS = Object.freeze(["S", "M", "L"] as const);
 
+/**
+ * Frontmatter keys a card already owns, and which an axis therefore cannot be.
+ *
+ * A declared axis becomes a flat frontmatter key (ADR-0008), so declaring
+ * `axes: { status: [...] }` would put a project vocabulary on top of the
+ * protocol's own field and the write path would validate the value twice
+ * against two different lists. Declaring `axes: { scope: [...] }` is worse: it
+ * is list-typed, so the value would round-trip as an array and never match a
+ * scalar vocabulary.
+ *
+ * This list lives here rather than beside the card module because config
+ * validation runs before any module loads. `cards.test.ts` pins it against
+ * `CARD_REQUIRED_KEYS`, `CARD_LIST_KEYS` and `CARD_PATCHABLE_FIELDS` so a field
+ * added to a card cannot quietly become declarable as an axis.
+ */
+export const CARD_RESERVED_KEYS = Object.freeze([
+    "archived",
+    "area",
+    "body",
+    "claimed_at",
+    "claimed_by",
+    "created",
+    "depends",
+    "due",
+    "effort",
+    "file",
+    "id",
+    "milestone",
+    "parent",
+    "priority",
+    "related",
+    "revision",
+    "scope",
+    "source",
+    "start",
+    "status",
+    "tags",
+    "title",
+    "type",
+    "updated"
+] as const);
+
+/** What an axis name may look like: a plain, greppable frontmatter key. */
+export const AXIS_NAME_RE = /^[a-z][a-z0-9_]*$/;
+
 export const DOC_KINDS = Object.freeze([
     "architecture",
     "product",
@@ -138,6 +183,10 @@ export const DEFAULT_CONFIG = Object.freeze({
         // diff — not a log, and never file edits.
         activityTrail: true,
         areas: ["general"],
+        // A second classification axis, declared per project rather than named
+        // in the schema — see ADR-0008. `{ context: ["treasury", "billing"] }`
+        // makes `context:` a validated frontmatter key on every card.
+        axes: {},
         tags: []
     },
     docs: {

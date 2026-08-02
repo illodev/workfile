@@ -29,24 +29,88 @@ export const CARD_PATCHABLE_FIELDS = Object.freeze([
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
-function fail(code, message, details = null) {
+/**
+ * `details` is typed because the default value was not.
+ *
+ * `details = null` inferred the parameter as `null | undefined`, so under
+ * `strictNullChecks` every single caller that passed the field it was
+ * complaining about — which is most of them, and the reason the details exist —
+ * was an error. Six of this file's eight baseline errors were this one
+ * signature, and the axis checks would have made it eight.
+ */
+function fail(code: string, message: string, details: unknown = null): never {
     throw new ValidationError(code, message, details);
 }
 
-export function sanitizeCardChanges(changes) {
+/**
+ * The axes this workspace declares, as `[name, vocabulary]` pairs.
+ *
+ * Read through here rather than off `config.cards.axes` directly: a workspace
+ * loaded from a config written before axes existed has no such key, and every
+ * caller would otherwise need the same `|| {}`.
+ */
+export function declaredAxes(workspace): Array<[string, string[]]> {
+    return Object.entries(workspace?.config?.cards?.axes || {});
+}
+
+export function axisNames(workspace): string[] {
+    return declaredAxes(workspace).map(([name]) => name);
+}
+
+/**
+ * Lift an `axes: { name: value }` container into the flat keys a card stores.
+ *
+ * ADR-0008 makes an axis a flat frontmatter key, and that is what the file
+ * holds and what `search "context:treasury"` reads. The container exists
+ * because neither machine surface can express a per-project key on its own:
+ * `COMMAND_FLAGS` is static, so the CLI needs `--axis name=value`, and the MCP
+ * tool schema is static and closed, so it needs a named object property. Both
+ * funnel through here, which is also the only place that can tell a caller it
+ * named an axis nothing declares — written flat it would become a legal but
+ * unvalidated key, which is the tags failure mode this design exists to avoid.
+ */
+export function expandAxes(workspace, input) {
+    if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+    if (!("axes" in input)) return input;
+    const { axes, ...rest } = input as Record<string, any>;
+    if (axes == null) return rest;
+    if (typeof axes !== "object" || Array.isArray(axes)) {
+        fail(
+            "CARD_AXES_INVALID",
+            "axes must be an object mapping an axis name to a value."
+        );
+    }
+    const declared = axisNames(workspace);
+    const unknown = Object.keys(axes).filter((name) => !declared.includes(name));
+    if (unknown.length) {
+        fail(
+            "CARD_AXIS_UNKNOWN",
+            `Undeclared card axes: ${unknown.join(", ")}.` +
+                (declared.length
+                    ? ` Declared: ${declared.join(", ")}.`
+                    : " This project declares none; add cards.axes to its config."),
+            { axes: unknown, declared }
+        );
+    }
+    return { ...rest, ...axes };
+}
+
+export function sanitizeCardChanges(changes, axes: string[] = []) {
     if (!changes || typeof changes !== "object" || Array.isArray(changes)) {
         fail("CARD_CHANGES_INVALID", "Card changes must be an object.");
     }
     const allowed: Record<string, any> = {};
-    const unknown = [];
+    const unknown: string[] = [];
     for (const [key, value] of Object.entries(changes)) {
-        if (CARD_PATCHABLE_FIELDS.includes(key)) allowed[key] = value;
-        else unknown.push(key);
+        if (CARD_PATCHABLE_FIELDS.includes(key) || axes.includes(key)) {
+            allowed[key] = value;
+        } else unknown.push(key);
     }
     if (unknown.length) {
         fail(
             "CARD_FIELD_NOT_PATCHABLE",
-            `Unsupported card fields: ${unknown.join(", ")}`,
+            `Unsupported card fields: ${unknown.join(", ")}` +
+                (axes.length ? `. Declared axes: ${axes.join(", ")}.` : ""),
             { fields: unknown }
         );
     }
@@ -112,6 +176,22 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
                 value,
                 allowed
             });
+        }
+    }
+    // Declared axes validate exactly the way `area` does, one rung later. The
+    // distinct code is what lets doctor and the UI say "outside the declared
+    // vocabulary" rather than "invalid enum": an axis is a project's own
+    // classification, not one of the schema's, and the remedy differs — declare
+    // the value or fix the card.
+    for (const [axis, allowed] of declaredAxes(workspace)) {
+        const value = candidate[axis];
+        if (value == null || value === "") continue;
+        if (!allowed.includes(value)) {
+            fail(
+                "CARD_AXIS_VALUE_INVALID",
+                `Invalid ${axis}: ${value}. Declared values: ${allowed.join(", ")}.`,
+                { field: axis, value, allowed }
+            );
         }
     }
     for (const key of ["start", "due"]) {
@@ -185,7 +265,7 @@ function normalizeScopePath(value) {
 }
 
 export function scopesOverlap(left = [], right = []) {
-    const matches = [];
+    const matches: string[][] = [];
     for (const leftRaw of left) {
         const a = normalizeScopePath(leftRaw);
         if (!a) continue;

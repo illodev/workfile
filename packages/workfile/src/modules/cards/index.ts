@@ -51,6 +51,9 @@ export {
 export {
     CARD_PATCHABLE_FIELDS,
     applyCardChanges,
+    axisNames,
+    declaredAxes,
+    expandAxes,
     sanitizeCardChanges,
     scopesOverlap,
     validateCardCandidate

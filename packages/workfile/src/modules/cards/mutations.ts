@@ -24,6 +24,9 @@ import { CARD_LIST_KEYS, loadCards, parseCard } from "./cards.js";
 import { slugify } from "./slug.js";
 import {
     applyCardChanges,
+    axisNames,
+    declaredAxes,
+    expandAxes,
     sanitizeCardChanges,
     scopesOverlap,
     validateCardCandidate
@@ -198,7 +201,10 @@ async function mutateCard(
                 typeof changes === "function" ? changes(current) : changes;
             const allowed = bodyOnly
                 ? {}
-                : sanitizeCardChanges(normalizeListValues(requested));
+                : sanitizeCardChanges(
+                      expandAxes(workspace, normalizeListValues(requested)),
+                      axisNames(workspace)
+                  );
             const candidate = applyCardChanges(current, allowed);
             validateCardCandidate(workspace, candidate, loaded.cards, id);
             let next = patchFrontmatter(content, allowed, {
@@ -317,7 +323,7 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
     if (!input?.title?.trim()) {
         throw new ValidationError("CARD_TITLE_REQUIRED", "title is required.");
     }
-    input = normalizeListValues(input);
+    input = expandAxes(workspace, normalizeListValues(input));
     const area = input.area || workspace.config.cards.areas[0];
     const timestamp = nowTimestamp(now);
     const date = timestamp.slice(0, 10);
@@ -329,6 +335,15 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
         type: input.type || "task",
         priority: input.priority || "medium",
         area,
+        // Next to `area`, because that is what they are: the project's own
+        // classification alongside the schema's. Frontmatter order is the order
+        // a reader meets the fields in, and an axis read six lines below `due`
+        // reads like an afterthought rather than a peer.
+        ...Object.fromEntries(
+            declaredAxes(workspace)
+                .filter(([axis]) => input[axis])
+                .map(([axis]) => [axis, input[axis]])
+        ),
         ...(input.parent ? { parent: input.parent } : {}),
         ...(input.depends?.length ? { depends: input.depends } : {}),
         ...(input.milestone ? { milestone: input.milestone } : {}),

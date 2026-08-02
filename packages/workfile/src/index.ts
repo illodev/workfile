@@ -61,8 +61,10 @@ export {
 } from "./config/validate-config.js";
 export {
     AGENT_TARGET_IDS,
+    AXIS_NAME_RE,
     CI_TARGET_IDS,
     CARD_EFFORTS,
+    CARD_RESERVED_KEYS,
     CARD_PRIORITIES,
     CARD_STATUSES,
     CARD_TYPES,
