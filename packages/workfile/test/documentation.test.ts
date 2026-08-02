@@ -400,3 +400,65 @@ test("no shipped source teaches the removed project binary", async () => {
         );
     }
 });
+
+/**
+ * The invocation a client runs is stated in four places, and only one of them
+ * is generated.
+ *
+ * `server.json` publishes it to the MCP Registry, `claudeMcpFile` generates
+ * the `.mcp.json` that ships to consumers and to the plugin, and both READMEs
+ * quote it for a reader arriving from a registry — mcpservers.org and Glama
+ * render the repository README rather than the submitted copy, so what it says
+ * is the listing.
+ *
+ * Three hand-written copies of a string T-0116 already proved is easy to
+ * get wrong: the plugin once shipped `workfile-mcp`, a bin npx cannot select
+ * from a package spec, and the server answered every request with the CLI help
+ * on stdout. Nobody noticed because nothing compared the copies.
+ */
+test("every stated MCP invocation agrees with the generated one", async () => {
+    const { claudeMcpFile } = await import("../dist/src/index.js");
+    const generated = claudeMcpFile();
+    const args = generated.mcpServers["workfile"].args;
+
+    for (const path of ["README.md", "packages/workfile/README.md"]) {
+        const content = await readFile(new URL(path, repoRoot), "utf8");
+        const block = content.match(
+            /```json\n(\{[^`]*?"mcpServers"[^`]*?)\n```/
+        );
+        assert.ok(block, `${path} states no MCP client configuration`);
+        assert.deepEqual(
+            JSON.parse(block[1]),
+            // The README omits `env`, which is empty and would be noise in a
+            // snippet someone copies; everything a client acts on must match.
+            {
+                mcpServers: {
+                    workfile: {
+                        command: generated.mcpServers["workfile"].command,
+                        args
+                    }
+                }
+            },
+            `${path} and claudeMcpFile disagree about how to start the server`
+        );
+    }
+
+    const server = JSON.parse(
+        await readFile(new URL("server.json", repoRoot), "utf8")
+    );
+    const npm = server.packages.find((one) => one.registryType === "npm");
+    assert.ok(npm, "server.json publishes no npm package");
+    assert.equal(npm.runtimeHint, generated.mcpServers["workfile"].command);
+    assert.equal(
+        args.includes(npm.identifier),
+        true,
+        `server.json publishes ${npm.identifier}, the generated args do not name it`
+    );
+    // The subcommand the registry tells a client to pass, against the one the
+    // generated args actually pass.
+    const positional = npm.packageArguments.find(
+        (one) => one.type === "positional"
+    );
+    assert.ok(positional, "server.json declares no positional argument");
+    assert.equal(args[args.length - 1], positional.value);
+});

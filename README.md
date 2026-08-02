@@ -430,6 +430,30 @@ services used by the CLI and HTTP API, speaks both the modern (`2026-07-28`) and
 (`2025-11-25`) protocol revisions, and exposes 30 tools, four resources and three
 prompts. Mutation tools disappear entirely in `--read-only` mode.
 
+Point a client at it without installing anything. This is the invocation the
+[official registry](https://registry.modelcontextprotocol.io) publishes for
+`io.github.illodev/workfile`, and what most clients will build for you from
+that listing:
+
+```json
+{
+  "mcpServers": {
+    "workfile": {
+      "command": "npx",
+      "args": ["-y", "@illodev/workfile", "mcp"]
+    }
+  }
+}
+```
+
+`mcp` there is a subcommand, not a binary: `npx` resolves the bin whose name
+matches the package and hands it everything that follows. Append `--root PATH`
+when the client starts somewhere other than the workspace — it searches
+upwards for `.project/` otherwise — and `--read-only` to serve the read tools
+alone, with every mutation refused.
+
+With the package installed, the same server is a subcommand away:
+
 ```bash
 workfile mcp
 workfile mcp inspect --json

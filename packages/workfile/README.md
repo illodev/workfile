@@ -40,6 +40,27 @@ npx workfile mcp                     # MCP server (stdio)
 
 Workfile never sends repository content to a network service by itself.
 
+## As an MCP server
+
+Point a client at it without installing anything. This is the invocation the
+[official registry](https://registry.modelcontextprotocol.io) publishes for
+`io.github.illodev/workfile`:
+
+```json
+{
+  "mcpServers": {
+    "workfile": {
+      "command": "npx",
+      "args": ["-y", "@illodev/workfile", "mcp"]
+    }
+  }
+}
+```
+
+`mcp` is a subcommand, not a binary. Append `--root PATH` when the client
+starts somewhere other than the workspace, and `--read-only` to serve the read
+tools alone.
+
 ## What it is not
 
 Workfile is not an agent configurator. It does not install agents, ship a

@@ -1,12 +1,13 @@
 ---
 id: T-0139
 title: The README never shows the invocation the MCP Registry advertises
-status: next
+status: done
 type: docs
 priority: medium
 area: docs
 created: 2026-08-02
 updated: 2026-08-02
+scope: [README.md, packages/workfile/test, .project/cards, .project/changelog]
 ---
 
 `server.json` tells every MCP client to run `npx -y @illodev/workfile mcp`,
@@ -41,7 +42,34 @@ something three places already assert, which is the shape [[LRN-0011]] records.
 
 ## Acceptance criteria
 
-- [ ] The README shows `npx -y @illodev/workfile mcp` where a reader arriving
+- [x] The README shows `npx -y @illodev/workfile mcp` where a reader arriving
       from a registry would look
-- [ ] The invocation in the README, `server.json` and the generated
+- [x] The invocation in the README, `server.json` and the generated
       `.mcp.json` cannot disagree without something failing
+
+## Activity
+
+- 2026-08-02 22:34Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 22:39Z illodev@local#bd44efc7 · doing → done
+
+## Notes
+
+- 2026-08-02 22:39Z illodev@local#bd44efc7 — Both READMEs now carry the client configuration ahead of the commands that need an install. The npm one got it too: it is a second landing page, and its only MCP line was `npx workfile mcp`, which works after the install block above it and not before.
+
+The second criterion was the real work. Four places state this invocation and one is generated, so the test compares them: both READMEs against `claudeMcpFile()`, and `server.json`'s npm identifier and positional argument against the generated args.
+
+Proven red before green, per [[LRN-0011]], once per source:
+
+    README args -> "workfile-mcp"        --> "README.md and claudeMcpFile disagree
+                                             about how to start the server"
+    server.json positional -> "serve"    --> expected 'serve', actual 'mcp'
+    server.json identifier -> a new name --> "server.json publishes
+                                             @illodev/workfile-mcp, the generated
+                                             args do not name it"
+
+The first of those is [[T-0116]] reintroduced verbatim — the `workfile-mcp` bin npx cannot select from a package spec, which shipped a server that answered every request with the CLI help on stdout. Nothing compared the copies then. Something does now.
+
+    pnpm run check   --> 252 + 7 pass, strict 588, none new
+    doctor           --> 0 errors, 0 warnings
+
+One thing deliberately not asserted: the README snippet omits `env: {}`, which the generated file carries and which would be noise in something people copy. The test compares command and args, the two fields a client acts on, rather than demanding the snippet be byte-identical to a generated file it is not.
