@@ -1,7 +1,7 @@
 ---
 id: T-0107
 title: The npm next dist-tag still points at 0.1.0-rc.1
-status: review
+status: done
 type: task
 priority: low
 area: infra
@@ -37,7 +37,7 @@ Needs the maintainer's npm credentials either way.
 
 ## Acceptance criteria
 
-- [ ] `next` is removed, or points at something newer than `latest`
+- [x] `next` is removed, or points at something newer than `latest`
 - [x] If kept, the release workflow maintains it rather than a human
 
 ## Activity
@@ -45,6 +45,9 @@ Needs the maintainer's npm credentials either way.
 - 2026-08-02 16:41Z illodev@local#aed59c5e · claimed
 - 2026-08-02 16:49Z illodev@local#aed59c5e · doing → review
 - 2026-08-02 16:49Z illodev@local#aed59c5e · released
+- 2026-08-02 16:56Z illodev@local#aed59c5e · claimed
+- 2026-08-02 16:56Z illodev@local#aed59c5e · doing → done
+- 2026-08-02 16:56Z illodev@local#aed59c5e · released
 
 ## Notes
 
@@ -109,3 +112,15 @@ been first published after the bootstrap.
 Left in review rather than done: `npm view @illodev/workfile dist-tags` still
 answers `{ next: '0.1.0-rc.1', latest: '0.3.0' }`, and only the registry can
 settle this one.
+- 2026-08-02 16:56Z illodev@local#aed59c5e — Verified against the registry rather than against the terminal that ran it.
+
+    npm view @illodev/workfile dist-tags        --> { "latest": "0.3.0" }
+    npm view @illodev/workfile-search-local ... --> { "latest": "0.3.0" }
+    npm view @illodev/workfile@next version     --> npm error 404
+
+`next` is gone from both packages and `@next` now fails loudly instead of
+serving `0.1.0-rc.1`. Run by the maintainer on 2026-08-02 with browser
+authentication; the registry answered on the first poll, no replication lag.
+
+Both acceptance criteria met, and the criterion that matters is the one the
+registry answers, so this is done rather than review.
