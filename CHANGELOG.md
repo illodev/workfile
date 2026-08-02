@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0 — 2026-08-02
+
+### Added
+
+- Both READMEs show how to point an MCP client at the server (T-0139)
+- Every release publishes its notes to GitHub (T-0137)
+
+### Fixed
+
+- Installed commands and skills carry their frontmatter again (T-0135)
+- Slash commands carry their description and their tool grant again (T-0134)
+- The landing footer no longer links a directory that does not exist (T-0110)
+- Every file that states the version rides in the bump (T-0132)
+
 ## 0.4.0 — 2026-08-02
 
 ### Added
