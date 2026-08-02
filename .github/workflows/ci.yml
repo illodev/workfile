@@ -28,6 +28,18 @@ jobs:
             - run: pnpm install --frozen-lockfile
             # Full gate: clean build (core + UI), API/UI typechecks and tests.
             - run: pnpm run check
+            # Generated artifacts that are committed must match what the build
+            # produces. `check` rebuilds the Claude plugin before the test that
+            # compares it, so that test can only ever compare fresh output
+            # against fresh output — a stale committed plugin shipped a hook
+            # two commits behind its own source and nothing noticed.
+            - name: Committed build output is current
+              run: |
+                  node ./scripts/build-plugin.ts
+                  git diff --exit-code || {
+                      echo "::error::committed build output is stale; run the build and commit the result" >&2
+                      exit 1
+                  }
             # The hosted demo build must keep compiling too.
             - run: pnpm run build:demo
 
