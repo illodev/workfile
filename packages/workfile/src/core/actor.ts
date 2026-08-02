@@ -44,6 +44,29 @@ const SESSION_ENVS = [
 /** How many characters of a session id survive into an actor name. */
 const SESSION_PREFIX_LENGTH = 8;
 
+/**
+ * Where the username and machine name live, per platform.
+ *
+ * `USER` and `HOSTNAME` are POSIX and were the only names read, so on Windows
+ * nothing resolved: `resolveActor` returned `unresolved`, and every command
+ * that needs an identity it was not handed — `card claim`, any transition into
+ * `doing` — failed with `CARD_CLAIM_ACTOR_REQUIRED`. The claim protocol, which
+ * is the point of the tool, was unusable on the platform unless the caller set
+ * `WORKFILE_ACTOR` by hand. Read from the environment rather than from
+ * `node:os` so the whole resolution stays injectable, which is what lets a test
+ * pin the CLI and the hook against each other.
+ */
+const USER_ENVS = ["USER", "USERNAME", "LOGNAME"];
+const HOST_ENVS = ["HOSTNAME", "COMPUTERNAME"];
+
+function firstOf(env: Record<string, string | undefined>, names: string[]) {
+    for (const name of names) {
+        const value = trimmed(env[name]);
+        if (value) return value;
+    }
+    return undefined;
+}
+
 export interface ResolveActorOptions {
     /** An actor supplied explicitly by the caller. Wins over everything. */
     provided?: string | null;
@@ -96,10 +119,11 @@ export function resolveActor(options: ResolveActorOptions = {}): ResolvedActor {
     if (configured) return { actor: configured, source: `env:${ACTOR_ENV}`, sessionId };
 
     const client = trimmed(options.clientName);
+    const user = firstOf(env, USER_ENVS);
     const base = client
         ? `mcp:${client}`
-        : trimmed(env.USER)
-          ? `${trimmed(env.USER)}@${trimmed(env.HOSTNAME) || "local"}`
+        : user
+          ? `${user}@${firstOf(env, HOST_ENVS) || "local"}`
           : undefined;
     if (!base) return { actor: undefined, source: "unresolved", sessionId };
 

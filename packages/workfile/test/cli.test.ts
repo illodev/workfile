@@ -1815,17 +1815,18 @@ test("--verbose names the workspace a command resolved, without spoiling --json"
             "--area", "api", "--verbose", "--root", workspace
         ]);
         assert.equal(mutation.code, 0, mutation.stderr);
-        assert.match(
-            mutation.stderr,
-            new RegExp(`Workspace: ${workspace}`),
-            "a mutation ran without naming the workspace it resolved"
+        // `includes`, not a RegExp: a Windows temp path is full of
+        // backslashes, and each one becomes a regex escape.
+        assert.ok(
+            mutation.stderr.includes(`Workspace: ${workspace}`),
+            `a mutation ran without naming the workspace it resolved: ${mutation.stderr}`
         );
 
         const listed = await outcome([
             "card", "list", "--verbose", "--json", "--root", workspace
         ]);
         assert.equal(listed.code, 0, listed.stderr);
-        assert.match(listed.stderr, new RegExp(`Workspace: ${workspace}`));
+        assert.ok(listed.stderr.includes(`Workspace: ${workspace}`), listed.stderr);
         // The whole point of the stderr channel: stdout is still a document.
         assert.ok(
             JSON.parse(listed.stdout).records.length > 0,

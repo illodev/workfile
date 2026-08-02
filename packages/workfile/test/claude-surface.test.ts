@@ -705,9 +705,47 @@ test("a claim taken after session start is visible to the guard", async () => {
  * release` then refused with `CARD_CLAIM_OWNER_MISMATCH`.
  */
 test("the guard is silent for the session that holds the claim", async () => {
+    for (const [platform, names] of PLATFORM_ENVS) {
+        await guardIsSilentFor(platform, names);
+    }
+});
+
+/**
+ * The username and machine name live under different variables per platform.
+ *
+ * `USER` and `HOSTNAME` are POSIX, and they were the only ones either
+ * derivation read — so on Windows both returned nothing, `card claim` failed
+ * with `CARD_CLAIM_ACTOR_REQUIRED`, and the claim protocol was unusable on the
+ * platform without setting `WORKFILE_ACTOR` by hand. Running the pair against
+ * both shapes is the check: the CLI and the hook have to agree on every
+ * platform, not only the one the suite happens to run on.
+ */
+const PLATFORM_ENVS: ReadonlyArray<readonly [string, Record<string, string>]> = [
+    ["posix", { USER: "solo", HOSTNAME: "box" }],
+    ["windows", { USERNAME: "solo", COMPUTERNAME: "box" }]
+];
+
+/**
+ * Every name blanked, so only the platform under test supplies one.
+ *
+ * The hook runs as a child process and inherits this one's environment, so a
+ * Linux runner's own `USER` survives into the Windows case and the derivation
+ * quietly reads that instead — the case passes for the wrong reason and proves
+ * nothing about the platform it claims to cover.
+ */
+const BLANK = {
+    USER: "",
+    USERNAME: "",
+    LOGNAME: "",
+    HOSTNAME: "",
+    COMPUTERNAME: "",
+    WORKFILE_ACTOR: ""
+};
+
+async function guardIsSilentFor(platform: string, names: Record<string, string>) {
     const root = await mkdtemp(join(tmpdir(), "workfile-actor-"));
     const session = "e55eab30-b661-4290-bd58-d3b3a82f3b48";
-    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    const env = { ...BLANK, ...names };
     const edit = {
         session_id: session,
         tool_name: "Edit",
@@ -720,14 +758,18 @@ test("the guard is silent for the session that holds the claim", async () => {
 
         // Exactly what `card claim` writes when no `--actor` is given.
         const mine = resolveActor({ sessionId: session, env }).actor;
-        assert.equal(mine, "solo@box#e55eab30", "the CLI's derivation moved");
+        assert.equal(
+            mine,
+            "solo@box#e55eab30",
+            `the CLI's derivation moved on ${platform}`
+        );
 
         await claimCard(workspace, card.id, { actor: mine, scope: ["src/api"] });
         const own = await runHook("pre-tool-use", edit, root, env);
         assert.equal(
             own.stdout.trim(),
             "",
-            `the guard asked about this session's own claim: ${own.stdout}`
+            `on ${platform} the guard asked about this session's own claim: ${own.stdout}`
         );
 
         // The protection itself is untouched: another actor still stops the edit.
@@ -741,12 +783,12 @@ test("the guard is silent for the session that holds the claim", async () => {
             JSON.parse(foreign.stdout || "{}").hookSpecificOutput
                 ?.permissionDecisionReason ?? "",
             /agent-elsewhere/,
-            "a claim held by someone else must still be guarded"
+            `on ${platform} a claim held by someone else must still be guarded`
         );
     } finally {
         await rm(root, { recursive: true, force: true });
     }
-});
+}
 
 /**
  * A matcher that stops covering what its handler does is invisible from either

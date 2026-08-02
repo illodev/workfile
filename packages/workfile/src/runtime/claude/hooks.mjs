@@ -149,9 +149,19 @@ const sessionId = (input) =>
 const actorFor = (input) => {
     const configured = (process.env.WORKFILE_ACTOR || "").trim();
     if (configured) return configured;
-    const user = (process.env.USER || "").trim();
+    // Same order as `core/actor.ts`, which this file cannot import (see the
+    // header). `USER`/`HOSTNAME` alone are POSIX, so on Windows the hook
+    // derived nothing and every claim looked like somebody else's.
+    const first = (names) => {
+        for (const name of names) {
+            const value = (process.env[name] || "").trim();
+            if (value) return value;
+        }
+        return "";
+    };
+    const user = first(["USER", "USERNAME", "LOGNAME"]);
     if (!user) return undefined;
-    const host = (process.env.HOSTNAME || "").trim() || "local";
+    const host = first(["HOSTNAME", "COMPUTERNAME"]) || "local";
     const session = (sessionId(input) || "").replace(/[^A-Za-z0-9]/g, "");
     const suffix = session ? `#${session.slice(0, 8).toLowerCase()}` : "";
     return `${user}@${host}${suffix}`;

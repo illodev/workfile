@@ -825,7 +825,14 @@ test("a taken default port moves aside; a taken explicit one is refused", async 
                 assert.equal(error.code, "UI_PORT_IN_USE");
                 assert.match(error.message, /--port/);
                 assert.match(error.message, /ui\.port/);
-                assert.match(error.message, new RegExp(first));
+                // `includes`, not a RegExp built from the path: a Windows temp
+                // directory is `C:\Users\RUNNER~1\...`, where every backslash
+                // becomes a regex escape and the pattern stops matching its
+                // own literal input. Green on Linux, red on Windows only.
+                assert.ok(
+                    error.message.includes(first),
+                    `the refusal does not name the holder: ${error.message}`
+                );
                 return true;
             }
         );
