@@ -1,12 +1,13 @@
 ---
 id: T-0137
 title: A release publishes to npm and the registry but never to GitHub Releases
-status: next
+status: review
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
 updated: 2026-08-02
+scope: [.github/workflows/release.yml, scripts, .project/cards, .project/changelog]
 ---
 
 `gh release list --repo illodev/workfile` returns nothing. Twelve versions
@@ -45,9 +46,39 @@ people stop reading release notes.
 ## Acceptance criteria
 
 - [ ] A `v*` tag creates a GitHub Release for that version
-- [ ] Its body comes from the changelog fragments, not from a hand-written copy
+- [x] Its body comes from the changelog fragments, not from a hand-written copy
       that can drift
-- [ ] The step runs after npm and the MCP Registry, and failing it does not
+- [x] The step runs after npm and the MCP Registry, and failing it does not
       unpublish either
-- [ ] The releases already shipped are backfilled, or a note records the
+- [x] The releases already shipped are backfilled, or a note records the
       decision not to
+
+## Activity
+
+- 2026-08-02 21:55Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 22:06Z illodev@local#bd44efc7 · doing → review
+
+## Notes
+
+- 2026-08-02 22:04Z illodev@local#bd44efc7 — The note is the version's section of `CHANGELOG.md`, which `changelog release` already renders from the fragments, so there is no second copy to keep in step.
+
+Evidence:
+
+    node ./scripts/release-notes.ts 0.4.0   --> the 0.4.0 section, 1568 bytes
+                                    0.1.1   --> the last section, which has no
+                                                following heading to stop at
+                                    9.9.9   --> exit 1, naming the command to run
+    gh release create --draft               --> created, isDraft true, body matches
+    gh release delete                       --> gone; tag v0.4.0 still on the remote
+    PyYAML parse of release.yml             --> 2 jobs; release has contents: write
+                                                and needs: publish; publish keeps
+                                                the workflow-level permissions
+    pnpm run check                          --> 250 + 7 pass, strict 590, none new
+
+`gh release create` was exercised as a draft rather than a real release: a draft is not public, notifies nobody, and deletes without trace. The tag was checked afterwards to be sure the delete had not taken it.
+
+One latent bug closed while writing it. Matching the heading with `startsWith` would have found `0.1.1` inside `## 0.1.10` and published the wrong notes on the first version to go two digits. The first token is now compared whole, proven by inserting a synthetic `0.1.10` section and watching each version resolve to its own.
+
+Left in review, not done. The script and the API call are proven; the workflow step has never executed, so what a real tag has yet to show is that `contents: write` on that job suffices in CI and that `needs: publish` sequences as intended. The next release is the verification, the same way [[T-0114]] was left.
+
+The backfill is [[T-0138]], deliberately not done here: it publishes twelve releases at once and notifies watchers on each.

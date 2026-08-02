@@ -84,3 +84,39 @@ jobs:
                   # none.
                   ./mcp-publisher login github-oidc
                   ./mcp-publisher publish
+
+    # Its own job for the permission, not for the ordering. Creating a release
+    # needs `contents: write`, and a job's `permissions` block replaces the
+    # workflow's rather than adding to it — so keeping this separate is what
+    # stops the write scope from covering the steps that install dependencies
+    # and execute the suite.
+    #
+    # `needs` then gives the ordering the registry step already argued for:
+    # npm and the MCP Registry are irreversible, this is not. A failure here
+    # leaves both published and the note missing, which is the recoverable
+    # direction.
+    release:
+        needs: publish
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+            - name: Publish the GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  # The body is the version's section of CHANGELOG.md, which
+                  # `changelog release` rendered from the fragments. Nothing is
+                  # written twice, so nothing can drift; and the script exits
+                  # non-zero rather than emitting an empty body, so a tag cut
+                  # before the changelog was released fails here instead of
+                  # publishing a release that says nothing.
+                  VERSION="${GITHUB_REF_NAME#v}"
+                  node ./scripts/release-notes.ts "$VERSION" > release-notes.md
+                  gh release create "$GITHUB_REF_NAME" \
+                      --title "$GITHUB_REF_NAME" \
+                      --notes-file release-notes.md
