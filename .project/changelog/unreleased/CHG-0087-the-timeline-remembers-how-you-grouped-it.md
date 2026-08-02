@@ -6,6 +6,7 @@ area: ui
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0129]
 ---
 Choosing how the timeline is grouped used to last until you looked at anything
 else. The view is unmounted when you leave it, so the choice went with it and

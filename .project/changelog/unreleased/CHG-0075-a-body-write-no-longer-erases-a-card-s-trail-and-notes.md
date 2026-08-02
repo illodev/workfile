@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0115]
 ---
 `## Activity` and `## Notes` live in a card's body, and a body write replaced
 the body. So `workfile card write`, and the `project_card_write` tool an agent

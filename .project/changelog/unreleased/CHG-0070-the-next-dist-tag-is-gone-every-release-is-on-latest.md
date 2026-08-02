@@ -6,6 +6,7 @@ area: infra
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0107]
 ---
 `npm install @illodev/workfile@next` used to install `0.1.0-rc.1` — a release
 candidate from before the first stable version, behind `latest` by every

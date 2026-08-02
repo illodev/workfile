@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0108]
 ---
 A card's `## Activity` section recorded commands rather than moves.
 `card transition ID review` on a card already in `review` appended

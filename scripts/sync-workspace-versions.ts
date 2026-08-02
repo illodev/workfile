@@ -8,11 +8,25 @@
  * carries `packages/*` inside the same bump commit — and `--check` lets CI
  * and the test suite refuse any commit where the versions drift apart.
  */
+import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 const check = process.argv.includes("--check");
+/**
+ * Stage what was written, for the `version` lifecycle hook.
+ *
+ * The hook used to name the files itself — `git add packages/*​/package.json` —
+ * which was already wrong by the time `server.json` joined the outputs: the
+ * bump rewrote it and committed without it. A second list of what this script
+ * touches is a list that drifts the first time it gains a third output, so the
+ * writer stages what it wrote and nobody keeps a copy. Off by default, because
+ * a maintainer aligning versions by hand should not have their index written.
+ */
+const stage = process.argv.includes("--stage");
+const written: string[] = [];
 const root = JSON.parse(await readFile("package.json", "utf8"));
 
 let entries: Dirent[] = [];
@@ -48,6 +62,7 @@ for (const entry of entries) {
             `"version": "${root.version}"`
         )
     );
+    written.push(path);
     console.log(`${pkg.name}: ${pkg.version} → ${root.version}`);
 }
 
@@ -81,8 +96,14 @@ if (manifest) {
             );
         }
         await writeFile("server.json", next);
+        written.push("server.json");
         console.log(`server.json: ${stale.join(", ")} → ${root.version}`);
     }
+}
+
+if (stage && written.length) {
+    await promisify(execFile)("git", ["add", ...written]);
+    console.log(`staged: ${written.join(", ")}`);
 }
 
 if (drift.length) {

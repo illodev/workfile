@@ -6,6 +6,7 @@ area: mcp
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0130]
 ---
 `project_card_list` returns archived cards alongside live ones, and nothing in
 the row said which was which:

@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0117]
 ---
 Claims are how two agents working one checkout stay out of each other's way,
 and a patch walked around them.

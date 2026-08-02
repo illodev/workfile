@@ -6,6 +6,7 @@ area: ui
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0104]
 ---
 A project that declares a second classification axis can now read the timeline
 by it.

@@ -6,6 +6,7 @@ area: ui
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0112]
 ---
 The board stopped polling the moment its event stream opened, and an open
 stream is not a working one. The server starts its filesystem watcher on the

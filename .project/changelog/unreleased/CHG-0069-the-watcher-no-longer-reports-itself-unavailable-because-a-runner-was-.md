@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0109]
 ---
 `fs.watch` is confirmed at startup with a probe: write a file, wait for the
 notification, and degrade to `mode: "unavailable"` if it never comes — because

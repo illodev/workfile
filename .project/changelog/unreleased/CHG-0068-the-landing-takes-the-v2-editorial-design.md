@@ -6,6 +6,7 @@ area: docs
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0110]
 ---
 `site/index.html` replaces the centered card-grid landing with the v2 editorial layout: numbered sections against a 180px margin label, a hairline rule system instead of boxes, monospace furniture, and a hero that puts a real card file next to the pitch.
 

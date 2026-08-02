@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-02
 updated: 2026-08-02
+cards: [T-0128]
 ---
 A project that declares a second classification axis could not see it in the
 listing an agent reads. `project_card_list` and `project_search` project

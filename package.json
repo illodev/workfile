@@ -17,7 +17,7 @@
     "prepare": "husky",
     "workfile": "node packages/workfile/dist/bin/workfile.js",
     "clean": "pnpm --filter @illodev/workfile run clean",
-    "version": "node ./scripts/sync-workspace-versions.ts && git add packages/*/package.json",
+    "version": "node ./scripts/sync-workspace-versions.ts --stage",
     "build:core": "pnpm --filter @illodev/workfile run build:core",
     "build:ui": "pnpm --filter @illodev/workfile run build:ui",
     "typecheck:ui": "pnpm --filter @illodev/workfile run typecheck:ui",
