@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.0 — 2026-08-02
+
+### Added
+
+- --verbose names the workspace a command resolved (T-0097)
+- A release cut with the wrong date can be corrected (T-0071)
+- Acceptance criteria are addressable, and done refuses while they are unproven (T-0084)
+- The README states the boundary against agent configurators (T-0075)
+- The cost gate counts filesystem operations, not only bytes (T-0083)
+
+### Fixed
+
+- A claim can be live: the session heartbeat gets a producer (T-0082)
+- A command word now answers for its own subcommand before anything else (T-0095, T-0100)
+- card patch could close a card with unproven acceptance criteria (T-0086)
+- Claiming a card no longer arms the edit guard against your own session (T-0099)
+- Claims are enforced for real: one actor identity, no duplicate IDs, no silent force (T-0076, T-0077, T-0078, T-0079, T-0080, T-0081)
+- Claims work on Windows (T-0105)
+- Filters returned an empty set instead of refusing a value they could not parse (T-0092)
+- Reopening a card straight into doing works again, on every surface (T-0073)
+- Scoped memory records reach the agent bundle when no scope is in focus (T-0087)
+- Subcommands accepted their siblings' flags and silently ignored them (T-0091)
+- The scope guard read a board that was only ever written at session start (T-0089)
+- Two agents claiming the same card at the same moment both succeeded (T-0085)
+- Two hook matchers enumerated selectors their handlers never read (T-0090, T-0093)
+- Docs name workfile as the binary, including the spec header and the locked decision (T-0096)
+- SPEC no longer teaches five commands the binary rejects (T-0088)
+- The CLI reference stated a global-options contract the binary stopped honouring (T-0098)
+- A second project's board no longer has to displace the first (T-0101)
+
 ## 0.2.0 — 2026-07-31
 
 ### Added
