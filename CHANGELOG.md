@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.4.0 — 2026-08-02
+
+### Added
+
+- Cards carry a second classification axis, declared per project (T-0102)
+- doctor and card list understand declared axes (T-0103)
+- Workfile publishes itself to the official MCP Registry on release (T-0114)
+- A document carries its outline (T-0120)
+- A Flow column collapses to a strip (T-0124)
+- The timeline draws what happened, not only what was planned (T-0121)
+- The timeline groups by any axis the project declares (T-0104)
+
+### Changed
+
+- The landing takes the v2 editorial design (T-0110)
+- A memory record opens in the drawer, like a card (T-0118)
+- History reads at a measure, like Docs (T-0119)
+- Scrollbars take the theme (T-0126)
+- The interface wears its own mark and its own blue (T-0122, T-0123, ADR-0009)
+- The timeline remembers how you grouped it (T-0129)
+
+### Fixed
+
+- A body write no longer erases a card's trail and notes (T-0115)
+- A patch can no longer take a card another actor holds (T-0117)
+- Declared axes survive the listings agents read (T-0128)
+- The activity trail records moves, not commands (T-0108)
+- The watcher no longer reports itself unavailable because a runner was busy (T-0109)
+- A version bump carries server.json with it (T-0131)
+- A listing says which cards are archived (T-0130)
+- The marketplace plugin registers an MCP server that actually starts (T-0116)
+- Escape closes the dialog, not the record behind it (T-0118)
+- The board keeps polling until the server says it is watching (T-0112)
+- The bulk bar stops shouting (T-0125)
+
+### Removed
+
+- The next dist-tag is gone; every release is on latest (T-0107)
+
 ## 0.3.0 — 2026-08-02
 
 ### Added
