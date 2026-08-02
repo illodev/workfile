@@ -15,6 +15,80 @@ import { cn } from "@/lib/utils";
 const INLINE_PATTERN =
     /(`[^`]+`|!\[[^\]]*\]\([^)]+\)|\[\[[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_)/g;
 
+const HEADING_PATTERN = /^(#{1,6})\s+(.*)$/;
+
+/**
+ * Heading anchors.
+ *
+ * The id is the line the heading sits on, not a slug of its text: two sections
+ * called "Notes" are ordinary in a record body, and a slug would give them the
+ * same anchor. A line number is unique by construction and stays stable for as
+ * long as the text above it does not move — which is the same guarantee a slug
+ * offers, without the collisions.
+ *
+ * `prefix` exists because more than one body can be mounted at once: the
+ * inspector drawer stays mounted behind the Docs reader, and two documents
+ * sharing an id namespace would send `getElementById` to whichever rendered
+ * first.
+ */
+const HEADING_PREFIX = "wf-h";
+
+function headingId(prefix: string, line: number) {
+    return `${prefix}-${line}`;
+}
+
+export interface OutlineEntry {
+    id: string;
+    text: string;
+    /** 1 for `#`, 2 for `##`, … as written in the source. */
+    level: number;
+}
+
+/** Inline markers removed: an outline entry is a label, not a document. */
+function plainText(source: string) {
+    return source
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+        .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) =>
+            (label || target).trim()
+        )
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*\n]+)\*/g, "$1")
+        .replace(/_([^_\n]+)_/g, "$1")
+        .trim();
+}
+
+/**
+ * The headings of a body, in document order, with the ids `MarkdownBody`
+ * renders. Fenced code is skipped the same way the renderer skips it — a
+ * shell comment is not a section.
+ */
+export function documentOutline(
+    source: string,
+    prefix: string = HEADING_PREFIX
+): OutlineEntry[] {
+    const entries: OutlineEntry[] = [];
+    let fenced = false;
+    source.split(/\r?\n/).forEach((line, index) => {
+        if (/^```/.test(line)) {
+            fenced = !fenced;
+            return;
+        }
+        if (fenced) return;
+        const heading = HEADING_PATTERN.exec(line);
+        if (!heading) return;
+        const text = plainText(heading[2]);
+        if (text)
+            entries.push({
+                id: headingId(prefix, index),
+                text,
+                level: heading[1].length
+            });
+    });
+    return entries;
+}
+
 function InlineMarkdown({
     source,
     id,
@@ -107,7 +181,8 @@ function splitTableRow(line: string) {
 export const MarkdownBody = memo(function MarkdownBody({
     source,
     onOpen,
-    className
+    className,
+    headingPrefix = HEADING_PREFIX
 }: {
     source: string;
     onOpen?: (recordId: string) => void;
@@ -117,6 +192,8 @@ export const MarkdownBody = memo(function MarkdownBody({
      * so a value inherited from a wrapper loses to the local declaration.
      */
     className?: string;
+    /** Namespace for the heading anchors — see `documentOutline`. */
+    headingPrefix?: string;
 }) {
     const lines = source.split(/\r?\n/);
     const nodes: ReactNode[] = [];
@@ -145,7 +222,7 @@ export const MarkdownBody = memo(function MarkdownBody({
     }
     for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index];
-        const heading = line.match(/^(#{1,6})\s+(.*)$/);
+        const heading = HEADING_PATTERN.exec(line);
         const item = line.match(
             /^\s*(?:([-*])|(\d+)\.)\s+(?:\[([ xX])\]\s+)?(.*)$/
         );
@@ -228,7 +305,13 @@ export const MarkdownBody = memo(function MarkdownBody({
                 | "h5"
                 | "h6";
             nodes.push(
-                <Tag key={index}>
+                // `scroll-mt-6`: a heading jumped to from the outline lands
+                // clear of the top edge instead of flush against it.
+                <Tag
+                    key={index}
+                    id={headingId(headingPrefix, index)}
+                    className="scroll-mt-6"
+                >
                     <InlineMarkdown
                         source={heading[2]}
                         id={`h-${index}`}

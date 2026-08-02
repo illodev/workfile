@@ -37,7 +37,11 @@
     --card-foreground: oklch(0.141 0.005 285.823);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.141 0.005 285.823);
-    --primary: oklch(0.21 0.006 285.885);
+    /* The brand blue, not zinc's near-black: `#3149d4`, the same accent the
+     * landing, the favicon and the README banner carry. ADR-0005 listed this
+     * as an accepted loss of the migration and ADR-0009 takes it back — the
+     * only token that leaves the published zinc scale. */
+    --primary: oklch(0.483 0.213 268.83);
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -97,8 +101,10 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.21 0.006 285.885);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.92 0.004 286.32);
-    --primary-foreground: oklch(0.21 0.006 285.885);
+    /* The landing's dark-mode accent: the same blue lifted until it reads on
+     * a dark ground, with a near-black foreground on top of it. */
+    --primary: oklch(0.74 0.14 264);
+    --primary-foreground: oklch(0.17 0.02 264);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.274 0.006 286.033);
@@ -215,5 +221,47 @@
     }
     body {
         @apply bg-background text-foreground font-sans antialiased;
+    }
+
+    /*
+     * Scrollbars take the theme.
+     *
+     * The platform default is a ~15px light trough that ignores `color-scheme`
+     * on Linux and Windows, so a dark workspace grew a bright gutter beside
+     * every lane, rail and table — and the board's 268px columns paid 6% of
+     * their width for it.
+     *
+     * Declared once on `*` rather than as a class every scroller has to
+     * remember: a scroller that forgets it is exactly the one that looks
+     * wrong. The thumb stays visible at rest — a scrollbar is a control, and
+     * one that appears only on hover stops announcing that the box scrolls —
+     * and only darkens under the pointer.
+     */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        /* Inset by its own border so the thumb reads as 6px inside a 10px
+         * lane: the hit target stays a pointer-friendly 10px wide. */
+        background-color: var(--border);
+        background-clip: padding-box;
+        border: 2px solid transparent;
+        border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--muted-foreground);
+    }
+    /* Both axes meeting in the corner of a table: the default is a grey
+     * square that belongs to no theme. */
+    ::-webkit-scrollbar-corner {
+        background: transparent;
     }
 }

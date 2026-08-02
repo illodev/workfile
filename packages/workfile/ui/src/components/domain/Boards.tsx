@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ChevronDown, Inbox } from "lucide-react";
+import {
+    ChevronDown,
+    ChevronsLeftRight,
+    ChevronsRightLeft,
+    Inbox
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -197,6 +202,8 @@ function FlowColumn({
     status,
     cards,
     epicIds,
+    collapsed,
+    onToggleCollapsed,
     onOpen,
     onMove,
     onCarry,
@@ -208,6 +215,8 @@ function FlowColumn({
     status: Status;
     cards: Task[];
     epicIds: Map<string, string>;
+    collapsed?: boolean;
+    onToggleCollapsed?: () => void;
     onOpen: (id: string) => void;
     onMove: (id: string, status: Status) => Promise<void>;
     onCarry?: (task: Task) => void;
@@ -218,6 +227,81 @@ function FlowColumn({
 }) {
     const [shown, hasMore, showMore] = useIncremental(cards, 25);
     const color = statusColor(status);
+    // A collapsed column is still a column: it takes drops, it highlights while
+    // a card is over it, and the keyboard move path still lands on it. The
+    // handlers therefore live on the Card, above the branch.
+    const dropHandlers = {
+        onDragOver: (event: React.DragEvent<HTMLElement>) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragEnterColumn?.(status);
+        },
+        onDragLeave: (event: React.DragEvent<HTMLElement>) => {
+            // dragleave also fires when the pointer crosses from the column
+            // into one of its cards, so only a move that actually lands
+            // outside the column clears the highlight.
+            if (
+                !event.currentTarget.contains(
+                    event.relatedTarget as Node | null
+                )
+            ) {
+                onDragLeaveColumn?.(status);
+            }
+        },
+        onDrop: (event: React.DragEvent<HTMLElement>) => {
+            event.preventDefault();
+            onDragLeaveColumn?.(status);
+            const id = event.dataTransfer.getData("text/plain");
+            if (id) void onMove(id, status).catch(() => undefined);
+        }
+    };
+
+    if (collapsed) {
+        return (
+            <Card
+                role="region"
+                aria-label={`${status}, ${cards.length} cards, collapsed`}
+                className={cn(
+                    "relative w-11 flex-none gap-0 overflow-hidden rounded-lg py-0 shadow-xs",
+                    isDropTarget && "border-primary"
+                )}
+                {...dropHandlers}
+            >
+                <Accent edge="top" color={color} />
+                {/* The whole strip is the control: 44px is too narrow to
+                    aim at a 20px button inside it. */}
+                <button
+                    type="button"
+                    aria-expanded={false}
+                    aria-label={`Expand the ${status} column`}
+                    title={`${status} · ${cards.length}`}
+                    className={cn(
+                        "flex h-full w-full cursor-pointer flex-col items-center gap-2.5 px-1 pt-4 pb-3 transition-colors hover:bg-accent/50",
+                        isDropTarget && "bg-accent/50"
+                    )}
+                    onClick={onToggleCollapsed}
+                >
+                    <ChevronsLeftRight
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                    />
+                    <span
+                        className="min-h-0 flex-1 truncate font-mono text-[11px] uppercase tracking-[0.06em] [writing-mode:vertical-rl]"
+                        style={{ color }}
+                    >
+                        {status}
+                    </span>
+                    <Badge
+                        variant="secondary"
+                        className="h-5 shrink-0 rounded-md px-[7px] font-mono text-[11px] font-normal"
+                    >
+                        {cards.length}
+                    </Badge>
+                </button>
+            </Card>
+        );
+    }
+
     return (
         <Card
             role="region"
@@ -231,29 +315,7 @@ function FlowColumn({
                 "relative w-[268px] flex-none gap-0 overflow-hidden rounded-lg py-0 shadow-xs",
                 isDropTarget && "border-primary"
             )}
-            onDragOver={(event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                onDragEnterColumn?.(status);
-            }}
-            onDragLeave={(event) => {
-                // dragleave also fires when the pointer crosses from the column
-                // into one of its cards, so only a move that actually lands
-                // outside the column clears the highlight.
-                if (
-                    !event.currentTarget.contains(
-                        event.relatedTarget as Node | null
-                    )
-                ) {
-                    onDragLeaveColumn?.(status);
-                }
-            }}
-            onDrop={(event) => {
-                event.preventDefault();
-                onDragLeaveColumn?.(status);
-                const id = event.dataTransfer.getData("text/plain");
-                if (id) void onMove(id, status).catch(() => undefined);
-            }}
+            {...dropHandlers}
         >
             <Accent edge="top" color={color} />
             <header className="flex flex-none items-center gap-2 px-3 pb-2.5 pt-4">
@@ -269,6 +331,20 @@ function FlowColumn({
                 >
                     {cards.length}
                 </Badge>
+                {onToggleCollapsed ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-expanded={true}
+                        aria-label={`Collapse the ${status} column`}
+                        title="Collapse column"
+                        className="-mr-1 text-muted-foreground"
+                        onClick={onToggleCollapsed}
+                    >
+                        <ChevronsRightLeft aria-hidden="true" />
+                    </Button>
+                ) : null}
             </header>
             <div
                 className={cn(
@@ -347,6 +423,36 @@ export function FlowBoard({
     // column is currently under the dragged card.
     const [dragOver, setDragOver] = useState<Status | null>(null);
     const [announcement, setAnnouncement] = useState("");
+    /**
+     * Collapsed columns, by status. Six columns at 268px is 1,650px before
+     * gaps, so on a laptop the board always scrolls sideways and `doing` and
+     * `review` are rarely on screen together — collapsing the ones that are not
+     * in play is what buys them the room.
+     *
+     * The preference belongs to the person, not the session, so it is stored
+     * beside the density and inspector toggles the shell keeps.
+     */
+    const [collapsed, setCollapsed] = useState<Set<Status>>(() => {
+        try {
+            const saved = localStorage.getItem("workfile-flow-collapsed");
+            return new Set(saved ? (JSON.parse(saved) as Status[]) : []);
+        } catch {
+            // A hand-edited or truncated value is not worth a broken board.
+            return new Set();
+        }
+    });
+    const toggleCollapsed = useCallback((status: Status) => {
+        setCollapsed((current) => {
+            const next = new Set(current);
+            if (next.has(status)) next.delete(status);
+            else next.add(status);
+            localStorage.setItem(
+                "workfile-flow-collapsed",
+                JSON.stringify([...next])
+            );
+            return next;
+        });
+    }, []);
     const statuses = useMemo<Status[]>(
         () => [
             "backlog",
@@ -438,6 +544,8 @@ export function FlowBoard({
                     status={status}
                     cards={byStatus.get(status) ?? NO_CARDS}
                     epicIds={epicIds}
+                    collapsed={collapsed.has(status)}
+                    onToggleCollapsed={() => toggleCollapsed(status)}
                     onOpen={onOpen}
                     onMove={onMove}
                     onCarry={carry}

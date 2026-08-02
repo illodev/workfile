@@ -41,11 +41,18 @@ stylesheet is gone; `ui/src/styles.css` is now the token bridge:
   switch on the `data-theme` attribute the app stamps; a `@custom-variant`
   bridges the registry's `dark:` utilities to it.
 - The three semantic namespaces — `--status-*`, `--priority-*`, `--sev-*` —
-  ported byte-for-byte from the system they outlived. They are the one
+  ported byte-for-byte from the system they outlived. They are the first
   named exception ADR-0005 allows, applied through the helpers in
   `ui/src/theme.ts` or the mapped utilities (`text-status-doing`).
+- `--primary` and `--primary-foreground`, the second and last exception:
+  the landing's brand blue rather than zinc's near-black (`ADR-0009`).
+  Everything that means "the primary action" follows the token, so no
+  component knows about it.
 - `--row-h`, the single density token: 40px compact by default, 48px under
   `:root[data-density="comfortable"]`. Tables key their row height off it.
+- Scrollbars, styled once on `*` in `@layer base` from `--border` and
+  `--muted-foreground`. Declared there rather than as a class because a
+  scroller that forgets the class is exactly the one that looks wrong.
 
 `test/design-system.test.ts` enforces the direction: the framework imports
 must be present, the registry must exist and stay free of application
@@ -63,7 +70,9 @@ light one declares.
   Gantt: Workfile's own decisions about how work is displayed, composed
   from registry parts.
 - Everything else in `ui/src/components/` is application glue — the
-  inspector, the editors, the palette.
+  inspector, the editors, the palette. `RecordDrawer` is the overlay a
+  record is read in, and both the card inspector and the memory record go
+  through it: one drawer, one set of dismissal rules.
 - `ui/src/lib/utils.ts` carries `cn()`; `ui/src/hooks/` the registry hooks.
 
 ### Adding a component
@@ -93,7 +102,13 @@ file is checked.
   attribute on the root element.
 - **Colours are tokens.** Status, priority and severity ride the semantic
   namespaces via `theme.ts`; everything else is a shadcn token utility. A
-  literal colour anywhere in `ui/src` fails the suite.
+  literal colour anywhere in `ui/src` fails the suite — the brand mark in
+  the sidebar strokes `currentColor` for exactly that reason.
+- **Escape belongs to the topmost overlay.** The shell's global Escape
+  handler is the floor under the Radix layers and skips a key one of them
+  already consumed (`event.defaultPrevented`). Asking the DOM which dialog
+  is open does not work: the layer that handled the key has already
+  unmounted by the time a bubble-phase listener runs.
 
 ## Demo builds
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ChevronLeft,
     Eye,
@@ -45,7 +45,10 @@ import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
 import { BodyEditor } from "./BodyEditor";
-import { MarkdownBody } from "./Markdown";
+import { documentOutline, MarkdownBody, type OutlineEntry } from "./Markdown";
+
+/** Heading anchors for this view — see `documentOutline`. */
+const DOC_HEADINGS = "doc-h";
 
 /**
  * Documentation view: a 290px rail of documents grouped by provenance
@@ -122,6 +125,65 @@ function DocRow({
                 </span>
             </button>
         </Item>
+    );
+}
+
+/**
+ * The document's own table of contents, beside the prose.
+ *
+ * A spec in this workspace runs past a dozen headings and the reader gave no
+ * map of it: the only way to reach a section was to scroll until its heading
+ * went past. The rail is the same answer every reading surface converges on —
+ * headings listed, the one on screen marked, click to jump.
+ *
+ * It sits outside the reading scroller rather than sticky inside it: a sibling
+ * of the pane does not move, which is the behaviour sticky is trying to imitate,
+ * and it keeps its own overflow when a document has more headings than fit.
+ */
+function Outline({
+    entries,
+    activeId,
+    onJump
+}: {
+    entries: OutlineEntry[];
+    activeId: string;
+    onJump: (id: string) => void;
+}) {
+    // The shallowest heading in this document is the left margin; everything
+    // deeper indents relative to it. A body that starts at `##` should not
+    // begin one step in.
+    const base = Math.min(...entries.map((entry) => entry.level));
+    return (
+        <aside
+            aria-label="Document outline"
+            className="hidden w-[228px] shrink-0 overflow-y-auto border-l px-3 py-6.5 xl:block"
+        >
+            <span className={cn(OVERLINE, "px-2")}>on this page</span>
+            <nav className="mt-2 flex flex-col gap-px">
+                {entries.map((entry) => {
+                    const active = entry.id === activeId;
+                    return (
+                        <button
+                            key={entry.id}
+                            type="button"
+                            aria-current={active ? "true" : undefined}
+                            className={cn(
+                                "cursor-pointer rounded-md px-2 py-1 text-left text-xs leading-snug transition-colors hover:bg-accent",
+                                active
+                                    ? "bg-accent font-medium text-foreground"
+                                    : "text-muted-foreground"
+                            )}
+                            style={{
+                                paddingLeft: `${8 + Math.min(entry.level - base, 3) * 12}px`
+                            }}
+                            onClick={() => onJump(entry.id)}
+                        >
+                            {entry.text}
+                        </button>
+                    );
+                })}
+            </nav>
+        </aside>
     );
 }
 
@@ -303,6 +365,57 @@ export function DocsView({
 
     const active =
         visible.find((document) => document.id === selectedId) || visible[0];
+
+    // ------------------------------------------------------------- outline
+    const readerRef = useRef<HTMLElement>(null);
+    const [activeHeading, setActiveHeading] = useState("");
+    const outline = useMemo(
+        () =>
+            active && !editingBody
+                ? documentOutline(active.body, DOC_HEADINGS)
+                : [],
+        [active, editingBody]
+    );
+    // Under two headings there is nothing to navigate: a rail listing the one
+    // section a document has is a rail that only takes width.
+    const showOutline = outline.length > 1;
+
+    useEffect(() => {
+        setActiveHeading("");
+        const root = readerRef.current;
+        if (!root || !showOutline) return;
+        const visibility = new Map<string, boolean>();
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries)
+                    visibility.set(entry.target.id, entry.isIntersecting);
+                // First in document order wins: while two headings share the
+                // band, the one being read is the upper one. Nothing in the
+                // band — scrolled past the last heading — keeps the last
+                // answer rather than blanking the rail.
+                const current = outline.find((entry) =>
+                    visibility.get(entry.id)
+                );
+                if (current) setActiveHeading(current.id);
+            },
+            // The band is the top third of the pane: a heading counts as "the
+            // section you are reading" once it reaches it, not when it first
+            // creeps in at the bottom of the viewport.
+            { root, rootMargin: "0px 0px -66% 0px", threshold: 0 }
+        );
+        for (const entry of outline) {
+            const node = document.getElementById(entry.id);
+            if (node) observer.observe(node);
+        }
+        return () => observer.disconnect();
+    }, [outline, showOutline]);
+
+    const jumpTo = (id: string) => {
+        document
+            .getElementById(id)
+            ?.scrollIntoView({ block: "start", behavior: "smooth" });
+        setActiveHeading(id);
+    };
 
     const openRelation = (id: string) => {
         const document = documents.find((candidate) => candidate.id === id);
@@ -505,6 +618,7 @@ export function DocsView({
                 wrapper rather than the scroller so the scrollbar stays at the
                 edge of the pane, where it belongs. */}
             <section
+                ref={readerRef}
                 className={cn(
                     "min-w-0 flex-1 overflow-y-auto px-6 py-6.5 sm:px-8.5",
                     active ? "block" : "hidden lg:block"
@@ -644,6 +758,7 @@ export function DocsView({
                             ) : active.body.trim() ? (
                                 <MarkdownBody
                                     source={active.body}
+                                    headingPrefix={DOC_HEADINGS}
                                     onOpen={openRelation}
                                 />
                             ) : (
@@ -700,6 +815,14 @@ export function DocsView({
                 )}
                 </div>
             </section>
+
+            {showOutline ? (
+                <Outline
+                    entries={outline}
+                    activeId={activeHeading}
+                    onJump={jumpTo}
+                />
+            ) : null}
 
             <Dialog
                 open={metaDraft !== null}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
     Check,
@@ -7,8 +7,7 @@ import {
     Pencil,
     Plus,
     Replace,
-    Search,
-    X
+    Search
 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -56,14 +55,15 @@ import type {
     RuntimeSchema
 } from "../types";
 import { MarkdownBody } from "./Markdown";
+import { RecordDrawer } from "./RecordDrawer";
 
 /**
  * Memory: one lane per collection (learnings, decisions, incidents,
- * conventions, context), a tile per record, and a right-hand detail panel
- * when a record is selected. Lanes are shadcn Cards sharing the kanban
- * geometry; behaviour is the old view's inventory (search, filters, live
- * reload, create, edit, graduate, supersede — all with `If-Match`
- * revisions).
+ * conventions, context), a tile per record, and the shared RecordDrawer over
+ * them when a record is selected — the same overlay a card opens in. Lanes are
+ * shadcn Cards sharing the kanban geometry; behaviour is the old view's
+ * inventory (search, filters, live reload, create, edit, graduate, supersede —
+ * all with `If-Match` revisions).
  */
 
 const CONFIDENCES = ["low", "medium", "high"];
@@ -998,22 +998,28 @@ function LifecycleDialog({
 function DetailPanel({
     record,
     statuses,
-    onClose,
     onOpenRelation,
     onOpenRecord,
-    onUpdated
+    onUpdated,
+    onDialogOpenChange
 }: {
     record: MemoryRecord;
     statuses: string[];
-    onClose: () => void;
     onOpenRelation: (id: string) => void;
     onOpenRecord: (id: string) => void;
     onUpdated: (record: MemoryRecord) => void;
+    /** Raised while a dialog is up: the drawer around this must not treat a
+     *  click inside that dialog as an interaction outside itself. */
+    onDialogOpenChange?: (open: boolean) => void;
 }) {
     const [editing, setEditing] = useState(false);
     const [lifecycle, setLifecycle] = useState<"" | "graduate" | "supersede">(
         ""
     );
+    const dialogOpen = editing || Boolean(lifecycle);
+    useEffect(() => {
+        onDialogOpenChange?.(dialogOpen);
+    }, [dialogOpen, onDialogOpenChange]);
     const canGraduate =
         record.collection === "learnings" && record.status !== "graduated";
     const canSupersede = ["learnings", "decisions", "conventions"].includes(
@@ -1042,13 +1048,15 @@ function DetailPanel({
         cells.push(["superseded by", record.superseded_by.join(", ")]);
     if (record.owners?.length) cells.push(["owners", record.owners.join(", ")]);
     cells.push(["updated", record.updated || "—"]);
-    // `--card-spacing` drives the header's `[.border-b]:pb-*`, which is a
-    // two-class selector and outranks anything written at the call site — a
-    // bare `py-2` rendered with 24px underneath it. Setting the variable is how
-    // the primitive means for a caller to ask for a denser card.
+    // The drawer supplies the frame and the close control, so this is the
+    // Inspector's shape rather than a card of its own: a bordered column with
+    // an identity bar over a scrolling body.
     return (
-        <Card className="w-full flex-1 gap-0 overflow-hidden rounded-xl py-0 [--card-spacing:--spacing(2)] lg:w-[380px] lg:flex-none">
-            <CardHeader className="flex flex-row items-center gap-2 border-b px-3 py-2">
+        <aside
+            aria-label="Memory record"
+            className="flex min-h-0 flex-col overflow-hidden border-l bg-background"
+        >
+            <div className="flex h-11 shrink-0 items-center gap-2 border-b px-3.5">
                 <span className="font-mono text-[11px] text-muted-foreground">
                     {record.id}
                 </span>
@@ -1067,18 +1075,8 @@ function DetailPanel({
                 >
                     {record.status}
                 </span>
-                <span className="flex-1" />
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Close details"
-                    onClick={onClose}
-                >
-                    <X aria-hidden="true" />
-                </Button>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
                 <div className="flex flex-col gap-1.5">
                     <h2 className="m-0 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] [text-wrap:pretty]">
                         {record.title}
@@ -1161,7 +1159,7 @@ function DetailPanel({
                         </Button>
                     ) : null}
                 </div>
-            </CardContent>
+            </div>
             {editing ? (
                 <EditDialog
                     record={record}
@@ -1178,7 +1176,7 @@ function DetailPanel({
                     onUpdated={onUpdated}
                 />
             ) : null}
-        </Card>
+        </aside>
     );
 }
 
@@ -1207,6 +1205,31 @@ export function MemoryView({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [createFor, setCreateFor] = useState<string | null>(null);
+    /** The drawer's width preference, kept like the inspector's. */
+    const [expanded, setExpanded] = useState(
+        () => localStorage.getItem("workfile-memory-drawer") === "expanded"
+    );
+    useEffect(() => {
+        localStorage.setItem(
+            "workfile-memory-drawer",
+            expanded ? "expanded" : "normal"
+        );
+    }, [expanded]);
+    // Set while a dialog raised from inside the drawer is up. Radix reports a
+    // click in that dialog as an interaction outside the drawer, and the
+    // drawer closing would take the dialog down with it.
+    const dialogRef = useRef(false);
+    // Every tile click stamps this: Radix defers its pointer-down-outside
+    // dispatch until after the click handlers have run, so browsing tile to
+    // tile would otherwise dismiss the drawer the click just retargeted.
+    const lastSelectRef = useRef(0);
+    const selectRecord = useCallback(
+        (id: string) => {
+            lastSelectRef.current = performance.now();
+            onSelect(id);
+        },
+        [onSelect]
+    );
 
     const [reloadKey, setReloadKey] = useState(0);
     useWorkspaceChanges((change) => {
@@ -1276,7 +1299,7 @@ export function MemoryView({
         ? collectionStatuses(schema.collections, collection)
         : [...new Set(schema.collections.flatMap((item) => item.statuses))];
     const openRelation = (id: string) => {
-        if (records.some((record) => record.id === id)) onSelect(id);
+        if (records.some((record) => record.id === id)) selectRecord(id);
         else onOpenRecord(id);
     };
     const applyUpdate = (record: MemoryRecord) =>
@@ -1344,15 +1367,11 @@ export function MemoryView({
                 </Alert>
             ) : null}
             <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3.5">
-                {/* Narrow: the detail replaces the lanes instead of competing
-                    with them for a viewport that fits neither. The panel keeps
-                    its own close control, which is the way back. */}
-                <div
-                    className={cn(
-                        "min-h-0 flex-1 gap-3 overflow-x-auto",
-                        active ? "hidden lg:flex" : "flex"
-                    )}
-                >
+                {/* The record reads in the drawer now, over the lanes rather
+                    than beside them, so the lanes keep their full width at
+                    every viewport instead of yielding half of it — or, below
+                    `lg`, all of it. */}
+                <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
                     {lanes.map((lane) => (
                         <Card
                             key={lane.schema.id}
@@ -1396,7 +1415,9 @@ export function MemoryView({
                                         key={record.id}
                                         record={record}
                                         selected={record.id === selectedId}
-                                        onSelect={() => onSelect(record.id)}
+                                        onSelect={() =>
+                                            selectRecord(record.id)
+                                        }
                                     />
                                 ))}
                                 {!lane.records.length && !loading ? (
@@ -1410,6 +1431,21 @@ export function MemoryView({
                         </Card>
                     ))}
                 </div>
+            </div>
+            <RecordDrawer
+                open={Boolean(active)}
+                expanded={expanded}
+                label="record"
+                description="Details and lifecycle for the selected memory record."
+                onOpenChange={(next) => {
+                    if (!next) onSelect("");
+                }}
+                onExpandedChange={setExpanded}
+                holdOpen={() =>
+                    dialogRef.current ||
+                    performance.now() - lastSelectRef.current < 200
+                }
+            >
                 {active ? (
                     <DetailPanel
                         key={active.id}
@@ -1418,13 +1454,15 @@ export function MemoryView({
                             schema.collections,
                             active.collection
                         )}
-                        onClose={() => onSelect("")}
                         onOpenRelation={openRelation}
                         onOpenRecord={onOpenRecord}
                         onUpdated={applyUpdate}
+                        onDialogOpenChange={(open) => {
+                            dialogRef.current = open;
+                        }}
                     />
                 ) : null}
-            </div>
+            </RecordDrawer>
             {createFor !== null ? (
                 <CreateDialog
                     schema={schema}

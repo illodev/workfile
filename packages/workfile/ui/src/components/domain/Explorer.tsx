@@ -651,7 +651,12 @@ export function Explorer({
                     <div
                         role="region"
                         aria-label="Bulk actions"
-                        className="mx-3.5 mt-2.5 mb-2.5 flex flex-none flex-wrap items-center gap-2 rounded-md border-l-2 border-l-primary bg-muted/50 px-3 py-2"
+                        // A wash and a hairline are how every other strip in
+                        // the app separates itself. The accent edge this
+                        // carried was the only one in the interface, and in
+                        // dark mode the primary token is light enough that it
+                        // read as a bare stripe rather than as emphasis.
+                        className="mx-3.5 mt-2.5 mb-2.5 flex flex-none flex-wrap items-center gap-2 rounded-md border bg-muted/50 px-3 py-2"
                     >
                         <span className="font-mono text-[11px]">
                             {selected.size} selected
@@ -662,7 +667,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkStatus(event.target.value)
                             }
-                            className="h-[26px] px-2 py-0 pr-8 text-xs"
+                            className="h-7 px-2 py-0 pr-8 text-xs"
                         >
                             <NativeSelectOption value="">
                                 status…
@@ -679,7 +684,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkPriority(event.target.value)
                             }
-                            className="h-[26px] px-2 py-0 pr-8 text-xs"
+                            className="h-7 px-2 py-0 pr-8 text-xs"
                         >
                             <NativeSelectOption value="">
                                 priority…
@@ -696,7 +701,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkArea(event.target.value)
                             }
-                            className="h-[26px] px-2 py-0 pr-8 text-xs"
+                            className="h-7 px-2 py-0 pr-8 text-xs"
                         >
                             <NativeSelectOption value="">
                                 area…
@@ -707,9 +712,13 @@ export function Explorer({
                                 </NativeSelectOption>
                             ))}
                         </NativeSelect>
+                        {/* h-7, the height the selects beside them carry: a
+                            strip of controls that steps up 6px in the middle
+                            reads as two strips. */}
                         <ButtonGroup>
                             <Button
                                 size="sm"
+                                className="h-7"
                                 disabled={!bulkReady}
                                 onClick={() => void applyBulk()}
                             >
@@ -718,6 +727,7 @@ export function Explorer({
                             <Button
                                 size="sm"
                                 variant="outline"
+                                className="h-7"
                                 onClick={() => setSelected(new Set())}
                             >
                                 Clear

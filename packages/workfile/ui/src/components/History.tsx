@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { api } from "../api";
+import { READING_MEASURE } from "../layout";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor, statusColor } from "../theme";
 import type {
@@ -1079,12 +1080,16 @@ export function HistoryView({
             </div>
 
             {/* ----------------------------------------------- right pane */}
+            {/* The measure sits on an inner wrapper rather than the scroller,
+                the way Docs does it, so the scrollbar stays at the edge of the
+                pane instead of tracking the column of prose. */}
             <div
                 className={cn(
-                    "min-w-0 flex-1 overflow-y-auto px-6 py-5",
+                    "min-w-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8.5",
                     active ? "block" : "hidden lg:block"
                 )}
             >
+                <div className={READING_MEASURE}>
                 {active ? (
                     <>
                         <Button
@@ -1236,7 +1241,7 @@ export function HistoryView({
                         ) : null}
 
                         {/* MarkdownBody brings its own .typeset wrapper. */}
-                        <div className="mt-4.5 max-w-[70ch]">
+                        <div className="mt-4.5">
                             <MarkdownBody
                                 source={
                                     active.body || "No additional notes."
@@ -1245,7 +1250,7 @@ export function HistoryView({
                             />
                         </div>
 
-                        <div className="mt-5.5 flex max-w-[70ch] flex-col gap-3.5">
+                        <div className="mt-5.5 flex flex-col gap-3.5">
                             {active.kind === "change" ? (
                                 <RefGroup
                                     label="shipped in"
@@ -1292,7 +1297,7 @@ export function HistoryView({
                         </div>
 
                         {active.kind === "change" ? (
-                            <div className="mt-5.5 max-w-[70ch]">
+                            <div className="mt-5.5">
                                 <FragmentEditor
                                     key={`${active.id}:${active.revision}`}
                                     record={active}
@@ -1375,6 +1380,7 @@ export function HistoryView({
                         )}
                     </>
                 )}
+                </div>
             </div>
 
             {showCreate ? (

@@ -20,8 +20,6 @@ import {
     Gauge,
     Lightbulb,
     ListChecks,
-    Maximize2,
-    Minimize2,
     Moon,
     Plus,
     Rows3,
@@ -34,7 +32,6 @@ import {
     X
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
-import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -54,12 +51,6 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import {
-    Sheet,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle
-} from "@/components/ui/sheet";
 import {
     Sidebar,
     SidebarContent,
@@ -82,6 +73,7 @@ import { cn } from "@/lib/utils";
 import { api } from "./api";
 import { OverviewView } from "./components/domain/Overview";
 import { Inspector } from "./components/Inspector";
+import { RecordDrawer } from "./components/RecordDrawer";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
 import { recordCollection, severityColor, since, statusColor } from "./theme";
@@ -220,6 +212,64 @@ const FALLBACK_SCHEMA: RuntimeSchema = {
         ]
     }
 };
+
+/**
+ * The Workfile mark: a bordered frame over three ruled lines, the same drawing
+ * the favicon (`ui/index.html`) and the landing lockup (`site/index.html`)
+ * carry. The app was the last surface still showing a blank square where it
+ * belongs.
+ *
+ * It strokes `currentColor` rather than the brand hex the other two inline —
+ * a colour literal anywhere in `ui/src` fails `design-system.test.ts`, and
+ * riding the token means the mark follows the theme instead of fighting it.
+ */
+function WorkfileMark() {
+    return (
+        <svg
+            viewBox="0 0 96 96"
+            fill="none"
+            aria-hidden="true"
+            className="size-[18px] shrink-0 text-primary"
+        >
+            <rect
+                x="10"
+                y="10"
+                width="76"
+                height="76"
+                rx="22"
+                stroke="currentColor"
+                strokeWidth="8"
+            />
+            <line
+                x1="30"
+                y1="36"
+                x2="66"
+                y2="36"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+            />
+            <line
+                x1="42"
+                y1="48"
+                x2="66"
+                y2="48"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+            />
+            <line
+                x1="30"
+                y1="60"
+                x2="66"
+                y2="60"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+            />
+        </svg>
+    );
+}
 
 interface NavItem {
     value: View;
@@ -668,6 +718,24 @@ function App() {
                 return;
             }
             if (event.key !== "Escape") return;
+            /**
+             * Escape belongs to the topmost overlay, and this handler is the
+             * floor under all of them.
+             *
+             * Radix's dismissable layers listen in the capture phase and mark
+             * a key they consumed by calling `preventDefault`, so by the time
+             * this bubble-phase listener runs the flag is the honest record of
+             * whether anything above already answered. Asking the DOM instead
+             * does not work: the dismissed layer has already unmounted, and
+             * the query comes back empty exactly when a layer did handle it.
+             *
+             * Without this, one Escape reached two levels at once — the memory
+             * record's edit dialog closed *and* the selection behind it was
+             * cleared, taking the record the form belonged to off the screen.
+             * A second Escape, with nothing left to consume it, still clears
+             * the selection.
+             */
+            if (event.defaultPrevented) return;
             if (showNewCard) setShowNewCard(false);
             // While a form in the inspector holds unsaved input, Escape must
             // not tear the record down (the drawer refuses to close too).
@@ -994,10 +1062,7 @@ function App() {
             <Sidebar collapsible="icon" className="border-r">
                 <SidebarHeader className="gap-1 px-3 pt-3 group-data-[collapsible=icon]:px-2">
                     <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-                        <span
-                            className="size-4 shrink-0 rounded-sm bg-primary"
-                            aria-hidden="true"
-                        />
+                        <WorkfileMark />
                         <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
                             {projectName}
                         </span>
@@ -1584,164 +1649,80 @@ function App() {
                 </footer>
             </SidebarInset>
 
-            {/* The inspector is an overlay drawer: the board never reflows
-                and stays interactive (`modal={false}` also means no dimmer
-                and no focus trap). Outside interactions never dismiss it, so
-                row-to-row browsing retargets the drawer instead of closing
-                it; Escape closes unless a form holds unsaved input. The
-                content is composed from the sheet primitives directly
-                because the registry SheetContent's internal portal ignores
-                `forceMount` — and the drawer must stay mounted while closed,
-                as the old rail did, so an open form survives a toggle. */}
             {/* Open needs BOTH the user preference and a selection: the old
                 in-flow rail could sit empty ("select a record"), but an empty
                 overlay is dead glass over the board — a fresh load must not
                 cover the toolbar with a drawer that has nothing to say. */}
-            <Sheet
+            <RecordDrawer
                 open={
                     inspectorOpen &&
                     selectedId !== null &&
                     recordCollection(selectedId) === "cards"
                 }
-                modal={false}
+                expanded={inspectorExpanded}
+                label="inspector"
+                description="Details and editing for the selected record."
                 onOpenChange={setInspectorOpen}
+                onExpandedChange={setInspectorExpanded}
+                holdOpen={() =>
+                    editingRef.current ||
+                    performance.now() - lastSelectRef.current < 200
+                }
             >
-                <SheetPrimitive.Portal forceMount>
-                    <SheetPrimitive.Content
-                        forceMount
-                        className={cn(
-                            "fixed inset-y-0 right-0 z-50 flex h-full flex-col bg-background shadow-lg transition-[width] duration-200 ease-in-out",
-                            "data-[state=closed]:hidden data-[state=open]:animate-in data-[state=open]:duration-300 data-[state=open]:slide-in-from-right",
-                            inspectorExpanded
-                                ? "w-[min(1100px,92vw)]"
-                                : "w-[480px] max-w-[92vw]"
-                        )}
-                        onOpenAutoFocus={(event) => event.preventDefault()}
-                        onEscapeKeyDown={(event) => {
-                            if (editingRef.current) event.preventDefault();
-                        }}
-                        onInteractOutside={(event) => {
-                            // Clicking outside closes the drawer — unless a
-                            // form holds unsaved input, or the "outside"
-                            // event is the deferred echo of a record-open
-                            // click that just (re)opened it.
-                            if (
-                                editingRef.current ||
-                                performance.now() - lastSelectRef.current < 200
-                            )
-                                event.preventDefault();
-                        }}
-                        onPointerDownOutside={(event) => {
-                            if (
-                                editingRef.current ||
-                                performance.now() - lastSelectRef.current < 200
-                            )
-                                event.preventDefault();
-                        }}
-                    >
-                        <SheetHeader className="flex-row items-center justify-end gap-1 border-b border-l px-2 py-1.5">
-                            <SheetTitle className="sr-only">
-                                Inspector
-                            </SheetTitle>
-                            <SheetDescription className="sr-only">
-                                Details and editing for the selected record.
-                            </SheetDescription>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-pressed={inspectorExpanded}
-                                title={
-                                    inspectorExpanded
-                                        ? "Minimize inspector"
-                                        : "Maximize inspector"
-                                }
-                                aria-label={
-                                    inspectorExpanded
-                                        ? "Minimize inspector"
-                                        : "Maximize inspector"
-                                }
-                                onClick={() =>
-                                    setInspectorExpanded(
-                                        (current) => !current
-                                    )
-                                }
-                            >
-                                {inspectorExpanded ? (
-                                    <Minimize2 aria-hidden="true" />
-                                ) : (
-                                    <Maximize2 aria-hidden="true" />
-                                )}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                title="Close inspector"
-                                aria-label="Close inspector"
-                                onClick={() => setInspectorOpen(false)}
-                            >
-                                <X aria-hidden="true" />
-                            </Button>
-                        </SheetHeader>
-                        <div className="flex min-h-0 flex-1 flex-col *:min-w-0 *:grow">
-                            <Inspector
-                                task={selected}
-                                selectedId={selectedId}
-                                repoRoot={repoRoot}
-                                repoUrl={repoUrl}
-                                tasks={tasks}
-                                areas={areas}
-                                schema={schema}
-                                orderedIds={visibleTasks.map(
-                                    (task) => task.id
-                                )}
-                                onOpen={selectRecord}
-                                onClose={() => setSelectedId(null)}
-                                onPatch={patch}
-                                onEditingChange={(editing) => {
-                                    editingRef.current = editing;
-                                }}
-                                onArchive={async (id, archived) => {
-                                    try {
-                                        await api.archive(
-                                            id,
-                                            archived,
-                                            tasks.find(
-                                                (task) => task.id === id
-                                            )?.revision
-                                        );
-                                        await load(true);
-                                    } catch (reason) {
-                                        setError(
-                                            reason instanceof Error
-                                                ? reason.message
-                                                : String(reason)
-                                        );
-                                    }
-                                }}
-                                onUpload={async (id, files) => {
-                                    try {
-                                        await Promise.all(
-                                            [...files].map((file) =>
-                                                api.upload(id, file)
-                                            )
-                                        );
-                                        await load(true);
-                                    } catch (reason) {
-                                        setError(
-                                            reason instanceof Error
-                                                ? reason.message
-                                                : String(reason)
-                                        );
-                                    }
-                                }}
-                                projectName={projectName}
-                            />
-                        </div>
-                    </SheetPrimitive.Content>
-                </SheetPrimitive.Portal>
-            </Sheet>
+                <Inspector
+                    task={selected}
+                    selectedId={selectedId}
+                    repoRoot={repoRoot}
+                    repoUrl={repoUrl}
+                    tasks={tasks}
+                    areas={areas}
+                    schema={schema}
+                    orderedIds={visibleTasks.map(
+                        (task) => task.id
+                    )}
+                    onOpen={selectRecord}
+                    onClose={() => setSelectedId(null)}
+                    onPatch={patch}
+                    onEditingChange={(editing) => {
+                        editingRef.current = editing;
+                    }}
+                    onArchive={async (id, archived) => {
+                        try {
+                            await api.archive(
+                                id,
+                                archived,
+                                tasks.find(
+                                    (task) => task.id === id
+                                )?.revision
+                            );
+                            await load(true);
+                        } catch (reason) {
+                            setError(
+                                reason instanceof Error
+                                    ? reason.message
+                                    : String(reason)
+                            );
+                        }
+                    }}
+                    onUpload={async (id, files) => {
+                        try {
+                            await Promise.all(
+                                [...files].map((file) =>
+                                    api.upload(id, file)
+                                )
+                            );
+                            await load(true);
+                        } catch (reason) {
+                            setError(
+                                reason instanceof Error
+                                    ? reason.message
+                                    : String(reason)
+                            );
+                        }
+                    }}
+                    projectName={projectName}
+                />
+            </RecordDrawer>
 
             <CommandPalette
                 open={showPalette}
