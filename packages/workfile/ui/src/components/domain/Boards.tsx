@@ -847,7 +847,35 @@ export function TimelineView({
     axes?: Record<string, string[]>;
     onOpen: (id: string) => void;
 }) {
-    const [groupBy, setGroupBy] = useState<string>("none");
+    /**
+     * Kept in `localStorage` rather than the address bar, beside the collapsed
+     * columns the flow board stores for the same reason: the preference belongs
+     * to the person, not the session.
+     *
+     * The URL carries what you are looking at — view, record, and the filters
+     * that decide which cards are on screen. Grouping decides none of that;
+     * every scheduled card stays on the chart either way, which is the
+     * distinction. A reading somebody sets up deliberately, most of all their
+     * own domain axis, should still be there after a trip to Docs, and this
+     * view is unmounted the moment they leave it.
+     */
+    const [groupBy, setGroupBy] = useState<string>(() => {
+        try {
+            return localStorage.getItem("workfile-timeline-group") || "none";
+        } catch {
+            // Storage can be blocked outright; a grouping is not worth a
+            // component that fails to mount.
+            return "none";
+        }
+    });
+    const chooseGrouping = useCallback((value: string) => {
+        setGroupBy(value);
+        try {
+            localStorage.setItem("workfile-timeline-group", value);
+        } catch {
+            // Blocked or full: the choice still applies for this session.
+        }
+    }, []);
 
     /**
      * What this workspace can be grouped by, which is not a decision the
@@ -1038,7 +1066,7 @@ export function TimelineView({
                     <DropdownMenuContent align="end">
                         <DropdownMenuRadioGroup
                             value={grouping}
-                            onValueChange={setGroupBy}
+                            onValueChange={chooseGrouping}
                         >
                             {groupings.map((option) => (
                                 <DropdownMenuRadioItem

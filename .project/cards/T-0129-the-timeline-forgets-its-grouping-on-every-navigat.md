@@ -1,7 +1,7 @@
 ---
 id: T-0129
 title: The timeline forgets its grouping on every navigation
-status: backlog
+status: done
 type: task
 priority: low
 area: ui
@@ -36,8 +36,54 @@ filters already live in the URL.
 
 ## Acceptance criteria
 
-- [ ] A chosen grouping survives navigating away and back
-- [ ] A grouping naming an axis the project no longer declares falls back
+- [x] A chosen grouping survives navigating away and back
+- [x] A grouping naming an axis the project no longer declares falls back
       rather than leaving the chart grouped by nothing
-- [ ] Where it is kept is a recorded decision, since URL and localStorage
+- [x] Where it is kept is a recorded decision, since URL and localStorage
       answer different questions
+
+## Activity
+
+- 2026-08-02 19:22Z illodev@local#aed59c5e · claimed
+- 2026-08-02 19:25Z illodev@local#aed59c5e · doing → done
+
+## Notes
+
+- 2026-08-02 19:25Z illodev@local#aed59c5e — Kept in `localStorage`, not the URL. The third criterion asks for the decision
+on the record, so here it is.
+
+The URL carries what you are looking at: the view, the open record, and the
+filters in `query.ts` that decide which cards are on screen. Grouping decides
+none of that — the code's own comment says it, "grouping only reorders: every
+scheduled card stays on the chart". So a grouped timeline is not a different
+thing to look at, and a shareable link to one would be a link to somebody's
+preferences rather than to a view of the work.
+
+That puts it with the flow board's collapsed columns forty lines up in the same
+file, which states the rationale this borrows: the preference belongs to the
+person, not the session. Storing it there also cost ten lines against roughly
+four files for the URL route, since `Filters` is shared across views and a
+timeline-only key does not belong in it — but the size was the tiebreak, not
+the argument.
+
+What would change the decision: if grouping ever selects as well as arranges —
+a "show only this bucket" — it stops being presentation and belongs in the URL
+with the other filters.
+
+Verified in Chromium on a workspace declaring `context`:
+
+    tras elegir:             group context
+    tras ir a Docs y volver: group context
+    tras recargar:           group context
+
+And the second criterion, on a workspace declaring no axes at all, with
+`context` already in storage from another project:
+
+    el control muestra:   group none
+    opciones ofrecidas:   ["none","epic","area"]
+
+Storage being blocked outright is caught on both the read and the write: a
+grouping is not worth a view that fails to mount, and the flow board's write is
+unguarded today, which is worth knowing rather than copying.
+
+234 + 7 tests pass, strict holds at baseline, the UI typechecks and builds.
