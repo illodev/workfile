@@ -5,7 +5,7 @@ status: done
 type: feature
 priority: low
 area: ui
-scope: [packages/workfile/ui/src/components/domain/Boards.tsx, packages/workfile/ui/src/types.ts, packages/workfile/ui/src/main.tsx]
+scope: [packages/workfile/ui/src/components/domain/Boards.tsx]
 related: [T-0060]
 created: 2026-08-02
 updated: 2026-08-02
@@ -32,6 +32,8 @@ grouping renders are known to be a closed set.
 
 - 2026-08-02 18:40Z illodev@local#aed59c5e · claimed
 - 2026-08-02 18:51Z illodev@local#aed59c5e · doing → done
+- 2026-08-02 18:53Z illodev@local#aed59c5e · claimed
+- 2026-08-02 18:53Z illodev@local#aed59c5e · released
 
 ## Notes
 
@@ -82,3 +84,30 @@ tripwire: writing an axis was covered from four surfaces, reading one back was
 covered from none.
 
 233 + 7 tests pass, strict holds at baseline, the UI typechecks and builds.
+- 2026-08-02 18:53Z illodev@local#aed59c5e — Two caveats from a review that finished after this closed, recorded because
+the third criterion is checked and one of them qualifies what that means.
+
+"A card with no value lands in a visible bucket" is satisfied among the cards
+this surface shows, which is not all of them. `TimelineView` filters to
+`task.start || task.due` before grouping runs, so a card with no dates is
+absent whatever the grouping — and that is true of every card without dates,
+axis or no axis. The criterion is about the grouping not swallowing anything,
+and it does not; it is not a claim that the timeline shows the whole corpus.
+Read as "every card with no axis value is visible somewhere", this surface
+structurally cannot deliver it, and the place that could is the kanban, which
+excludes nothing and has no grouping at all.
+
+The review also caught a real one the criteria do not cover: the grouping is
+component state and the view is lazy-loaded, so navigating away and back resets
+it to `none`. It predates this work — the control never persisted anything —
+but it matters more now that the reading somebody sets up is their own domain
+axis. Carded as [[T-0129]] rather than folded in here, because where it belongs
+is a decision: `localStorage` makes it personal, the URL makes it shareable,
+and the existing filters already live in the URL.
+
+One risk the review flagged that this had already avoided: with the previous
+code the unset bucket sorted as the literal string "ungrouped", which against a
+vocabulary like treasury/verifactu/billing/iam lands between "treasury" and
+"verifactu" — unset cards interleaved into the middle of the chart rather than
+collected anywhere. The empty bucket is now sorted last explicitly, and the
+browser run confirms it: BILLING, TREASURY, NO CONTEXT.
