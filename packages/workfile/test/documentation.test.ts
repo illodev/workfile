@@ -422,7 +422,14 @@ test("every stated MCP invocation agrees with the generated one", async () => {
     const args = generated.mcpServers["workfile"].args;
 
     for (const path of ["README.md", "packages/workfile/README.md"]) {
-        const content = await readFile(new URL(path, repoRoot), "utf8");
+        // Normalized because Windows checks these out with CRLF, and a fence
+        // matched on a bare \n finds nothing there. The first version of this
+        // test passed everywhere but the Windows runner, which is where the
+        // repository's line endings stop being the ones it was written with.
+        const content = (await readFile(new URL(path, repoRoot), "utf8")).replaceAll(
+            "\r\n",
+            "\n"
+        );
         const block = content.match(
             /```json\n(\{[^`]*?"mcpServers"[^`]*?)\n```/
         );

@@ -7,7 +7,7 @@ priority: medium
 area: docs
 created: 2026-08-02
 updated: 2026-08-02
-scope: [README.md, packages/workfile/test, .project/cards, .project/changelog]
+scope: [packages/workfile/test, .project/cards]
 ---
 
 `server.json` tells every MCP client to run `npx -y @illodev/workfile mcp`,
@@ -51,6 +51,8 @@ something three places already assert, which is the shape [[LRN-0011]] records.
 
 - 2026-08-02 22:34Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 22:39Z illodev@local#bd44efc7 · doing → done
+- 2026-08-02 22:48Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 22:51Z illodev@local#bd44efc7 · doing → done
 
 ## Notes
 
@@ -73,3 +75,19 @@ The first of those is [[T-0116]] reintroduced verbatim — the `workfile-mcp` bi
     doctor           --> 0 errors, 0 warnings
 
 One thing deliberately not asserted: the README snippet omits `env: {}`, which the generated file carries and which would be noise in something people copy. The test compares command and args, the two fields a client acts on, rather than demanding the snippet be byte-identical to a generated file it is not.
+- 2026-08-02 22:51Z illodev@local#bd44efc7 — Reopened: the test I added to hold the four copies together could not run on Windows. The regex matched the fence on a bare \`\n\` and the runner checks the repository out with CRLF, so it found nothing and reported the README as stating no configuration at all — green on Linux and macOS, red on both Windows matrices.
+
+Reproduced locally rather than guessed, by converting both READMEs to CRLF:
+
+    old test, CRLF files   --> not ok, "README.md states no MCP client configuration"
+    new test, CRLF files   --> 7 pass, 0 fail
+    READMEs restored       --> git diff empty, byte for byte
+
+The content is normalized on read instead of the pattern being loosened, because the same file is then parsed and compared and neither wants stray carriage returns either.
+
+Worth stating plainly: this is the failure mode this repository already knows about — a test that passes locally and only fails where the line endings are not the ones it was written with. It reached main because CI runs on the pushed head and I had verified on Linux alone.
+
+    pnpm run check   --> 252 + 7 pass, strict 588, none new
+    doctor           --> 0 errors, 0 warnings
+
+The same CI run failed a second test that is not this one and not flakiness: concurrent card creation died with EPERM on a lock file. Filed as [[T-0140]].
