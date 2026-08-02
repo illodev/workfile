@@ -1,7 +1,7 @@
 ---
 id: T-0106
 title: A stale committed build artifact is invisible to CI
-status: review
+status: done
 type: bug
 priority: medium
 area: infra
@@ -43,4 +43,5 @@ not just the plugin.
 
 - 2026-08-02 01:31Z illodev@local#e55eab30 · claimed
 - 2026-08-02 01:31Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 01:50Z illodev@local#e55eab30 · review → done
 
