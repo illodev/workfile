@@ -1790,3 +1790,58 @@ test("card reopen carries an actor into doing, resolved or given", async () => {
         await rm(workspace, { recursive: true, force: true });
     }
 });
+
+/**
+ * The resolved root, on demand, before anything writes.
+ *
+ * SPEC stated it normatively — "commands that mutate data MUST print the
+ * resolved workspace root in verbose mode" — and nothing implemented it. After
+ * the flag tables were re-keyed nothing could: `--verbose` was listed for `ui`
+ * alone, where it means request logging, so `card create --verbose` was
+ * refused outright. The requirement was false in both directions at once.
+ *
+ * Resolution walks five steps and picking the wrong ancestor writes into the
+ * wrong repository, which stops being hypothetical the moment two checkouts
+ * are open. Global rather than per-mutation: a caller should not have to know
+ * which commands qualify, and a read answering the same question costs
+ * nothing. On stderr, so `--json` on stdout stays machine-readable.
+ */
+test("--verbose names the workspace a command resolved, without spoiling --json", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "workfile-verbose-"));
+    await cp(fixture, workspace, { recursive: true });
+    try {
+        const mutation = await outcome([
+            "card", "create", "--title", "Verbose probe",
+            "--area", "api", "--verbose", "--root", workspace
+        ]);
+        assert.equal(mutation.code, 0, mutation.stderr);
+        assert.match(
+            mutation.stderr,
+            new RegExp(`Workspace: ${workspace}`),
+            "a mutation ran without naming the workspace it resolved"
+        );
+
+        const listed = await outcome([
+            "card", "list", "--verbose", "--json", "--root", workspace
+        ]);
+        assert.equal(listed.code, 0, listed.stderr);
+        assert.match(listed.stderr, new RegExp(`Workspace: ${workspace}`));
+        // The whole point of the stderr channel: stdout is still a document.
+        assert.ok(
+            JSON.parse(listed.stdout).records.length > 0,
+            "--verbose corrupted the machine-readable output"
+        );
+
+        // Refusing it anywhere is the state this replaced.
+        for (const command of [["doctor"], ["card", "list"], ["agents", "status"]]) {
+            const accepted = await outcome([...command, "--verbose", "--root", workspace]);
+            assert.notEqual(
+                accepted.stderr.includes("CLI_ARGUMENT_UNKNOWN"),
+                true,
+                `${command.join(" ")} still refuses --verbose`
+            );
+        }
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
+    }
+});

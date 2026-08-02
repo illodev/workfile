@@ -215,9 +215,11 @@ The CLI discovers a workspace using this order:
 4. Current Git worktree root.
 5. Current working directory.
 
-`workfile ui` prints the resolved root when it starts. No other command does, and
-`--verbose` is accepted only there, so a caller who needs certainty about which
-workspace a mutation will reach passes `--root` explicitly.
+Every command MUST print the resolved workspace root when `--verbose` is given.
+It goes to stderr, so a `--json` consumer is unaffected and the answer still
+reaches a human watching the run. `workfile ui` also prints it unconditionally
+as part of its startup banner, and `--verbose` additionally turns on request
+logging there.
 
 A workspace is loaded through one function:
 

@@ -24,6 +24,7 @@ import {
     createIntegrationRegistry,
     createManagedDocument,
     createMemoryRecord,
+    amendRelease,
     createRelease,
     graduateLearning,
     healDuplicateCardIds,
@@ -162,6 +163,7 @@ const USAGE: Record<string, string[]> = {
         "workfile changelog patch ID --json-input FILE [--expected-revision REV]",
         "workfile changelog preview [--fragments CHG-0001,CHG-0002]",
         "workfile changelog release VERSION [--title TITLE] [--date YYYY-MM-DD] [--fragments CHG-0001,CHG-0002]",
+        "workfile changelog release VERSION --amend [--title TITLE] [--date YYYY-MM-DD]   # newest release only",
         "workfile changelog render [--visibility public|internal] [--write]",
         "workfile changelog verify [--json]"
     ],
@@ -253,6 +255,7 @@ const GLOBAL_FLAGS = [
     "--json",
     "--dry-run",
     "--allow-new",
+    "--verbose",
     "--help",
     "-h"
 ];
@@ -421,9 +424,11 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--visibility"
     ],
     "changelog release": [
+        "--amend",
         "--body",
         "--commit",
         "--date",
+        "--expected-revision",
         "--fragments",
         "--json-input",
         "--tags",
@@ -594,8 +599,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "ui": [
         "--host",
-        "--port",
-        "--verbose"
+        "--port"
     ],
     "upgrade": [],
     "version": []
@@ -674,6 +678,7 @@ const BOOLEAN_FLAGS = new Set([
     "--fix",
     "--new",
     "--accept-baseline",
+    "--amend",
     "--rebuild-cache",
     "--duplicates",
     "--allow-new",
@@ -1675,6 +1680,30 @@ async function changelogCommand(workspace, action) {
                 "changelog release requires a version"
             );
         }
+        if (has("--amend")) {
+            const amended = await amendRelease(
+                workspace,
+                version,
+                {
+                    // Conditional, not `key: option(...)`: a flag that was not
+                    // given must be absent rather than empty, or amending the
+                    // title alone arrives carrying a blank date and is refused
+                    // as an invalid one.
+                    ...(option("--title") ? { title: option("--title") } : {}),
+                    ...(option("--date") ? { date: option("--date") } : {}),
+                    ...(option("--commit") ? { commit: option("--commit") } : {}),
+                    ...(option("--body") ? { body: option("--body") } : {}),
+                    ...(listOption("--tags") ? { tags: listOption("--tags") } : {}),
+                    ...((await jsonInput()) || {})
+                },
+                { expectedRevision: option("--expected-revision") || undefined }
+            );
+            return print(
+                has("--json")
+                    ? amended.release
+                    : `${amended.id} amended (${amended.release.version})`
+            );
+        }
         const fileInput = (await jsonInput()) || {};
         const result = await createRelease(workspace, {
             ...fileInput,
@@ -2184,6 +2213,11 @@ async function main() {
             ? { root: explicitRoot }
             : { cwd: root, allowMissing: has("--allow-new") }
     );
+    // Resolution walks five steps, and picking the wrong ancestor writes into
+    // the wrong repository — which stops being hypothetical the moment someone
+    // has two checkouts open. On stderr, so a `--json` consumer is unaffected
+    // and the answer still reaches a human watching the run.
+    if (has("--verbose")) console.error(`Workspace: ${workspace.root}`);
     if (command === "schema") {
         print(workspace.schema);
         return;

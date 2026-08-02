@@ -15,8 +15,8 @@ generated protocols and skills always spell it long for that reason.
 
 ## Global options
 
-Four, and they are the whole list. Every other option belongs to the
-subcommands that read it and appears in their usage lines below.
+This is the whole list. Every other option belongs to the subcommands that
+read it, and appears in their usage lines below.
 
 | Option | Meaning |
 | --- | --- |
@@ -24,6 +24,7 @@ subcommands that read it and appears in their usage lines below.
 | `--json` | Machine-readable output |
 | `--dry-run` | Preview filesystem changes, where the subcommand implements it |
 | `--allow-new` | Accept a directory that is not yet a workspace |
+| `--verbose` | Print the resolved workspace root to stderr before running |
 | `--help`, `-h` | Print the usage for a command without running it |
 
 An option a subcommand does not accept is refused with `CLI_ARGUMENT_UNKNOWN`,
@@ -48,7 +49,7 @@ one needs to find the correction where the mistake was.
 
 | Option | Subcommands that accept it |
 | --- | --- |
-| `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
+| `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `changelog release`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
 | `--force` — proceed past the check the command would otherwise fail | `agents sync`, `card claim`, `card patch`, `card release`, `card transition`, `ci sync`, `claude install`, `claude sync`, `init`, `migrate apply` |
 | `--read-only` — disable the MCP mutation tools | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio` |
 | `--yes` — accept the initializer defaults without prompting | `init` |
@@ -64,7 +65,7 @@ workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-
 workfile doctor --new              # only what appeared since the baseline
 workfile doctor --accept-baseline  # record the current state as known
 workfile upgrade [--dry-run] [--json]
-workfile ui [--host HOST] [--port PORT]
+workfile ui [--host HOST] [--port PORT] [--verbose]
 workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```

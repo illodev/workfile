@@ -2,6 +2,7 @@ export {
     CHANGE_LIST_KEYS,
     CHANGE_REQUIRED_KEYS,
     RELEASE_REQUIRED_KEYS,
+    amendRelease,
     createChangeFragment,
     createRelease,
     loadChangelog,

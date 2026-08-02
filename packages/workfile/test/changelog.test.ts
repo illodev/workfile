@@ -7,6 +7,7 @@ import { join } from "node:path";
 import {
     buildProjectIndex,
     createChangeFragment,
+    amendRelease,
     createRelease,
     loadChangelog,
     loadWorkspace,
@@ -232,6 +233,147 @@ test("two releases cut the same day render newest-first", async () => {
         assert.ok(
             rendered.indexOf("## 0.1.2") < rendered.indexOf("## 0.1.1"),
             "newest release must render first"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A release used to be writable exactly once, and never again.
+ *
+ * 0.2.0 was cut dated a day ahead of UTC — correct where the maintainer was
+ * standing — and `doctor` flagged `release-date-in-future` on a record no
+ * command could reach: `changelog patch` sees unreleased fragments only. The
+ * recovery was `git checkout` over the cut and a second release, which works
+ * while the cut is uncommitted and while an operator is holding the
+ * repository. Neither is true of an agent following the protocol.
+ *
+ * The newest release only. History that can be rewritten anywhere is a weaker
+ * record, and the case this serves is the minutes after a cut. Ordered by
+ * allocation rather than by date, because the date is the field most likely to
+ * be the thing being corrected.
+ */
+test("the newest release can be corrected, and nothing behind it can", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        await createChangeFragment(workspace, {
+            title: "First",
+            type: "fixed",
+            area: "billing"
+        });
+        const first = await createRelease(workspace, {
+            version: "1.0.0",
+            date: "2026-08-09"
+        });
+
+        const fixed = await amendRelease(workspace, "1.0.0", {
+            date: "2026-08-01"
+        });
+        assert.equal(fixed.release.date, "2026-08-01");
+        // Amending one field must not disturb the others: an earlier draft
+        // spread `{ title: option("--title") }` with no `--title` given, and
+        // `patchFrontmatter` reads an explicit empty as a removal, so redating
+        // a release deleted its title and left a record failing `doctor` on a
+        // rule the amendment itself introduced.
+        assert.equal(fixed.release.title, first.release.title);
+        assert.deepEqual(fixed.release.fragments, first.release.fragments);
+        assert.equal(fixed.release.version, "1.0.0");
+
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", { version: "1.0.1" }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_FIELD_NOT_AMENDABLE");
+                return true;
+            }
+        );
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", {}),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_AMEND_EMPTY");
+                return true;
+            }
+        );
+        await assert.rejects(
+            amendRelease(workspace, "9.9.9", { date: "2026-08-01" }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_NOT_FOUND");
+                return true;
+            }
+        );
+
+        // Once something follows it, the record is settled.
+        await createChangeFragment(workspace, {
+            title: "Second",
+            type: "fixed",
+            area: "billing"
+        });
+        await createRelease(workspace, { version: "1.1.0" });
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", { date: "2026-01-01" }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_NOT_AMENDABLE");
+                assert.match(error.message, /1\.1\.0/);
+                return true;
+            }
+        );
+        const newest = await amendRelease(workspace, "1.1.0", {
+            title: "Version 1.1.0 (hotfix)"
+        });
+        assert.equal(newest.release.title, "Version 1.1.0 (hotfix)");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * "Not found" was the answer to four different questions.
+ *
+ * `changelog patch REL-0010` reported `CHANGE_FRAGMENT_NOT_FOUND` for a record
+ * sitting in the tree, sending the caller to look for a missing file when what
+ * they had done was aim a fragment command at a release. A fragment already
+ * cut into a version got the same answer, which reads as data loss rather than
+ * as the freeze it is.
+ */
+test("a fragment command aimed at a release says so", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        const fragment = await createChangeFragment(workspace, {
+            title: "Cut into a version",
+            type: "fixed",
+            area: "billing"
+        });
+        const release = await createRelease(workspace, { version: "1.0.0" });
+
+        for (const id of [release.release.id, "1.0.0"]) {
+            await assert.rejects(
+                patchChangeFragment(workspace, id, { title: "no" }),
+                (error: any) => {
+                    assert.equal(error.code, "CHANGE_RECORD_NOT_A_FRAGMENT");
+                    assert.match(error.message, /1\.0\.0/);
+                    return true;
+                },
+                `${id} was not recognised as a release`
+            );
+        }
+
+        await assert.rejects(
+            patchChangeFragment(workspace, fragment.id, { title: "no" }),
+            (error: any) => {
+                assert.equal(error.code, "CHANGE_FRAGMENT_RELEASED");
+                assert.match(error.message, /1\.0\.0/);
+                return true;
+            }
+        );
+
+        await assert.rejects(
+            patchChangeFragment(workspace, "CHG-9999", { title: "no" }),
+            (error: any) => {
+                assert.equal(error.code, "CHANGE_FRAGMENT_NOT_FOUND");
+                return true;
+            }
         );
     } finally {
         await rm(root, { recursive: true, force: true });

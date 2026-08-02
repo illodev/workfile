@@ -402,9 +402,45 @@ export async function createChangeFragment(workspace, input, { now }: any = {}) 
     }
 }
 
-function findUnreleased(fragments, id) {
-    const matches = fragments.filter((fragment) => fragment.id === id && !fragment.released);
+/**
+ * The unreleased fragment behind an id, or the reason there is not one.
+ *
+ * "Not found" was the answer to four different questions, and three of them
+ * were wrong. `changelog patch REL-0010` reported `CHANGE_FRAGMENT_NOT_FOUND`
+ * for a record sitting in the tree — the caller was sent to look for a missing
+ * file when what they had done was aim a fragment command at a release. A
+ * fragment already cut into a version got the same answer, which reads as data
+ * loss rather than as the freeze it is.
+ *
+ * Takes the whole load rather than the fragment list, because telling those
+ * cases apart is exactly what needs the releases.
+ */
+function findUnreleased(loaded, id) {
+    const matches = loaded.fragments.filter(
+        (fragment) => fragment.id === id && !fragment.released
+    );
     if (!matches.length) {
+        const release = (loaded.releases || []).find(
+            (record) => record.id === id || record.version === id
+        );
+        if (release) {
+            throw new ValidationError(
+                "CHANGE_RECORD_NOT_A_FRAGMENT",
+                `${id} is release ${release.version}, not a changelog fragment. ` +
+                    "A release is written once, when it is cut."
+            );
+        }
+        const cut = loaded.fragments.find((fragment) => fragment.id === id);
+        if (cut) {
+            const version = (loaded.releases || []).find((record) =>
+                (record.fragments || []).includes(id)
+            )?.version;
+            throw new ValidationError(
+                "CHANGE_FRAGMENT_RELEASED",
+                `${id} was released${version ? ` in ${version}` : ""} and is ` +
+                    "frozen. Add a new fragment describing the correction."
+            );
+        }
         throw new NotFoundError(
             "CHANGE_FRAGMENT_NOT_FOUND",
             `Unreleased changelog fragment not found: ${id}`
@@ -443,7 +479,7 @@ export async function patchChangeFragment(
         join(workspace.paths.cache, "locks", "changelog", `${id}.lock`),
         async () => {
             const loaded = await loadChangelog(workspace);
-            const current = findUnreleased(loaded.fragments, id);
+            const current = findUnreleased(loaded, id);
             const path = resolve(workspace.root, current.path);
             const content = await readFile(path, "utf8");
             const actualRevision = revisionForContent(content);
@@ -579,6 +615,169 @@ export async function previewRelease(workspace, options: any = {}) {
         groups: groupsForFragments(workspace, fragments),
         markdown: renderFragmentGroups(workspace, fragments, options)
     };
+}
+
+/**
+ * What an amendment may touch.
+ *
+ * Not `version`: it is the record's identity and its directory name. Not
+ * `fragments`: which changes went into a release is what the cut decided, and
+ * rewriting it detaches the record from the files it consumed.
+ */
+const RELEASE_AMENDABLE = new Set(["title", "date", "commit", "body", "tags"]);
+
+/**
+ * The most recently cut release, by allocation order.
+ *
+ * Not by date, which is the field most likely to be the thing being corrected —
+ * the case this exists for is a release dated a day ahead because the
+ * maintainer's timezone is ahead of UTC. Not by version either: a strategy
+ * other than semver need not sort. Release ids are allocated in sequence, so
+ * the highest one is the last cut, and that is a fact about the writing rather
+ * than about any field a caller can get wrong.
+ */
+function newestRelease(releases) {
+    const ordinal = (id) => Number(String(id).replace(/\D+/g, "")) || 0;
+    return releases.reduce(
+        (latest, release) =>
+            !latest || ordinal(release.id) > ordinal(latest.id) ? release : latest,
+        null
+    );
+}
+
+/**
+ * Correct the release that was just cut.
+ *
+ * A release used to be writable exactly once, at `changelog release`, and never
+ * again: `changelog patch` reaches unreleased fragments only. Cutting 0.2.0
+ * with a date a day ahead of UTC therefore produced a record `doctor` flagged
+ * and no command could fix, and the recovery was `git checkout` over the cut
+ * plus a second release — which works only while the cut is uncommitted and
+ * only for an operator holding the repository. Neither is true of an agent.
+ *
+ * Only the newest release, deliberately. History that can be rewritten
+ * anywhere is a weaker record, and the case this serves is the minutes after a
+ * cut, not archaeology. Once a later release exists the earlier one is settled,
+ * and the correction is a new fragment saying so.
+ */
+export async function amendRelease(
+    workspace,
+    version,
+    changes,
+    { expectedRevision }: any = {}
+) {
+    ensureWritable(workspace);
+    return withFileLock(
+        join(workspace.paths.cache, "locks", "changelog", "release.lock"),
+        async () => {
+            const loaded = await loadChangelog(workspace);
+            const release = loaded.releases.find(
+                (record) => record.version === version || record.id === version
+            );
+            if (!release) {
+                throw new NotFoundError(
+                    "RELEASE_NOT_FOUND",
+                    `Release not found: ${version}`
+                );
+            }
+            const newest = newestRelease(loaded.releases);
+            if (newest.id !== release.id) {
+                throw new ValidationError(
+                    "RELEASE_NOT_AMENDABLE",
+                    `${release.version} is not the most recent release — ` +
+                        `${newest.version} was cut after it. A released record ` +
+                        "is history once anything follows it; describe the " +
+                        "correction in a new fragment instead."
+                );
+            }
+            const path = resolve(workspace.root, release.path);
+            const content = await readFile(path, "utf8");
+            const actualRevision = revisionForContent(content);
+            if (expectedRevision && expectedRevision !== actualRevision) {
+                throw new ConflictError(
+                    "RELEASE_WRITE_CONFLICT",
+                    "The release record changed after it was loaded.",
+                    { id: release.id, expectedRevision, actualRevision }
+                );
+            }
+            const safe: Record<string, any> = {};
+            for (const [key, value] of Object.entries(changes || {})) {
+                // A field with nothing in it is a field that was not given.
+                // `patchFrontmatter` reads an explicit empty as "remove this
+                // key", so a caller spreading `{ title: option("--title") }`
+                // with no `--title` deleted the title of the release it meant
+                // to redate — and `title` is required, so the record it left
+                // behind failed `doctor` on a rule the amendment introduced.
+                if (value === undefined || value === null || value === "") continue;
+                if (!RELEASE_AMENDABLE.has(key)) {
+                    throw new ValidationError(
+                        "RELEASE_FIELD_NOT_AMENDABLE",
+                        `Field cannot be amended: ${key}. Amendable: ` +
+                            `${[...RELEASE_AMENDABLE].join(", ")}.`
+                    );
+                }
+                safe[key] = value;
+            }
+            if (!Object.keys(safe).length) {
+                throw new ValidationError(
+                    "RELEASE_AMEND_EMPTY",
+                    "An amendment must change something. Amendable: " +
+                        `${[...RELEASE_AMENDABLE].join(", ")}.`
+                );
+            }
+            if (safe.date !== undefined && !DATE_RE.test(safe.date)) {
+                throw new ValidationError(
+                    "RELEASE_DATE_INVALID",
+                    "date must use YYYY-MM-DD"
+                );
+            }
+            const { body: nextBody, ...requested } = safe;
+            // `updated` is not a release's field: `normalizeRelease` derives
+            // both `created` and `updated` from `date`, so a stamp here is a
+            // key that looks like it means something and is read by nothing.
+            let next = patchFrontmatter(content, requested, {
+                listKeys: CHANGE_LIST_KEYS,
+                touchUpdated: false
+            });
+            if (nextBody !== undefined) {
+                const parsed = requireFrontmatter(next, {
+                    listKeys: CHANGE_LIST_KEYS
+                });
+                next = `${next.slice(0, parsed.prefixLength)}${String(nextBody).trim()}\n`;
+            }
+            // The write is the last chance to notice that an amendment removed
+            // something a release cannot be without. Checked against the same
+            // list `doctor` uses, so the two cannot disagree about it.
+            const rewritten = requireFrontmatter(next, {
+                listKeys: CHANGE_LIST_KEYS
+            });
+            const lost = RELEASE_REQUIRED_KEYS.filter(
+                (key) =>
+                    rewritten.metadata[key] === undefined ||
+                    rewritten.metadata[key] === ""
+            );
+            if (lost.length) {
+                throw new ValidationError(
+                    "RELEASE_MISSING_REQUIRED",
+                    `The amendment would leave ${release.id} without ` +
+                        `${lost.join(", ")}.`
+                );
+            }
+            await writeFileAtomic(path, next);
+            const amended = normalizeRelease({
+                file: release.file,
+                repoPath: release.path,
+                content: next
+            });
+            return {
+                id: release.id,
+                path,
+                revision: amended.revision,
+                release: amended
+            };
+        },
+        { metadata: { module: "changelog", recordId: version } }
+    );
 }
 
 export async function createRelease(workspace, input, { now }: any = {}) {

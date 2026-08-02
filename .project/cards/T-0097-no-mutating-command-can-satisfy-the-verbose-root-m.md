@@ -1,13 +1,13 @@
 ---
 id: T-0097
 title: No mutating command can satisfy the verbose-root MUST, and none accepts the flag
-status: backlog
+status: review
 type: bug
 priority: low
 area: core
-scope: [packages/workfile/bin/workfile.ts, packages/workfile/docs/SPEC.md]
+scope: [packages/workfile/docs/SPEC.md]
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-02
 related: [T-0088]
 ---
 
@@ -47,10 +47,16 @@ A decision either way belongs in memory, not in a commit message.
 
 ## Acceptance criteria
 
-- [ ] The call is made and recorded as an ADR
-- [ ] If accepted, `--verbose` prints the resolved root before the mutation runs
-- [ ] SPEC.md:218 matches the outcome
+- [x] The call is made and recorded as an ADR
+- [x] If accepted, `--verbose` prints the resolved root before the mutation runs
+- [x] SPEC.md:218 matches the outcome
 
 ## Notes
 
 - 2026-08-01 23:16Z claude-opus-5 — A second instance of the same shape, found in T-0096. SPEC:1299 read 'Running project with no subcommand starts the UI unless configuration disables that behavior.' The first clause is true — bin/workfile.ts:1995 is const command = process.argv[2] || "ui" — but no configuration disables it: the default is applied before any config is read, and workspace.config.ui is {host, port, open, defaultView} with no such flag. The clause was dropped and the line now says so explicitly. Whether a headless repository should be able to turn it off belongs in the same ADR as the --verbose call.
+
+## Activity
+
+- 2026-08-02 00:59Z illodev@local#e55eab30 · claimed
+- 2026-08-02 00:59Z illodev@local#e55eab30 · doing → review
+
