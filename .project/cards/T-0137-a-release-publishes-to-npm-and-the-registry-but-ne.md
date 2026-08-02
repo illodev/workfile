@@ -1,13 +1,13 @@
 ---
 id: T-0137
 title: A release publishes to npm and the registry but never to GitHub Releases
-status: review
+status: done
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
 updated: 2026-08-02
-scope: [.github/workflows/release.yml, scripts, .project/cards, .project/changelog]
+scope: [.project/cards]
 ---
 
 `gh release list --repo illodev/workfile` returns nothing. Twelve versions
@@ -45,7 +45,7 @@ people stop reading release notes.
 
 ## Acceptance criteria
 
-- [ ] A `v*` tag creates a GitHub Release for that version
+- [x] A `v*` tag creates a GitHub Release for that version
 - [x] Its body comes from the changelog fragments, not from a hand-written copy
       that can drift
 - [x] The step runs after npm and the MCP Registry, and failing it does not
@@ -57,6 +57,8 @@ people stop reading release notes.
 
 - 2026-08-02 21:55Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 22:06Z illodev@local#bd44efc7 · doing → review
+- 2026-08-02 23:11Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 23:11Z illodev@local#bd44efc7 · doing → done
 
 ## Notes
 
@@ -82,3 +84,15 @@ One latent bug closed while writing it. Matching the heading with `startsWith` w
 Left in review, not done. The script and the API call are proven; the workflow step has never executed, so what a real tag has yet to show is that `contents: write` on that job suffices in CI and that `needs: publish` sequences as intended. The next release is the verification, the same way [[T-0114]] was left.
 
 The backfill is [[T-0138]], deliberately not done here: it publishes twelve releases at once and notifies watchers on each.
+- 2026-08-02 23:11Z illodev@local#bd44efc7 — Verified by v0.5.0, which is the first tag to run the step. Run 30771607971: both jobs succeeded, `publish` then `release`.
+
+    gh release view v0.5.0   --> created, body 438 bytes, opening with the
+                                 rendered "### Added" section
+    npm                      --> @illodev/workfile 0.5.0, latest
+    registry                 --> io.github.illodev/workfile 0.5.0, isLatest, active
+
+So the two things a real tag had to show both held: `contents: write` on its own job suffices in CI, and `needs: publish` sequenced the irreversible writes ahead of the recoverable one.
+
+The pre-flight mattered. `node ./scripts/release-notes.ts 0.5.0` was run against the rendered changelog before tagging, because the step exits non-zero on a missing section and that would have failed the job after npm had already published.
+
+One misreading worth recording, since the next person to check a release will hit it: the registry's search endpoint returns every published version, not the current one. Reading the first element reported 0.4.0 and looked like a failed publish. `?version=latest`, or the `isLatest` flag in `_meta`, is what answers the question actually being asked.
