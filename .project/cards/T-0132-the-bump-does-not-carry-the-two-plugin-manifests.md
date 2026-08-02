@@ -1,7 +1,7 @@
 ---
 id: T-0132
 title: The bump does not carry the two plugin manifests
-status: backlog
+status: done
 type: bug
 priority: medium
 area: infra
@@ -37,6 +37,54 @@ the manifests were stamped by hand for this release instead.
 
 ## Acceptance criteria
 
-- [ ] A bump rewrites both manifests
-- [ ] `--check` fails when either drifts from the root version
-- [ ] The release workflow would refuse the drift rather than publish it
+- [x] A bump rewrites both manifests
+- [x] `--check` fails when either drifts from the root version
+- [x] The release workflow would refuse the drift rather than publish it
+
+## Activity
+
+- 2026-08-02 20:44Z illodev@local#aed59c5e · claimed
+- 2026-08-02 20:48Z illodev@local#aed59c5e · doing → done
+
+## Notes
+
+- 2026-08-02 20:48Z illodev@local#aed59c5e — The list of files that state the version stopped being three special cases and
+became one list. `server.json` had its own branch; the two manifests had none.
+All three now go through the same read, the same stale-version scan, the same
+textual replacement — which is what keeps their formatting — and the same
+staging.
+
+Shapes differ and are named rather than walked: a version can sit on the
+document itself, inside `plugins[]`, or inside `packages[]`. A recursive search
+would have found a fourth one day that was never meant to track the release.
+
+Two writers remain, and deliberately. `build-plugin` stamps the manifests
+because it regenerates them wholesale from templates; this script stamps them
+because the bump has to carry them. Both read the same root version, so they
+cannot disagree — confirmed by running `build:plugin` after this change and
+getting an empty diff.
+
+A second hole, found while proving the first and fixed in the same pass. The
+script resolved `packages/` up front and `process.exit(0)` if it was missing,
+so every manifest check was reachable only through a readdir with nothing to do
+with them. Measured before and after, with a repository holding a drifted
+`server.json` and no `packages/` directory:
+
+    before   exit=0    drift passed as success
+    after    exit=1    "server.json is 0.0.1, root is 9.9.9"
+
+Evidence for the three criteria:
+
+1. A bump rewrites both — a throwaway repository with drifted manifests is
+   repaired by the plain run, and `--stage` puts all three kinds of file in the
+   index: `.claude-plugin/marketplace.json`, `packages/thing/package.json`,
+   `server.json`. That last assertion is the first criterion stated as a list,
+   so a fourth output cannot quietly fall out of it.
+2. `--check` fails on either — exit 1, naming both files.
+3. The workflow refuses rather than publishes — `release.yml` runs
+   `sync-workspace-versions.ts --check` inside "Verify tag matches package
+   version", which is the step before `check:release` and two before any
+   publish. The check now covers the manifests, so the refusal is the same one
+   that already guards `server.json`, on the same step.
+
+249 tests pass, strict holds at 590 across 57 files.

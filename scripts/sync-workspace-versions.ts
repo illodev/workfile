@@ -35,7 +35,9 @@ try {
         (entry) => entry.isDirectory()
     );
 } catch {
-    process.exit(0);
+    // No workspace packages is not "nothing to do": the manifests below state
+    // the version too, and exiting here made their check contingent on a
+    // readdir that has nothing to do with them.
 }
 
 const drift: string[] = [];
@@ -66,39 +68,71 @@ for (const entry of entries) {
     console.log(`${pkg.name}: ${pkg.version} → ${root.version}`);
 }
 
-// server.json states the version twice — once for the MCP server and once for
-// the npm package it resolves to — and the MCP Registry refuses a version npm
-// does not serve yet. So a stale copy here does not publish something slightly
-// wrong, it fails the release after npm has already been written to.
-let manifest;
-try {
-    manifest = await readFile("server.json", "utf8");
-} catch {
-    manifest = null;
+/**
+ * The files that state the version outside `packages/*`, where the loop above
+ * cannot see them.
+ *
+ * `server.json` says it twice — once for the MCP server, once for the npm
+ * package it resolves to — and the MCP Registry refuses a version npm does not
+ * serve yet, so a stale copy does not publish something slightly wrong, it
+ * fails the release after npm has already been written to.
+ *
+ * The two plugin manifests are the ones this list was missing. `build-plugin`
+ * stamps them from the same root version, but it runs under `check` rather
+ * than under the bump, so the version moved as a side effect of testing and
+ * nothing verified the committed result. At 0.3.0 that meant a stamp commit
+ * after the tag; the marketplace advertised a version behind and no step
+ * failed.
+ */
+const MANIFESTS = [
+    "server.json",
+    ".claude-plugin/marketplace.json",
+    "plugins/workfile/.claude-plugin/plugin.json"
+];
+
+interface Versioned {
+    version?: string;
+    plugins?: Versioned[];
+    packages?: Versioned[];
 }
-if (manifest) {
-    const server = JSON.parse(manifest);
+
+/** Every node in a manifest that carries a version of its own. */
+const bearers = (json: Versioned): Versioned[] => [
+    json,
+    ...(json.plugins || []),
+    ...(json.packages || [])
+];
+
+for (const path of MANIFESTS) {
+    let manifest;
+    try {
+        manifest = await readFile(path, "utf8");
+    } catch {
+        continue;
+    }
     const stale = [
         ...new Set(
-            [server.version, ...(server.packages || []).map((pkg) => pkg.version)]
+            bearers(JSON.parse(manifest))
+                .map((node) => node.version)
                 .filter(Boolean)
                 .filter((version) => version !== root.version)
         )
     ];
-    if (stale.length && check) {
-        drift.push(`server.json is ${stale.join(", ")}, root is ${root.version}`);
-    } else if (stale.length) {
-        let next = manifest;
-        for (const version of stale) {
-            next = next.replaceAll(
-                `"version": "${version}"`,
-                `"version": "${root.version}"`
-            );
-        }
-        await writeFile("server.json", next);
-        written.push("server.json");
-        console.log(`server.json: ${stale.join(", ")} → ${root.version}`);
+    if (!stale.length) continue;
+    if (check) {
+        drift.push(`${path} is ${stale.join(", ")}, root is ${root.version}`);
+        continue;
     }
+    let next = manifest;
+    for (const version of stale) {
+        next = next.replaceAll(
+            `"version": "${version}"`,
+            `"version": "${root.version}"`
+        );
+    }
+    await writeFile(path, next);
+    written.push(path);
+    console.log(`${path}: ${stale.join(", ")} → ${root.version}`);
 }
 
 if (stage && written.length) {

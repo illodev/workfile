@@ -55,6 +55,11 @@ test("a bump stages every file it rewrites, not only the packages", async () => 
                 4
             )
         );
+        await mkdir(join(root, ".claude-plugin"), { recursive: true });
+        await writeFile(
+            join(root, ".claude-plugin/marketplace.json"),
+            JSON.stringify({ plugins: [{ version: "0.0.1" }] }, null, 2)
+        );
 
         await execute(process.execPath, [script, "--stage"], { cwd: root });
 
@@ -65,7 +70,11 @@ test("a bump stages every file it rewrites, not only the packages", async () => 
         );
         assert.deepEqual(
             stdout.split("\n").filter(Boolean).sort(),
-            ["packages/thing/package.json", "server.json"],
+            [
+                ".claude-plugin/marketplace.json",
+                "packages/thing/package.json",
+                "server.json"
+            ],
             "a file this script rewrites and does not stage rides out of the release commit"
         );
         // Both statements in server.json, not only the first.
@@ -74,6 +83,102 @@ test("a bump stages every file it rewrites, not only the packages", async () => 
         );
         assert.equal(manifest.version, "9.9.9");
         assert.equal(manifest.packages[0].version, "9.9.9");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The two plugin manifests state the version outside `packages/*`. Until
+ * T-0132 they were stamped by `build-plugin`, which runs under `check` — so
+ * the version moved as a side effect of testing, and nothing verified what was
+ * committed. At 0.3.0 the marketplace shipped a version behind and no step
+ * failed.
+ */
+test("drift in the plugin manifests is a check failure, and repairable", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-version-"));
+    try {
+        await mkdir(join(root, ".claude-plugin"), { recursive: true });
+        await mkdir(join(root, "plugins/workfile/.claude-plugin"), {
+            recursive: true
+        });
+        await writeFile(
+            join(root, "package.json"),
+            JSON.stringify({ name: "root", version: "9.9.9" }, null, 4)
+        );
+        await writeFile(
+            join(root, ".claude-plugin/marketplace.json"),
+            JSON.stringify(
+                { name: "illodev", plugins: [{ name: "w", version: "0.0.1" }] },
+                null,
+                2
+            )
+        );
+        await writeFile(
+            join(root, "plugins/workfile/.claude-plugin/plugin.json"),
+            JSON.stringify({ name: "w", version: "0.0.1" }, null, 2)
+        );
+
+        const refused = await execute(process.execPath, [script, "--check"], {
+            cwd: root
+        }).then(
+            () => null,
+            (error: { code: number; stderr: string }) => error
+        );
+        assert.ok(refused, "drifted manifests should fail the check");
+        assert.equal(refused.code, 1);
+        for (const named of ["marketplace.json", "plugin.json"]) {
+            assert.match(
+                refused.stderr,
+                new RegExp(named),
+                `the check should name ${named}`
+            );
+        }
+
+        await execute(process.execPath, [script], { cwd: root });
+        const marketplace = JSON.parse(
+            await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+        );
+        const plugin = JSON.parse(
+            await readFile(
+                join(root, "plugins/workfile/.claude-plugin/plugin.json"),
+                "utf8"
+            )
+        );
+        assert.equal(marketplace.plugins[0].version, "9.9.9");
+        assert.equal(plugin.version, "9.9.9");
+        await assert.doesNotReject(() =>
+            execute(process.execPath, [script, "--check"], { cwd: root })
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The manifest checks used to be reachable only through a `readdir` that has
+ * nothing to do with them: a repository without `packages/` exited 0 before
+ * reaching them, so drift passed as success.
+ */
+test("a repository with no packages still has its manifests checked", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-version-"));
+    try {
+        await writeFile(
+            join(root, "package.json"),
+            JSON.stringify({ name: "root", version: "9.9.9" }, null, 4)
+        );
+        await writeFile(
+            join(root, "server.json"),
+            JSON.stringify({ version: "0.0.1" }, null, 4)
+        );
+        const refused = await execute(process.execPath, [script, "--check"], {
+            cwd: root
+        }).then(
+            () => null,
+            (error: { code: number }) => error
+        );
+        assert.ok(refused, "no packages/ is not the same as nothing to check");
+        assert.equal(refused.code, 1);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
