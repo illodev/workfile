@@ -34,12 +34,15 @@ jobs:
             # against fresh output — a stale committed plugin shipped a hook
             # two commits behind its own source and nothing noticed.
             - name: Committed build output is current
+              # bash explicitly: a `run:` block defaults to PowerShell on the
+              # Windows runners, where `|| { ... }` and `>&2` are parse errors.
+              shell: bash
               run: |
                   node ./scripts/build-plugin.ts
-                  git diff --exit-code || {
-                      echo "::error::committed build output is stale; run the build and commit the result" >&2
+                  if ! git diff --exit-code; then
+                      echo "::error::committed build output is stale; run the build and commit the result"
                       exit 1
-                  }
+                  fi
             # The hosted demo build must keep compiling too.
             - run: pnpm run build:demo
 
