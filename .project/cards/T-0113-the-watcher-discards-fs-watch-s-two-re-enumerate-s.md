@@ -1,7 +1,7 @@
 ---
 id: T-0113
 title: The watcher discards fs.watch's two re-enumerate signals
-status: blocked
+status: deferred
 type: bug
 priority: low
 area: core
@@ -56,6 +56,8 @@ before anything is built on the assumption that they do.
 - 2026-08-02 18:28Z illodev@local#aed59c5e · doing → blocked
 - 2026-08-02 18:59Z illodev@local#aed59c5e · claimed
 - 2026-08-02 18:59Z illodev@local#aed59c5e · released
+- 2026-08-02 19:12Z illodev@local#aed59c5e · claimed
+- 2026-08-02 19:12Z illodev@local#aed59c5e · released
 
 ## Notes
 
@@ -123,3 +125,19 @@ One thing the reading already settles, which was not the question but is worth
 having: the diagnostic only prints after the watcher reports `mode === "watch"`,
 so it is also proof that `fs.watch` arms on the Windows runner at all. That was
 an assumption in [[T-0109]] and is now measured.
+- 2026-08-02 19:12Z illodev@local#aed59c5e — Corrected from `blocked` to `deferred`, which is what this actually is.
+
+`blocked` says externally blocked, and nothing is blocking. The counters ride
+along in every CI run at no cost, so the evidence arrives whether or not anyone
+touches this card — there is no impediment for a reader to go and remove, which
+is what `blocked` invites them to look for. Nor is the work itself blocked:
+the two fixes could be written today. What stops that is a decision, not an
+obstacle — the third criterion asks for evidence the branch exists before code
+is written for it, and that was the point of the card.
+
+So: deliberately postponed, waiting on readings that accumulate on their own.
+The bar is in the note above — zero across roughly ten Windows jobs and this
+closes as `discarded`, one non-zero reading and it becomes a real fix.
+
+First card in this repository to sit in either state, so the distinction is
+worth having got right rather than close enough.
