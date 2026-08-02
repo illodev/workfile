@@ -1,7 +1,7 @@
 ---
 id: T-0103
 title: doctor reports axis values outside the declared vocabulary
-status: review
+status: done
 type: feature
 priority: medium
 area: core
@@ -35,4 +35,5 @@ an error, because it is a typo that silently matches nothing.
 - 2026-08-02 10:55Z illodev@local#e55eab30 · claimed
 - 2026-08-02 11:02Z illodev@local#e55eab30 · doing → review
 - 2026-08-02 11:02Z illodev@local#e55eab30 · released
+- 2026-08-02 11:05Z illodev@local#e55eab30 · review → done
 
