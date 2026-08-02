@@ -16,12 +16,19 @@ One registry verifies ownership from the artifact and therefore belongs in CI.
 The rest are forms behind a human session, and no amount of repository
 configuration automates them.
 
+[[T-0133]] tracks which of the manual ones are actually filed. This document
+stays the reference: requirements, copy, and order.
+
 ## Published from CI
 
 ### Official MCP Registry — `registry.modelcontextprotocol.io`
 
 Wired into `.github/workflows/release.yml`. A `v*` tag publishes the packages
 to npm, then `mcp-publisher` publishes `server.json`.
+
+Live since `v0.4.0`: `io.github.illodev/workfile` is `active` in the registry
+and names `@illodev/workfile@0.4.0`. The OIDC login was accepted on its first
+run, so the namespace question below is settled rather than assumed.
 
 Ownership is proven twice over, which is why nothing here is hand-filed:
 `mcpName` in the published `package.json` must equal `name` in `server.json`,
@@ -48,6 +55,9 @@ the aggregators below, so it is the only entry that compounds.
 Crawls public GitHub repositories and indexes every tool and schema it finds.
 No submission. The listing quality tracks the repository README and the tool
 descriptions the server already returns, so it improves when those do.
+
+Its score badge resolves for any repository path, filled in once the crawler
+arrives — so a listing that embeds the badge is never broken, only unscored.
 
 ## Forms only the maintainer can file
 
@@ -91,7 +101,12 @@ after a launch post stops:
 - awesome lists for Claude Code plugins and AI agent tooling
 
 Read each list's contributing rules first: most enforce alphabetical order
-within a category and a fixed one-line format, and reject on that alone.
+within a category and a fixed one-line format, and reject on that alone. Two
+things that only show up on reading the files rather than the rules:
+`punkpeye` documents alphabetical order and maintains none, appending inside
+each category instead — so appending is what merges cleanly; and its
+CONTRIBUTING fast-tracks pull requests from automated agents whose title ends
+in three robot emoji. The drafted lines for both live on [[T-0133]].
 
 ## The copy to reuse
 
@@ -108,10 +123,14 @@ like one project rather than four.
 - **Demo**: <https://workfiledemo.illodev.com>
 - **License**: MIT
 - **Category**: productivity
+- **Install**: `npx -y @illodev/workfile mcp` — the invocation the registry
+  itself advertises, and the one to quote wherever a form asks for a command.
 
 ## Order of operations
 
 The MCP Registry entry only exists once a tag ships it, because it names a
-version npm must already serve. So the first release after this work lands is
-what creates the listing, and the form submissions are worth filing after it —
-several of them ask for the registry entry.
+version npm must already serve. `v0.4.0` was that tag, so the entry is live
+and the form submissions can be filed now — several of them ask for it.
+
+File the Anthropic plugin directory first. It is the only one with a review
+queue behind it, so it is the one where waiting costs the most.
