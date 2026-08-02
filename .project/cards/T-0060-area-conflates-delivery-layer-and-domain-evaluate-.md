@@ -1,7 +1,7 @@
 ---
 id: T-0060
 title: "area conflates delivery layer and domain: evaluate a separate bc field"
-status: next
+status: review
 type: idea
 priority: low
 area: core
@@ -9,9 +9,8 @@ source: .project/docs/research/DOC-0001-fube-session-feedback-verified-triage.md
 tags: [fube-feedback, schema]
 scope: [.project/cards]
 created: 2026-07-31
-updated: 2026-07-31
+updated: 2026-08-02
 ---
-
 Unvalidated proposal. Recording the evidence, not committing to the field.
 
 `area` is the only classification axis a card has, and it is shaped like an
@@ -43,6 +42,8 @@ contract, and a field added for one project's vocabulary is hard to withdraw.
 
 - 2026-07-31 22:45Z session-fube-triage · claimed
 - 2026-07-31 22:45Z session-fube-triage · released
+- 2026-08-02 01:02Z illodev@local#e55eab30 · claimed
+- 2026-08-02 01:02Z illodev@local#e55eab30 · doing → review
 
 ## Findings
 
@@ -63,3 +64,30 @@ Do not add `bc`, and do not add `cards.axes`. Add `cards.tags` to the config as 
 The third open question decides it, as the body predicted, and it decides against a new field. A declared tag vocabulary is additive to the *config*, not to the record contract: no key is added to a card's front matter, so nothing about schema v2 becomes hard to withdraw. When `cards.tags` is absent, tags stay free-form and every existing workspace is unaffected. When a project declares it, an unknown tag fails exactly the way an unknown area does, which is the only property tags were missing that mattered. `area` keeps meaning the delivery layer, and the domain axis becomes as loud, as browsable and as groupable as the layer axis — without Workfile learning the word 'bounded context'.
 
 Left for the maintainer: this is a feature against a published surface, so the direction is a call to make before the work is filed. `area` is read in 16 core files and 30 across the app; the recommended path touches none of them, which is most of the argument for it.
+
+## Decided, and smaller than it looked
+
+Direction taken 2026-08-02: a neutral second axis declared per project, as
+`cards.axes`. Recorded in [[ADR-0008]] with the reasoning, including why
+`cards.tags` as a declared vocabulary was rejected and why the schema does not
+learn the word "bounded context".
+
+Measuring before designing changed what there is to build. A second axis
+already works end to end with no schema change:
+
+```
+context: treasury            # added by hand to a card's frontmatter
+card show  → context = "treasury"
+search "context:treasury"  → [T-0001]
+search "context:billing"   → []
+```
+
+`parseCard` spreads the whole frontmatter onto the record and the query grammar
+reads the record's own keys, so storage and retrieval are solved. What is
+missing is exactly what this card named as the argument against `tags`:
+declaration, so that `context: tresury` fails loudly instead of matching
+nothing.
+
+The work is [[T-0102]] (declare and validate), [[T-0103]] (doctor and
+`card list --axis`) and [[T-0104]] (the board groups by it). This card closes
+as the evaluation it was opened as.
