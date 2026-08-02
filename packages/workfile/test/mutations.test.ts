@@ -9,12 +9,14 @@ import { createTestWorkspace } from "./support/workspace.ts";
 
 import {
     ConflictError,
+    appendCardNote,
     archiveCard,
     claimCard,
     createCard,
     loadCards,
     loadWorkspace,
     patchCard,
+    patchCardBody,
     releaseCard,
     reopenCard,
     transitionCard
@@ -337,9 +339,20 @@ test("reopening into doing carries an actor, on every surface", async () => {
     }
 });
 
-/** The trail lines on a card, whatever section they ended up under. */
+/**
+ * The trail lines on a card.
+ *
+ * Scoped to `## Activity` rather than matched across the whole body: the lines
+ * `card note` appends carry the same timestamp shape, so a card with notes
+ * counted them as trail entries.
+ */
 function trail(card) {
-    return card.body
+    const heading = "## Activity";
+    const at = card.body.indexOf(heading);
+    if (at === -1) return [];
+    const rest = card.body.slice(at + heading.length);
+    const end = rest.indexOf("\n## ");
+    return (end === -1 ? rest : rest.slice(0, end))
         .split("\n")
         .filter((line) => /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z /.test(line));
 }
@@ -530,6 +543,62 @@ test("a patch cannot take a card another actor is holding", async () => {
         const lines = trail(let_go.card);
         assert.match(lines[lines.length - 1], /bob · released$/);
         assert.match(lines[lines.length - 2], /doing → review$/);
+    } finally {
+        await cleanup();
+    }
+});
+
+// The trail and the notes live in the body, and a body write replaced the
+// body — so `project_card_write`, an agent-facing tool whose whole purpose is
+// replacing a body, erased the record of who moved the card and why. "Durable"
+// held only until the first agent used it.
+test("a body write cannot erase the protocol sections", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Body",
+            area: "api",
+            type: "task"
+        });
+        const id = created.id;
+        await claimCard(workspace, id, { actor: "alice" });
+        await claimCard(workspace, id, {
+            actor: "bob",
+            force: true,
+            reason: "alice is out"
+        });
+        await appendCardNote(workspace, id, { text: "human context" });
+
+        // A caller that simply does not send them cannot delete them.
+        const replaced = await patchCardBody(workspace, id, {
+            body: "a new body"
+        });
+        assert.match(replaced.card.body, /^a new body/);
+        assert.equal(trail(replaced.card).length, 2, "the trail survives");
+        assert.match(replaced.card.body, /bob replaced alice's claim: alice is out/);
+        assert.match(replaced.card.body, /human context/);
+
+        // Round-tripping the body faithfully gives back exactly what was sent.
+        const again = await patchCardBody(workspace, id, {
+            body: replaced.card.body
+        });
+        assert.equal(again.card.body.trim(), replaced.card.body.trim());
+
+        // And a caller that hands back a shortened trail cannot shorten it:
+        // the section is append-only, so the stored copy wins.
+        const truncated = await patchCardBody(workspace, id, {
+            body: "another body\n\n## Activity\n\n- 2026-08-02 10:00Z alice · claimed\n"
+        });
+        assert.equal(trail(truncated.card).length, 2, "the trail cannot be cut");
+        assert.match(truncated.card.body, /^another body/);
+        assert.match(truncated.card.body, /bob · claimed/);
+
+        // A card with no protocol sections still writes plainly.
+        const plain = await createCard(workspace, { title: "Plain", area: "api" });
+        const written = await patchCardBody(workspace, plain.id, {
+            body: "just prose"
+        });
+        assert.equal(written.card.body.trim(), "just prose");
     } finally {
         await cleanup();
     }

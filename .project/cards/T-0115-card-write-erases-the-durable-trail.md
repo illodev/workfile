@@ -1,7 +1,7 @@
 ---
 id: T-0115
 title: card write erases the durable trail
-status: backlog
+status: done
 type: bug
 priority: high
 area: core
@@ -50,10 +50,57 @@ that cannot be forgotten.
 
 Worth deciding as part of it: whether a body write should itself leave a trail
 line. It is a protocol event by any reading, and today it leaves none.
+- 2026-08-02 17:49Z illodev@local#aed59c5e · claimed
+- 2026-08-02 17:53Z illodev@local#aed59c5e · doing → done
 
 ## Acceptance criteria
 
-- [ ] A body write preserves the existing `## Activity` section
-- [ ] The guarantee holds through the CLI, the HTTP routes and MCP, because
+- [x] A body write preserves the existing `## Activity` section
+- [x] The guarantee holds through the CLI, the HTTP routes and MCP, because
       the preservation sits where the body is replaced
-- [ ] A test pins it, since the trail had no coverage at all before [[T-0108]]
+- [x] A test pins it, since the trail had no coverage at all before [[T-0108]]
+
+## Notes
+
+- 2026-08-02 17:53Z illodev@local#aed59c5e — Wider than the card: `## Notes` went the same way as `## Activity`, and that
+matters more than it looks. Notes is where `claimCard` writes the reason one
+actor gave for taking another's claim — the record [[T-0117]] closed two hours
+ago promising that taking a claim over "still records why". It recorded it, and
+then any body write erased it.
+
+Reproduced before, on a card claimed, taken over with a reason, and annotated:
+one `card write` left frontmatter plus the single line it was sent. The
+frontmatter survived because it is parsed and re-emitted; everything else was
+prose as far as that path could tell.
+
+Fixed at the point where the body is replaced, so both surfaces that can write
+a body inherit it — `bin/workfile.ts:1439` and `mcp/tools.ts:583` both call
+`patchCardBody`. The second criterion names HTTP too: there is no HTTP
+body-write route, which I checked rather than assumed, so it holds there by
+there being nothing to hold.
+
+The rule is that the protocol sections come from what is stored, never from
+what was sent. Verified from the CLI across four shapes:
+
+    omite las secciones      -> both come back, prose replaced
+    round-trip fiel          -> byte-identical to what was sent
+    rastro truncado          -> stored trail wins, both lines survive
+    tarjeta sin secciones    -> plain write, unchanged behaviour
+
+The third of those is the one that makes "append-only" true rather than
+aspirational. A section any caller can replace is not append-only, and the
+trail's own contract says a merge between two branches resolves by keeping both
+sides' lines.
+
+The trade, stated because it is a real loss: those sections can no longer be
+edited through a body write. `card note` appends and nothing edits, so there
+was no supported way to edit them anyway — but a caller who was using
+`card write` for it will find it silently ineffective rather than refused.
+Worth revisiting if anyone was.
+
+Found while writing the test: the `trail()` helper added in [[T-0108]] matched
+timestamped lines across the whole body, and `card note` writes the same shape,
+so a card with notes counted them as trail entries. It had no notes in that
+test, so it passed. Now scoped to its section.
+
+230 + 7 tests pass, strict holds at baseline.

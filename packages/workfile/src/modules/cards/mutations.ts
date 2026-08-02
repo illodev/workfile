@@ -757,6 +757,39 @@ export async function transitionCard(
  * an agent recording a result had to reach past the protocol with a raw file
  * write, skipping the lock, the revision check and validation.
  */
+/**
+ * The sections of a card body that only protocol commands write.
+ *
+ * `## Activity` is the durable trail and `## Notes` holds what `card note`
+ * appends, including the reason one actor gave for taking another's claim.
+ * Both live in the body, and a body write replaced the body — so a single
+ * `card write` erased the record of who moved the card and why. "Durable" was
+ * true only until any agent called the tool whose whole purpose is replacing a
+ * body, and `project_card_write` is agent-facing.
+ */
+const PROTOCOL_SECTIONS = ["## Activity", "## Notes"];
+
+/** Where the protocol sections begin in a body, or -1 if it has none. */
+function protocolSectionsAt(body) {
+    const marks = PROTOCOL_SECTIONS.map((heading) =>
+        body.indexOf(heading)
+    ).filter((at) => at !== -1);
+    return marks.length ? Math.min(...marks) : -1;
+}
+
+/**
+ * Replaces a card's prose, and only its prose.
+ *
+ * The protocol sections are carried over from what is stored rather than from
+ * what was sent, so a caller that omits them cannot delete them and one that
+ * hands back a shortened trail cannot shorten it. The trail is specified as
+ * append-only — a merge between two branches resolves by keeping both sides'
+ * lines — which is not true of a section any write can replace.
+ *
+ * A caller that round-trips the body faithfully gets back exactly what it
+ * sent. One that edits inside those sections is ignored there, which is the
+ * price of them being append-only: `card note` appends, and nothing edits.
+ */
 export async function patchCardBody(workspace, id, { body, expectedRevision }: any = {}) {
     if (typeof body !== "string") {
         throw new ValidationError(
@@ -769,7 +802,19 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
         bodyOnly: true,
         transformContent: (content) => {
             const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
-            const next = String(body).replace(/\s+$/, "");
+            const storedAt = protocolSectionsAt(parsed.body);
+            const kept =
+                storedAt === -1
+                    ? ""
+                    : parsed.body.slice(storedAt).replace(/\s+$/, "");
+            // Whatever the caller put under those headings is dropped in
+            // favour of the stored copy, so the two cannot disagree.
+            const sent = String(body).replace(/\s+$/, "");
+            const sentAt = protocolSectionsAt(sent);
+            const prose = (
+                sentAt === -1 ? sent : sent.slice(0, sentAt)
+            ).replace(/\s+$/, "");
+            const next = [prose, kept].filter(Boolean).join("\n\n");
             return `${content.slice(0, parsed.prefixLength)}${next ? `${next}\n` : ""}`;
         }
     });
