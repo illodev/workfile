@@ -7,7 +7,7 @@ priority: medium
 area: infra
 created: 2026-08-02
 updated: 2026-08-02
-scope: [glama.json, .project/cards, .project/docs]
+scope: [.project/cards]
 ---
 Glama found Workfile on its own, as [[DOC-0004]] said it would, and read it
 accurately: 30 tools, 4 resources, 3 prompts, licence graded A. Everything
@@ -85,6 +85,8 @@ whose traffic nobody has measured, is the case against.
 
 - 2026-08-02 21:38Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 21:40Z illodev@local#bd44efc7 · released
+- 2026-08-02 21:51Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 21:51Z illodev@local#bd44efc7 · released
 
 ## Notes
 
@@ -99,3 +101,16 @@ The schema is the reason AC 2 changed. It carries maintainers and nothing else, 
 Reading the score page in full also turned up something that is not a Glama problem: Maintenance grades B partly on "lacks stable releases", and `gh release list` returns nothing for twelve shipped versions. The workflow tags, publishes to npm and publishes to the MCP Registry, and creates no GitHub Release. Filed as [[T-0137]] because a repository with a 25-fragment changelog and an empty releases page is worth fixing whether or not Glama ever scores anything.
 
 Claiming and the Dockerfile stay open. Both need a browser, and the second needs a decision first.
+- 2026-08-02 21:51Z illodev@local#bd44efc7 — Claiming was attempted and is blocked on Glama's side, not on ours. Their static asset host is down:
+
+    https://static.glama.ai/client/assets/manifest-*.js   526
+    https://static.glama.ai/                              526
+    https://glama.ai/sign-in                              200
+
+526 is Cloudflare failing to validate the origin's certificate. The certificate at the edge is healthy — `CN = glama.ai`, Google Trust Services, notAfter Oct 4 2026 — so the fault is the origin behind `static.glama.ai`, and the whole site loads without its JavaScript. No button anywhere responds, the Claim button included. The CORS error the browser reports is downstream of it: a 526 carries no `Access-Control-Allow-Origin`, so the browser names CORS and hides the real status.
+
+Sign-in itself worked far enough to reach `/complete-profile`, so the account exists and only the SPA after it is dead.
+
+Nothing to change here. Retry when `curl -o /dev/null -w '%{http_code}' https://static.glama.ai/` stops returning 526; `support@glama.ai` is the address their own release documentation gives.
+
+Worth noting for the decision this card carries: while the site cannot be logged into, the Dockerfile question is moot, since the admin page that configures it is part of the same dead SPA.
