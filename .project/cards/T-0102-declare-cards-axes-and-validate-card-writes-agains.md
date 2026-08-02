@@ -1,7 +1,7 @@
 ---
 id: T-0102
 title: Declare cards.axes and validate card writes against it
-status: review
+status: done
 type: feature
 priority: medium
 area: core
@@ -49,4 +49,5 @@ only the half that makes an axis declared rather than incidental.
 - 2026-08-02 10:27Z illodev@local#e55eab30 · claimed
 - 2026-08-02 10:46Z illodev@local#e55eab30 · doing → review
 - 2026-08-02 10:46Z illodev@local#e55eab30 · released
+- 2026-08-02 10:54Z illodev@local#e55eab30 · review → done
 
