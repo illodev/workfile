@@ -1,13 +1,13 @@
 ---
 id: T-0095
 title: card and doc answer an unknown subcommand by asking for an ID
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 scope: [packages/workfile/bin/workfile.ts]
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-02
 related: [T-0088]
 ---
 
@@ -42,6 +42,12 @@ printed for `--help` and is the honest answer here.
 
 ## Acceptance criteria
 
-- [ ] `workfile doc index` reports an unknown command, not a missing ID
-- [ ] No error message contains the literal `undefined`
-- [ ] A test pins the answer for every command word, bare and with a bogus action
+- [x] `workfile doc index` reports an unknown command, not a missing ID
+- [x] No error message contains the literal `undefined`
+- [x] A test pins the answer for every command word, bare and with a bogus action
+
+## Activity
+
+- 2026-08-01 23:46Z illodev@local#e55eab30 · claimed
+- 2026-08-02 00:22Z illodev@local#e55eab30 · doing → review
+

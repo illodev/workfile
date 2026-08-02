@@ -1,13 +1,13 @@
 ---
 id: T-0098
 title: T-0091 narrowed the global flags and left cli.md stating the old contract
-status: review
+status: done
 type: bug
 priority: medium
 area: docs
 scope: [packages/workfile/docs/cli.md, packages/workfile/test/documentation.test.ts]
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-02
 related: [T-0088]
 ---
 
@@ -57,4 +57,5 @@ is the check that would have caught this at the time.
 
 - 2026-08-01 23:38Z illodev@local#e55eab30 · claimed
 - 2026-08-01 23:45Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 00:22Z illodev@local#e55eab30 · review → done
 

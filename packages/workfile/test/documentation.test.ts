@@ -48,18 +48,6 @@ const ALIASES: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
- * A bare word that runs something, and the subcommand it runs.
- *
- * `workfile mcp` serves, so `workfile mcp --read-only` is a real invocation and
- * both `docs/cli.md` and `docs/mcp.md` teach it. It is also unvalidated:
- * `assertKnownFlags` keys on `"mcp serve"`, finds no table for the bare `mcp`,
- * and returns — which is why `workfile mcp --nonsense` starts the server
- * instead of refusing. Carded as T-0100. Resolving the default here checks the
- * documentation against what the command *does*, not against the hole.
- */
-const DEFAULT_SUBCOMMAND: Record<string, string> = { mcp: "serve" };
-
-/**
  * The CLI's two flag tables, read out of the source.
  *
  * The bin executes on import, so it cannot be imported; `cli.test.ts` reads it
@@ -77,6 +65,16 @@ async function dispatchTable() {
 
     const globals = new Set(
         [...slice("GLOBAL_FLAGS", "\n];").matchAll(/"([^"]+)"/g)].map((m) => m[1])
+    );
+    // `workfile mcp` serves, so `workfile mcp --read-only` is a real
+    // invocation that both cli.md and mcp.md teach, and it has to be checked
+    // against `mcp serve`. Read from the source rather than declared here: the
+    // dispatcher resolves the bare form through this same table, and a second
+    // copy would only be right until one of them moved.
+    const defaults = Object.fromEntries(
+        [...slice("DEFAULT_SUBCOMMAND", "\n};").matchAll(/^ {4}(\w+): "(\w+)"/gm)].map(
+            (match) => [match[1], match[2]]
+        )
     );
     const table = slice("COMMAND_FLAGS", "\n};");
     const accepts = new Map<string, Set<string>>();
@@ -126,9 +124,10 @@ async function dispatchTable() {
                 resolved = `${real} ${resolved.slice(alias.length + 1)}`;
             }
         }
-        const fallback = DEFAULT_SUBCOMMAND[resolved];
+        const fallback = defaults[resolved];
         return fallback ? `${resolved} ${fallback}` : resolved;
     };
+    assert.ok(defaults.mcp, "DEFAULT_SUBCOMMAND no longer resolves the bare mcp");
 
     return { globals, accepts, known, canonical };
 }

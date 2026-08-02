@@ -206,9 +206,35 @@ const USAGE: Record<string, string[]> = {
     ]
 };
 
+/**
+ * Spellings that reach the same command.
+ *
+ * The dispatcher accepts each of these as `command === "doc" || command ===
+ * "docs"`, and every guard in this file has to agree with it or the alias
+ * stops being an alias. `serve` did not: `workfile serve --help` printed the
+ * whole banner instead of `ui`'s usage, and `workfile serve --nonsense`
+ * started the server having discarded the flag, because a word with no entry
+ * in the tables below is a word nothing checks.
+ */
 const USAGE_ALIASES: Record<string, string> = {
     docs: "doc",
-    history: "changelog"
+    history: "changelog",
+    serve: "ui"
+};
+
+/**
+ * What a bare command word runs, for the words that run something.
+ *
+ * `workfile mcp` serves, `workfile migrate` imports `.planning`, `workfile
+ * claude` reports the surface. Every other branching word requires a
+ * subcommand. Naming both cases is what lets one guard answer for all of them:
+ * a word absent from here is missing its subcommand, and a word present is
+ * checked as though the caller had spelled it out.
+ */
+const DEFAULT_SUBCOMMAND: Record<string, string> = {
+    claude: "check",
+    migrate: "apply",
+    mcp: "serve"
 };
 
 /**
@@ -614,7 +640,11 @@ const DRY_RUN_ALTERNATIVE = {
 function assertDryRunSupported(command, action) {
     const word = USAGE_ALIASES[command] || command;
     if (!has("--dry-run")) return;
-    if (DRY_RUN_COMMANDS.has(word) || DRY_RUN_COMMANDS.has(`${word} ${action}`)) {
+    // Through `commandKey`, so the bare form is measured as what it runs.
+    // `workfile migrate --dry-run` was refused as unimplemented while
+    // `workfile migrate apply --dry-run` previewed — the one invocation where
+    // the refusal cost the caller the preview they asked for.
+    if (DRY_RUN_COMMANDS.has(word) || DRY_RUN_COMMANDS.has(commandKey(command, action))) {
         return;
     }
     const alternative = DRY_RUN_ALTERNATIVE[word];
@@ -667,14 +697,69 @@ const REPEATABLE_FLAGS = new Set(["--check", "--uncheck"]);
  * `BOOLEAN_FLAGS` silently swallows the flag after it, which is how
  * `doctor --fix --bogus` used to pass while `doctor --bogus` failed.
  */
+/**
+ * The table key for an invocation, with aliases and the bare form resolved.
+ *
+ * `workfile mcp --read-only` and `workfile mcp serve --read-only` are the same
+ * command and have to be checked as one. They were not: the key for the bare
+ * form was `mcp`, nothing is stored under that name, and every guard keyed on
+ * it returned without doing anything. That is how `workfile mcp --nonsense`
+ * served, `workfile migrate --nonsense` ran the import against `.planning` and
+ * `workfile claude --force` exited 0 having dropped the flag — while the same
+ * commands spelled out were refused correctly.
+ *
+ * An unrecognised subcommand still falls back to the bare word, and
+ * `assertKnownSubcommand` reports it before anything reads this.
+ */
+function commandKey(command, action) {
+    const word = USAGE_ALIASES[command] || command;
+    if (action) {
+        return `${word} ${action}` in COMMAND_FLAGS ? `${word} ${action}` : word;
+    }
+    const fallback = DEFAULT_SUBCOMMAND[word];
+    return fallback ? `${word} ${fallback}` : word;
+}
+
+/**
+ * A branching word must name one of its subcommands.
+ *
+ * `card` and `doc` used to demand an ID first — `workfile doc index` answered
+ * `doc index requires an ID`, sending a reader to find an identifier for a
+ * subcommand that does not exist, which is how `docs index` survived in the
+ * spec long enough to need a test to find it. Bare, the same guard printed the
+ * literal `card undefined requires an ID`.
+ *
+ * The list of subcommands comes from `COMMAND_FLAGS` rather than a second
+ * enumeration, so a command added to the dispatcher and forgotten here is not
+ * a possible state. Each handler keeps its own closing throw: that one catches
+ * a key listed in the table with no branch behind it, which this cannot see.
+ */
+function assertKnownSubcommand(command, action) {
+    const word = USAGE_ALIASES[command] || command;
+    const subcommands = Object.keys(COMMAND_FLAGS)
+        .filter((key) => key.startsWith(`${word} `))
+        .map((key) => key.slice(word.length + 1));
+    // A leaf command; the position holds its argument, not a subcommand.
+    if (!subcommands.length) return;
+    if (action) {
+        if (subcommands.includes(action)) return;
+        throw new ValidationError(
+            "CLI_COMMAND_UNKNOWN",
+            `Unknown ${word} command: ${action}. ` +
+                `Available: ${subcommands.join(", ")}.`
+        );
+    }
+    if (DEFAULT_SUBCOMMAND[word]) return;
+    throw new ValidationError(
+        "CLI_COMMAND_REQUIRED",
+        `\`${INVOKED_AS} ${word}\` needs a subcommand: ${subcommands.join(", ")}. ` +
+            `Run \`${INVOKED_AS} ${word} --help\`.`
+    );
+}
+
 function assertKnownFlags(command, action) {
     const word = USAGE_ALIASES[command] || command;
-    // The subcommand's own table, or the word's when it takes no subcommand.
-    // An unrecognised subcommand has no table and is left to the dispatcher,
-    // which reports it by name.
-    const key = action && `${word} ${action}` in COMMAND_FLAGS
-        ? `${word} ${action}`
-        : word;
+    const key = commandKey(command, action);
     if (!COMMAND_FLAGS[key]) return;
     const known = new Set([...GLOBAL_FLAGS, ...COMMAND_FLAGS[key]]);
     const seen = new Set();
@@ -783,16 +868,40 @@ function has(name) {
 }
 
 /**
- * The subcommand word, or undefined when the position holds a flag.
+ * A positional argument, or undefined when the position holds a flag.
  *
  * Every dispatcher used to read `process.argv[3]` raw, so `workfile mcp
  * --read-only` treated `--read-only` as the action and died with
  * CLI_COMMAND_UNKNOWN — which is exactly what `workfile mcp config` printed for
- * people to paste into their MCP client.
+ * people to paste into their MCP client. The fix stopped at position 3. Every
+ * id, status and version was still read raw, so `workfile card show --json`
+ * answered `Card not found: --json` and `workfile card unknown --root .` was
+ * reported as an unknown command only because `--root` was standing in for the
+ * id it never had.
  */
-function subcommand() {
-    const value = process.argv[3];
+function positional(index) {
+    const value = process.argv[index];
     return value && !value.startsWith("-") ? value : undefined;
+}
+
+function subcommand() {
+    return positional(3);
+}
+
+/**
+ * The identifier a subcommand cannot run without.
+ *
+ * Each handler already refuses a missing id, but only past the branches placed
+ * above that guard — and `show` is above it in four of them, so `workfile card
+ * show` looked the record `undefined` up and reported it as not found. A
+ * caller who forgot the argument was told the argument does not exist.
+ */
+function requireId(word, action, id) {
+    if (id) return id;
+    throw new ValidationError(
+        "CLI_ARGUMENT_REQUIRED",
+        `${word} ${action} requires an ID`
+    );
 }
 
 function wantsHelp() {
@@ -1058,7 +1167,7 @@ async function initCommand(root) {
 }
 
 async function cardCommand(workspace, action) {
-    const id = process.argv[4];
+    const id = positional(4);
     if (action === "list") {
         const { cards } = await loadCards(workspace);
         const filtered = filterCards(cards);
@@ -1082,6 +1191,7 @@ async function cardCommand(workspace, action) {
         return;
     }
     if (action === "show") {
+        requireId("card", action, id);
         const { cards } = await loadCards(workspace);
         const card = cards.find((candidate) => candidate.id === id);
         if (!card) throw new NotFoundError("CARD_NOT_FOUND", `Card not found: ${id}`);
@@ -1174,7 +1284,12 @@ async function cardCommand(workspace, action) {
         const result = await createCard(workspace, input);
         return print(has("--json") ? result.card : `${result.id} ${result.file}`);
     }
-    if (!id) {
+    // `card renumber --duplicates` is a sweep and names no record. It reached
+    // here only because the id position was read raw and `--duplicates` is a
+    // truthy string — the accident this guard was written to depend on without
+    // anyone saying so.
+    const sweeping = action === "renumber" && has("--duplicates");
+    if (!id && !sweeping) {
         throw new ValidationError(
             "CLI_ARGUMENT_REQUIRED",
             `card ${action} requires an ID`
@@ -1309,7 +1424,7 @@ async function cardCommand(workspace, action) {
         return print(has("--json") ? result.card : `${id} released to ${result.card.status}`);
     }
     if (action === "transition") {
-        const status = process.argv[5];
+        const status = positional(5);
         if (!status) {
             throw new ValidationError(
                 "CLI_ARGUMENT_REQUIRED",
@@ -1346,7 +1461,7 @@ async function cardCommand(workspace, action) {
 }
 
 async function documentCommand(workspace, action) {
-    const id = process.argv[4];
+    const id = positional(4);
     const index = await buildProjectIndex(workspace);
     if (action === "list") {
         const result = searchProjectRecords(
@@ -1366,6 +1481,7 @@ async function documentCommand(workspace, action) {
         return;
     }
     if (action === "show") {
+        requireId("doc", action, id);
         const document = index.records.find(
             (record) => record.kind === "doc" && record.id === id
         );
@@ -1450,7 +1566,7 @@ function memoryCollection(value) {
 }
 
 async function changelogCommand(workspace, action) {
-    const id = process.argv[4];
+    const id = positional(4);
     if (action === "list") {
         const index = await buildProjectIndex(workspace);
         let records = index.records.filter((record) =>
@@ -1479,6 +1595,7 @@ async function changelogCommand(workspace, action) {
         return;
     }
     if (action === "show") {
+        requireId("changelog", action, id);
         const index = await buildProjectIndex(workspace);
         const record = index.records.find(
             (candidate) =>
@@ -1546,7 +1663,7 @@ async function changelogCommand(workspace, action) {
         return print(has("--json") ? result : result.markdown || "No changes.");
     }
     if (action === "release") {
-        const version = process.argv[4];
+        const version = positional(4);
         if (!version) {
             throw new ValidationError(
                 "CLI_ARGUMENT_REQUIRED",
@@ -1609,7 +1726,7 @@ async function changelogCommand(workspace, action) {
 }
 
 async function memoryCommand(workspace, action) {
-    const argument = process.argv[4];
+    const argument = positional(4);
     if (action === "list") {
         const index = await buildProjectIndex(workspace);
         const query = option("--query") || "";
@@ -1636,6 +1753,7 @@ async function memoryCommand(workspace, action) {
         return;
     }
     if (action === "show") {
+        requireId("memory", action, argument);
         const index = await buildProjectIndex(workspace);
         const record = index.records.find(
             (candidate) => candidate.kind === "memory" && candidate.id === argument
@@ -1720,6 +1838,7 @@ async function memoryCommand(workspace, action) {
         return print(has("--json") ? result.record : `${argument} updated`);
     }
     if (action === "graduate") {
+        requireId("memory", action, argument);
         const targets = listOption("--to");
         const result = await graduateLearning(workspace, argument, targets, {
             expectedRevision: option("--expected-revision") || undefined
@@ -2046,6 +2165,9 @@ async function main() {
         printCommandUsage(command);
         return;
     }
+    // Order matters: a caller who typed a subcommand that does not exist is
+    // told that, rather than being told its flags are wrong or its id missing.
+    assertKnownSubcommand(command, subcommand());
     assertKnownFlags(command, subcommand());
     assertDryRunSupported(command, subcommand());
     if (command === "init") {

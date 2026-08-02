@@ -1561,3 +1561,191 @@ test("a filter refuses a value it cannot parse instead of matching nothing", asy
         await rm(workspace, { recursive: true, force: true });
     }
 });
+
+/** `COMMAND_FLAGS` and `DEFAULT_SUBCOMMAND`, read out of the un-importable bin. */
+async function dispatch() {
+    const source = await readFile(
+        new URL("../bin/workfile.ts", import.meta.url),
+        "utf8"
+    );
+    const between = (name: string, close: string) => {
+        const start = source.indexOf(`const ${name}`);
+        return source.slice(start, source.indexOf(close, start));
+    };
+    const keys = [
+        ...between("COMMAND_FLAGS", "\n};").matchAll(/^ {4}"([^"]+)":/gm)
+    ].map((match) => match[1]);
+    const subcommands = new Map<string, string[]>();
+    for (const key of keys) {
+        const [word, ...rest] = key.split(" ");
+        if (!rest.length) continue;
+        subcommands.set(word, [...(subcommands.get(word) ?? []), rest.join(" ")]);
+    }
+    const defaults = Object.fromEntries(
+        [...between("DEFAULT_SUBCOMMAND", "\n};").matchAll(/^ {4}(\w+): "(\w+)"/gm)].map(
+            (match) => [match[1], match[2]]
+        )
+    );
+    return { keys, subcommands, defaults };
+}
+
+/**
+ * Every branching word answers for its own subcommand, before anything else.
+ *
+ * Three behaviours where there should have been one. `card` and `doc` demanded
+ * an ID first, so `workfile doc index` answered `doc index requires an ID` —
+ * telling a reader to go find an identifier for a subcommand that does not
+ * exist, and hiding `docs index` in the spec until a documentation test found
+ * it. Bare, six words interpolated the missing subcommand into the message and
+ * printed the literal `card undefined requires an ID`. The remaining three ran
+ * a default, unchecked: `workfile mcp --nonsense` served, `workfile migrate
+ * --nonsense` ran the import, `workfile claude --force` exited 0 having
+ * discarded the flag — while `migrate apply --nonsense` was refused correctly.
+ *
+ * The words come from `COMMAND_FLAGS` and the defaults from
+ * `DEFAULT_SUBCOMMAND`, so this covers whatever the tables hold rather than a
+ * list written once and left behind.
+ */
+test("every command word answers for its own subcommand", async () => {
+    const { subcommands, defaults } = await dispatch();
+    assert.deepEqual(
+        [...subcommands.keys()].sort(),
+        ["agents", "card", "changelog", "ci", "claude", "doc", "mcp", "memory", "migrate"],
+        "the set of branching words changed"
+    );
+    assert.deepEqual(
+        Object.keys(defaults).sort(),
+        ["claude", "mcp", "migrate"],
+        "the set of words that run a default changed"
+    );
+
+    for (const [word, actions] of subcommands) {
+        const bogus = await outcome([word, "zzz", "--root", fixture, "--json"]);
+        assert.equal(bogus.code, 1, `${word} zzz exited ${bogus.code}`);
+        const reported = JSON.parse(bogus.stderr).error;
+        assert.equal(
+            reported.code,
+            "CLI_COMMAND_UNKNOWN",
+            `${word} zzz answered ${reported.code}: ${reported.message}`
+        );
+        for (const action of actions) {
+            assert.ok(
+                reported.message.includes(action),
+                `${word} zzz does not offer ${action}: ${reported.message}`
+            );
+        }
+
+        // Only for the words that do not run something: bare `mcp` serves, and
+        // asking it what it does with no subcommand never returns.
+        if (!defaults[word]) {
+            const bare = await outcome([word, "--root", fixture, "--json"]);
+            const missing = JSON.parse(bare.stderr).error;
+            assert.equal(
+                missing.code,
+                "CLI_COMMAND_REQUIRED",
+                `bare ${word} answered ${missing.code}: ${missing.message}`
+            );
+            continue;
+        }
+        // A word that runs something must validate what it was handed, and say
+        // which subcommand it validated against.
+        const stray = await outcome([word, "--nonsense", "--root", fixture, "--json"]);
+        const refused = JSON.parse(stray.stderr).error;
+        assert.equal(
+            refused.code,
+            "CLI_ARGUMENT_UNKNOWN",
+            `bare ${word} accepted --nonsense`
+        );
+        assert.match(refused.message, new RegExp(`${word} ${defaults[word]}`));
+    }
+
+    // Aliases reach the same guards, or they are not aliases. `serve` reached
+    // none of them: `workfile serve --nonsense` started the server.
+    for (const [alias, real] of [["docs", "doc"], ["history", "changelog"]]) {
+        const aliased = await outcome([alias, "zzz", "--root", fixture, "--json"]);
+        assert.match(JSON.parse(aliased.stderr).error.message, new RegExp(`Unknown ${real} command`));
+    }
+    const served = await outcome(["serve", "--nonsense", "--root", fixture, "--json"]);
+    assert.equal(JSON.parse(served.stderr).error.code, "CLI_ARGUMENT_UNKNOWN");
+    assert.match(JSON.parse(served.stderr).error.message, /"ui"/);
+});
+
+/**
+ * No subcommand reports a missing argument as a missing record.
+ *
+ * `card show` sat above its handler's own ID guard, so it looked up the record
+ * `undefined` and answered `Card not found: undefined` — a caller who forgot
+ * the argument told that the argument does not exist. Four others did the
+ * same. The positional readers now refuse a flag in an argument's place, which
+ * is what turned `Card not found: --json` into a visible defect rather than a
+ * plausible-looking answer.
+ *
+ * Run against every key in the table, because the five were found by sweeping
+ * and not by reading.
+ */
+test("no subcommand reports a missing argument as a missing record", async () => {
+    const { keys } = await dispatch();
+    const workspace = await mkdtemp(join(tmpdir(), "workfile-argv-"));
+    await cp(fixture, workspace, { recursive: true });
+    try {
+        // The three that block by design: they are servers, and take no
+        // argument. Everything else must answer. `card write` reads its body
+        // from stdin when no `--body-file` is given, so a subcommand that gets
+        // past its own argument check with nothing to work on does not fail —
+        // it waits forever. That is how this defect presented when the fix was
+        // reverted to check it, and a suite that hangs reports nothing at all,
+        // so the timeout is part of the assertion rather than a safety net.
+        const runnable = keys.filter(
+            (key) => !["mcp serve", "mcp stdio", "ui"].includes(key)
+        );
+        const attempt = (args: string[]) =>
+            new Promise<{ output: string; killed: boolean }>((settle) => {
+                execFile(
+                    process.execPath,
+                    [cli, ...args],
+                    { encoding: "utf8", timeout: 20_000, killSignal: "SIGKILL" },
+                    (error, stdout, stderr) => {
+                        settle({
+                            output: `${stdout}${stderr}`,
+                            killed: Boolean(
+                                (error as { killed?: boolean } | null)?.killed
+                            )
+                        });
+                    }
+                );
+            });
+
+        const wrong: string[] = [];
+        for (let index = 0; index < runnable.length; index += 8) {
+            await Promise.all(
+                runnable.slice(index, index + 8).map(async (key) => {
+                    const { output, killed } = await attempt([
+                        ...key.split(" "),
+                        "--root",
+                        workspace,
+                        "--json"
+                    ]);
+                    if (killed) {
+                        wrong.push(`workfile ${key} never answered`);
+                    } else if (/undefined/.test(output)) {
+                        wrong.push(`workfile ${key} → ${output.trim().slice(0, 120)}`);
+                    }
+                })
+            );
+        }
+        assert.deepEqual(wrong, [], `\n${wrong.join("\n")}\n`);
+
+        // A flag is not an identifier. `workfile card show --json` answered
+        // `Card not found: --json`, and the assertion that `card unknown` is
+        // an unknown command passed only because the `--root` after it stood
+        // in for the id that was never given.
+        const flagAsId = await outcome(["card", "show", "--json", "--root", workspace]);
+        assert.equal(
+            JSON.parse(flagAsId.stderr).error.code,
+            "CLI_ARGUMENT_REQUIRED",
+            "a flag in the id position was taken for an id"
+        );
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
+    }
+});

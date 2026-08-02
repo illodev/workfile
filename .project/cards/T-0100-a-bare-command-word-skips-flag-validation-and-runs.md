@@ -1,14 +1,14 @@
 ---
 id: T-0100
 title: A bare command word skips flag validation and runs anyway
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
-scope: [packages/workfile/bin/workfile.ts]
+scope: [packages/workfile/test/cli.test.ts]
 related: [T-0091, T-0098]
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-02
 ---
 
 `assertKnownFlags` keys on `"word subcommand"`, falls back to `word`, and
@@ -57,7 +57,13 @@ knowledge to stay honest.
 
 ## Acceptance criteria
 
-- [ ] `workfile mcp --nonsense`, `workfile migrate --nonsense` and `workfile claude --nonsense` are refused with `CLI_ARGUMENT_UNKNOWN`
-- [ ] `workfile mcp --read-only` still serves read-only
-- [ ] A test covers every word with no table of its own, not only the three that run
-- [ ] documentation.test.ts reads the default-subcommand table instead of declaring one
+- [x] `workfile mcp --nonsense`, `workfile migrate --nonsense` and `workfile claude --nonsense` are refused with `CLI_ARGUMENT_UNKNOWN`
+- [x] `workfile mcp --read-only` still serves read-only
+- [x] A test covers every word with no table of its own, not only the three that run
+- [x] documentation.test.ts reads the default-subcommand table instead of declaring one
+
+## Activity
+
+- 2026-08-01 23:46Z illodev@local#e55eab30 · claimed
+- 2026-08-02 00:22Z illodev@local#e55eab30 · doing → review
+

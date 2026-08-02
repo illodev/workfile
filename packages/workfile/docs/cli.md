@@ -30,6 +30,12 @@ An option a subcommand does not accept is refused with `CLI_ARGUMENT_UNKNOWN`,
 and one given twice with `CLI_ARGUMENT_CONFLICT`, because only the first is
 read. Pass a list as one comma-separated value.
 
+A word that branches answers for its own subcommand first: an unrecognised one
+with `CLI_COMMAND_UNKNOWN` and a missing one with `CLI_COMMAND_REQUIRED`, both
+listing what the word does accept. `workfile claude`, `workfile mcp` and
+`workfile migrate` are the exceptions — they run `check`, `serve` and `apply`
+respectively, and are checked as though you had typed those.
+
 `--dry-run` is global but not universal. It is accepted everywhere so that no
 caller has to remember where it works, and then refused with
 `CLI_FLAG_UNSUPPORTED` on any command that would have written anyway — naming
