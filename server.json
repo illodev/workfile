@@ -3,7 +3,7 @@
   "name": "io.github.illodev/workfile",
   "title": "Workfile",
   "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "websiteUrl": "https://workfiledemo.illodev.com",
   "repository": {
     "url": "https://github.com/illodev/workfile",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "@illodev/workfile",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
