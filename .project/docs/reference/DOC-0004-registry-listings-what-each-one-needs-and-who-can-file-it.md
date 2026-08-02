@@ -184,6 +184,35 @@ like one project rather than four.
 - **Install**: `npx -y @illodev/workfile mcp` — the invocation the registry
   itself advertises, and the one to quote wherever a form asks for a command.
 
+## The example use cases
+
+The Claude Code marketplace form requires these and no other registry has asked
+yet. They are here so the next one that asks gets the same four rather than a
+fresh improvisation.
+
+> **Ejemplo 1:** Two agents work the same repository at once. Each claims its
+> card with a scope of paths before editing — `/claim T-0042 src/auth` — and
+> the second is refused when it tries to take work the first already holds,
+> instead of both editing the same files and one silently winning.
+>
+> **Ejemplo 2:** A session ends, context is compacted, a new session starts.
+> Asking "what did we decide about the release pipeline, and why?" is answered
+> from decisions and learnings committed in the repository, so the reasoning
+> survives instead of being re-derived from the diff.
+>
+> **Ejemplo 3:** Closing work with `/done` runs the project doctor, writes a
+> changelog fragment while the change is still fresh, and moves the card to
+> `review`. `review` means the code is written; `done` requires runtime
+> evidence — a test that passed, a command whose output you saw — not a merge.
+>
+> **Ejemplo 4:** `/context T-0042` loads the relevant slice of the project —
+> the card, its relations, the active conventions and any open incident —
+> instead of reading the whole repository into the window to answer one
+> question.
+
+The first two are the ones that separate Workfile from a task list with an MCP
+server in front of it. Cut from the bottom if a form is strict about length.
+
 ## What a listing costs
 
 Worth stating plainly, because it decided two of these. Free and

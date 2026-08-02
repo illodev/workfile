@@ -73,7 +73,7 @@ This is the only listing left with a review queue behind it.
 
 - [ ] `punkpeye/awesome-mcp-servers` lists Workfile
 - [ ] mcpservers.org lists Workfile
-- [ ] The Claude Code community marketplace submission is filed
+- [x] The Claude Code community marketplace submission is filed
 - [ ] Glama shows a real score rather than `–`
 - [x] mcp.so and Smithery are decided rather than pending
 
@@ -83,6 +83,8 @@ This is the only listing left with a review queue behind it.
 - 2026-08-02 21:12Z illodev@local#bd44efc7 · released
 - 2026-08-02 21:34Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 21:36Z illodev@local#bd44efc7 · released
+- 2026-08-02 22:09Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 22:09Z illodev@local#bd44efc7 · released
 
 ## Notes
 
@@ -92,3 +94,8 @@ wong2 cost a wasted branch. I read its entry format off the file and its orderin
 
 The general shape, for the remaining registries: a list's contributing rules describe the format, not the intake channel. Check where submissions are accepted before preparing one.
 - 2026-08-02 21:36Z illodev@local#bd44efc7 — Filed state as reported: mcpservers.org submitted and awaiting review; punkpeye #11406 open with valid-name, has-emoji and has-glama; mcp.so charges, so unfiled; Smithery dropped; Claude Code marketplace still to file, no longer blocked now that [[T-0134]] closed. Glama had already crawled the server and could not score it — [[T-0136]].
+- 2026-08-02 22:09Z illodev@local#bd44efc7 — The Claude Code community marketplace submission is filed, through the Console form at platform.claude.com/plugins/submit rather than the claude.ai one, which needs a Team organisation. It was blocked on [[T-0134]] until `claude plugin validate` passed.
+
+The form required example use cases, which nothing here had written down. The four supplied are now in [[DOC-0004]] with the rest of the reusable copy, so the next registry that asks gets the same answer rather than a fresh improvisation.
+
+What happens next is not a queue to watch: approved plugins are pinned to a commit SHA in `anthropics/claude-plugins-community`, CI bumps the pin as this repository moves, and the public catalog syncs nightly. So absence right after an approval is expected. The check is the plugin's name in that repository's `.claude-plugin/marketplace.json`.
