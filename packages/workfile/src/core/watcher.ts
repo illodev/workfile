@@ -83,6 +83,24 @@ export function createWorkspaceWatcher(
 
     const watchers = new Map();
     const pending = new Set<string>();
+    /**
+     * The two ways `fs.watch` says "something changed and I cannot tell you
+     * what", counted rather than acted on.
+     *
+     * `nameless` is a callback with no filename — libuv's Windows backend
+     * emits one when `ReadDirectoryChangesW` completes without being able to
+     * enumerate the changes, which is the platform asking for a re-scan.
+     * `errors` is a directory handle failing, after which nothing re-watches
+     * it and the reported mode still says everything is fine.
+     *
+     * Both are dropped today. Measured on Linux before counting them: deleting
+     * a watched directory reports `rename` with a name and never fires `error`,
+     * and a burst of 20 000 writes produced 40 000 events with not one missing
+     * a name. So neither branch can be exercised on the machine this is
+     * developed on, and a fix for them would ship unverified — which is what
+     * these counters exist to change.
+     */
+    const dropped = { nameless: 0, errors: 0 };
     let timer: ReturnType<typeof setTimeout> | null = null;
     let firstPendingAt = 0;
     let closed = false;
@@ -126,7 +144,10 @@ export function createWorkspaceWatcher(
         let handle;
         try {
             handle = watch(absolute, { persistent: false }, (_event, name) => {
-                if (!name) return;
+                if (!name) {
+                    dropped.nameless += 1;
+                    return;
+                }
                 const fileName = basename(String(name));
                 if (isNoise(fileName)) {
                     // A new directory still has to be picked up, and it will
@@ -146,6 +167,7 @@ export function createWorkspaceWatcher(
             return;
         }
         handle.on("error", () => {
+            dropped.errors += 1;
             handle.close();
             watchers.delete(relativeDirectory);
         });
@@ -235,6 +257,10 @@ export function createWorkspaceWatcher(
         },
         get watchedDirectories() {
             return watchers.size;
+        },
+        /** Signals `fs.watch` sent that this watcher threw away. */
+        get dropped() {
+            return { ...dropped };
         },
         async start() {
             watchRoot = await new Promise((done) =>

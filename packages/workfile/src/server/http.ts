@@ -825,7 +825,8 @@ export function createProjectServer(
                         eventClients: events.size,
                         watcher: {
                             mode: watcher.mode,
-                            directories: watcher.watchedDirectories
+                            directories: watcher.watchedDirectories,
+                            dropped: watcher.dropped
                         }
                     },
                     {},

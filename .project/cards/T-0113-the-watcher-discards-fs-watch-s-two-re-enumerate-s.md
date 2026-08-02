@@ -1,7 +1,7 @@
 ---
 id: T-0113
 title: The watcher discards fs.watch's two re-enumerate signals
-status: backlog
+status: blocked
 type: bug
 priority: low
 area: core
@@ -49,3 +49,48 @@ before anything is built on the assumption that they do.
       the watcher's reported mode
 - [ ] Evidence that either branch actually fires on Windows, rather than a fix
       for a path nobody has observed
+
+## Activity
+
+- 2026-08-02 18:25Z illodev@local#aed59c5e · claimed
+- 2026-08-02 18:28Z illodev@local#aed59c5e · doing → blocked
+
+## Notes
+
+- 2026-08-02 18:28Z illodev@local#aed59c5e — Instrumented, deliberately not fixed. This card argued for that order and the
+measurements back it.
+
+Both branches are unreachable on Linux, measured rather than assumed:
+
+    borrar el directorio vigilado  -> error=false, eventos=[rename:watched, rename:watched]
+    rafaga de 20 000 escrituras    -> 40 000 eventos, 0 sin nombre
+
+So `fs.watch` on inotify names every event of this shape and does not report a
+deleted watch directory as an `error` at all. A fix written here would be a fix
+for a path this machine cannot produce, which is exactly what the third
+criterion refuses.
+
+Shipped instead: both branches now count. `watcher.dropped` reads
+`{ nameless, errors }`, `/api/v2/metrics` carries it, and the watcher test
+emits it as a TAP diagnostic:
+
+    # fs.watch signals dropped on linux: {"nameless":0,"errors":0}
+
+That line is the point. The suite runs on `windows-latest`, where the backend
+is ReadDirectoryChangesW rather than inotify, so the next CI run answers what
+could not be answered from here — and answers it in the log of a run that is
+happening anyway, rather than needing someone to set up a Windows box.
+
+Blocked on that run rather than on anyone's decision. What to do next depends
+on what it says:
+
+- `nameless` above zero means the platform is asking for a re-scan and being
+  ignored, and the first criterion becomes a real fix with a real trigger.
+- `errors` above zero means directories are silently falling out of the
+  watch set while the reported mode still says everything is fine — which
+  matters more now that [[T-0112]] made the interface act on that mode.
+- Both at zero across several Windows runs is also an answer: the branches are
+  defensive code for a case that does not arise in this workload, and the card
+  closes as `discarded` rather than being fixed on principle.
+
+232 + 7 tests pass, strict holds at baseline.

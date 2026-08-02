@@ -114,7 +114,7 @@ async function watcherReady(url, limit = 10000) {
 // workspace the recursive call blocks the event loop for the better part of a
 // second doing a synchronous readdir, while placing individual watches over the
 // same tree costs single-digit milliseconds.
-test("the watcher covers the corpus, coalesces bursts and ignores the cache", async () => {
+test("the watcher covers the corpus, coalesces bursts and ignores the cache", async (t) => {
     const root = await mkdtemp(join(tmpdir(), "workfile-watch-"));
     try {
         await buildBenchWorkspace(root, "S");
@@ -189,6 +189,17 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
             assert.equal(batches[0].type, "reset");
             assert.ok(batches[0].count >= 40);
             assert.deepEqual(batches[0].paths, [], "a reset carries no list");
+
+            // Reported, not asserted. Both counters stay at zero on Linux —
+            // measured, not assumed: deleting a watched directory reports
+            // `rename` with a name and never fires `error`, and 20 000 writes
+            // produced 40 000 events with none missing a name. Windows uses
+            // ReadDirectoryChangesW and is expected to differ, and this line is
+            // how that gets observed on the runner instead of guessed at from
+            // here. [[T-0113]] is the card waiting on it.
+            t.diagnostic(
+                `fs.watch signals dropped on ${process.platform}: ${JSON.stringify(watcher.dropped)}`
+            );
         } finally {
             watcher.close();
         }
