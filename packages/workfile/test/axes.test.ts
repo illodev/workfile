@@ -636,3 +636,73 @@ test("a declared axis survives the round trip back out", async () => {
         await cleanup();
     }
 });
+
+/**
+ * The listing an agent actually reads.
+ *
+ * `project_card_list` projects records through the `list` view, and that view
+ * keeps a frozen list of field names — which a per-project axis can never be
+ * on. So the surface the axis exists for was the one surface that could not
+ * see it: an agent asking "what is in doing?" got cards with the domain
+ * stripped off, and nothing said so.
+ */
+test("a declared axis reaches the listings an agent reads", async () => {
+    const { workspace, cleanup } = await workspaceWithAxes({
+        context: ["treasury", "billing"]
+    });
+    try {
+        await createCard(workspace, {
+            title: "Treasury work",
+            area: "api",
+            axes: { context: "treasury" }
+        });
+        await createCard(workspace, { title: "Unclassified", area: "api" });
+
+        const server = createMcpProtocolServer(workspace, { version: "0.6.0" });
+        await server.handle({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: "2024-11-05",
+                capabilities: {},
+                clientInfo: { name: "test", version: "0" }
+            }
+        });
+        const call = async (name, args = {}) => {
+            const answer = await server.handle({
+                jsonrpc: "2.0",
+                id: 2,
+                method: "tools/call",
+                params: { name, arguments: args }
+            });
+            assert.ok("result" in answer, JSON.stringify(answer));
+            assert.equal(answer.result.isError, undefined, JSON.stringify(answer.result));
+            return answer.result.structuredContent;
+        };
+
+        const listed = await call("project_card_list");
+        const tagged = listed.records.find(
+            (record) => record.title === "Treasury work"
+        );
+        const untagged = listed.records.find(
+            (record) => record.title === "Unclassified"
+        );
+        assert.equal(tagged.context, "treasury", "the list view keeps the axis");
+        // And it says which axes it carries, so a reader can find them without
+        // being told the project's vocabulary in advance.
+        assert.deepEqual(tagged.axes, ["context"]);
+        // A card with no value carries neither, rather than an empty string.
+        assert.equal(untagged.context, undefined);
+        assert.equal(untagged.axes, undefined);
+
+        // Search projects through the same function, so it inherits this.
+        const found = await call("project_search", { query: "Treasury" });
+        const hit = found.records.find(
+            (record) => record.title === "Treasury work"
+        );
+        assert.equal(hit?.context, "treasury", "search keeps it too");
+    } finally {
+        await cleanup();
+    }
+});

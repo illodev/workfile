@@ -1,7 +1,7 @@
 ---
 id: T-0128
 title: The summary projection drops every declared axis
-status: backlog
+status: done
 type: bug
 priority: medium
 area: core
@@ -40,9 +40,54 @@ views because they are the thing that is wrong.
 
 ## Acceptance criteria
 
-- [ ] A declared axis survives `summary` and `list` views, or the reason it
+- [x] A declared axis survives `summary` and `list` views, or the reason it
       must not is recorded
-- [ ] The rule comes from the workspace's declared axes, not from a constant
+- [x] The rule comes from the workspace's declared axes, not from a constant
       that has to be remembered
-- [ ] The MCP and CLI listings are checked, since an agent finding work by
+- [x] The MCP and CLI listings are checked, since an agent finding work by
       domain is the reason the axis exists
+
+## Activity
+
+- 2026-08-02 19:13Z illodev@local#aed59c5e · claimed
+- 2026-08-02 19:19Z illodev@local#aed59c5e · doing → done
+
+## Notes
+
+- 2026-08-02 19:19Z illodev@local#aed59c5e — Measured first, which changed the shape of the fix.
+
+    summary tira: archived, context, scope, effort, start, due, source, assets
+    list tira:    + file, revision
+
+    CLI  card list --json   context = "treasury"
+    CLI  card show --json   context = "treasury"
+    MCP  project_card_list  context = undefined
+
+So the third criterion is answered: the CLI listing was never affected — it does
+not go through this projection — and MCP was, on both `project_card_list` and
+`project_search`.
+
+The obvious fix was to pass the declared axis names into `projectRecord`. That
+was rejected after counting the call sites: five in `http.ts`, two in
+`search.ts`, one in the CLI, plus MCP's own. Threading a rule through eight
+entrances is the failure this module has already had three times, recorded as
+[[LRN-0012]] — and the second criterion asks for the opposite of that.
+
+Instead the record carries it. `recordFromCard` already receives the workspace,
+and it is the single place a card becomes a record, so it stamps the names of
+the axes that card actually has; `projectRecord` keeps whatever the record
+names. One writer, one reader, and nothing in between has to be told. Listings
+gained an `axes` field as a side effect, which is worth having on its own: a
+reader can discover a project's axes without knowing its vocabulary first.
+
+Verified from the CLI and through the MCP protocol server, before and after.
+The test pins both `project_card_list` and `project_search`, including that a
+card with no value carries neither the key nor the name.
+
+Found while measuring, and left alone deliberately: the same projection drops
+`archived`, so an archived card is indistinguishable from a live one in the
+listing an agent reads — `path` containing `/archive/` is the only tell. That
+is a correctness problem rather than a missing convenience and it is not what
+this card was about, so it is [[T-0130]].
+
+234 + 7 tests pass, strict holds at baseline.

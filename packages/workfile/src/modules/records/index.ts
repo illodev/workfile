@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 import { discoverFiles, normalizeRepoPath } from "../../core/glob.js";
 import { mapWithConcurrency } from "../../core/concurrency.js";
-import { loadCards } from "../cards/index.js";
+import { axisNames, loadCards } from "../cards/index.js";
 import { diagnoseChangelog, loadChangelog } from "../changelog/index.js";
 import { diagnoseDocuments, loadDocuments } from "../docs/index.js";
 import { diagnoseMemory, loadMemory } from "../memory/index.js";
@@ -32,12 +32,28 @@ function cardPath(workspace, card) {
     }/${card.file}`.replaceAll("\\", "/");
 }
 
+/**
+ * A card as a record, carrying which declared axes it actually has.
+ *
+ * `SUMMARY_FIELDS` is a fixed list and a declared axis is a per-project key, so
+ * no fixed list can name one: every view but `full` dropped them, and
+ * `project_card_list` handed agents cards with the domain stripped off — the
+ * one surface the axis exists for. Stamping the names here, where the workspace
+ * is already in hand, is what lets the projection keep them without every
+ * caller between here and there being told to pass them along. One writer, one
+ * reader; the alternative was the same rule at eight call sites, which this
+ * module has got wrong three times already.
+ */
 export function recordFromCard(workspace, card) {
+    const axes = axisNames(workspace).filter(
+        (name) => card[name] !== undefined && card[name] !== ""
+    );
     return {
         ...card,
         kind: "card",
         recordType: card.type,
-        path: cardPath(workspace, card)
+        path: cardPath(workspace, card),
+        ...(axes.length ? { axes } : {})
     };
 }
 
@@ -782,6 +798,12 @@ export function projectRecord(record, view = "full", fields = null) {
     for (const key of SUMMARY_FIELDS) {
         if (record[key] !== undefined) projected[key] = record[key];
     }
+    // The keys no constant here could have known about. The record says which
+    // ones it has, because the only place that knows is where it was built.
+    for (const key of record.axes || []) {
+        if (record[key] !== undefined) projected[key] = record[key];
+    }
+    if (record.axes) projected.axes = record.axes;
     if (view === "list") {
         // A listing is for choosing, not for writing. `revision` was a third of
         // the row and invites a write against a value that may already be
