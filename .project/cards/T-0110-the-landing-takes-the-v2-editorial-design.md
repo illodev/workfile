@@ -1,7 +1,7 @@
 ---
 id: T-0110
 title: The landing takes the v2 editorial design
-status: review
+status: done
 type: feature
 priority: medium
 area: docs
@@ -44,4 +44,54 @@ The landing ships the real commands and the real refusals.
 
 - 2026-08-02 11:13Z illodev@local#849a844d · claimed
 - 2026-08-02 11:24Z illodev@local#849a844d · doing → review
+- 2026-08-02 20:38Z illodev@local#aed59c5e · claimed
+- 2026-08-02 20:43Z illodev@local#aed59c5e · doing → done
 
+## Notes
+
+- 2026-08-02 20:43Z illodev@local#aed59c5e — Verified in a browser rather than by reading the markup, which is what the last
+criterion asked for. Served from `site/` over HTTP so relative paths resolve the
+way Vercel serves them, at 360, 768, 1024 and 1440 in both colour schemes.
+
+    scheme  width   bg                        overflow   requests
+    light   360px   oklch(0.982 0.002 264)      0px       all 200
+    light   768px   oklch(0.982 0.002 264)      0px       all 200
+    light  1024px   oklch(0.982 0.002 264)      0px       all 200
+    light  1440px   oklch(0.982 0.002 264)      0px       all 200
+    dark    360px   oklch(0.16 0.008 264)       0px       all 200
+    dark    768px   oklch(0.16 0.008 264)       0px       all 200
+    dark   1024px   oklch(0.16 0.008 264)       0px       all 200
+    dark   1440px   oklch(0.16 0.008 264)       0px       all 200
+
+Zero horizontal overflow at every width, both themes rendering their own
+background, no console errors, no failed request. `prefers-color-scheme` is
+doing the work the DC `theme` prop used to.
+
+Readability measured rather than eyeballed: 83 text nodes per theme, each
+against the colour actually behind it, walking up past transparent ancestors.
+Worst case 6.57:1 in light and 6.43:1 in dark, against WCAG AA thresholds of
+4.5 for body text and 3.0 for large. Nothing below AA in either.
+
+The first measurement was wrong and is worth recording as such: the page is
+authored in `oklch()`, which `getComputedStyle` returns verbatim, so parsing
+the numbers out as RGB produced a ratio of exactly 1.00 for all 83 nodes. A
+uniform, implausible answer rather than a wrong-looking one. Redone by painting
+each colour onto a 1x1 canvas and reading the pixel back, which is the only
+conversion that cannot disagree with what the browser shows.
+
+Re-checked what the page asserts, against the CLI built at 0.4.0 rather than
+the one that existed when this was written: `workfile init`, `card claim`,
+`card transition` and `agents context --card` all resolve; `CARD_ACCEPTANCE_UNMET`
+and `CARD_CLAIM_OWNER_MISMATCH` are both raised in `modules/cards/mutations.ts`;
+and `mcp inspect --json` still reports exactly 30, which is the figure the page
+prints.
+
+One defect found and fixed. The footer linked `github.com/illodev/workfile/tree/main/docs`,
+which is a 404 — there is no top-level `docs/` in this repository, the documents
+live under `.project/docs`. The header nav had already settled what the word
+means on this page, linking the demo Docs view, so the footer now matches it.
+Confirmed live: the old target returns 404, the new one is the same URL the
+header has been serving all along.
+
+Six local asset references, all resolving under `site/assets/`; six external
+references, all links, no external script or font.

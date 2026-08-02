@@ -1,7 +1,7 @@
 ---
 id: T-0114
 title: Workfile is not listed in any MCP or plugin registry
-status: review
+status: done
 type: task
 priority: medium
 area: infra
@@ -84,6 +84,39 @@ first release after this lands is the verification.
 Typed rather than silenced: `drift: string[]` and `entries: Dirent[]`, which takes the file from 3 known errors to 0 and drops it out of the baseline entirely. The ratchet counts an improvement as a failure until re-recorded, so the baseline is one line shorter and nothing else moved.
 
 `pnpm run check` is green now: 228 + 7 tests, strict held at 590 known errors across 57 files. Still review, for the reason already recorded — no tag has run the publish step.
+- 2026-08-02 20:37Z illodev@local#aed59c5e — Verified against the 0.4.0 release rather than against a staging call — this
+was the first release that could exercise it.
+
+Run 30765771544, on tag v0.4.0:
+
+- `Publish to npm: success`, then `Publish to the MCP Registry: success`. The
+  order matters and held: the registry refuses a version npm does not serve.
+- No secret was added. `mcp-publisher login github-oidc` reused the
+  `id-token: write` permission trusted publishing already required.
+
+Against the published artifact rather than the repository:
+
+    npm view @illodev/workfile@0.4.0 mcpName  →  io.github.illodev/workfile
+    registry.modelcontextprotocol.io          →  io.github.illodev/workfile
+                                                 version 0.4.0
+                                                 packages[0] @illodev/workfile@0.4.0
+
+So `mcpName`, `server.json` and the live listing all name the same server and
+track the released version.
+
+The third criterion was the one the release could not prove — a green run shows
+the check runs, not that it catches. Proven separately against a throwaway
+repository with a root at 9.9.9 and a `server.json` at 0.0.1:
+
+    exit 1 — "server.json is 0.0.1, root is 9.9.9"
+
+One hole found while proving it, and it is not this card's to fix: the script
+resolves `packages/` first and `process.exit(0)` in the catch, so a repository
+without that directory skips the `server.json` check entirely and drift passes
+at exit 0. Latent here, since `packages/` always exists — but the guard runs
+only because an unrelated readdir happened to succeed, which is the shape
+[[LRN-0012]] records. Added to [[T-0132]], the card that already owns a change
+to this function.
 
 ## Activity
 
@@ -91,4 +124,6 @@ Typed rather than silenced: `drift: string[]` and `entries: Dirent[]`, which tak
 - 2026-08-02 17:16Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 17:19Z illodev@local#bd44efc7 · released
 - 2026-08-02 17:19Z illodev@local#bd44efc7 · next → review
+- 2026-08-02 20:36Z illodev@local#aed59c5e · claimed
+- 2026-08-02 20:37Z illodev@local#aed59c5e · doing → done
 
