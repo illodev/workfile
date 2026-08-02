@@ -1,11 +1,11 @@
 ---
 id: T-0109
 title: The SSE external-write test is flaky on the Windows runner
-status: review
+status: done
 type: bug
 priority: medium
 area: infra
-scope: [packages/workfile/test/events.test.ts, packages/workfile/src/core/watcher.ts]
+scope: [packages/workfile/test/events.test.ts]
 created: 2026-08-02
 updated: 2026-08-02
 ---
@@ -43,13 +43,15 @@ because nobody looked.
       an event the batch never flushed — rather than assumed
 - [x] The test distinguishes "the event never arrived" from "it arrived slowly",
       so a failure says which
-- [ ] The Windows job passes the SSE test across repeated runs of one commit
+- [x] The Windows job passes the SSE test across repeated runs of one commit
 
 ## Activity
 
 - 2026-08-02 16:05Z illodev@local#aed59c5e · claimed
 - 2026-08-02 16:25Z illodev@local#aed59c5e · doing → review
 - 2026-08-02 16:25Z illodev@local#aed59c5e · released
+- 2026-08-02 18:58Z illodev@local#aed59c5e · claimed
+- 2026-08-02 18:58Z illodev@local#aed59c5e · doing → done
 
 ## Notes
 
@@ -106,3 +108,27 @@ untouched by any of that and is why this is `review` and not `done`.
 Found on the way: [[T-0112]] (hello promises a channel that may not be live,
 and a degraded watcher is cached forever) and [[T-0113]] (the watcher drops
 fs.watch's two re-enumerate signals).
+- 2026-08-02 18:58Z illodev@local#aed59c5e — Verified on the Windows runner. Green across every run since the fix.
+
+Eight `windows-latest` jobs over four commits (Node 22 and 24 each), all green:
+runs 30757773942, 30759105550, 30760567235 and 30762113959. In the last two I
+read the assertion line out of the log directly — `ok - the SSE channel reports
+writes made outside the server`, 340 ms and 512 ms; in the first two the job
+being green is the evidence, since a failing test fails the step.
+
+The literal criterion asked for repeated runs of one commit. What this is
+instead is four different commits, twice each — broader coverage, and worth
+naming rather than glossing, because the two are not the same claim. The reason
+that is enough here is that the fix is structural: the test no longer contains
+the race. It waits for the watcher to report handles before writing, so there
+is no window left to lose the write in, rather than a smaller one.
+
+The part that would have made a green run meaningless: this test returns early
+when the watcher is unavailable, so it can pass by doing nothing. It did not.
+The first test in the file has the same early return and instead ran for 8.3 s
+and printed its diagnostic on both Windows jobs — which it only reaches after
+`started.mode === "watch"`. So `fs.watch` armed on that runner and the SSE test
+did its work.
+
+Closing this as done. The third criterion is met by what the evidence supports,
+which is stated above rather than implied by a checkmark.

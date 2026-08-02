@@ -54,6 +54,8 @@ before anything is built on the assumption that they do.
 
 - 2026-08-02 18:25Z illodev@local#aed59c5e · claimed
 - 2026-08-02 18:28Z illodev@local#aed59c5e · doing → blocked
+- 2026-08-02 18:59Z illodev@local#aed59c5e · claimed
+- 2026-08-02 18:59Z illodev@local#aed59c5e · released
 
 ## Notes
 
@@ -94,3 +96,30 @@ on what it says:
   closes as `discarded` rather than being fixed on principle.
 
 232 + 7 tests pass, strict holds at baseline.
+- 2026-08-02 18:59Z illodev@local#aed59c5e — First reading off the Windows runner, and it points at discarding this rather
+than fixing it.
+
+    check (windows-latest, 22)  # fs.watch signals dropped on win32: {"nameless":0,"errors":0}
+    check (windows-latest, 24)  ℹ fs.watch signals dropped on win32: {"nameless":0,"errors":0}
+
+Run 30762113959, the first CI run to include the counters. Both jobs, both
+branches at zero — so on the runner, under a workload that writes 40 files in a
+burst and drives a server, `ReadDirectoryChangesW` named every event it
+delivered and no directory handle errored.
+
+Two jobs of one commit is one data point, not the "several runs" this needs.
+Deliberately not concluding from it yet. The counters ride along in every CI run
+from now on at no cost, so the evidence accumulates on its own; the question is
+answered by looking again in a few runs rather than by doing anything.
+
+Worth stating the bar now, while there is nothing riding on it: if both stay at
+zero across roughly ten Windows jobs of ordinary work, these branches are
+defensive code for a case this workload does not produce, and this card closes
+as `discarded` with the counters left in place. A single non-zero reading turns
+it into a real fix with a real trigger, and the first criterion stops being
+speculative.
+
+One thing the reading already settles, which was not the question but is worth
+having: the diagnostic only prints after the watcher reports `mode === "watch"`,
+so it is also proof that `fs.watch` arms on the Windows runner at all. That was
+an assumption in [[T-0109]] and is now measured.
