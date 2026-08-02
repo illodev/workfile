@@ -13,6 +13,7 @@ import {
     claudeCommandFiles,
     claudeHooksFile,
     claudeMcpFile,
+    claudeSkillFile,
     createCard,
     loadCards,
     loadWorkspace,
@@ -85,7 +86,10 @@ test("the Claude Code surface is generated and verifiable", async () => {
         // `workfile` only resolves when the package is installed globally, and
         // these files are executed verbatim: this fixture has no lockfile, so
         // detection falls back to npm and the widest-supported `npx` form.
-        assert.match(claim, /allowed-tools: Bash\(npx workfile card claim \*\)/);
+        assert.match(
+            claim,
+            /allowed-tools: "Bash\(npx workfile card claim \*\)"/
+        );
         assert.match(claim, /`npx workfile card claim \$1 --scope \$2`/);
         assert.equal(claim.includes("Bash(project *)"), false);
 
@@ -361,7 +365,10 @@ test("generated invocations carry the detected package manager", async () => {
             join(root, ".claude/commands/next.md"),
             "utf8"
         );
-        assert.match(next, /allowed-tools: Bash\(pnpm workfile card list \*\)/);
+        assert.match(
+            next,
+            /allowed-tools: "Bash\(pnpm workfile card list \*\)"/
+        );
         assert.match(next, /`pnpm workfile card list --unclaimed/);
 
         // The skill teaches the same form, so the session is not told two
@@ -391,6 +398,85 @@ test("generated invocations carry the detected package manager", async () => {
 // managed file. Carrying its markers across nested one block inside another:
 // the reader stops at the inner `end`, digests a truncated body, and the file
 // reported stale on every check with no edit that could settle it.
+test("every generated frontmatter value parses back to the string meant", () => {
+    const records = [
+        ...claudeCommandFiles("npx workfile").map((command) => ({
+            label: `commands/${command.name}.md`,
+            content: command.content
+        })),
+        { label: "skills/workfile/SKILL.md", content: claudeSkillFile() }
+    ];
+
+    for (const record of records) {
+        // Frontmatter is only frontmatter at byte 0. Anything above the fence
+        // — a blank line, a marker comment — makes the whole block body text.
+        assert.equal(
+            record.content.startsWith("---\n"),
+            true,
+            `${record.label}: the fence must open the file`
+        );
+        const end = record.content.indexOf("\n---\n", 3);
+        assert.notEqual(end, -1, `${record.label}: unterminated frontmatter`);
+
+        for (const line of record.content.slice(4, end).split("\n")) {
+            const at = line.indexOf(": ");
+            assert.notEqual(at, -1, `${record.label}: "${line}" is not a pair`);
+            const key = line.slice(0, at);
+            const raw = line.slice(at + 2);
+
+            // Every value is emitted as a JSON string literal, which YAML 1.2
+            // accepts verbatim as a double-quoted scalar. So parsing it as
+            // JSON is parsing it as YAML, without taking a dependency for it.
+            let value;
+            assert.doesNotThrow(
+                () => (value = JSON.parse(raw)),
+                `${record.label}: ${key} is not a quoted scalar: ${raw}`
+            );
+            assert.equal(
+                typeof value,
+                "string",
+                `${record.label}: ${key} parsed as ${typeof value}, not a string`
+            );
+        }
+    }
+
+    // The two that used to be syntax errors, and the one that parsed as a
+    // one-element array while looking fine.
+    const generated = new Map<string, string>(
+        claudeCommandFiles("npx workfile").map((one) => [one.name, one.content])
+    );
+    const command = (name: string) => {
+        const content = generated.get(name);
+        assert.ok(content, `no generated command named ${name}`);
+        return content;
+    };
+    assert.match(
+        command("claim"),
+        /^argument-hint: "\[T-0042\] \[scope,paths\]"$/m
+    );
+    assert.match(
+        command("done"),
+        /^description: "Finish a card: verify, record, release"$/m
+    );
+    assert.match(command("context"), /^argument-hint: "\[T-0042\]"$/m);
+
+    // No value carries a quote today, because nothing user-supplied reaches
+    // frontmatter. `cli` is the one that could, so drive the escape through it
+    // rather than trusting JSON.stringify unobserved.
+    const quoted = claudeCommandFiles('npx "wf"').find(
+        (one) => one.name === "next"
+    );
+    assert.ok(quoted, "no generated command named next");
+    const line = quoted.content
+        .split("\n")
+        .find((one) => one.startsWith("allowed-tools: "));
+    assert.ok(line, "next has no allowed-tools line");
+    assert.equal(
+        JSON.parse(line.slice("allowed-tools: ".length)),
+        'Bash(npx "wf" card list *)'
+    );
+});
+
 test("the skill embeds the protocol without nesting its markers", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-nest-"));
     try {

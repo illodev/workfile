@@ -1,8 +1,8 @@
-<!-- workfile:begin kind=claude-command-done version=0.4.0 digest=sha256:99c1db5622419c15a03fd4b36985340c89e5dc3e507d9a96f2189f5b70689440 -->
+<!-- workfile:begin kind=claude-command-done version=0.4.0 digest=sha256:8c5f5d74e6308e72f0f151dc444169322891ccd7e6330a79d3cdc397363e5d01 -->
 ---
-description: Finish a card: verify, record, release
-argument-hint: [T-0042]
-allowed-tools: Bash(pnpm workfile card transition *), Bash(pnpm workfile changelog add *), Bash(pnpm workfile doctor *)
+description: "Finish a card: verify, record, release"
+argument-hint: "[T-0042]"
+allowed-tools: "Bash(pnpm workfile card transition *), Bash(pnpm workfile changelog add *), Bash(pnpm workfile doctor *)"
 ---
 
 Close out `$1`:

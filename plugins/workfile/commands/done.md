@@ -1,7 +1,7 @@
 ---
-description: Finish a card: verify, record, release
-argument-hint: [T-0042]
-allowed-tools: Bash(npx workfile card transition *), Bash(npx workfile changelog add *), Bash(npx workfile doctor *)
+description: "Finish a card: verify, record, release"
+argument-hint: "[T-0042]"
+allowed-tools: "Bash(npx workfile card transition *), Bash(npx workfile changelog add *), Bash(npx workfile doctor *)"
 ---
 
 Close out `$1`:

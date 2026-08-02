@@ -1,8 +1,8 @@
-<!-- workfile:begin kind=claude-command-context version=0.4.0 digest=sha256:1f6e0e751347297735f95bce3b0b72ccb6755b481cb8baca163d733799f93058 -->
+<!-- workfile:begin kind=claude-command-context version=0.4.0 digest=sha256:4db7ba53833f4d5886cf8ddbc9173df7ab795773d719f5cafdf1e177616d7ee3 -->
 ---
-description: Load the protocol context for a card
-argument-hint: [T-0042]
-allowed-tools: Bash(pnpm workfile agents context *)
+description: "Load the protocol context for a card"
+argument-hint: "[T-0042]"
+allowed-tools: "Bash(pnpm workfile agents context *)"
 ---
 
 !`pnpm workfile agents context --card $1 --limit 20`

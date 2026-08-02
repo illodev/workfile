@@ -104,10 +104,27 @@ function commandDefinitions(cli) {
     ];
 }
 
+/**
+ * Frontmatter, with every value quoted.
+ *
+ * Interpolating the value raw put YAML syntax into YAML: `argument-hint:
+ * [T-0042] [scope,paths]` is a flow sequence followed by an unexpected token,
+ * and `description: Finish a card: verify, record, release` ends its scalar at
+ * the second colon. Both files then load with no metadata at all — including
+ * `allowed-tools`, which is the one the definitions above deliberately keep
+ * narrow.
+ *
+ * YAML 1.2 is a superset of JSON, so a JSON string literal is a valid
+ * double-quoted scalar and `JSON.stringify` already escapes what needs it.
+ * Quoting unconditionally also keeps the type honest: `[T-0042]` alone parses
+ * without complaint, as a one-element array where a string was meant.
+ */
 function frontmatterBlock(entries) {
     return [
         "---",
-        ...Object.entries(entries).map(([key, value]) => `${key}: ${value}`),
+        ...Object.entries(entries).map(
+            ([key, value]) => `${key}: ${JSON.stringify(String(value))}`
+        ),
         "---"
     ].join("\n");
 }

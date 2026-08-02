@@ -1,6 +1,6 @@
 ---
-name: workfile
-description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
+name: "workfile"
+description: "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
 ---
 
 This repository uses Workfile: Work, Docs, History and Memory

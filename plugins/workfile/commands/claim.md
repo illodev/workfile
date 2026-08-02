@@ -1,7 +1,7 @@
 ---
-description: Claim a card before working on it
-argument-hint: [T-0042] [scope,paths]
-allowed-tools: Bash(npx workfile card claim *)
+description: "Claim a card before working on it"
+argument-hint: "[T-0042] [scope,paths]"
+allowed-tools: "Bash(npx workfile card claim *)"
 ---
 
 Claim `$1` with `npx workfile card claim $1 --scope $2`.

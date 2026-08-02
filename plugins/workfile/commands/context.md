@@ -1,7 +1,7 @@
 ---
-description: Load the protocol context for a card
-argument-hint: [T-0042]
-allowed-tools: Bash(npx workfile agents context *)
+description: "Load the protocol context for a card"
+argument-hint: "[T-0042]"
+allowed-tools: "Bash(npx workfile agents context *)"
 ---
 
 !`npx workfile agents context --card $1 --limit 20`

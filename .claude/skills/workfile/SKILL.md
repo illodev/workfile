@@ -1,7 +1,7 @@
-<!-- workfile:begin kind=claude-skill version=0.4.0 digest=sha256:dd8f50d96a81a179140360a78c912f6546f9ea5fc4761754265fc5309bfa0473 -->
+<!-- workfile:begin kind=claude-skill version=0.4.0 digest=sha256:e155cb8be3ebed6c1837a0779b3876d7589a703306eb745158a70a0902f12315 -->
 ---
-name: workfile
-description: How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/.
+name: "workfile"
+description: "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
 ---
 
 This repository uses Workfile: Work, Docs, History and Memory

@@ -1,8 +1,8 @@
-<!-- workfile:begin kind=claude-command-claim version=0.4.0 digest=sha256:71792291180e6ac360b4608379bad262853128c4a110810b1453013bb12b85f7 -->
+<!-- workfile:begin kind=claude-command-claim version=0.4.0 digest=sha256:1a5ad0b0ff6e21b7d2d15a371a32232196365a8ce0d1d36a7bccde2e1e19d185 -->
 ---
-description: Claim a card before working on it
-argument-hint: [T-0042] [scope,paths]
-allowed-tools: Bash(pnpm workfile card claim *)
+description: "Claim a card before working on it"
+argument-hint: "[T-0042] [scope,paths]"
+allowed-tools: "Bash(pnpm workfile card claim *)"
 ---
 
 Claim `$1` with `pnpm workfile card claim $1 --scope $2`.
