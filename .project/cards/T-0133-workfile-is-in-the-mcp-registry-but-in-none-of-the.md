@@ -7,7 +7,7 @@ priority: medium
 area: infra
 created: 2026-08-02
 updated: 2026-08-02
-scope: [.project/cards, .project/docs]
+scope: [.project/cards]
 ---
 [[T-0114]] shipped the half a repository can own: `v0.4.0` published
 `server.json` from CI and `io.github.illodev/workfile` is active in the
@@ -72,7 +72,7 @@ This is the only listing left with a review queue behind it.
 ## Acceptance criteria
 
 - [ ] `punkpeye/awesome-mcp-servers` lists Workfile
-- [ ] mcpservers.org lists Workfile
+- [x] mcpservers.org lists Workfile
 - [x] The Claude Code community marketplace submission is filed
 - [ ] Glama shows a real score rather than `–`
 - [x] mcp.so and Smithery are decided rather than pending
@@ -85,6 +85,8 @@ This is the only listing left with a review queue behind it.
 - 2026-08-02 21:36Z illodev@local#bd44efc7 · released
 - 2026-08-02 22:09Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 22:09Z illodev@local#bd44efc7 · released
+- 2026-08-02 22:13Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 22:14Z illodev@local#bd44efc7 · released
 
 ## Notes
 
@@ -99,3 +101,6 @@ The general shape, for the remaining registries: a list's contributing rules des
 The form required example use cases, which nothing here had written down. The four supplied are now in [[DOC-0004]] with the rest of the reusable copy, so the next registry that asks gets the same answer rather than a fresh improvisation.
 
 What happens next is not a queue to watch: approved plugins are pinned to a commit SHA in `anthropics/claude-plugins-community`, CI bumps the pin as this repository moves, and the public catalog syncs nightly. So absence right after an approval is expected. The check is the plugin's name in that repository's `.claude-plugin/marketplace.json`.
+- 2026-08-02 22:13Z illodev@local#bd44efc7 — mcpservers.org approved it. Live at https://mcpservers.org/servers/illodev/workfile with the description and the category as submitted.
+
+The page renders this repository's README rather than the submitted copy, so the install block it shows leads with `pnpm add -D @illodev/workfile`. That is the README's ordering, not the registry's choice, and every aggregator that mirrors a README will show the same. The MCP Registry advertises `npx -y @illodev/workfile mcp`, which is the form someone evaluating a server actually runs — see [[T-0139]].
