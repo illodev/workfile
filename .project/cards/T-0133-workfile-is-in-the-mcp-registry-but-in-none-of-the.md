@@ -11,68 +11,78 @@ scope: [.project/cards, .project/docs]
 ---
 [[T-0114]] shipped the half a repository can own: `v0.4.0` published
 `server.json` from CI and `io.github.illodev/workfile` is active in the
-official MCP Registry. That entry is the one that compounds, because the
-aggregators mirror it — but mirroring is not immediate and most of them index
-from their own submission queue, not from the registry.
-
-So Workfile is discoverable by name and by nothing else. Everything left is a
-browser session with an account behind it, which is why none of it can be
-wired into `release.yml` the way the registry step was.
+official MCP Registry. Everything below is a browser session with an account
+behind it, which is why none of it can be wired into `release.yml` the way the
+registry step was.
 
 [[DOC-0004]] holds the requirements per registry and the copy to reuse. This
-card holds the state: what is filed, what is drafted, what is still open.
+card holds the state.
 
-## The one pull request
+## Where each one stands
 
-Only `punkpeye/awesome-mcp-servers` takes a pull request. It is open as
-[#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406), one line
-appended to **Product Management** — the category is append-ordered in
-practice, whatever CONTRIBUTING says about alphabetical order. Their
-CONTRIBUTING fast-tracks pull requests from automated agents whose title ends
-in three robot emoji, which this one does.
+| Registry | State |
+| --- | --- |
+| Official MCP Registry | Listed, `active`, 0.4.0 |
+| `punkpeye/awesome-mcp-servers` | PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) open |
+| mcpservers.org | Submitted, awaiting review |
+| Glama | Crawled, unclaimed, no quality score |
+| Claude Code community marketplace | Not filed |
+| mcp.so | Charges for a listing — decision below |
+| Smithery | Dropped |
 
-The line, recorded here because the list rejects on format alone and the
-working copy that produced it is disposable:
+## The punkpeye pull request
+
+Open, mergeable, and the repository's bots have labelled it `has-emoji`,
+`valid-name` and `has-glama` — all three positive. One bot comment asks for
+something the pull request cannot supply on its own:
+
+> Thank you for adding the Glama badge! Please make sure the server has been
+> evaluated by Glama and has a quality score.
+
+It is a request, not a failing check, and nothing marks the pull request
+blocked. But the badge in the line renders as `–` until Glama scores the
+server, so the ask is fair. See [[T-0136]].
+
+The line as filed, kept here because the working copy that produced it is
+disposable:
 
 ```
 - [illodev/workfile](https://github.com/illodev/workfile) [![illodev/workfile MCP server](https://glama.ai/mcp/servers/illodev/workfile/badges/score.svg)](https://glama.ai/mcp/servers/illodev/workfile) 🎖️ 📇 🏠 🍎 🪟 🐧 - Work, Docs, History and durable Memory as Markdown inside the repository, so the backlog reviews, branches and merges with the code that answers it. Cards carry a lifecycle and a claim, so parallel agents refuse to edit a card another actor holds. 30 tools, plus a CLI, a Claude Code plugin and a local UI. `npx -y @illodev/workfile mcp`
 ```
 
-The Glama badge in that line renders today: Glama generates a score badge for
-any repository path and fills in the score once its crawler reaches the
-repository. It does not need a submission, so nothing here waits on it.
+## The two that cost something
 
-`wong2/awesome-mcp-servers` is not a pull request and never was — its README
-says so in its second line, and the repository has pull requests and issues
-both disabled. It intakes at <https://mcpservers.org/submit>, so it belongs
-with the forms below. Its line, should the form ask for one:
+**mcp.so** charges for a submission. The listing was described here as "reach"
+rather than signal, which is the wrong side of a price. Nothing else on this
+card costs money, so it is a decision rather than a step: leave it unfiled
+unless the free listings turn out not to carry.
 
-```
-- **[Workfile](https://github.com/illodev/workfile)** - Work, Docs, History and Memory as Markdown in the repository. Cards carry a lifecycle and a claim, so parallel coding agents refuse to take work another one already holds.
-```
+**Smithery** is dropped. It takes a local stdio server only as an `.mcpb`
+bundle, which nothing here builds, so it is an artifact to design and maintain
+in exchange for one listing. Reopen it if the bundle becomes worth having for
+its own sake.
 
-## The forms
+## Still to file
 
-Each needs a browser session and an account, and the copy to paste is in
-[[DOC-0004]]. Ordered by how much waiting costs:
-
-1. **Anthropic plugin directory** — <https://clau.de/plugin-directory-submission>.
-   The only one with a review queue behind it.
-2. **mcpservers.org** — <https://mcpservers.org/submit>.
-3. **mcp.so**, **PulseMCP**, **Smithery**.
+The Claude Code community marketplace, at
+<https://platform.claude.com/plugins/submit> for an individual author. It was
+blocked on [[T-0134]] and is not any more: `claude plugin validate` passes.
+This is the only listing left with a review queue behind it.
 
 ## Acceptance criteria
 
 - [ ] `punkpeye/awesome-mcp-servers` lists Workfile
-- [ ] `mcpservers.org` lists Workfile
-- [ ] The Anthropic plugin directory submission is filed
-- [ ] mcp.so, PulseMCP and Smithery each list the server
-- [ ] Glama shows a real score rather than a placeholder, confirming it crawled
+- [ ] mcpservers.org lists Workfile
+- [ ] The Claude Code community marketplace submission is filed
+- [ ] Glama shows a real score rather than `–`
+- [x] mcp.so and Smithery are decided rather than pending
 
 ## Activity
 
 - 2026-08-02 21:11Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 21:12Z illodev@local#bd44efc7 · released
+- 2026-08-02 21:34Z illodev@local#bd44efc7 · claimed
+- 2026-08-02 21:36Z illodev@local#bd44efc7 · released
 
 ## Notes
 
@@ -81,3 +91,4 @@ Each needs a browser session and an account, and the copy to paste is in
 wong2 cost a wasted branch. I read its entry format off the file and its ordering off the surrounding lines, and never read the top of its README — which says, in its second line, "We do not accept PRs. Please submit your MCP on the website". The repository confirms it: `GET /repos/wong2/awesome-mcp-servers/pulls` 404s and `has_issues` is false, so `gh pr create` failed with a permissions error that never mentions the real cause. The branch pushed to the fork was deleted; the line survives in the body above.
 
 The general shape, for the remaining registries: a list's contributing rules describe the format, not the intake channel. Check where submissions are accepted before preparing one.
+- 2026-08-02 21:36Z illodev@local#bd44efc7 — Filed state as reported: mcpservers.org submitted and awaiting review; punkpeye #11406 open with valid-name, has-emoji and has-glama; mcp.so charges, so unfiled; Smithery dropped; Claude Code marketplace still to file, no longer blocked now that [[T-0134]] closed. Glama had already crawled the server and could not score it — [[T-0136]].
