@@ -390,8 +390,13 @@ Releases publish from CI via npm [trusted publishing](https://docs.npmjs.com/tru
 3. The `Release` workflow verifies the tag matches `package.json` (and that no
    workspace version drifted), runs `check:release` (build, typechecks, tests,
    audit and a packaged-tarball smoke) with pnpm, and publishes the core and
-   every workspace package with the npm CLI — prereleases (`x.y.z-*`) under the
-   `next` dist-tag, stable versions under `latest`.
+   every workspace package with the npm CLI under `latest`.
+
+There is no prerelease channel: every published version is one `npm install`
+away, and a `v*-rc.*` tag fails the release rather than publishing. That is a
+consequence of trusted publishing rather than a preference — OIDC authorizes
+`npm publish` and no other registry write, so CI cannot move a dist-tag off a
+release candidate once it has been set.
 
 ## Agent Protocol
 

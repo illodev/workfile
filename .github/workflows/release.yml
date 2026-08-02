@@ -42,13 +42,26 @@ jobs:
             - name: Publish to npm
               run: |
                   VERSION="$(node -p "require('./package.json').version")"
+                  # There is no prerelease channel. A `next` dist-tag was set
+                  # once during the 0.1.0 bootstrap and sat on that release
+                  # candidate for twelve releases, because publishing is the
+                  # only registry write this job can make: OIDC authorizes
+                  # `npm publish` and nothing else, so nothing here could ever
+                  # move the tag off it (npm/cli#8547). A channel that cannot
+                  # be advanced is worse than no channel, so it was removed.
+                  #
+                  # This refuses rather than falls through, because falling
+                  # through would publish a release candidate to `latest` —
+                  # the one outcome worse than the tag this replaced.
                   case "$VERSION" in
-                      *-*) DIST_TAG=next ;;
-                      *) DIST_TAG=latest ;;
+                      *-*)
+                          echo "Refusing to publish prerelease $VERSION: this project has no prerelease channel." >&2
+                          exit 1
+                          ;;
                   esac
                   # The root is a private workspace shell; everything
                   # publishable lives under packages/, in version lockstep.
                   # Each needs this repo registered as its trusted publisher.
                   for package in packages/*/; do
-                      (cd "$package" && npm publish --tag "$DIST_TAG")
+                      (cd "$package" && npm publish --tag latest)
                   done
