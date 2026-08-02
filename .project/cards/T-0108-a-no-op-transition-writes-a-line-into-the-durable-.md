@@ -35,6 +35,8 @@ the HTTP routes and the MCP tools all reach the same place, and a rule enforced
 at one of four entrances is the failure this module has already had once.
 - 2026-08-02 16:56Z illodev@local#aed59c5e · claimed
 - 2026-08-02 17:07Z illodev@local#aed59c5e · doing → done
+- 2026-08-02 17:17Z illodev@local#aed59c5e · claimed
+- 2026-08-02 17:20Z illodev@local#aed59c5e · doing → done
 
 ## Acceptance criteria
 
@@ -101,3 +103,38 @@ after above came from running the CLI.
 Found on the way: [[T-0115]] — `card write` replaces the body wholesale and the
 trail lives in the body, so a single write erases the whole section. Reproduced.
 That defeats this card more completely than the no-op lines did.
+- 2026-08-02 17:20Z illodev@local#aed59c5e — Reopened on a defect in the fix itself, found by review after it was closed.
+
+The predicate that keeps an unarchive from being suppressed was right, but the
+line it wrote was `backlog → backlog` — a status move that did not happen,
+which is the exact shape this card set out to remove. It now writes
+`unarchived` when the status is unchanged, and the test asserts both that the
+line appears and that no `backlog → backlog` survives anywhere.
+
+Two review objections resolved rather than accepted:
+
+- "The `redundant` flag fails open: a fifth writer that forgets it reproduces
+  the bug." It does not. Omitting the field is a compile error — checked by
+  removing it from `claimCard` and running the build, which reports
+  `TS2741: Property 'redundant' is missing`. `build:core` runs `tsc`, so a
+  writer that forgets the flag fails CI rather than shipping a silent
+  regression.
+- "Pass a structured milestone and let the gate compute redundancy, so the
+  rule itself is centralized." Declined, and the reasoning is worth recording
+  because the objection is a fair one. Each predicate depends on state only
+  its own operation has — `moveToArchived` for transitions, `releasedStatus`
+  for releases, the actor-versus-holder comparison for claims. Moving them into
+  the gate turns four predicates that sit beside the operation they describe
+  into four branches of a switch that must know all four operations. That
+  relocates the rule without unifying it, and the practical failure mode the
+  objection worried about is already closed by the compiler.
+
+Found while checking a third objection — that a change of holder is a
+milestone the trail does not record. It is worse than unrecorded: `card patch`
+writes `claimed_by` as an ordinary field, so it takes over another actor's
+claim with no ownership guard, no reason, and no line. Carded as [[T-0117]] at
+high priority; it is out of scope here, and it is the third time this module
+has enforced a rule at some of its entrances.
+
+Verification after the reopen: 228 + 7 tests pass, strict holds, and the
+unarchive case was reproduced from the CLI before and after.

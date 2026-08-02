@@ -417,6 +417,25 @@ test("the durable trail records moves, not commands", async () => {
         });
         assert.equal(trail(done.card).length, 4);
         assert.match(trail(done.card)[3], /next → backlog$/);
+
+        // Coming out of the archive moves the card even though the status
+        // reads the same on both sides, so the line is written — and it has to
+        // name what happened. `backlog → backlog` would be the very thing this
+        // test exists to keep out.
+        await transitionCard(workspace, id, "done", { actor: "session-a" });
+        await archiveCard(workspace, id);
+        await patchCard(workspace, id, { status: "backlog" });
+        const restored = await transitionCard(workspace, id, "backlog", {
+            actor: "session-a"
+        });
+        assert.equal(restored.card.archived, false, "the card left the archive");
+        const lines = trail(restored.card);
+        assert.match(lines[lines.length - 1], /· unarchived$/);
+        assert.equal(
+            lines.filter((line) => /backlog → backlog/.test(line)).length,
+            0,
+            "no line records a move that did not happen"
+        );
     } finally {
         await cleanup();
     }

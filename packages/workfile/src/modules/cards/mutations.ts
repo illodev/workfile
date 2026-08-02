@@ -672,7 +672,15 @@ export async function transitionCard(
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
                     actor,
-                    text: `${current.status} → ${status}`,
+                    // When the status did not move, the only reason this line
+                    // exists is the card coming back out of the archive — so
+                    // it has to say that. Writing `backlog → backlog` there
+                    // would record a move that did not happen, which is the
+                    // exact line this card set out to remove.
+                    text:
+                        moveToArchived === false && current.status === status
+                            ? "unarchived"
+                            : `${current.status} → ${status}`,
                     // The status is the milestone, except when the card is
                     // also coming back out of the archive: that moves it even
                     // though the status reads the same on both sides.
