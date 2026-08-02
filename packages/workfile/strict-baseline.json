@@ -32,7 +32,7 @@
     "src/modules/search/search.ts": 1,
     "src/server/http.ts": 18,
     "test/changelog.test.ts": 2,
-    "test/claude-surface.test.ts": 7,
+    "test/claude-surface.test.ts": 5,
     "test/cli.test.ts": 10,
     "test/config.test.ts": 8,
     "test/demo-parity.test.ts": 5,

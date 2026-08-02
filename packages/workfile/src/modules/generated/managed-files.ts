@@ -16,8 +16,38 @@ const STYLES = Object.freeze({
         begin: (metadata) => `# workfile:begin ${metadata}`,
         end: "# workfile:end",
         pattern: /^# workfile:begin ([^\n]+)$/gm
+    },
+    /**
+     * One line inside the YAML frontmatter, and no closing marker.
+     *
+     * A pair cannot be used here: the opening marker would have to sit above
+     * the frontmatter, and frontmatter is only frontmatter at byte 0. A file
+     * with anything ahead of the fence has no frontmatter at all — every field
+     * is silently dropped, which is what shipped until this style existed.
+     *
+     * So the block is the whole file and the marker moves inside it, as a YAML
+     * comment that parsers discard. That keeps the digest over the frontmatter
+     * as well as the body, which `preamble` — the way the Cursor target avoids
+     * the same problem — does not: a preamble is written once at creation and
+     * never updated, which is fine for two constant lines and wrong for
+     * frontmatter that is generated and does change.
+     */
+    frontmatter: {
+        line: (metadata) => `# workfile ${metadata}`,
+        pattern: /^# workfile (kind=[^\n]+)$/m
     }
 });
+
+type PairStyle = {
+    begin: (metadata: string) => string;
+    end: string;
+    pattern: RegExp;
+};
+
+/** Pairs bracket a region; a line-style block is the file it sits in. */
+function isPairStyle(style): style is PairStyle {
+    return typeof style.end === "string";
+}
 
 
 function escapeRegExp(value) {
@@ -47,9 +77,13 @@ function stripMarkerLines(content) {
     const SLOT = "\u0000";
     let text = String(content ?? "");
     for (const style of Object.values(STYLES)) {
-        const begin = escapeRegExp(style.begin(SLOT)).replace(SLOT, "[^\\n]*");
-        const end = escapeRegExp(style.end);
-        for (const marker of [begin, end]) {
+        const markers = isPairStyle(style)
+            ? [
+                  escapeRegExp(style.begin(SLOT)).replace(SLOT, "[^\\n]*"),
+                  escapeRegExp(style.end)
+              ]
+            : [escapeRegExp(style.line(SLOT)).replace(SLOT, "[^\\n]*")];
+        for (const marker of markers) {
             text = text.replace(
                 new RegExp(`^[ \\t]*${marker}[ \\t]*\\r?\\n?`, "gm"),
                 ""
@@ -67,6 +101,9 @@ export function stripManagedMarkers(content) {
 function completeBlockRanges(content) {
     const ranges: Array<[number, number]> = [];
     for (const definition of Object.values(STYLES)) {
+        // A line-style block spans its whole file, so it has no orphans to
+        // sweep around and nothing to contribute here.
+        if (!isPairStyle(definition)) continue;
         definition.pattern.lastIndex = 0;
         let match;
         while ((match = definition.pattern.exec(content))) {
@@ -112,6 +149,23 @@ export function renderManagedBlock({ kind, version, body, style = "html" }) {
     const normalized = String(body || "").trimEnd();
     const digest = digestText(normalized);
     const metadata = `kind=${kind} version=${version} digest=${digest}`;
+    if (!isPairStyle(marker)) {
+        // Inserted below the opening fence, so the fence keeps byte 0 and the
+        // digest still covers every frontmatter field.
+        if (!normalized.startsWith("---\n")) {
+            throw new TypeError(
+                `A ${style} block needs YAML frontmatter at byte 0: ${kind}`
+            );
+        }
+        return {
+            kind,
+            version,
+            digest,
+            style,
+            body: normalized,
+            text: `---\n${marker.line(metadata)}\n${normalized.slice(4)}`
+        };
+    }
     return {
         kind,
         version,
@@ -131,10 +185,29 @@ function parseMetadata(value) {
     );
 }
 
-export function findManagedBlock(content, kind, preferredStyle) {
+export function findManagedBlock(content, kind, preferredStyle?) {
     const styles = preferredStyle ? [preferredStyle] : Object.keys(STYLES);
     for (const style of styles) {
         const definition = STYLES[style];
+        if (!isPairStyle(definition)) {
+            const match = definition.pattern.exec(content);
+            if (!match) continue;
+            const metadata = parseMetadata(match[1]);
+            if (kind && metadata.kind !== kind) continue;
+            // Exactly the inverse of the insertion, so the body compares byte
+            // for byte against what was rendered.
+            const lineStart = match.index;
+            let lineEnd = lineStart + match[0].length;
+            if (content[lineEnd] === "\n") lineEnd += 1;
+            return {
+                start: 0,
+                end: content.length,
+                style,
+                metadata,
+                text: content,
+                body: `${content.slice(0, lineStart)}${content.slice(lineEnd)}`.trimEnd()
+            };
+        }
         definition.pattern.lastIndex = 0;
         let match;
         while ((match = definition.pattern.exec(content))) {
@@ -161,13 +234,20 @@ export function findManagedBlock(content, kind, preferredStyle) {
 }
 
 export function mergeManagedBlock(existing, block, options: any = {}) {
-    const current = findManagedBlock(existing, block.kind, block.style);
+    const pair = isPairStyle(STYLES[block.style]);
+    // A file installed before its kind moved to a line-style block still
+    // carries the old pair. Finding it under any style is what migrates the
+    // file on the next sync, instead of refusing it as unmanaged.
+    const current =
+        findManagedBlock(existing, block.kind, block.style) ??
+        (pair ? null : findManagedBlock(existing, block.kind));
     if (current) {
+        const merged = `${existing.slice(0, current.start)}${block.text}${existing.slice(current.end)}`;
         // Swept after the merge so debris from the nested-marker era heals on
-        // the next sync instead of surviving every upgrade.
-        return sweepOrphanMarkers(
-            `${existing.slice(0, current.start)}${block.text}${existing.slice(current.end)}`
-        );
+        // the next sync instead of surviving every upgrade. Not for a
+        // line-style block: it is the whole file, and its marker sits inside
+        // the frontmatter where the sweep would read it as debris.
+        return pair ? sweepOrphanMarkers(merged) : merged;
     }
     if (options.requireMarker && existing.trim()) {
         if (!options.force) {
@@ -197,7 +277,11 @@ export async function inspectManagedFile({ path, block, label }) {
         };
     }
     const content = await readFile(path, "utf8");
-    const current = findManagedBlock(content, block.kind, block.style);
+    const current =
+        findManagedBlock(content, block.kind, block.style) ??
+        (isPairStyle(STYLES[block.style])
+            ? null
+            : findManagedBlock(content, block.kind));
     if (!current) {
         return {
             path: label,
@@ -213,8 +297,14 @@ export async function inspectManagedFile({ path, block, label }) {
     // content was byte-identical — and the fix is not cosmetic: the Claude Code
     // surface generates roughly twenty of these, so a version bump would have
     // produced twenty false warnings and taught everyone to skip the report.
+    // The style is compared because it is part of what is managed, and because
+    // an old pair-style file wraps exactly the same bytes: without this, a file
+    // whose frontmatter is inert — the marker still above the fence — reports
+    // current, since both the body and the digest match.
     const status =
-        current.body === block.body && metadataDigest === block.digest
+        current.style === block.style &&
+        current.body === block.body &&
+        metadataDigest === block.digest
             ? "current"
             : "stale";
     return {

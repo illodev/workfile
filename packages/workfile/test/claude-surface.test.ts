@@ -477,6 +477,84 @@ test("every generated frontmatter value parses back to the string meant", () => 
     );
 });
 
+test("an installed command opens with its frontmatter, not with a marker", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-fm-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await syncClaudeSurface(workspace);
+
+        const installed = [
+            ".claude/commands/next.md",
+            ".claude/commands/claim.md",
+            ".claude/commands/done.md",
+            ".claude/commands/context.md",
+            ".claude/skills/workfile/SKILL.md"
+        ];
+
+        for (const relative of installed) {
+            const content = await readFile(join(root, relative), "utf8");
+            // Byte 0, not "contains". A fence anywhere else is body text: the
+            // marker used to sit above it and every field was dropped.
+            assert.equal(
+                content.indexOf("---"),
+                0,
+                `${relative}: the fence must be the first byte`
+            );
+            const fenceEnd = content.indexOf("\n---\n", 3);
+            assert.notEqual(fenceEnd, -1, `${relative}: unterminated frontmatter`);
+            const marker = content.indexOf("# workfile kind=");
+            assert.notEqual(marker, -1, `${relative}: no marker`);
+            assert.equal(
+                marker < fenceEnd,
+                true,
+                `${relative}: the marker must sit inside the frontmatter`
+            );
+        }
+
+        assert.equal((await checkClaudeSurface(workspace)).ok, true);
+
+        // The digest still covers the frontmatter, which is the whole reason
+        // the marker moved inside it rather than into a preamble.
+        const claim = join(root, ".claude/commands/claim.md");
+        const before = await readFile(claim, "utf8");
+        await writeFile(
+            claim,
+            before.replace(
+                'description: "Claim a card before working on it"',
+                'description: "Something a human typed"'
+            )
+        );
+        const tampered = await checkClaudeSurface(workspace);
+        assert.equal(tampered.ok, false, "an edited description went unnoticed");
+
+        // And a file still in the old layout is stale rather than current,
+        // even though the pair wrapped byte-identical content: without that,
+        // check would bless a file whose frontmatter is inert.
+        const digest = before.match(/digest=(sha256:[a-f0-9]+)/)?.[1];
+        assert.ok(digest, "no digest in the marker");
+        const body = before.replace(/^# workfile kind=[^\n]*\n/m, "");
+        await writeFile(
+            claim,
+            `<!-- workfile:begin kind=claude-command-claim version=0.0.0 digest=${digest} -->\n${body.trimEnd()}\n<!-- workfile:end -->\n`
+        );
+        assert.equal(
+            (await checkClaudeSurface(workspace)).ok,
+            false,
+            "the old layout reported current"
+        );
+
+        // Syncing migrates it rather than refusing it as unmanaged.
+        await syncClaudeSurface(workspace);
+        const migrated = await readFile(claim, "utf8");
+        assert.equal(migrated.indexOf("---"), 0);
+        assert.equal(migrated.includes("workfile:begin"), false);
+        assert.equal((await checkClaudeSurface(workspace)).ok, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("the skill embeds the protocol without nesting its markers", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-nest-"));
     try {
@@ -495,9 +573,12 @@ test("the skill embeds the protocol without nesting its markers", async () => {
             "utf8"
         );
 
-        // Exactly one block: its own. No inner markers came along.
-        assert.equal(skill.match(/workfile:begin/g).length, 1);
-        assert.equal(skill.match(/workfile:end/g).length, 1);
+        // Its marker is a line inside the frontmatter, so the pair markers that
+        // used to wrap this file are gone — and the protocol's own pair, which
+        // is what used to come along for the ride, is absent with them.
+        assert.equal(skill.match(/workfile:begin/g), null);
+        assert.equal(skill.match(/workfile:end/g), null);
+        assert.equal(skill.match(/^# workfile kind=/gm)?.length, 1);
         assert.match(skill, /kind=claude-skill/);
         assert.equal(skill.includes("canonical-agent-protocol"), false);
 

@@ -289,7 +289,7 @@ export function claudeArtifacts(workspace) {
             id: `command:${command.name}`,
             path: join(".claude", "commands", `${command.name}.md`),
             kind: "claude-command",
-            style: "html",
+            style: "frontmatter",
             content: commandFile(command)
         })),
         {
@@ -356,7 +356,9 @@ export async function planClaudeSurface(workspace) {
             kind: `claude-command-${command.name}`,
             version: PACKAGE_VERSION,
             body: commandFile(command),
-            style: "html"
+            // Every one of these opens with YAML frontmatter, so the marker
+            // has to live inside it: see the frontmatter style.
+            style: "frontmatter"
         });
         files.push({
             id: `command:${command.name}`,
@@ -378,7 +380,7 @@ export async function planClaudeSurface(workspace) {
                 description:
                     "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
             })}\n\n${skillBody(protocolText, workspace.cli)}`,
-            style: "html"
+            style: "frontmatter"
         })
     });
 
