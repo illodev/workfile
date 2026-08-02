@@ -22,10 +22,16 @@ await cp(
     new URL("runtime/hooks.mjs", plugin)
 );
 
-const { claudeCommandFiles, claudeHooksFile, claudeSkillFile, PLUGIN_HOOK_RUNTIME } =
-    await import(
-        new URL("packages/workfile/dist/src/modules/claude/index.js", root).href
-    );
+const {
+    claudeCommandFiles,
+    claudeHooksFile,
+    claudeMcpFile,
+    claudeSkillFile,
+    PLUGIN_HOOK_RUNTIME,
+    PLUGIN_PROJECT_ROOT
+} = await import(
+    new URL("packages/workfile/dist/src/modules/claude/index.js", root).href
+);
 
 // The hook wiring was the one hand-maintained file in here, which is exactly
 // how the plugin kept shipping `Edit|Write|NotebookEdit` after the matchers
@@ -34,6 +40,15 @@ await mkdir(new URL("hooks/", plugin), { recursive: true });
 await writeFile(
     new URL("hooks/hooks.json", plugin),
     `${JSON.stringify(claudeHooksFile(PLUGIN_HOOK_RUNTIME), null, 2)}\n`
+);
+
+// The server registration was hand-maintained too, and it went the same way
+// the hook wiring did: it named the `workfile-mcp` bin, which npx cannot
+// select from a package spec, so every marketplace install got a server that
+// printed the CLI help down stdout and never spoke JSON-RPC.
+await writeFile(
+    new URL(".mcp.json", plugin),
+    `${JSON.stringify(claudeMcpFile(PLUGIN_PROJECT_ROOT), null, 2)}\n`
 );
 
 await mkdir(new URL("commands/", plugin), { recursive: true });

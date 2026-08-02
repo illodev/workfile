@@ -143,6 +143,9 @@ function skillBody(protocolText, cli) {
     ].join("\n");
 }
 
+/** The plugin is launched from wherever the host is, so it names the root. */
+export const PLUGIN_PROJECT_ROOT = "${CLAUDE_PROJECT_DIR}";
+
 /**
  * The MCP server registration.
  *
@@ -152,13 +155,23 @@ function skillBody(protocolText, cli) {
  * the general help and exits without ever starting a server. Selecting the
  * dedicated bin would need `npx --package=@illodev/workfile workfile-mcp`;
  * the subcommand is the shorter form of the same server.
+ *
+ * Exported and parameterised for the reason `claudeHooksFile` is: the plugin
+ * shipped a hand-maintained copy of this file, and that copy carried the
+ * `workfile-mcp` form this comment exists to warn against — so the server the
+ * marketplace installed answered every request with the CLI help text on
+ * stdout. `--root` is safe to append because the CLI reads argv[3] strictly
+ * and rejects anything starting with a dash, so the flag is never mistaken
+ * for the subcommand.
  */
-function mcpConfiguration() {
+export function claudeMcpFile(root?) {
     return {
         mcpServers: {
             "workfile": {
                 command: "npx",
-                args: ["-y", "@illodev/workfile", "mcp"],
+                args: root
+                    ? ["-y", "@illodev/workfile", "mcp", "--root", root]
+                    : ["-y", "@illodev/workfile", "mcp"],
                 env: {}
             }
         }
@@ -266,7 +279,7 @@ export function claudeArtifacts(workspace) {
             id: "mcp",
             path: ".mcp.json",
             kind: "claude-mcp",
-            json: mcpConfiguration()
+            json: claudeMcpFile()
         },
         {
             id: "hooks",
@@ -357,7 +370,7 @@ export async function planClaudeSurface(workspace) {
             id: "mcp",
             path: join(workspace.root, ".mcp.json"),
             label: ".mcp.json",
-            generated: mcpConfiguration()
+            generated: claudeMcpFile()
         },
         {
             id: "hooks",

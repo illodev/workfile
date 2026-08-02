@@ -12,10 +12,12 @@ import {
     claimCard,
     claudeCommandFiles,
     claudeHooksFile,
+    claudeMcpFile,
     createCard,
     loadCards,
     loadWorkspace,
     PLUGIN_HOOK_RUNTIME,
+    PLUGIN_PROJECT_ROOT,
     releaseCard,
     resolveActor,
     syncAgentInstructions,
@@ -482,6 +484,20 @@ test("the distributable plugin cannot drift from the generated surface", async (
 
     // The plugin registers the MCP server against the *consuming* repository,
     // which the local generator cannot do because it has no such placeholder.
+    //
+    // This asserted only that the placeholder was somewhere in the argument
+    // list, and the argument list was hand-maintained — so it went on passing
+    // while the args named `workfile-mcp`, a bin npx cannot select from a
+    // package spec. `npx -y @illodev/workfile workfile-mcp` runs the `workfile`
+    // bin with `workfile-mcp` as its command, which prints the help to stdout
+    // and exits 2: every marketplace install registered a server that answered
+    // initialize with the CLI usage text. Comparing against the generator is
+    // what makes the placeholder check mean something.
+    assert.equal(
+        await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
+        `${JSON.stringify(claudeMcpFile(PLUGIN_PROJECT_ROOT), null, 2)}\n`,
+        "run `node scripts/build-plugin.ts`: the packaged MCP registration is stale"
+    );
     const mcp = JSON.parse(
         await readFile(join(pluginRoot, ".mcp.json"), "utf8")
     );
@@ -490,6 +506,13 @@ test("the distributable plugin cannot drift from the generated surface", async (
             "${CLAUDE_PROJECT_DIR}"
         ),
         "the plugin runs from anywhere, so it must be told where the repo is"
+    );
+    // npx resolves the bin matching the package name and passes the rest along,
+    // so the only invocation that reaches the server is the CLI subcommand.
+    assert.equal(
+        mcp.mcpServers["workfile"].args.includes("workfile-mcp"),
+        false,
+        "npx cannot select the workfile-mcp bin from a package spec"
     );
 
     // Hooks resolve through the plugin root, not through node_modules: a plugin
