@@ -191,16 +191,12 @@ export function createWorkspaceWatcher(
         const probePath = join(probeDirectory, "probe");
         return new Promise<boolean>((resolveProbe) => {
             let handle;
+            let timeout;
             const done = (result) => {
                 clearTimeout(timeout);
                 handle?.close();
                 resolveProbe(result);
             };
-            // Deliberately referenced: the watch handle is non-persistent, so
-            // in an otherwise idle process an unref'd timeout leaves nothing
-            // holding the event loop, and the probe's promise is abandoned
-            // rather than resolved. Held at most 500 ms and cleared on answer.
-            const timeout = setTimeout(() => done(false), 500);
             void (async () => {
                 try {
                     await mkdir(probeDirectory, { recursive: true });
@@ -209,6 +205,22 @@ export function createWorkspaceWatcher(
                         done(true)
                     );
                     handle.on("error", () => done(false));
+                    // The budget starts here, not around the whole function.
+                    // What is under test is whether the platform delivers a
+                    // notification at all; a mkdir and two writes prove
+                    // nothing, and on a loaded Windows runner — where a
+                    // filter driver sits in the I/O path — they can spend the
+                    // allowance before the thing being measured begins. The
+                    // watcher then reports itself unavailable on a filesystem
+                    // that works, and the server caches that verdict for the
+                    // life of the process.
+                    //
+                    // Deliberately referenced: the watch handle is
+                    // non-persistent, so in an otherwise idle process an
+                    // unref'd timeout leaves nothing holding the event loop,
+                    // and the probe's promise is abandoned rather than
+                    // resolved. Held at most 500 ms and cleared on answer.
+                    timeout = setTimeout(() => done(false), 500);
                     await writeFile(probePath, "probe again", { flag: "w" });
                 } catch {
                     done(false);

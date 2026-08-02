@@ -37,6 +37,7 @@ function readStream(response) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let failure = null;
     const pump = (async () => {
         try {
             while (true) {
@@ -60,11 +61,53 @@ function readStream(response) {
                     });
                 }
             }
-        } catch {
-            // Cancelled with the test.
+        } catch (error) {
+            // Usually the cancellation at the end of the test. But a socket
+            // that died on its own leaves the stream deaf, which looks exactly
+            // like a watcher that never fired — so keep it rather than let one
+            // failure wear the other's name.
+            failure = error;
         }
     })();
-    return { frames, cancel: () => reader.cancel().catch(() => undefined), pump };
+    return {
+        frames,
+        get failure() {
+            return failure;
+        },
+        cancel: () => reader.cancel().catch(() => undefined),
+        pump
+    };
+}
+
+/**
+ * Waits until the server's watcher is actually watching.
+ *
+ * The server starts it lazily on the first subscriber and does not await it —
+ * `void ensureWatching()` answers the request while `start()` is still
+ * probing the platform and placing handles. Until the handle on
+ * `.project/cards` exists `fs.watch` has nothing to report, so a write into
+ * that directory is not delivered late, it is lost: there is no catch-up for
+ * a write that preceded the watch. Waiting a fixed 200 ms here was a guess at
+ * how long that takes, and on a loaded runner it is not enough.
+ *
+ * `mode` is the wrong signal — it reads "watch" from construction and only
+ * ever degrades, so it answers "did the probe fail", not "is the watcher up".
+ * The handle count is the one that becomes true only once start() has run.
+ */
+async function watcherReady(url, limit = 10000) {
+    for (let waited = 0; waited < limit; waited += 25) {
+        const metrics = (await fetch(`${url}/api/v2/metrics`).then((result) =>
+            result.json()
+        )) as { watcher: { mode: string; directories: number } };
+        if (
+            metrics.watcher.directories > 0 ||
+            metrics.watcher.mode === "unavailable"
+        ) {
+            return metrics.watcher;
+        }
+        await sleep(25);
+    }
+    return null;
 }
 
 // One non-recursive watch per directory, not a single recursive one: on a large
@@ -173,12 +216,25 @@ test("the SSE channel reports writes made outside the server", async () => {
         assert.equal(response.headers.get("x-accel-buffering"), "no");
 
         stream = readStream(response);
-        await sleep(200);
+        for (let waited = 0; waited < 3000 && !stream.frames.length; waited += 25) {
+            await sleep(25);
+        }
 
         // `hello` first, so a reconnecting client can tell "same process" from
         // "restarted process whose ids began again".
         assert.equal(stream.frames[0]?.type, "hello");
         assert.ok(stream.frames[0].data.serverId);
+
+        // Synchronize on the watcher rather than guessing at it: a write made
+        // before the handle exists is lost, not slow, and that is what made
+        // this test flaky on the Windows runner.
+        const watching = await watcherReady(running.url);
+        assert.ok(watching, "the watcher never came up");
+        if (watching.mode !== "watch") {
+            // Network filesystems and some container mounts never deliver.
+            // Degrading is the designed behaviour, so this is not a failure.
+            return;
+        }
 
         // The point of the whole exercise: a write nobody told the server about
         // — the CLI, an agent over MCP, git, an editor — reaches the browser.
@@ -189,15 +245,37 @@ test("the SSE channel reports writes made outside the server", async () => {
             card("T-9100")
         );
 
-        for (let waited = 0; waited < 3000 && !stream.frames.length; waited += 50) {
-            await sleep(50);
+        // Waiting for the frame under test rather than for any frame at all:
+        // the two events are published back to back, so exiting on the first
+        // one to arrive can leave `records.changed` unparsed and report zero
+        // when the channel is in fact working.
+        const seen = (type) =>
+            stream.frames.some((frame) => frame.type === type);
+        let arrivedAt = 0;
+        const deadline = started + 3000;
+        while (Date.now() < deadline) {
+            if (!arrivedAt && seen("records.changed")) arrivedAt = Date.now();
+            if (arrivedAt && seen("activity.changed")) break;
+            await sleep(25);
         }
-        const elapsed = Date.now() - started;
+        // A frame that lands between the loop's last look and the filter below
+        // still counts, but it cannot be allowed to report as instant: with no
+        // observation of its own it is charged the whole window it outlasted.
+        const elapsed = (arrivedAt || Date.now()) - started;
 
         const changes = stream.frames.filter(
             (frame) => frame.type === "records.changed"
         );
-        assert.equal(changes.length, 1, "one write, one records.changed");
+        // A failure has to say which of the two it is, because they have
+        // nothing in common: a missing event is a dropped watch, a late one is
+        // a loaded runner.
+        assert.equal(
+            changes.length,
+            1,
+            arrivedAt
+                ? `one write, one records.changed; got ${changes.length}`
+                : `no records.changed in 3000ms — the event never arrived rather than arriving late (watcher: ${watching.mode}, ${watching.directories} directories; frames seen: ${stream.frames.map((frame) => frame.type).join(", ") || "none"}; stream: ${stream.failure ? `died with ${stream.failure}` : "open"})`
+        );
         const [event] = changes;
         assert.deepEqual(event.data.paths, [
             ".project/cards/T-9100-external.md"
