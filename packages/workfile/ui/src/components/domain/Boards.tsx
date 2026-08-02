@@ -838,39 +838,107 @@ function TimelineRow({
 export function TimelineView({
     tasks,
     epicIds,
+    axes = {},
     onOpen
 }: {
     tasks: Task[];
     epicIds: Map<string, string>;
+    /** Declared axes, name to vocabulary. Empty for a project with none. */
+    axes?: Record<string, string[]>;
     onOpen: (id: string) => void;
 }) {
-    const [groupBy, setGroupBy] = useState<"none" | "epic" | "area">("none");
+    const [groupBy, setGroupBy] = useState<string>("none");
+
+    /**
+     * What this workspace can be grouped by, which is not a decision the
+     * interface gets to make.
+     *
+     * `area` is one classification axis and a project may declare others —
+     * ADR-0008's example is a DDD backend where `area` carries the delivery
+     * layer and `context` the domain. Reading the chart by domain is the whole
+     * payoff of declaring the axis, and a hardcoded list here would mean every
+     * such project needs a UI change to get it.
+     */
+    const groupings = useMemo(
+        () => ["none", "epic", "area", ...Object.keys(axes)],
+        [axes]
+    );
+    // A grouping chosen before the config dropped the axis must not leave the
+    // chart grouped by something nobody declares any more.
+    const grouping = groupings.includes(groupBy) ? groupBy : "none";
+
+    /** The bucket a card falls in, or "" when it has no value for the axis. */
+    const bucketOf = useCallback(
+        (task: Task) => {
+            if (grouping === "epic") return epicIds.get(task.id) || "";
+            if (grouping === "area") return task.area || "";
+            // Declared axes are flat frontmatter keys, per ADR-0008, so they
+            // ride along on the card without the type knowing their names.
+            const value = (task as unknown as Record<string, unknown>)[grouping];
+            return typeof value === "string" ? value : "";
+        },
+        [epicIds, grouping]
+    );
+
     const scheduled = useMemo(() => {
+        const byDate = (left: Task, right: Task) =>
+            String(left.start || left.due).localeCompare(
+                String(right.start || right.due)
+            );
         const dated = tasks
             .filter((task) => task.start || task.due)
-            .sort((left, right) =>
-                String(left.start || left.due).localeCompare(
-                    String(right.start || right.due)
-                )
-            );
-        if (groupBy === "none") return dated;
+            .sort(byDate);
+        if (grouping === "none") return dated;
         // Grouping only reorders: every scheduled card stays on the chart, so
         // switching the grouping never hides work.
-        const key = (task: Task) =>
-            groupBy === "epic"
-                ? epicIds.get(task.id) || "ungrouped"
-                : task.area || "ungrouped";
-        return [...dated].sort(
-            (left, right) =>
-                key(left).localeCompare(key(right)) ||
-                String(left.start || left.due).localeCompare(
-                    String(right.start || right.due)
-                )
-        );
-    }, [epicIds, groupBy, tasks]);
+        return [...dated].sort((left, right) => {
+            const one = bucketOf(left);
+            const other = bucketOf(right);
+            // Cards with no value for the axis collect at the end rather than
+            // sorting under an empty string at the top, where they would read
+            // as the first group.
+            if (!one !== !other) return one ? -1 : 1;
+            return one.localeCompare(other) || byDate(left, right);
+        });
+    }, [bucketOf, grouping, tasks]);
+
+    /**
+     * Header rows interleaved with the cards, so a bucket is something you can
+     * see rather than infer from a change of neighbour — including the bucket
+     * for cards the axis says nothing about, which is the one worth naming.
+     *
+     * They occupy a row each on purpose: the dependency overlay maps one row to
+     * one viewBox unit, so a header that did not take a slot would shift every
+     * edge below it.
+     */
+    const rows = useMemo(() => {
+        if (grouping === "none") {
+            return scheduled.map((task) => ({ task, label: null }));
+        }
+        const out: Array<{ task: Task | null; label: string | null }> = [];
+        let current: string | null = null;
+        for (const task of scheduled) {
+            const bucket = bucketOf(task);
+            if (bucket !== current) {
+                current = bucket;
+                out.push({ task: null, label: bucket || `no ${grouping}` });
+            }
+            out.push({ task, label: null });
+        }
+        return out;
+    }, [bucketOf, grouping, scheduled]);
 
     const rowIndex = useMemo(
-        () => new Map(scheduled.map((task, index) => [task.id, index])),
+        () =>
+            new Map(
+                rows.flatMap((row, index) =>
+                    row.task ? ([[row.task.id, index]] as [string, number][]) : []
+                )
+            ),
+        [rows]
+    );
+    const byId = useMemo(
+        () => new Map(scheduled.map((task) => [task.id, task])),
         [scheduled]
     );
 
@@ -962,27 +1030,24 @@ export function TimelineView({
                         >
                             group
                             <span className="font-normal text-muted-foreground">
-                                {groupBy}
+                                {grouping}
                             </span>
                             <ChevronDown className="size-[13px] text-muted-foreground" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuRadioGroup
-                            value={groupBy}
-                            onValueChange={(value) =>
-                                setGroupBy(value as "none" | "epic" | "area")
-                            }
+                            value={grouping}
+                            onValueChange={setGroupBy}
                         >
-                            <DropdownMenuRadioItem value="none">
-                                none
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="epic">
-                                epic
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="area">
-                                area
-                            </DropdownMenuRadioItem>
+                            {groupings.map((option) => (
+                                <DropdownMenuRadioItem
+                                    key={option}
+                                    value={option}
+                                >
+                                    {option}
+                                </DropdownMenuRadioItem>
+                            ))}
                         </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -1070,7 +1135,7 @@ export function TimelineView({
                             <svg
                                 aria-hidden="true"
                                 preserveAspectRatio="none"
-                                viewBox={`0 0 100 ${scheduled.length}`}
+                                viewBox={`0 0 100 ${rows.length}`}
                                 className="pointer-events-none absolute top-0 h-full"
                                 style={{
                                     left: GANTT_LABEL,
@@ -1078,10 +1143,8 @@ export function TimelineView({
                                 }}
                             >
                                 {edges.map((edge) => {
-                                    const from =
-                                        scheduled[rowIndex.get(edge.from)!];
-                                    const to =
-                                        scheduled[rowIndex.get(edge.to)!];
+                                    const from = byId.get(edge.from)!;
+                                    const to = byId.get(edge.to)!;
                                     const fromEnd = from.due || from.start;
                                     const toStart = to.start || to.due;
                                     if (!fromEnd || !toStart) return null;
@@ -1120,15 +1183,37 @@ export function TimelineView({
                                 })}
                             </svg>
                         )}
-                        {scheduled.map((task) => (
-                            <TimelineRow
-                                key={task.id}
-                                task={task}
-                                epicId={epicIds.get(task.id)}
-                                pct={range.pct}
-                                onOpen={onOpen}
-                            />
-                        ))}
+                        {rows.map((row, index) =>
+                            row.task ? (
+                                <TimelineRow
+                                    key={row.task.id}
+                                    task={row.task}
+                                    epicId={epicIds.get(row.task.id)}
+                                    pct={range.pct}
+                                    onOpen={onOpen}
+                                />
+                            ) : (
+                                <div
+                                    key={`group-${index}-${row.label}`}
+                                    className="border-b bg-muted/40"
+                                >
+                                    {/* The height goes on the inner span, as
+                                        it does on a card row: with
+                                        border-box sizing, putting it on the
+                                        bordered element makes the row a pixel
+                                        shorter than a card's, and the
+                                        dependency overlay maps rows to
+                                        viewBox units — so each header would
+                                        drag every edge below it up by one. */}
+                                    <span
+                                        className="flex items-center px-3.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
+                                        style={{ height: "var(--row-h)" }}
+                                    >
+                                        {row.label}
+                                    </span>
+                                </div>
+                            )
+                        )}
                     </div>
                 </div>
             </div>

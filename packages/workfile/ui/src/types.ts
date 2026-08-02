@@ -114,6 +114,16 @@ export interface RuntimeSchema {
         priorities: readonly Priority[];
         efforts: readonly Effort[];
         areas: string[];
+        /**
+         * Extra classification axes this project declares, each mapped to the
+         * vocabulary its values must come from. Per ADR-0008: `area` is shaped
+         * like a delivery layer, and a repository that also wants a domain axis
+         * declares one rather than overloading the field it has.
+         *
+         * Absent until the workspace has been fetched, and absent for projects
+         * that declare none — which is why nothing here may assume it exists.
+         */
+        axes?: Record<string, string[]>;
     };
     docs: {
         kinds: string[];

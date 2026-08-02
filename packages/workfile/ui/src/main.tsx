@@ -1489,6 +1489,7 @@ function App() {
                                     <TimelineView
                                         tasks={visibleTasks}
                                         epicIds={epicIds}
+                                        axes={schema.cards.axes}
                                         onOpen={selectRecord}
                                     />
                                 ) : view === "docs" ? (

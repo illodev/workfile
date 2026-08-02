@@ -575,3 +575,64 @@ test("card list --axis filters, combines and refuses a repeated axis", async () 
         await cleanup();
     }
 });
+
+/**
+ * The read path, which nothing pinned.
+ *
+ * Writing an axis was covered from four surfaces; getting it back was not, and
+ * the board's grouping ([[T-0104]]) is built on the value arriving with the
+ * card. It arrives because the card listing asks for the `full` view — the
+ * summary projection is a fixed allowlist (`SUMMARY_FIELDS`) and a per-project
+ * key cannot be on it, so a listing that switched views would drop every
+ * declared axis and the grouping would quietly go empty. That is a real gap
+ * rather than a hypothetical one; this test is the tripwire on the half the
+ * interface depends on.
+ */
+test("a declared axis survives the round trip back out", async () => {
+    const { workspace, cleanup } = await workspaceWithAxes({
+        context: ["treasury", "billing"]
+    });
+    const server = await startProjectServer(workspace, { port: 0 });
+    try {
+        for (const [title, axes] of [
+            ["Tagged", { context: "treasury" }],
+            ["Untagged", undefined]
+        ] as const) {
+            const response = await fetch(`${server.url}/api/v2/cards`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ title, area: "api", ...(axes ? { axes } : {}) })
+            });
+            assert.equal(response.status, 201, await response.text());
+        }
+
+        const listed = (await fetch(`${server.url}/api/v2/cards`).then(
+            (response) => response.json()
+        )) as { records: Array<Record<string, unknown>> };
+        const tagged = listed.records.find((card) => card.title === "Tagged");
+        const untagged = listed.records.find(
+            (card) => card.title === "Untagged"
+        );
+
+        assert.equal(
+            tagged?.context,
+            "treasury",
+            "the axis value reaches a reader, not only the file"
+        );
+        // Absent rather than empty: the board groups on the value being there,
+        // and a card that never declared one belongs in its own bucket.
+        assert.equal(untagged?.context, undefined);
+
+        // And the vocabulary comes with the workspace, so a client can offer
+        // the axis without being told about it in advance.
+        const { schema } = (await fetch(`${server.url}/api/v2/workspace`).then(
+            (response) => response.json()
+        )) as { schema: { cards: { axes?: Record<string, string[]> } } };
+        assert.deepEqual(schema.cards.axes, {
+            context: ["treasury", "billing"]
+        });
+    } finally {
+        await server.close();
+        await cleanup();
+    }
+});
