@@ -1749,3 +1749,44 @@ test("no subcommand reports a missing argument as a missing record", async () =>
         await rm(workspace, { recursive: true, force: true });
     }
 });
+
+/**
+ * `card reopen --status doing` had no way to name who was reopening.
+ *
+ * The flag guard passed `--actor` — it was listed for the subcommand — and the
+ * branch never read it, so the caller was told the option was valid and then
+ * told its value was missing. Narrowing the table to what each branch reads
+ * turned that into `CLI_ARGUMENT_UNKNOWN`, which is honest and still leaves
+ * reopening into work impossible from the CLI. The identity resolves itself
+ * now, and `--actor` is wired for the caller acting on someone else's behalf.
+ */
+test("card reopen carries an actor into doing, resolved or given", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "workfile-reopen-"));
+    await cp(fixture, workspace, { recursive: true });
+    const park = () =>
+        outcome(["card", "transition", "T-0001", "done", "--force", "--root", workspace]);
+    const status = async () => {
+        const shown = await outcome(["card", "show", "T-0001", "--json", "--root", workspace]);
+        return JSON.parse(shown.stdout);
+    };
+    try {
+        await park();
+        const resolved = await outcome([
+            "card", "reopen", "T-0001", "--status", "doing", "--root", workspace
+        ]);
+        assert.equal(resolved.code, 0, resolved.stderr);
+        const own = await status();
+        assert.equal(own.status, "doing");
+        assert.ok(own.claimed_by, "reopening into doing recorded no claim");
+
+        await park();
+        const named = await outcome([
+            "card", "reopen", "T-0001",
+            "--status", "doing", "--actor", "ci-bot", "--root", workspace
+        ]);
+        assert.equal(named.code, 0, named.stderr);
+        assert.equal((await status()).claimed_by, "ci-bot");
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
+    }
+});

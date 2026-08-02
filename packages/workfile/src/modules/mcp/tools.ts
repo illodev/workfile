@@ -705,6 +705,7 @@ const TOOL_DEFINITIONS = [
             {
                 id: { type: "string", minLength: 1 },
                 status: { type: "string" },
+                actor: { type: "string" },
                 expectedRevision: { type: "string" }
             },
             ["id"]
@@ -715,6 +716,7 @@ const TOOL_DEFINITIONS = [
             ensureMutable(context);
             const result = await reopenCard(context.workspace, requiredString(args.id, "id"), {
                 status: optionalString(args.status) || "backlog",
+                actor: actorFor(context, args.actor),
                 expectedRevision: optionalString(args.expectedRevision)
             });
             invalidate(context);

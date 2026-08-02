@@ -232,3 +232,107 @@ test("release and transition refuse a foreign claim under contention", async () 
         await cleanup();
     }
 });
+
+/**
+ * Reopening straight into `doing` was impossible on every surface at once.
+ *
+ * `reopenCard` forwards to `transitionCard`, which requires an actor to reach
+ * `doing` because arriving there takes a claim — and the option was not among
+ * the ones it forwarded. So `card reopen ID --status doing` answered
+ * `CARD_CLAIM_ACTOR_REQUIRED: actor is required` on a command with no way to
+ * supply one, and `project_card_reopen` and the HTTP route inherited it by
+ * calling through the same wrapper.
+ *
+ * A wrapper forwarding some of its target's options and not others is the
+ * shape: the caller sees a complete command, and the missing one stays
+ * invisible until the single status that needs it is asked for. Pinned at the
+ * module and at both servers, because a fix in one place would otherwise leave
+ * the other two exactly as they were.
+ */
+test("reopening into doing carries an actor, on every surface", async () => {
+    const { workspace, cleanup } = await createTestWorkspace();
+    const { startProjectServer, createMcpProtocolServer } = await import(
+        "../dist/src/index.js"
+    );
+    try {
+        const card = await createCard(workspace, {
+            title: "Reopened into work",
+            type: "task",
+            area: "api",
+            body: "Body.\n\n## Acceptance criteria\n\n- [ ] Verifiable check\n"
+        });
+        const park = () =>
+            transitionCard(workspace, card.id, "done", {
+                actor: "parker",
+                force: true
+            });
+
+        await park();
+        const direct = await reopenCard(workspace, card.id, {
+            status: "doing",
+            actor: "module-caller"
+        });
+        assert.equal(direct.card.status, "doing");
+        assert.equal(direct.card.claimed_by, "module-caller");
+
+        await park();
+        const http = await startProjectServer(workspace, { port: 0 });
+        try {
+            const response = await fetch(
+                `${http.url}/api/v2/cards/${card.id}/reopen`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "doing", actor: "http-caller" })
+                }
+            );
+            // Read once: `await response.text()` inside the assertion message
+            // consumes the stream whether or not the assertion fires.
+            const payload = await response.text();
+            assert.equal(response.status, 200, payload);
+            const body = JSON.parse(payload) as any;
+            assert.equal(body.record.status, "doing");
+            assert.equal(body.record.claimed_by, "http-caller");
+        } finally {
+            await http.close();
+        }
+
+        await park();
+        const mcp = createMcpProtocolServer(workspace, { readOnly: false });
+        await mcp.handle({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: "2026-07-28",
+                capabilities: {},
+                clientInfo: { name: "test", version: "0" }
+            }
+        });
+        const called = await mcp.handle({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+                name: "project_card_reopen",
+                arguments: { id: card.id, status: "doing", actor: "mcp-caller" }
+            }
+        });
+        // A JSON-RPC reply is a result or an error, never both, so narrowing is
+        // the assertion: "no protocol error" and "no tool error" are different
+        // failures and each deserves to say which one happened.
+        assert.ok("result" in called, `protocol error: ${JSON.stringify(called)}`);
+        const { result } = called;
+        assert.equal(result.isError, undefined, JSON.stringify(result));
+        assert.equal(result.structuredContent.record.status, "doing");
+        assert.equal(result.structuredContent.record.claimed_by, "mcp-caller");
+
+        // An unarchive lands in `backlog`, which claims nothing — but it goes
+        // through the same wrapper, and must not start refusing.
+        await park();
+        const parked = await reopenCard(workspace, card.id, { status: "backlog" });
+        assert.equal(parked.card.status, "backlog");
+    } finally {
+        await cleanup();
+    }
+});

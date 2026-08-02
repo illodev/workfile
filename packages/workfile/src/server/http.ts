@@ -1429,6 +1429,7 @@ export function createProjectServer(
                     const body = await readJson(request);
                     const result = await reopenCard(workspace, id, {
                         status: body.status,
+                        actor: body.actor ?? resolveActor().actor,
                         expectedRevision: expectedRevision(request, body)
                     });
                     indexStore.invalidate();
@@ -1553,6 +1554,7 @@ export function createProjectServer(
                 if (method === "POST" && action === "unarchive") {
                     await reopenCard(workspace, id, {
                         status: "backlog",
+                        actor: resolveActor().actor,
                         expectedRevision: expectedRevision(request)
                     });
                     indexStore.invalidate();

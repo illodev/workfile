@@ -140,7 +140,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card release ID [--actor ACTOR] [--status next]",
         "workfile card transition ID STATUS [--actor ACTOR]",
         "workfile card archive ID",
-        "workfile card reopen ID [--status backlog]",
+        "workfile card reopen ID [--status backlog] [--actor ACTOR]",
         "workfile card reap [--dry-run] [--older-than HOURS] [--json]",
         "workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]",
         "workfile card ac ID [--check N] [--uncheck N]   # repeatable; no flags lists them",
@@ -367,6 +367,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--to"
     ],
     "card reopen": [
+        "--actor",
         "--expected-revision",
         "--status"
     ],
@@ -1450,6 +1451,10 @@ async function cardCommand(workspace, action) {
     if (action === "reopen") {
         const result = await reopenCard(workspace, id, {
             status: option("--status") || "backlog",
+            // Reopening into `doing` takes a claim, and a claim takes an
+            // actor. Resolved rather than demanded: a hand-typed one is what
+            // T-0099 removed from the protocol.
+            actor: option("--actor") || defaultActor(),
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} reopened`);

@@ -809,10 +809,24 @@ export async function archiveCard(workspace, id, { expectedRevision }: any = {})
     );
 }
 
+/**
+ * Reopening is a transition, and a transition needs to know who is asking.
+ *
+ * This dropped the actor on the floor. `transitionCard` requires one to reach
+ * `doing`, because arriving there takes a claim — so `card reopen ID --status
+ * doing` answered `CARD_CLAIM_ACTOR_REQUIRED: actor is required` on a command
+ * with no way to supply one, and reopening straight into work was impossible
+ * from every surface at once: the CLI, `project_card_reopen`, and the HTTP
+ * reopen route all called through here.
+ *
+ * A wrapper that forwards some of its target's options and not others is the
+ * shape to watch: the caller sees a complete command, and the option that
+ * never arrives is invisible until the one status that needs it is asked for.
+ */
 export async function reopenCard(
     workspace,
     id,
-    { status = "backlog", expectedRevision }: any = {}
+    { status = "backlog", actor, expectedRevision }: any = {}
 ) {
     if (["done", "discarded"].includes(status)) {
         throw new ValidationError(
@@ -820,7 +834,7 @@ export async function reopenCard(
             "A reopened card must use an open status."
         );
     }
-    return transitionCard(workspace, id, status, { expectedRevision });
+    return transitionCard(workspace, id, status, { actor, expectedRevision });
 }
 
 export async function bulkPatchCards(

@@ -163,7 +163,7 @@ workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEX
 workfile card release ID [--actor ACTOR] [--status next]
 workfile card transition ID STATUS [--actor ACTOR]
 workfile card archive ID
-workfile card reopen ID [--status backlog]
+workfile card reopen ID [--status backlog] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
 workfile card renumber --duplicates [--actor ACTOR]
