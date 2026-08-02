@@ -1,7 +1,7 @@
 ---
 id: T-0095
 title: card and doc answer an unknown subcommand by asking for an ID
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -50,4 +50,5 @@ printed for `--help` and is the honest answer here.
 
 - 2026-08-01 23:46Z illodev@local#e55eab30 · claimed
 - 2026-08-02 00:22Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 00:37Z illodev@local#e55eab30 · review → done
 

@@ -1,7 +1,7 @@
 ---
 id: T-0100
 title: A bare command word skips flag validation and runs anyway
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -66,4 +66,5 @@ knowledge to stay honest.
 
 - 2026-08-01 23:46Z illodev@local#e55eab30 · claimed
 - 2026-08-02 00:22Z illodev@local#e55eab30 · doing → review
+- 2026-08-02 00:37Z illodev@local#e55eab30 · review → done
 
