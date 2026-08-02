@@ -72,6 +72,16 @@ driven from this repository.
   plugin that meets Anthropic's quality and security review.
 - This repository is already a marketplace. The entry carries `displayName`,
   `category` and `keywords` because the directory sorts on them.
+- The only one with a review queue behind it, so the one where waiting costs
+  the most. File it first.
+
+### mcpservers.org — `wong2/awesome-mcp-servers`
+
+- Form: <https://mcpservers.org/submit>
+- Reads like a pull request target and is not one. The README says so in its
+  second line, and the repository has pull requests and issues both disabled:
+  `GET /repos/wong2/awesome-mcp-servers/pulls` returns 404, and `gh pr create`
+  fails with a permissions error that never names the real cause.
 
 ### mcp.so
 
@@ -93,20 +103,20 @@ driven from this repository.
 
 ## Pull requests
 
-The awesome lists take a one-line PR each and keep returning traffic long
-after a launch post stops:
+One line each, and they keep returning traffic long after a launch post stops:
 
 - `punkpeye/awesome-mcp-servers`
-- `wong2/awesome-mcp-servers`
 - awesome lists for Claude Code plugins and AI agent tooling
 
-Read each list's contributing rules first: most enforce alphabetical order
-within a category and a fixed one-line format, and reject on that alone. Two
-things that only show up on reading the files rather than the rules:
-`punkpeye` documents alphabetical order and maintains none, appending inside
-each category instead — so appending is what merges cleanly; and its
-CONTRIBUTING fast-tracks pull requests from automated agents whose title ends
-in three robot emoji. The drafted lines for both live on [[T-0133]].
+Check where a list accepts submissions before preparing one. A CONTRIBUTING
+file describes the format; it does not promise the repository is the intake
+channel, and the largest of these lists is a website form wearing a README.
+
+Then read the rules, and then read the file — they disagree. `punkpeye`
+documents alphabetical order within a category and maintains none, appending
+instead, so appending is what merges cleanly. Its CONTRIBUTING also
+fast-tracks pull requests from automated agents whose title ends in three
+robot emoji. The drafted lines live on [[T-0133]].
 
 ## The copy to reuse
 
@@ -130,7 +140,4 @@ like one project rather than four.
 
 The MCP Registry entry only exists once a tag ships it, because it names a
 version npm must already serve. `v0.4.0` was that tag, so the entry is live
-and the form submissions can be filed now — several of them ask for it.
-
-File the Anthropic plugin directory first. It is the only one with a review
-queue behind it, so it is the one where waiting costs the most.
+and every submission below it can be filed now — several of them ask for it.
