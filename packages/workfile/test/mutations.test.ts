@@ -336,3 +336,88 @@ test("reopening into doing carries an actor, on every surface", async () => {
         await cleanup();
     }
 });
+
+/** The trail lines on a card, whatever section they ended up under. */
+function trail(card) {
+    return card.body
+        .split("\n")
+        .filter((line) => /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z /.test(line));
+}
+
+// Nothing asserted on `## Activity` before this, which is how a no-op line got
+// in and stayed: the trail is a protocol guarantee — five to fifteen lines over
+// a card's whole life, read from a diff months later — and it was the one
+// guarantee with no test. A line that records nothing happening is not padding,
+// it takes away the reader's ability to tell a real move from a repeated
+// command.
+test("the durable trail records moves, not commands", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Trail",
+            area: "api",
+            type: "task"
+        });
+        const id = created.id;
+
+        const moved = await transitionCard(workspace, id, "review", {
+            actor: "session-a"
+        });
+        assert.equal(trail(moved.card).length, 1, "a real move writes one line");
+        assert.match(trail(moved.card)[0], /backlog → review$/);
+
+        // The reported bug: same status, three times.
+        await transitionCard(workspace, id, "review", { actor: "session-a" });
+        const again = await transitionCard(workspace, id, "review", {
+            actor: "session-a"
+        });
+        assert.deepEqual(
+            trail(again.card),
+            trail(moved.card),
+            "transitioning to the status a card already has changes nothing"
+        );
+
+        // The sequence an agent following the start-work workflow to the letter
+        // produces: claim, then a redundant `transition doing` that lands in
+        // `claimCard` through the delegation at transitionCard.
+        const claimed = await claimCard(workspace, id, { actor: "session-a" });
+        assert.equal(trail(claimed.card).length, 2, "the claim is a real move");
+        await claimCard(workspace, id, { actor: "session-a" });
+        const redundant = await transitionCard(workspace, id, "doing", {
+            actor: "session-a"
+        });
+        assert.equal(
+            trail(redundant.card).length,
+            2,
+            "re-claiming a card you already hold changes nothing"
+        );
+
+        // Widening the scope still saves the scope; it is an edit to the card
+        // and not a protocol milestone.
+        const rescoped = await claimCard(workspace, id, {
+            actor: "session-a",
+            scope: ["src/api"]
+        });
+        assert.deepEqual(rescoped.card.scope, ["src/api"]);
+        assert.equal(trail(rescoped.card).length, 2);
+
+        // A release drops a real claim; a second one has nothing left to drop.
+        const released = await releaseCard(workspace, id, { actor: "session-a" });
+        assert.equal(trail(released.card).length, 3, "the release is a real move");
+        const twice = await releaseCard(workspace, id, { actor: "session-a" });
+        assert.equal(
+            trail(twice.card).length,
+            3,
+            "releasing a card nobody holds changes nothing"
+        );
+
+        // And a genuine move still lands, after all that suppression.
+        const done = await transitionCard(workspace, id, "backlog", {
+            actor: "session-a"
+        });
+        assert.equal(trail(done.card).length, 4);
+        assert.match(trail(done.card)[3], /next → backlog$/);
+    } finally {
+        await cleanup();
+    }
+});

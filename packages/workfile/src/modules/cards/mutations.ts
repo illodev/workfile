@@ -288,6 +288,48 @@ function trailEnabled(workspace) {
 }
 
 /**
+ * Appends a protocol milestone, unless the command that produced it moved
+ * nothing.
+ *
+ * `patchCard` declined to record a status change that was not a change. The
+ * other three writers did not, so `transition ID review` on a card already in
+ * `review` wrote `review → review`, claiming a card you already hold wrote a
+ * second `claimed`, and releasing a card nobody holds wrote `released` again.
+ * On a scratch card that is eight lines for three events — and the sequence
+ * that produces the worst of it, a claim followed by a redundant
+ * `transition doing`, is what an agent following the start-work workflow to
+ * the letter does.
+ *
+ * The trail is five to fifteen lines over a card's whole life, read from a
+ * diff months later. A line saying nothing happened does not merely pad it: it
+ * takes away the reader's ability to tell a real move from a repeated command,
+ * which is the only thing the trail is for.
+ *
+ * The decision to skip lives here rather than at each writer, for the reason
+ * `assertAcceptanceMet` does — this module has already shipped a rule enforced
+ * at one of four entrances. What each writer still supplies is what "nothing
+ * happened" means for it, because that genuinely differs and cannot be
+ * inferred: a redundant claim rewrites `claimed_at`, so the candidate differs
+ * from the current card even though no protocol event occurred.
+ */
+// `now` is optional because `releaseCard` alone takes no clock override.
+function appendMilestone(workspace, content, { actor, text, redundant, now = undefined }) {
+    if (!trailEnabled(workspace) || redundant) return content;
+    return appendActivityLine(content, activityEntry(actor, text, now));
+}
+
+/**
+ * The status a release settles on. Only `doing` cannot survive one — active
+ * work without a claimant is a contradiction — so everything else keeps the
+ * status it had. Shared with the trail so both answer from the same rule:
+ * releasing an unclaimed `doing` card still moves it, and that is a milestone
+ * even though no claim was dropped.
+ */
+function releasedStatus(current, status) {
+    return status || (current.status === "doing" ? "next" : current.status);
+}
+
+/**
  * `done` means verified where the code actually ran.
  *
  * This lived inside `transitionCard`, which is one of four ways to set a
@@ -418,12 +460,12 @@ export async function patchCard(
             const next = transformContent
                 ? transformContent(content, current, candidate)
                 : content;
-            if (!trailEnabled(workspace)) return next;
-            if (!wanted || wanted === current.status) return next;
-            return appendActivityLine(
-                next,
-                activityEntry(actor, `${current.status} → ${wanted}`, now)
-            );
+            return appendMilestone(workspace, next, {
+                actor,
+                text: `${current.status} → ${wanted}`,
+                redundant: !wanted || wanted === current.status,
+                now
+            });
         }
     });
 }
@@ -512,13 +554,18 @@ export async function claimCard(
                               `${timestamp.slice(0, 10)} — ${actor} replaced ${current.claimed_by}'s claim: ${String(reason).trim()}`
                           )
                         : content;
-                if (trailEnabled(workspace)) {
-                    next = appendActivityLine(
-                        next,
-                        activityEntry(actor, "claimed", now)
-                    );
-                }
-                return next;
+                return appendMilestone(workspace, next, {
+                    actor,
+                    text: "claimed",
+                    // Already yours and already doing: re-running the command
+                    // may still widen the scope, which is a real edit to the
+                    // card, but the claim it would record is the one on the
+                    // line above.
+                    redundant:
+                        current.claimed_by === actor &&
+                        current.status === "doing",
+                    now
+                });
             }
         }
     );
@@ -550,25 +597,23 @@ export async function releaseCard(
         // Read under the lock, so "the status it already has" is the one on
         // disk and not the one the listing remembered.
         (current) => ({
-            status:
-                status || (current.status === "doing" ? "next" : current.status),
+            status: releasedStatus(current, status),
             claimed_by: null,
             claimed_at: null
         }),
         {
             expectedRevision,
             snapshot: loaded,
-            transformContent: trailEnabled(workspace)
-                ? (content, current) =>
-                      appendActivityLine(
-                          content,
-                          activityEntry(
-                              actor || current.claimed_by,
-                              "released",
-                              undefined
-                          )
-                      )
-                : undefined,
+            transformContent: (content, current) =>
+                appendMilestone(workspace, content, {
+                    actor: actor || current.claimed_by,
+                    text: "released",
+                    // No claim to drop and nowhere to move: the command
+                    // succeeded and the card is exactly as it was.
+                    redundant:
+                        !current.claimed_by &&
+                        releasedStatus(current, status) === current.status
+                }),
             guard: (current) => {
                 // `release --status done` is a way to reach done, so it is a
                 // way to reach the gate. Only when it actually moves the card
@@ -624,17 +669,18 @@ export async function transitionCard(
             expectedRevision,
             moveToArchived,
             snapshot: loaded,
-            transformContent: trailEnabled(workspace)
-                ? (content, current) =>
-                      appendActivityLine(
-                          content,
-                          activityEntry(
-                              actor,
-                              `${current.status} → ${status}`,
-                              now
-                          )
-                      )
-                : undefined,
+            transformContent: (content, current) =>
+                appendMilestone(workspace, content, {
+                    actor,
+                    text: `${current.status} → ${status}`,
+                    // The status is the milestone, except when the card is
+                    // also coming back out of the archive: that moves it even
+                    // though the status reads the same on both sides.
+                    redundant:
+                        current.status === status &&
+                        moveToArchived === undefined,
+                    now
+                }),
             // The same ownership guard `releaseCard` has always had. Without it
             // transitioning was the way around it: any actor could move a card
             // claimed by someone else and silently drop their claim, no reason
