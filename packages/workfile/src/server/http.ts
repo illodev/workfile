@@ -63,6 +63,8 @@ import {
     ValidationError,
     normalizeError
 } from "../core/errors.js";
+import { isCreateContention } from "../core/filesystem.js";
+import { exists } from "../core/fs-utils.js";
 import { ensureWritable } from "../core/guards.js";
 import { createWorkspaceWatcher } from "../core/watcher.js";
 
@@ -1635,7 +1637,24 @@ export function createProjectServer(
                     }
                     const directory = join(workspace.paths.assets, id);
                     await mkdir(directory, { recursive: true });
-                    await writeFile(join(directory, name), buffer, { flag: "wx" });
+                    const asset = join(directory, name);
+                    try {
+                        await writeFile(asset, buffer, { flag: "wx" });
+                    } catch (error: any) {
+                        // `EEXIST` is only how POSIX refuses a name that is
+                        // taken; Windows refuses one whose last handle is
+                        // still closing with `EPERM`, and that used to answer
+                        // 500. The name is asked for rather than assumed,
+                        // because the same codes also come from an assets
+                        // directory nobody may write to, and answering
+                        // "already exists" to that would be a lie.
+                        if (!isCreateContention(error)) throw error;
+                        if (!(await exists(asset))) throw error;
+                        throw new ValidationError(
+                            "ASSET_ALREADY_EXISTS",
+                            "An asset with that name already exists."
+                        );
+                    }
                     indexStore.invalidate();
                     return sendJson(response, 201, { ok: true, name });
                 }

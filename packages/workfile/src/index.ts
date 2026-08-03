@@ -88,6 +88,7 @@ export {
 export {
     createFileExclusive,
     isCreateContention,
+    isRenameRefusal,
     writeFileAtomic
 } from "./core/filesystem.js";
 export { discoverFiles, globToRegExp, matchesAnyGlob, normalizeRepoPath } from "./core/glob.js";

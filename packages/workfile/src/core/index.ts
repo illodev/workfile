@@ -29,6 +29,7 @@ export { createWorkspaceWatcher } from "./watcher.js";
 export {
     createFileExclusive,
     isCreateContention,
+    isRenameRefusal,
     writeFileAtomic
 } from "./filesystem.js";
 export { discoverFiles, globToRegExp, matchesAnyGlob, normalizeRepoPath } from "./glob.js";
