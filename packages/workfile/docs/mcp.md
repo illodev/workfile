@@ -160,6 +160,30 @@ Mutations (absent in `--read-only` mode; rejected with `MCP_SERVER_READ_ONLY`):
 
 Tool descriptions carry read-only, destructive and idempotency annotations.
 
+### What each tool declares
+
+Every tool declares its full contract, so a caller never has to infer one:
+
+- **Every input property carries a `description`.** Names do not survive
+  inference — `scope` is filesystem paths on a card and subject matter on a
+  document, and `source` is provenance on both while meaning different things.
+- **Closed vocabularies declare `enum`.** Card `status`, `type`, `priority` and
+  `effort` come from frozen protocol constants, so they are enumerated in the
+  schema itself. Areas, document kinds, changelog types and memory statuses are
+  declared per project and accept any string, so they are *not* enumerated —
+  their descriptions point at `project_workspace`, which reports what this
+  project actually accepts.
+- **Defaults are declared where the implementation has one**, rather than left
+  for the caller to discover by omitting the field.
+- **Every tool declares an `outputSchema`** matching the `structuredContent` it
+  returns. None of them is a closed object: a payload over `maxToolResultBytes`
+  gains a `truncated` marker, and a schema that forbade it would invalidate the
+  server's own degradation path.
+
+`project_card_release` is the one place where an enum is narrower than the
+protocol's: a released card cannot stay `doing`, so that value is refused as an
+explicit target and omitted from the schema.
+
 ## Resources and prompts
 
 - **Resources:** `project://workspace`, `project://health`, `project://protocol`,
