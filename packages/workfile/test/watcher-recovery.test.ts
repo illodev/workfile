@@ -42,6 +42,21 @@ function stubWatch() {
     return { watch, calls, handles, failOn };
 }
 
+/**
+ * The path the watcher actually watched, which is not the path the test built.
+ *
+ * `start()` resolves the root through `realpath.native` on purpose: macOS
+ * answers `/private/var` for a `tmpdir()` that says `/var`, and a Windows
+ * runner's TEMP arrives as an 8.3 short name. Composing the path here instead
+ * of reading it back passed on Linux and failed on four other jobs.
+ */
+function watched(stub: any, relative: string) {
+    const suffix = `${sep}${relative.split("/").join(sep)}`;
+    const match = stub.calls.find((path: string) => path.endsWith(suffix));
+    assert.ok(match, `nothing watched ${relative} in ${stub.calls.join(", ")}`);
+    return match;
+}
+
 async function startWatcher(root: string, stub: any, options: any = {}) {
     const workspace = await loadWorkspace({ root });
     const states: any[] = [];
@@ -65,7 +80,7 @@ test("a handle error on a directory that is still there re-establishes the watch
         const stub = stubWatch();
         const { watcher, states, changes, started } = await startWatcher(root, stub);
         try {
-            const cards = resolve(root, ".project/cards");
+            const cards = watched(stub, ".project/cards");
             const before = stub.calls.filter((path) => path === cards).length;
             assert.equal(before, 1);
 
@@ -102,7 +117,7 @@ test("a directory that cannot be re-established stops the watcher claiming watch
         const stub = stubWatch();
         const { watcher, states } = await startWatcher(root, stub);
         try {
-            const cards = resolve(root, ".project/cards");
+            const cards = watched(stub, ".project/cards");
             // Still on disk, so this is a broken promise rather than a
             // directory with nothing left to say.
             stub.failOn.add(cards);
@@ -135,7 +150,7 @@ test("a directory that is simply gone is dropped without a word", async () => {
         const stub = stubWatch();
         const { watcher, states, changes } = await startWatcher(root, stub);
         try {
-            const docs = resolve(root, ".project/cards/archive");
+            const docs = watched(stub, ".project/cards/archive");
             await rm(docs, { recursive: true, force: true });
             const before = stub.calls.length;
             stub.handles.get(docs).emit("error", new Error("handle died"));
@@ -164,7 +179,7 @@ test("a handle that keeps failing is retried a bounded number of times", async (
         const stub = stubWatch();
         const { watcher, states } = await startWatcher(root, stub);
         try {
-            const cards = resolve(root, ".project/cards");
+            const cards = watched(stub, ".project/cards");
             // Every re-established handle dies immediately: without a bound
             // this is an infinite loop rather than a recovery.
             for (let round = 0; round < 12; round += 1) {

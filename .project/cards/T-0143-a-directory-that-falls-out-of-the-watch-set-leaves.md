@@ -98,3 +98,16 @@ What the recovery actually does, in the order it decides:
 `degrade()` sets `mode = "unavailable"` once, not once per directory, and calls the new `onState`. The server publishes that on `watch.state`, which the UI already handled for the "a later attempt succeeded" case: it resumes polling on any mode that is not `watch` and emits a reset. So the verdict reaches a client that had already stopped polling, which was the half of this that metrics alone could not fix.
 
 Deliberately not done: a partial-coverage mode. The vocabulary is `watch` and `unavailable`, and inventing a third value would mean touching every consumer that reads it to teach them a distinction none of them can act on differently — the UI's only lever is whether to poll. One directory lost and the whole tree lost both mean "do not trust the stream".
+- 2026-08-03 10:34Z illodev@local#bd44efc7 — The tests were wrong on four of the six CI jobs, and the fix was not. Run 30805871658: ubuntu green, both Windows and both macOS red.
+
+    a handle error ... re-establishes the watch      0 !== 1
+    a directory that cannot be re-established ...    Cannot read properties of undefined (reading 'emit')
+
+Each test composed the watched path with `resolve(root, ".project/cards")` and looked the handle up by it. The watcher does not watch that path. `start()` puts the root through `realpath.native` deliberately — macOS answers `/private/var` for a `tmpdir()` that says `/var`, and a Windows runner's TEMP arrives as an 8.3 short name, which aborts the process if a watch is placed on it. That is documented in the watcher's own comments, five lines above the code under test.
+
+So the assertion was reading a map keyed by the real path with a key built from the nominal one. On Linux the two are the same string and everything passed.
+
+Fixed by reading the path back out of the stub — the test now asks which path was actually watched instead of asserting which one should have been. That is the more honest shape anyway: the stub records what the code did, and a test that recomputes it is duplicating the logic it is checking.
+
+Nothing in `watcher.ts` changed.
+
