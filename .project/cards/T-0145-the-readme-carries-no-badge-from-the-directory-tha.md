@@ -1,7 +1,7 @@
 ---
 id: T-0145
 title: The README carries no badge from the directory that now builds the server
-status: review
+status: done
 type: task
 priority: low
 area: docs
@@ -38,10 +38,11 @@ and the README is where someone arriving from npm or GitHub actually looks.
       server it describes is documented
 - [x] Both badge images resolve and both link to the Glama server page
 - [x] A changelog fragment records the change
-- [ ] The badges render on github.com, which needs the commit pushed
+- [x] The badges render on github.com, which needs the commit pushed
 
 ## Activity
 
 - 2026-08-03 20:23Z illodev@local#07eb5d4b · claimed
 - 2026-08-03 20:24Z illodev@local#07eb5d4b · doing → review
+- 2026-08-03 21:00Z illodev@local#07eb5d4b · review → done
 
