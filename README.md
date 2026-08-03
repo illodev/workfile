@@ -2,6 +2,9 @@
   <a href="https://workfiledemo.illodev.com"><img src="https://raw.githubusercontent.com/illodev/workfile/main/.github/media/brand/lockup.png" alt="Workfile" width="460"></a>
 </p>
 <p align="center"><em>The repository is the database.</em></p>
+<p align="center">
+  <a href="https://glama.ai/mcp/servers/illodev/workfile"><img src="https://glama.ai/mcp/servers/illodev/workfile/badges/score.svg" alt="Workfile MCP server quality score on Glama"></a>
+</p>
 
 `@illodev/workfile` is a repository-native protocol for coordinating **Work, Docs,
 History and durable project Memory** between humans and software agents.
@@ -472,6 +475,11 @@ committed to the repository:
 
 The full contract — tool inventory, resources, prompts, process hygiene and the
 plugin's surface — is documented in [`docs/mcp.md`](packages/workfile/docs/mcp.md).
+
+The server is listed on [Glama](https://glama.ai/mcp/servers/illodev/workfile),
+which builds it in a container and inspects the capabilities it reports:
+
+[![Workfile MCP server on Glama](https://glama.ai/mcp/servers/illodev/workfile/badges/card.svg)](https://glama.ai/mcp/servers/illodev/workfile)
 
 ## Search integrations
 
