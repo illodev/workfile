@@ -1,7 +1,7 @@
 ---
 id: T-0144
 title: The protocol-record guard names card tools for every record type
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -59,8 +59,10 @@ assumption `buildBoard` already makes one function above.
 
 - 2026-08-03 19:15Z illodev@local#2ba09e5f · claimed
 - 2026-08-03 19:23Z illodev@local#2ba09e5f · doing → review
+- 2026-08-03 19:36Z illodev@local#2ba09e5f · review → done
 
 ## Notes
 
 - 2026-08-03 19:22Z illodev@local#2ba09e5f — Runtime evidence, against the built runtime the session actually loads. Driving dist/src/runtime/claude/hooks.mjs with a real PreToolUse payload for each shape returns: cards -> project_card_patch/write/note + `workfile card patch`; docs -> project_doc_patch/create/move + `workfile doc patch`; memory -> project_memory_patch/add; changelog -> project_changelog_patch/add; .project/agents/protocol.md -> `workfile agents sync` and no record tool; .project/generated/*.md -> the generic fallback naming no tool. The new test fails against the pre-fix message and passes with it — checked by patching the built runtime back to the single card-tools string, which fails test 9 only, then restoring. pnpm run check green: 269 + 7 tests, 0 failures, strict ratchet held at 588 across 57 files, plugin copy rebuilt and byte-identical to source.
 - 2026-08-03 19:23Z illodev@local#2ba09e5f — Deployment is what is pending, not verification. The report came from a repository consuming the published package, so the guard there keeps its old message until this ships; staying in review rather than done until 0.5.3 is out and the reporting repository upgrades.
+- 2026-08-03 19:35Z illodev@local#2ba09e5f — Deployed. Tag v0.5.3 ran release.yml green: npm publish for both packages, MCP Registry, and the GitHub Release. Verified from outside the workflow — npm view reports 0.5.3 for @illodev/workfile and @illodev/workfile-search-local, and the release is published at v0.5.3. This was the only thing review was waiting on.
