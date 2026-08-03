@@ -1,7 +1,7 @@
 ---
 id: T-0146
 title: Every MCP tool under-declares its own contract, and Glama scored it
-status: review
+status: done
 type: task
 priority: medium
 area: mcp
@@ -69,4 +69,5 @@ constant.
 
 - 2026-08-03 20:31Z illodev@local#07eb5d4b · claimed
 - 2026-08-03 20:45Z illodev@local#07eb5d4b · doing → review
+- 2026-08-03 21:07Z illodev@local#07eb5d4b · review → done
 
