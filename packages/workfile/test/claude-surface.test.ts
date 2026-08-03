@@ -15,6 +15,7 @@ import {
     claudeMcpFile,
     claudeSkillFile,
     createCard,
+    listMcpTools,
     loadCards,
     loadWorkspace,
     PLUGIN_HOOK_RUNTIME,
@@ -263,7 +264,7 @@ test("hooks make the claim executable without slowing the session", async () => 
         );
         assert.match(
             JSON.parse(raw.stdout).hookSpecificOutput.permissionDecisionReason,
-            /project CLI or MCP/
+            /project_card_patch/
         );
 
         // The budget is the point: PreToolUse runs before *every* tool call in
@@ -781,6 +782,121 @@ test("the hook produces the live half of a claim", async () => {
             "orphaned",
             "silence far past any pause is what orphaned means"
         );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The guard's reason is the only instruction an agent gets while it is stopped.
+ *
+ * It named `project_card_patch, project_card_write, project_card_note` for
+ * every `.md` under the protocol root — cards, docs, memory, changelog and the
+ * generated agent surface alike. An agent writing a doc got three tools that
+ * cannot open a doc, found nothing that fit, and reached for `Edit` again; the
+ * guard asked again. Nothing the user could switch off ends that loop, because
+ * a hook's `ask` outranks `bypassPermissions` by design, so it presented as the
+ * permission mode being broken.
+ *
+ * Two properties, and the second is what keeps the first honest: the message
+ * must route to the tools for the record actually being written, and every
+ * tool it names must exist in the MCP registry. A hardcoded table in a file
+ * that imports nothing (see the runtime's header) drifts silently otherwise,
+ * and pointing at a tool that was renamed is the same dead end with extra
+ * steps.
+ */
+test("the protocol guard names the tools that write the record it stopped", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-guard-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    try {
+        await cp(fixture, root, { recursive: true });
+
+        const reasonFor = async (relativePath: string) => {
+            const run = await runHook(
+                "pre-tool-use",
+                {
+                    session_id: "guard",
+                    tool_name: "Write",
+                    tool_input: { file_path: join(root, relativePath) }
+                },
+                root,
+                env
+            );
+            const decision = JSON.parse(run.stdout || "{}").hookSpecificOutput;
+            assert.equal(
+                decision?.permissionDecision,
+                "ask",
+                `${relativePath} did not reach the guard at all`
+            );
+            return decision.permissionDecisionReason as string;
+        };
+
+        // Nested paths on purpose: docs, memory and changelog records all live
+        // one folder deeper than cards, and the type is read off the segment
+        // under the protocol root rather than off the file name.
+        const cases = [
+            [".project/cards/T-0001-a-card.md", "card", "project_card_patch"],
+            [".project/docs/reference/DOC-0001-a-doc.md", "doc", "project_doc_patch"],
+            [
+                ".project/memory/learnings/LRN-0001-a-learning.md",
+                "memory",
+                "project_memory_patch"
+            ],
+            [
+                ".project/changelog/unreleased/CHG-0001-a-change.md",
+                "changelog",
+                "project_changelog_patch"
+            ]
+        ] as const;
+
+        const named = new Set<string>();
+        for (const [path, cli, tool] of cases) {
+            const reason = await reasonFor(path);
+            for (const match of reason.match(/project_[a-z_]+/g) ?? []) {
+                named.add(match);
+            }
+            assert.match(reason, new RegExp(tool), `${path}: no tool that opens it`);
+            assert.match(
+                reason,
+                new RegExp(`workfile ${cli} patch`),
+                `${path}: the CLI form names the wrong noun`
+            );
+            // The regression itself: every record got card tools. A doc that
+            // still mentions one has not been routed, only reworded.
+            if (cli !== "card") {
+                assert.equal(
+                    /project_card_/.test(reason),
+                    false,
+                    `${path} was pointed at a card tool: ${reason}`
+                );
+            }
+        }
+
+        // The generated surface has no record tool at all, and a hand edit
+        // there survives only until the next sync silently reverts it.
+        const generated = await reasonFor(".project/agents/protocol.md");
+        assert.match(generated, /agents sync/);
+        assert.equal(
+            /project_(card|doc|memory|changelog)_/.test(generated),
+            false,
+            `a generated surface was pointed at a record tool: ${generated}`
+        );
+
+        // Anything else under the root still asks, without inventing a tool for
+        // it — the fallback must stay silent about names it cannot know.
+        const other = await reasonFor(".project/generated/claude-code.md");
+        assert.match(other, /CLI or MCP/);
+        assert.equal(/project_[a-z_]+/.test(other), false);
+
+        // Every name the guard can emit has to be a tool the server answers to.
+        const registry = new Set(listMcpTools().map((tool) => tool.name));
+        assert.ok(named.size >= 8, `only ${named.size} tools named across four records`);
+        for (const name of named) {
+            assert.ok(
+                registry.has(name),
+                `the guard names ${name}, which the MCP server does not expose`
+            );
+        }
     } finally {
         await rm(root, { recursive: true, force: true });
     }
