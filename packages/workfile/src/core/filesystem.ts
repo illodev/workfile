@@ -1,13 +1,84 @@
-import { mkdir, open, rename, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-export async function writeFileAtomic(path, content) {
+const RENAME_REFUSALS = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+/**
+ * Whether a rename was refused for a reason that can pass on its own.
+ *
+ * POSIX renames straight over an open file and never notices. Windows refuses
+ * while *anything* holds the destination, and measured on the runners, one
+ * `fs.open(path, "r")` from this very process is enough: every share mode
+ * refuses, including `ReadWrite, Delete`. So this is not about how the reader
+ * asked for the file. It is about the destination being open at all — by the
+ * index builder, the watcher, the HTTP server, the UI, an editor or a virus
+ * scanner, any of which reads the records the CLI writes.
+ */
+export function isRenameRefusal(error) {
+    return Boolean(error?.code && RENAME_REFUSALS.has(error.code));
+}
+
+/**
+ * Whether the refusal is one that waiting cannot fix.
+ *
+ * A read-only destination is refused with `EPERM` too — the same code, from
+ * the same call, for a reason that will still be true in a second. The code
+ * cannot tell them apart, so ask the destination instead: if it cannot be
+ * written to, the rename is not queued behind anybody and there is nothing to
+ * wait for. A destination that does not exist yet is not the reason either.
+ */
+async function destinationIsUnwritable(path) {
+    try {
+        await access(path, constants.W_OK);
+        return false;
+    } catch (error: any) {
+        return error?.code !== "ENOENT";
+    }
+}
+
+function sleep(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * Writes a file in one step, or not at all.
+ *
+ * The rename is retried because on Windows it is refused while a reader holds
+ * the destination, and a reader that is reading holds it for as long as the
+ * read takes — milliseconds. Measured on the runners: every refusal cleared
+ * within 100ms of the holder letting go. The window here is an order of
+ * magnitude above that, and it is a window rather than a promise: a
+ * destination somebody keeps open forever still fails, with its own errno
+ * rather than with an invented one, because that is the truth about it.
+ */
+export async function writeFileAtomic(
+    path,
+    content,
+    {
+        attempts = 20,
+        retryMs = 25,
+        // The rename, overridable only so a refusal can be driven on a machine
+        // that does not produce one. See `isRenameRefusal` for why POSIX never
+        // will.
+        rename: renameFile = rename
+    }: any = {}
+) {
     await mkdir(dirname(path), { recursive: true });
     const temporary = join(dirname(path), `.${randomUUID()}.tmp`);
     try {
         await writeFile(temporary, content, { encoding: "utf8", flag: "wx" });
-        await rename(temporary, path);
+        for (let attempt = 1; ; attempt += 1) {
+            try {
+                await renameFile(temporary, path);
+                return;
+            } catch (error: any) {
+                if (attempt >= attempts || !isRenameRefusal(error)) throw error;
+                if (await destinationIsUnwritable(path)) throw error;
+                await sleep(retryMs);
+            }
+        }
     } finally {
         await rm(temporary, { force: true }).catch(() => undefined);
     }
