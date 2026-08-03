@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.4 — 2026-08-03
+
+### Added
+
+- The README carries the Glama score and card badges
+
+### Changed
+
+- Every MCP tool declares its parameters, its defaults and its reply shape
+
 ## 0.5.3 — 2026-08-03
 
 ### Fixed
