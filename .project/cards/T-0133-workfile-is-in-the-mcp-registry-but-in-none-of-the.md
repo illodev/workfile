@@ -6,7 +6,7 @@ type: task
 priority: medium
 area: infra
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-03
 scope: [.project/cards]
 ---
 [[T-0114]] shipped the half a repository can own: `v0.4.0` published
@@ -22,11 +22,11 @@ card holds the state.
 
 | Registry | State |
 | --- | --- |
-| Official MCP Registry | Listed, `active`, 0.4.0 |
+| Official MCP Registry | Listed, `active`, `isLatest`, 0.5.0 |
 | `punkpeye/awesome-mcp-servers` | PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) open |
-| mcpservers.org | Submitted, awaiting review |
-| Glama | Crawled, unclaimed, no quality score |
-| Claude Code community marketplace | Not filed |
+| mcpservers.org | Live at [`/servers/illodev/workfile`](https://mcpservers.org/servers/illodev/workfile) |
+| Glama | Claimed and verified, two grades A, quality still ungraded — [[T-0141]] |
+| Claude Code community marketplace | Submitted, awaiting review |
 | mcp.so | Charges for a listing — decision below |
 | Smithery | Dropped |
 
@@ -40,8 +40,10 @@ something the pull request cannot supply on its own:
 > evaluated by Glama and has a quality score.
 
 It is a request, not a failing check, and nothing marks the pull request
-blocked. But the badge in the line renders as `–` until Glama scores the
-server, so the ask is fair. See [[T-0136]].
+blocked. The badge has since stopped being an empty promise: [[T-0136]] claimed
+the listing and two of its three slots now render A, with the quality score
+still ungraded because that one needs a container the card declined to build.
+The bot's ask is unmet and stays unmet; the line is no longer misleading.
 
 The line as filed, kept here because the working copy that produced it is
 disposable:
@@ -87,6 +89,8 @@ This is the only listing left with a review queue behind it.
 - 2026-08-02 22:09Z illodev@local#bd44efc7 · released
 - 2026-08-02 22:13Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 22:14Z illodev@local#bd44efc7 · released
+- 2026-08-03 09:32Z illodev@local#bd44efc7 · claimed
+- 2026-08-03 09:33Z illodev@local#bd44efc7 · released
 
 ## Notes
 
@@ -104,3 +108,6 @@ What happens next is not a queue to watch: approved plugins are pinned to a comm
 - 2026-08-02 22:13Z illodev@local#bd44efc7 — mcpservers.org approved it. Live at https://mcpservers.org/servers/illodev/workfile with the description and the category as submitted.
 
 The page renders this repository's README rather than the submitted copy, so the install block it shows leads with `pnpm add -D @illodev/workfile`. That is the README's ordering, not the registry's choice, and every aggregator that mirrors a README will show the same. The MCP Registry advertises `npx -y @illodev/workfile mcp`, which is the form someone evaluating a server actually runs — see [[T-0139]].
+- 2026-08-03 09:33Z illodev@local#bd44efc7 — Two rows moved without anyone filing anything. Glama verified the listing from the committed `glama.json` alone — see [[T-0136]] and [[LRN-0015]] — and mcpservers.org approved the submission, so `https://mcpservers.org/servers/illodev/workfile` now answers 200. The registry row is refreshed to 0.5.0, read with `?version=latest` because the search endpoint returns every published version and its first element is not the current one.
+
+What is left on this card is entirely other people: the punkpeye merge and the Claude Code marketplace review. Neither has a next action here.

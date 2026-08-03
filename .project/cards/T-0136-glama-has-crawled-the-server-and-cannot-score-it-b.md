@@ -1,84 +1,100 @@
 ---
 id: T-0136
 title: Glama has crawled the server and cannot score it, because nobody claimed it
-status: next
+status: done
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
-updated: 2026-08-02
-scope: [.project/cards]
+updated: 2026-08-03
+scope: [.project/cards, .project/docs]
 ---
-Glama found Workfile on its own, as [[DOC-0004]] said it would, and read it
-accurately: 30 tools, 4 resources, 3 prompts, licence graded A. Everything
-else on the page is blank — quality `–`, no maintenance data, "this server
-cannot be installed", and a stated discoverability penalty for being
-unclaimed.
+Glama found Workfile on its own, as [[DOC-0004]] said it would. The listing is
+now claimed, graded A on both criteria Glama can grade without running the
+server, and blank everywhere a built container would be required.
 
-The badge embedded in the `punkpeye` line renders that `–`, which is why the
-list's bot asked on [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406)
-for the server to be evaluated. A crawl is not an evaluation.
+Claiming took no browser and no login. `glama.json` with
+`maintainers: ["illodev"]` is the entire mechanism: the score page reads
+"Author verified — this server has been verified by its author", and the
+maintainer line on the overview carries Glama's check with the title "Server
+maintainers are verified by Glama". Both are server-rendered, which is how
+they arrived while Glama's SPA was still down. An earlier reading of this card
+assumed claiming meant authenticating as the repository's author in a browser;
+the committed file did it unattended.
 
-## What the score page actually grades
+## What the score page grades, before and after
 
-Ten criteria, at 17% profile completion:
+| Criterion | When this card opened | Now |
+| --- | --- | --- |
+| License | A — MIT | A |
+| README | pass | pass |
+| Maintenance | B — "lacks stable releases" | A — 247 commits in 12 weeks, last stable release 2 August 2026 |
+| `glama.json` | missing | valid |
+| Author verification | not authenticated | verified |
+| Related servers | none | none |
+| Glama release | none | none |
+| Server coherence | gated on a release | gated on a release |
+| Tool definition quality | gated on a release | gated on a release |
+| Recent usage | none in 30 days | none in 30 days |
 
-| Criterion | State |
-| --- | --- |
-| License | A — MIT |
-| README | pass |
-| Maintenance | B — 195 commits in 12 weeks, CI passing, "lacks stable releases" |
-| `glama.json` | was missing |
-| Author verification | not GitHub-authenticated |
-| Related servers | none configured |
-| Glama release | none |
-| Server coherence | gated on a release |
-| Tool definition quality | gated on a release |
-| Recent usage | none in 30 days |
-
-Only three of those are things this repository can answer. `glama.json` is
-added. "Lacks stable releases" is real and not a Glama problem — the workflow
-publishes to npm and the MCP Registry and creates no GitHub Release at all,
-which [[T-0137]] now carries. Everything else needs a browser or a container.
+Profile completion moved 17% → 33%. Maintenance moved B → A because
+[[T-0137]] made the workflow publish a GitHub Release and [[T-0138]] backfilled
+the twelve that had never been created: "lacks stable releases" was the one
+sentence in that grade under this repository's control, and it is gone.
 
 ## What `glama.json` does, and does not
 
 The live schema at `glama.ai/mcp/schemas/server.json` has exactly one
 property: `maintainers`, required, an array of GitHub usernames. So the file
-declares who may maintain the listing and nothing else.
+declares who may maintain the listing, and that declaration is also what
+verifies authorship — a username inside a repository only its author can
+commit to is the proof.
 
 It does not carry the description, the links or the category. Those are set in
-the Glama admin once the server is claimed, or inferred by the crawler. An
-earlier version of this card assumed the file could fix the listing copy; it
-cannot, and the criterion below is corrected.
+the Glama admin once the server is claimed, or inferred by the crawler.
 
-## The Dockerfile question
+## The Dockerfile question, answered: not for a score
 
-Claiming is a GitHub login as the repository's author, stores no secret, and
-lifts the discoverability penalty by itself. Do that first and separately.
-
-Scoring is the expensive half. Glama grades quality from a built image: a
-Dockerfile configured at
+Glama grades quality from a built image: a Dockerfile configured at
 `glama.ai/mcp/servers/illodev/workfile/admin/dockerfile`, a build test, then a
 release published through Glama. That unlocks the security scan,
-deploy-from-Glama, the A grade, and — through "Try in Browser" — the only
-route to the recent-usage criterion.
+deploy-from-Glama, server coherence, tool definition quality and — through
+"Try in Browser" — the only route out of the recent-usage criterion.
 
-The case against is that the container would exist to be scored rather than to
-be run. Workfile is a local-first CLI and stdio server that installs with
-`npx`, and its whole job is to read and write `.project/` in the repository it
-is pointed at. A useful image therefore needs the workspace bind-mounted and
-is mostly a wrapper around that bind mount. Three criteria unlock at once,
-which is the case for; an artifact to version and keep working, for a listing
-whose traffic nobody has measured, is the case against.
+The answer is no, on the grounds that the container would exist to be scored
+rather than to be run. Workfile is a local-first stdio server whose whole job
+is to read and write `.project/` in the repository it is pointed at, and whose
+documented invocation is `npx -y @illodev/workfile mcp`. A hosted image has no
+repository, so every tool call in a browser trial would answer about an empty
+workspace. Seeding a demo workspace into the image would fix that and would
+also duplicate the static demo, which already replays this repository's real
+records and costs nothing to keep current. Buying five score criteria with a
+second demo surface to version is the wrong trade for a listing whose traffic
+nobody has measured.
+
+What would flip this answer is not the score. It is discovery: the Schema tab
+now reads "Server capabilities have not been inspected yet" and lists no
+tools, no prompts and no resources, and the API returns `tools: []`. If that
+is permanent, Workfile is absent from Glama's tool search — a real cost, and a
+different question from a grade. [[T-0141]] carries it, because whether
+inspection is gated on a release or merely pending is not yet known and the
+decision above should not be re-litigated on a guess.
+
+## The badge on the `punkpeye` line
+
+Reconsidered and kept. The badge renders three slots; two are now A and one is
+the ungraded quality score, so it no longer advertises a blank. The bot on
+[#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) asked for
+an evaluation and that request stands unmet, but the line is honest about what
+Glama does and does not know, which is what a badge is for.
 
 ## Acceptance criteria
 
 - [x] `glama.json` exists at the repository root and validates against the
       published schema
-- [ ] The server is claimed on Glama and no longer marked unclaimed
-- [ ] The Dockerfile question is answered in writing, either way
-- [ ] If the answer is no, the `punkpeye` line is reconsidered — the badge
+- [x] The server is claimed on Glama and no longer marked unclaimed
+- [x] The Dockerfile question is answered in writing, either way
+- [x] If the answer is no, the `punkpeye` line is reconsidered — the badge
       advertises a score that will not arrive
 
 ## Activity
@@ -87,6 +103,8 @@ whose traffic nobody has measured, is the case against.
 - 2026-08-02 21:40Z illodev@local#bd44efc7 · released
 - 2026-08-02 21:51Z illodev@local#bd44efc7 · claimed
 - 2026-08-02 21:51Z illodev@local#bd44efc7 · released
+- 2026-08-03 09:26Z illodev@local#bd44efc7 · claimed
+- 2026-08-03 09:32Z illodev@local#bd44efc7 · doing → done
 
 ## Notes
 
@@ -114,3 +132,21 @@ Sign-in itself worked far enough to reach `/complete-profile`, so the account ex
 Nothing to change here. Retry when `curl -o /dev/null -w '%{http_code}' https://static.glama.ai/` stops returning 526; `support@glama.ai` is the address their own release documentation gives.
 
 Worth noting for the decision this card carries: while the site cannot be logged into, the Dockerfile question is moot, since the admin page that configures it is part of the same dead SPA.
+- 2026-08-03 09:30Z illodev@local#bd44efc7 — Claimed, and nobody clicked anything. The evidence is server-rendered, which is why it arrived while the SPA is still down:
+
+    curl -s https://glama.ai/mcp/servers/illodev/workfile/score
+    --> "Author verified — This server has been verified by its author."
+    --> "Has valid glama.json"
+    --> "Maintenance A — 247 commits in the last 12 weeks, last stable release on August 2, 2026"
+    --> "33% profile completion"
+
+    curl -s https://glama.ai/mcp/servers/illodev/workfile
+    --> <span title="Server maintainers are verified by Glama"> beside the illodev link
+
+    curl -o /dev/null -w '%{http_code}' https://static.glama.ai/   --> 526 (still)
+
+So `glama.json` is not only a declaration of who may maintain the listing, it is the claim itself. The card assumed a browser login and there was never one to do; committing a file to a repository only its author can push to is the proof Glama wanted. Recorded in DOC-0004 because it changes the instructions for the next directory, not just this one.
+
+Two other things moved without being touched here. Maintenance went B to A: "lacks stable releases" was the whole complaint and T-0137 plus T-0138 answered it, so the release work paid a second time. And the overview no longer says the server cannot be installed; it now carries an install flow.
+
+One thing moved backwards. The Schema tab reads "Server capabilities have not been inspected yet" and lists no tools, no prompts, no resources, and the API agrees with `tools: []`. An earlier revision of this card recorded that Glama had read 30 tools, 4 resources and 3 prompts from the crawl. `workfile mcp inspect --json` confirms those counts are real on our side, so what is missing is Glama's reading of them, not the surface. Filed as T-0141 rather than solved here, because it is the one argument that could overturn the Dockerfile answer and it deserves a fact instead of a guess.

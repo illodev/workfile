@@ -4,7 +4,7 @@ title: "Registry listings: what each one needs and who can file it"
 kind: reference
 status: current
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-03
 ---
 Workfile ships three artifacts people search for by capability rather than by
 name: an MCP server, a Claude Code plugin and an npm package. This is the list
@@ -58,16 +58,35 @@ being useful, which is the thing the first draft of this document got wrong.
 
 ### Glama — `glama.ai/mcp/servers`
 
-Crawls public GitHub repositories with no submission, and read this one
-accurately: 30 tools, 4 resources, 3 prompts, licence graded A.
+Crawls public GitHub repositories with no submission. A crawl is not an
+evaluation: until the server is claimed it shows quality `–`, no maintenance
+data, "this server cannot be installed", and a stated discoverability penalty
+for being unclaimed.
 
-A crawl is not an evaluation. Until the server is claimed it shows quality
-`–`, no maintenance data, "this server cannot be installed", and a stated
-discoverability penalty for being unclaimed. Claiming is a GitHub login as the
-repository's author and stores no secret. A quality grade costs more: Glama
-scores from a built image, so it wants a Dockerfile configured at
+**Claiming is a file, not a login.** Commit `glama.json` at the repository
+root with `{"$schema": "https://glama.ai/mcp/schemas/server.json",
+"maintainers": ["<github-username>"]}` and the listing verifies itself on the
+next sync — "Author verified", plus a check beside the maintainer name. A
+username inside a repository only its author can push to is the proof Glama
+wants, so there is nothing to click. This document previously said claiming
+meant a browser session as the repository's author; it does not, and
+[[T-0136]] proved it by claiming while Glama's own SPA was down.
+
+`maintainers` is the schema's only property. It does not carry the
+description, the links or the category; those are set in the admin after
+claiming, or inferred by the crawler.
+
+A quality grade costs more, and stays out of reach without a decision:
+Glama scores from a built image, so it wants a Dockerfile configured at
 `/admin/dockerfile`, a build test and a release published through Glama.
-[[T-0136]] carries that decision.
+[[T-0136]] declined it for a local-first stdio server that would have nothing
+to serve in a hosted container. [[T-0141]] carries the one consequence worth
+watching, which is that an unscored server also shows no tools in the Schema
+tab and cannot appear in Glama's tool search.
+
+Two criteria move without touching Glama at all. Maintenance grades partly on
+GitHub Releases — publishing them lifted it B → A — and `glama.json` is a
+criterion in its own right.
 
 The score badge resolves for any repository path — including one that does not
 exist — so seeing a badge render proves nothing about being indexed. The
@@ -164,7 +183,10 @@ robot emoji.
 Its bots then check the submission and label it: `valid-name`, `has-emoji`,
 `has-glama`. The Glama one comes with a request to make sure the server has
 actually been scored, which a badge alone does not achieve. Embedding the
-badge is a promise to go and claim the listing.
+badge is a promise to go and claim the listing — cheap, per the section above.
+Scoring is the part that is not cheap, so expect the badge to render its grades
+with the quality slot still empty, and only embed it once the other slots say
+something.
 
 ## The copy to reuse
 
