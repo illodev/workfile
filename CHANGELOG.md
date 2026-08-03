@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 — 2026-08-03
+
+### Fixed
+
+- A watcher that loses a directory says so instead of reporting health (T-0143)
+
 ## 0.5.1 — 2026-08-03
 
 ### Fixed
