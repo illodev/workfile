@@ -277,6 +277,71 @@ async function sessionStart(input) {
     );
 }
 
+/**
+ * What writes each kind of protocol record.
+ *
+ * The reason string this feeds is the only instruction an agent gets at the
+ * moment it is stopped, and it named the three *card* tools for every record —
+ * so an agent writing a doc or a memory record was handed three tools that
+ * cannot open it, found nothing that fit, and reached for `Edit` again. The
+ * guard asked, the agent retried, and the loop read as a broken permission
+ * mode: a hook's `ask` outranks `bypassPermissions`, correctly, so there was
+ * nothing the user could switch off to escape it either.
+ *
+ * Keyed by the first segment under the protocol root, which is the layout
+ * `config/defaults.ts` ships and the same assumption `buildBoard` already
+ * makes. A test pins these names against the MCP registry: naming a tool that
+ * does not exist is the original failure with extra steps.
+ */
+const RECORD_TOOLS = {
+    cards: {
+        cli: "card",
+        tools: ["project_card_patch", "project_card_write", "project_card_note"]
+    },
+    docs: {
+        cli: "doc",
+        tools: ["project_doc_patch", "project_doc_create", "project_doc_move"]
+    },
+    memory: {
+        cli: "memory",
+        tools: ["project_memory_patch", "project_memory_add"]
+    },
+    changelog: {
+        cli: "changelog",
+        tools: ["project_changelog_patch", "project_changelog_add"]
+    }
+};
+
+function protocolRecordReason(repoPath) {
+    const segment = repoPath.split("/")[1];
+
+    // `.project/agents` is generated and digest-stamped. Pointing it at a
+    // record tool would be worse than the bug being fixed: no such tool opens
+    // it, and a hand edit survives only until the next sync overwrites it.
+    if (segment === "agents") {
+        return (
+            `${repoPath} is a generated agent surface. Change what generates it ` +
+            "and run `workfile agents sync` — a hand edit here is reverted by the " +
+            "next sync, which also checks the digest."
+        );
+    }
+
+    const record = RECORD_TOOLS[segment];
+    if (!record) {
+        return (
+            `${repoPath} is under the protocol root. Use the project CLI or MCP ` +
+            "tools rather than editing it directly, so the write takes a lock and " +
+            "checks the revision."
+        );
+    }
+
+    return (
+        `${repoPath} is a protocol record. Use ${record.tools.join(", ")} or ` +
+        `\`workfile ${record.cli} patch\` so the write takes a lock and checks ` +
+        "the revision."
+    );
+}
+
 async function preToolUse(input) {
     const root = projectDir(input);
     const filePath = input.tool_input?.file_path;
@@ -291,10 +356,7 @@ async function preToolUse(input) {
                 hookSpecificOutput: {
                     hookEventName: "PreToolUse",
                     permissionDecision: "ask",
-                    permissionDecisionReason:
-                        `${repoPath} is a protocol record. Use the project CLI or MCP tools ` +
-                        "(project_card_patch, project_card_write, project_card_note) so the " +
-                        "write takes a lock and checks the revision."
+                    permissionDecisionReason: protocolRecordReason(repoPath)
                 }
             })}\n`
         );
