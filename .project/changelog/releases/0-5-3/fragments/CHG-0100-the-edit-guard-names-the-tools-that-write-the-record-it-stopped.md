@@ -6,6 +6,7 @@ area: core
 visibility: public
 created: 2026-08-03
 updated: 2026-08-03
+cards: [T-0144]
 ---
 Editing a `.md` under the protocol root asks first, so the write goes
 through the lock and the revision check instead of around them. The reason it

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3 — 2026-08-03
+
+### Fixed
+
+- The edit guard names the tools that write the record it stopped (T-0144)
+
 ## 0.5.2 — 2026-08-03
 
 ### Fixed
