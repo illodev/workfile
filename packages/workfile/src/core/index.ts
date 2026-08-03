@@ -26,7 +26,11 @@ export {
 } from "./concurrency.js";
 export { lockIsStale, readLockOwner } from "./locks.js";
 export { createWorkspaceWatcher } from "./watcher.js";
-export { createFileExclusive, writeFileAtomic } from "./filesystem.js";
+export {
+    createFileExclusive,
+    isCreateContention,
+    writeFileAtomic
+} from "./filesystem.js";
 export { discoverFiles, globToRegExp, matchesAnyGlob, normalizeRepoPath } from "./glob.js";
 export { containedPath, readMarkdownTree } from "./paths.js";
 export type { ReadMarkdownTreeOptions } from "./paths.js";

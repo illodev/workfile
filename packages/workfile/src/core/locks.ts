@@ -2,6 +2,7 @@ import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { ConflictError } from "./errors.js";
+import { isCreateContention } from "./filesystem.js";
 
 function sleep(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -78,22 +79,37 @@ export async function withFileLock(
         retryMs = 25,
         metadata = {},
         staleAfterMs = 0,
-        onBrokenLock
+        onBrokenLock,
+        // The opener, overridable only so a refusal can be driven on demand.
+        // The Windows codes below cannot be produced by racing on POSIX, and a
+        // runner losing the race again is not a test.
+        open: openLock = open
     }: any = {}
 ) {
     await mkdir(dirname(path), { recursive: true });
     const deadline = Date.now() + timeoutMs;
     const expiry = staleAfterMs || timeoutMs * 10;
     let handle: Awaited<ReturnType<typeof open>> | null = null;
+    let refusal: any = null;
     while (!handle) {
         try {
-            handle = await open(path, "wx");
-            await handle.writeFile(
+            // Named, because the injected opener is untyped and assigning it
+            // straight into `handle` would widen the binding back to nullable.
+            const opened: Awaited<ReturnType<typeof open>> = await openLock(
+                path,
+                "wx"
+            );
+            handle = opened;
+            await opened.writeFile(
                 `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString(), ...metadata })}\n`,
                 "utf8"
             );
         } catch (error) {
-            if (error?.code !== "EEXIST") throw error;
+            // `EEXIST` is only how POSIX says "somebody holds it"; see
+            // `isCreateContention` for the codes Windows uses for the same
+            // thing. Anything else is a real fault and must not be waited on.
+            if (!isCreateContention(error)) throw error;
+            refusal = error;
 
             const verdict = await lockIsStale(path, { staleAfterMs: expiry });
             if (verdict.stale) {
@@ -113,7 +129,11 @@ export async function withFileLock(
                     {
                         lockPath: path,
                         owner: verdict.owner?.metadata ?? null,
-                        heldForMs: verdict.owner?.ageMs ?? null
+                        heldForMs: verdict.owner?.ageMs ?? null,
+                        // Which refusal ran out the clock. A delete-pending
+                        // lock leaves no owner to report, so without this the
+                        // timeout says nothing at all about what happened.
+                        lastError: refusal?.code ?? null
                     }
                 );
             }

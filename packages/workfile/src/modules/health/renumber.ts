@@ -1,7 +1,11 @@
 import { readFile, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
+import {
+    createFileExclusive,
+    isCreateContention,
+    writeFileAtomic
+} from "../../core/filesystem.js";
 import {
     ConflictError,
     NotFoundError,
@@ -143,12 +147,25 @@ export async function renumberCard(
         "ids",
         `${newId}.lock`
     );
+    // Both creates below can lose to a concurrent allocation, and neither
+    // failure is a fault: the ID check above ran against an index read before
+    // any of this. Reported as the conflict it is, rather than as the raw
+    // errno, which on Windows is not even `EEXIST` — see `isCreateContention`.
+    const contended = (error: any) => {
+        if (!isCreateContention(error)) throw error;
+        throw new ConflictError(
+            "CARD_ID_TAKEN",
+            `${newId} was allocated by another process while renumbering.`,
+            { contention: error.code }
+        );
+    };
+
     await createFileExclusive(
         reservation,
         `${JSON.stringify({ id: newId, pid: process.pid, createdAt: stamp })}\n`
-    );
+    ).catch(contended);
     try {
-        await createFileExclusive(newPath, next);
+        await createFileExclusive(newPath, next).catch(contended);
         await rm(oldPath, { force: true });
     } finally {
         await rm(reservation, { force: true }).catch(() => undefined);
@@ -293,7 +310,18 @@ export async function reslugStaleCardFiles(
                       activityEntry(actor, `renamed file to ${target}`, now)
                   )
                 : content;
-        await createFileExclusive(join(directory, target), trailed);
+        try {
+            await createFileExclusive(join(directory, target), trailed);
+        } catch (error: any) {
+            // `taken` was read before the loop started, so the name can be
+            // claimed underneath us — by another process, or by an earlier
+            // move in this very pass. The contract above is to skip a
+            // collision, and it applies whichever way the collision is
+            // reported: this used to escape as an internal error instead.
+            if (!isCreateContention(error)) throw error;
+            skipped.push({ id: card.id, file: card.file, reason: "name-taken" });
+            continue;
+        }
         await rm(join(directory, card.file), { force: true });
         taken.delete(card.file);
         taken.add(target);

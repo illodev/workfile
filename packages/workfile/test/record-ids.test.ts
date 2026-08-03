@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+
+import { createFileExclusive } from "../dist/src/index.js";
+import { acquireRecordId, reserveRecordId } from "../dist/src/core/record-ids.js";
 
 const execute = promisify(execFile);
 const cli = resolve(fileURLToPath(new URL("../dist/bin/workfile.js", import.meta.url)));
@@ -127,6 +130,134 @@ test("concurrent card creation across processes never mints a duplicate id", asy
             before + WRITERS * ROUNDS,
             "every writer must produce exactly one card: refusing to allocate is not a fix"
         );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/** The failure Windows reports where POSIX reports EEXIST. */
+function refusal(code: string, path: string) {
+    return Object.assign(
+        new Error(`${code}: operation not permitted, open '${path}'`),
+        { code, path, syscall: "open" }
+    );
+}
+
+/**
+ * This is the failure the Windows runner actually hit, at
+ * `.project/.cache/locks/ids/T-0538.lock`: the reservation is a lockfile
+ * created exclusively, and only `EEXIST` counted as "somebody else is
+ * mid-flight on this id". `EPERM` — Windows for a file whose last handle is
+ * still closing — went to `throw error` and reached the user as
+ * `INTERNAL_ERROR: EPERM: operation not permitted`.
+ *
+ * Driven through the injected creator rather than through processes, because
+ * the race that produced it in CI needed four writers over 500 records and
+ * still only fired in one round out of sixteen.
+ */
+test("a reservation refused with EPERM moves on instead of failing the create", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ids-eperm-"));
+    try {
+        const records = join(root, "cards");
+        const locks = join(root, "locks", "ids");
+        await mkdir(records, { recursive: true });
+
+        const refused: string[] = [];
+        const held = await acquireRecordId({
+            directories: [records],
+            prefix: "T",
+            lockDirectory: locks,
+            create: async (path: string, content: string) => {
+                if (refused.length < 2) {
+                    refused.push(path);
+                    throw refusal("EPERM", path);
+                }
+                return createFileExclusive(path, content);
+            }
+        });
+
+        assert.equal(held.id, "T-0003", "each refusal steps to the next id");
+        assert.equal(refused.length, 2);
+        assert.ok(refused[0].endsWith(`T-0001.lock`));
+        assert.equal(
+            JSON.parse(await readFile(held.reservation, "utf8")).id,
+            "T-0003",
+            "the reservation that did succeed is a real held lock"
+        );
+        await held.release();
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a reservation that is never grantable gives up naming the contention", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ids-forever-"));
+    try {
+        const records = join(root, "cards");
+        await mkdir(records, { recursive: true });
+        let attempts = 0;
+
+        await assert.rejects(
+            () =>
+                acquireRecordId({
+                    directories: [records],
+                    prefix: "T",
+                    lockDirectory: join(root, "locks", "ids"),
+                    maxRetries: 5,
+                    create: async (path: string) => {
+                        attempts += 1;
+                        throw refusal("EPERM", path);
+                    }
+                }),
+            (error: any) => {
+                assert.equal(error.code, "RECORD_ID_ALLOCATION_FAILED");
+                // Bounded, and honest about which errno kept refusing: an
+                // unwritable cache directory reads nothing like a queue.
+                assert.equal(error.details.contention, "EPERM");
+                return true;
+            }
+        );
+        assert.equal(attempts, 5, "maxRetries has to bound the contention path");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The durable write is the caller's, and a path collision is how two records
+ * with the same id and title used to be absorbed. Windows refuses that write
+ * with `EPERM` for the same delete-pending reason, so the absorption has to
+ * recognize it too — otherwise the collision becomes a fault.
+ */
+test("a durable write refused with EPERM retries with a fresh reservation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ids-write-"));
+    try {
+        const records = join(root, "cards");
+        await mkdir(records, { recursive: true });
+        const seen: string[] = [];
+
+        const written = await reserveRecordId(
+            {
+                directories: [records],
+                prefix: "T",
+                lockDirectory: join(root, "locks", "ids")
+            },
+            async (id: string) => {
+                seen.push(id);
+                const path = join(records, `${id}-subject.md`);
+                if (seen.length === 1) throw refusal("EPERM", path);
+                await createFileExclusive(path, `id: ${id}\n`);
+                return path;
+            }
+        );
+
+        assert.equal(seen.length, 2, "the refused write must be retried");
+        assert.deepEqual(
+            await readdir(records),
+            ["T-0001-subject.md"],
+            "nothing was written by the refused attempt, so the id is still free"
+        );
+        assert.ok(written.endsWith("T-0001-subject.md"));
     } finally {
         await rm(root, { recursive: true, force: true });
     }

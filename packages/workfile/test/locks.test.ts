@@ -1,16 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import {
+    mkdtemp,
+    open as openFile,
+    readFile,
+    rm,
+    writeFile,
+    mkdir
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+    isCreateContention,
     lockIsStale,
     mapWithConcurrency,
     isResourceExhaustion,
     readLockOwner,
     withFileLock
 } from "../dist/src/index.js";
+
+/** The failure Windows reports where POSIX reports EEXIST. */
+function refusal(code: string, path: string) {
+    return Object.assign(
+        new Error(`${code}: operation not permitted, open '${path}'`),
+        { code, path, syscall: "open" }
+    );
+}
 
 // The lock file has always recorded who holds it. Nothing ever read it, so a
 // lock left behind by a SIGKILL blocked every future write to that record —
@@ -161,6 +177,92 @@ test("the I/O pool bounds concurrency and preserves order", async () => {
         results,
         items.map((item) => item * 2),
         "results must keep input order"
+    );
+});
+
+/**
+ * Windows refuses to create a file whose last handle is still closing, and it
+ * refuses with `EPERM` rather than with `EEXIST`. The lock loop only knew the
+ * POSIX code, so the other one fell through to `throw error` and surfaced as
+ * `INTERNAL_ERROR` — a card creation failing outright where it should have
+ * waited its turn.
+ *
+ * The opener is injected because this cannot be reproduced by racing: it took
+ * four processes, a 500-record corpus and ten rounds to happen once on a
+ * Windows runner, and it did not happen at all on the Node 24 matrix of the
+ * same run. Waiting for a runner to lose that race again is not a test.
+ */
+test("a lock refused with EPERM is waited out, not reported as a fault", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-locks-eperm-"));
+    const path = join(root, "locks", "T-0005.lock");
+    try {
+        let attempts = 0;
+        const result = await withFileLock(path, async () => "written", {
+            retryMs: 1,
+            timeoutMs: 2000,
+            open: async (target: string, flags: string) => {
+                attempts += 1;
+                if (attempts <= 3) throw refusal("EPERM", target);
+                return openFile(target, flags);
+            }
+        });
+
+        assert.equal(result, "written");
+        assert.equal(attempts, 4, "each refusal must cost one retry, no more");
+        await assert.rejects(
+            () => readFile(path, "utf8"),
+            "the lock is still released once the operation finishes"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a lock that is never grantable gives up naming the contention", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-locks-forever-"));
+    const path = join(root, "locks", "T-0006.lock");
+    try {
+        const started = Date.now();
+        await assert.rejects(
+            () =>
+                withFileLock(path, async () => "nope", {
+                    timeoutMs: 120,
+                    retryMs: 5,
+                    open: async (target: string) => {
+                        throw refusal("EPERM", target);
+                    }
+                }),
+            (error: any) => {
+                assert.equal(error.code, "WRITE_LOCK_TIMEOUT");
+                // Without this the report is "operation not permitted", which
+                // reads as a broken installation rather than as a queue.
+                assert.equal(error.details.lastError, "EPERM");
+                return true;
+            }
+        );
+        assert.ok(
+            Date.now() - started < 2000,
+            "the retry has to be bounded by the timeout, not by the errno"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("contention is told apart from a directory that is not writable", () => {
+    for (const code of ["EEXIST", "EPERM", "EBUSY"]) {
+        assert.equal(isCreateContention(refusal(code, "x")), true, code);
+    }
+    for (const code of ["ENOENT", "EROFS", "EISDIR", "ENOSPC"]) {
+        assert.equal(isCreateContention(refusal(code, "x")), false, code);
+    }
+    assert.equal(isCreateContention(new Error("no code")), false);
+    assert.equal(isCreateContention(null), false);
+    // EACCES is the ordinary POSIX "not yours to write in" and must stay a
+    // fault there; on Windows it is one more way of saying delete-pending.
+    assert.equal(
+        isCreateContention(refusal("EACCES", "x")),
+        process.platform === "win32"
     );
 });
 

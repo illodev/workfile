@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { ConflictError } from "./errors.js";
-import { createFileExclusive } from "./filesystem.js";
+import { createFileExclusive, isCreateContention } from "./filesystem.js";
 import { readMarkdownTree } from "./paths.js";
 
 /**
@@ -49,6 +49,14 @@ export interface ReserveRecordIdOptions {
     maxRetries?: number;
     /** Domain-specific failure code. */
     code?: string;
+    /**
+     * How a reservation is written. Defaults to `createFileExclusive`, and
+     * exists as an option only so a refused create can be driven on demand:
+     * the Windows contention this guards against needed four processes and a
+     * 500-record corpus to fire once in sixteen rounds, and never fires at all
+     * on POSIX.
+     */
+    create?: (path: string, content: string) => Promise<void>;
 }
 
 /** A held reservation. The id is unused on disk until `release` is called. */
@@ -73,7 +81,8 @@ export async function acquireRecordId({
     prefix,
     lockDirectory,
     maxRetries = 64,
-    code = "RECORD_ID_ALLOCATION_FAILED"
+    code = "RECORD_ID_ALLOCATION_FAILED",
+    create = createFileExclusive
 }: ReserveRecordIdOptions): Promise<RecordIdReservation> {
     const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(`^${escaped}-(\\d+)`);
@@ -96,17 +105,23 @@ export async function acquireRecordId({
 
     let scan = await observe();
     let sequence = scan.highest + 1;
+    let refusal: any = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt += 1) {
         const id = `${prefix}-${String(sequence).padStart(4, "0")}`;
         const reservation = join(lockDirectory, `${id}.lock`);
         try {
-            await createFileExclusive(
+            await create(
                 reservation,
                 `${JSON.stringify({ id, pid: process.pid, createdAt: new Date().toISOString() })}\n`
             );
         } catch (error: any) {
-            if (error?.code !== "EEXIST") throw error;
+            // `EEXIST` is the POSIX way of saying this; Windows refuses a
+            // delete-pending lockfile with `EPERM` instead, and that code used
+            // to escape here and surface as `INTERNAL_ERROR` — the create
+            // failing outright rather than stepping aside.
+            if (!isCreateContention(error)) throw error;
+            refusal = error;
             // Somebody else is mid-flight on this id.
             sequence += 1;
             continue;
@@ -132,7 +147,11 @@ export async function acquireRecordId({
 
     throw new ConflictError(
         code,
-        `Unable to allocate an ID with prefix ${prefix} after ${maxRetries} retries.`
+        `Unable to allocate an ID with prefix ${prefix} after ${maxRetries} retries.`,
+        // Which refusal used up the attempts. Contention that never clears and
+        // a cache directory nobody can write to produce the same exhaustion
+        // here, and only the code tells them apart.
+        { contention: refusal?.code ?? null }
     );
 }
 
@@ -142,6 +161,10 @@ export async function acquireRecordId({
  * `write` is called while the reservation is held and must perform the durable
  * creation. Throwing `EEXIST` from it retries with a fresh id, which is how a
  * path collision — same id, same title — is absorbed rather than surfaced.
+ * Windows refuses that same write with `EPERM` while the colliding file is
+ * still closing, so the absorption has to recognize both; see
+ * `isCreateContention`. Nothing has been written when either arrives, because
+ * the exclusive create is the first thing every `write` does.
  */
 export async function reserveRecordId<T>(
     options: ReserveRecordIdOptions,
@@ -153,7 +176,7 @@ export async function reserveRecordId<T>(
         try {
             return await write(held.id);
         } catch (error: any) {
-            if (error?.code !== "EEXIST") throw error;
+            if (!isCreateContention(error)) throw error;
         } finally {
             await held.release();
         }

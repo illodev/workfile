@@ -85,7 +85,11 @@ export {
     requireFrontmatter,
     serializeValue
 } from "./core/frontmatter.js";
-export { createFileExclusive, writeFileAtomic } from "./core/filesystem.js";
+export {
+    createFileExclusive,
+    isCreateContention,
+    writeFileAtomic
+} from "./core/filesystem.js";
 export { discoverFiles, globToRegExp, matchesAnyGlob, normalizeRepoPath } from "./core/glob.js";
 export { containedPath, readMarkdownTree } from "./core/paths.js";
 export type { ReadMarkdownTreeOptions } from "./core/paths.js";
