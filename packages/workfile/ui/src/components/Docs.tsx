@@ -37,6 +37,7 @@ import {
     NativeSelectOption
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 import { api } from "../api";
@@ -363,8 +364,16 @@ export function DocsView({
         ].filter((group) => group.docs.length > 0);
     }, [visible]);
 
+    // Below `lg` the list and the reader are one pane at a time, so a default
+    // selection would open a document over the list every visit and leave the
+    // "All documents" control — which clears `selectedId` — with nothing to do,
+    // since the fallback re-picked the first row on the very next render. The
+    // fallback is desktop-only: there the two panes coexist and a blank reader
+    // beside a full list is the odd state.
+    const isMobile = useIsMobile();
     const active =
-        visible.find((document) => document.id === selectedId) || visible[0];
+        visible.find((document) => document.id === selectedId) ||
+        (isMobile ? undefined : visible[0]);
 
     // ------------------------------------------------------------- outline
     const readerRef = useRef<HTMLElement>(null);

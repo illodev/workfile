@@ -17,15 +17,16 @@
 @layer components {
   .typeset {
     font-family: var(--typeset-font-body);
-    font-size: calc(var(--typeset-size) * 1.125);
+    /* One measure everywhere. shadcn/typeset ships a 1.125× bump below 48rem
+       so long-form prose reads larger on a phone; here the reading panes sit
+       in an interface whose cards, rails and metadata are all 11–13px, and a
+       document body a third larger than the tile that links to it read as a
+       different app. The body stays at the base size on every width. */
+    font-size: var(--typeset-size);
     line-height: var(--typeset-leading);
     color: var(--color-foreground, currentColor);
     overflow-wrap: break-word;
     margin-trim: block-start;
-
-    @media (min-width: 48rem), print {
-      font-size: var(--typeset-size);
-    }
 
     --typeset-muted: var(
       --color-muted-foreground,

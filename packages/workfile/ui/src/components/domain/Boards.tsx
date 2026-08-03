@@ -25,6 +25,7 @@ import {
     EmptyTitle
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Accent } from "../Accent";
 import { priorityColor, severityColor, statusColor } from "../../theme";
 import {
@@ -766,6 +767,7 @@ function TimelineRow({
     mode,
     epicId,
     pct,
+    labelWidth,
     onOpen
 }: {
     task: Task;
@@ -773,6 +775,7 @@ function TimelineRow({
     mode: TimelineMode;
     epicId?: string;
     pct: (time: number) => number;
+    labelWidth: number;
     onOpen: (id: string) => void;
 }) {
     const color = statusColor(task.status);
@@ -788,8 +791,8 @@ function TimelineRow({
             <span
                 className="flex min-w-0 items-center gap-2 border-r px-3.5"
                 style={{
-                    width: GANTT_LABEL,
-                    flex: `0 0 ${GANTT_LABEL}px`,
+                    width: labelWidth,
+                    flex: `0 0 ${labelWidth}px`,
                     height: "var(--row-h)"
                 }}
             >
@@ -873,6 +876,14 @@ export function TimelineView({
     onModeChange: (mode: TimelineMode) => void;
     onOpen: (id: string) => void;
 }) {
+    // The label column is 300px of breathing room on a laptop and 300px of a
+    // phone's whole 390 — a chart squeezed into the 90px left over. Narrower
+    // there, and the grid below carries a floor width so the bars keep their
+    // room and the panel scrolls sideways instead of compressing the scale
+    // into an unreadable smear of ticks.
+    const isMobile = useIsMobile();
+    const labelWidth = isMobile ? 168 : GANTT_LABEL;
+    const gridMinWidth = labelWidth + 460;
     /**
      * Kept in `localStorage` rather than the address bar, beside the collapsed
      * columns the flow board stores for the same reason: the preference belongs
@@ -1066,8 +1077,8 @@ export function TimelineView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-none items-center gap-2.5 border-b bg-card px-3.5 py-2">
-                <span className="font-mono text-[11px] text-muted-foreground">
+            <div className="no-scrollbar flex flex-none items-center gap-2.5 overflow-x-auto border-b bg-card px-3.5 py-2">
+                <span className="shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
                     {scheduled.length}{" "}
                     {mode === "actual" ? "recorded" : "scheduled"} ·{" "}
                     {edges.length} dependenc
@@ -1079,7 +1090,7 @@ export function TimelineView({
                             variant="outline"
                             size="sm"
                             aria-label="dates"
-                            className="ml-auto text-[12.5px] font-medium"
+                            className="ml-auto shrink-0 text-[12.5px] font-medium"
                         >
                             dates
                             <span className="font-normal text-muted-foreground">
@@ -1116,7 +1127,7 @@ export function TimelineView({
                             variant="outline"
                             size="sm"
                             aria-label="group"
-                            className="text-[12.5px] font-medium"
+                            className="shrink-0 text-[12.5px] font-medium"
                         >
                             group
                             <span className="font-normal text-muted-foreground">
@@ -1143,7 +1154,10 @@ export function TimelineView({
                 </DropdownMenu>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
-                <div className="relative min-h-full">
+                <div
+                    className="relative min-h-full"
+                    style={{ minWidth: gridMinWidth }}
+                >
                     <div
                         aria-hidden="true"
                         className="sticky top-0 z-[2] flex items-stretch border-b bg-card"
@@ -1152,8 +1166,8 @@ export function TimelineView({
                         <span
                             className="flex items-center border-r px-3.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
                             style={{
-                                width: GANTT_LABEL,
-                                flex: `0 0 ${GANTT_LABEL}px`
+                                width: labelWidth,
+                                flex: `0 0 ${labelWidth}px`
                             }}
                         >
                             card
@@ -1193,7 +1207,7 @@ export function TimelineView({
                         style={{
                             top: SCALE_H,
                             bottom: 0,
-                            left: GANTT_LABEL,
+                            left: labelWidth,
                             right: 0
                         }}
                     >
@@ -1228,8 +1242,8 @@ export function TimelineView({
                                 viewBox={`0 0 100 ${rows.length}`}
                                 className="pointer-events-none absolute top-0 h-full"
                                 style={{
-                                    left: GANTT_LABEL,
-                                    width: `calc(100% - ${GANTT_LABEL}px)`
+                                    left: labelWidth,
+                                    width: `calc(100% - ${labelWidth}px)`
                                 }}
                             >
                                 {edges.map((edge) => {
@@ -1280,6 +1294,7 @@ export function TimelineView({
                                     mode={mode}
                                     epicId={epicIds.get(row.task.id)}
                                     pct={range.pct}
+                                    labelWidth={labelWidth}
                                     onOpen={onOpen}
                                 />
                             ) : (
