@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — 2026-08-03
+
+### Fixed
+
+- Creating records concurrently on Windows waits its turn instead of failing (T-0140)
+- Writing a record while something reads it no longer fails on Windows (T-0142)
+
 ## 0.5.0 — 2026-08-02
 
 ### Added
