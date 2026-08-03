@@ -1,7 +1,7 @@
 ---
 id: T-0140
 title: Concurrent card creation fails with EPERM on Windows instead of retrying
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -52,6 +52,7 @@ from a green suite.
 
 - 2026-08-03 09:44Z illodev@local#bd44efc7 · claimed
 - 2026-08-03 09:53Z illodev@local#bd44efc7 · doing → review
+- 2026-08-03 09:56Z illodev@local#bd44efc7 · review → done
 
 ## Notes
 
@@ -78,6 +79,15 @@ Proven red before green by reverting the predicate to `EEXIST` alone and rebuild
 The refusal is injected rather than raced. The CI failure needed four processes over a 500-record corpus and fired in one round out of sixteen, on one of the two Windows matrices; a test that waits for that is not a test. Both injection points are documented as what they are — `create` on `ReserveRecordIdOptions` and `open` on the lock options — instead of being disguised as features.
 
 Giving up now names the refusal that used up the clock: `WRITE_LOCK_TIMEOUT` carries `details.lastError` and the allocation failure carries `details.contention`. Without it a delete-pending lock reports no owner and no code, so a busy repository and an unwritable cache directory fail identically.
+- 2026-08-03 09:56Z illodev@local#bd44efc7 — Verified on the platform the bug belongs to. Run 30803367500, commit df01a7c:
+
+    check (windows-latest, 22)   success
+    check (windows-latest, 24)   success
+    check (ubuntu-latest, 22 / 24), check (macos-latest, 22 / 24), smoke, codeql   success
+
+That is the first time the injected-refusal tests have executed on Windows, and they exercise the retry loops there rather than only the code that classifies the errno.
+
+Worth stating plainly, because it is the weaker half of the evidence: the original concurrency test also passed on both Windows matrices, and that proves very little on its own. It fired in one round out of sixteen when it caught this, so a single green run is consistent with the bug still being present. The argument for the fix rests on the injected tests, which fail deterministically against the old classification and pass against the new one, on every platform.
 
 ## The audit AC 4 asks for
 
