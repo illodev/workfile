@@ -1,7 +1,7 @@
 ---
 id: T-0143
 title: A directory that falls out of the watch set leaves the watcher claiming health
-status: review
+status: done
 type: task
 priority: medium
 area: core
@@ -74,6 +74,7 @@ red before green. The watcher takes `watch` the same way.
 
 - 2026-08-03 10:25Z illodev@local#bd44efc7 · claimed
 - 2026-08-03 10:30Z illodev@local#bd44efc7 · doing → review
+- 2026-08-03 10:37Z illodev@local#bd44efc7 · review → done
 
 ## Notes
 
@@ -110,4 +111,6 @@ So the assertion was reading a map keyed by the real path with a key built from 
 Fixed by reading the path back out of the stub — the test now asks which path was actually watched instead of asserting which one should have been. That is the more honest shape anyway: the stub records what the code did, and a test that recomputes it is duplicating the logic it is checking.
 
 Nothing in `watcher.ts` changed.
+- 2026-08-03 10:37Z illodev@local#bd44efc7 — Green across all eight jobs on run 30806140455, commit 8a7405b — ubuntu, macos and windows on Node 22 and 24. The four recovery branches run on every platform, since the failure is injected rather than waited for.
 
+Closing on that, with the limit stated: what CI proves is that the recovery logic behaves as specified everywhere, not that a real `fs.watch` handle has ever errored in production. Nothing observed one — that was T-0113's whole finding, and it is why this was carded as the watcher lying about its own health rather than as a Windows bug. The code path is now correct whenever it does fire, and it costs nothing while it does not.
