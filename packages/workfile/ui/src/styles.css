@@ -265,3 +265,19 @@
         background: transparent;
     }
 }
+
+/*
+ * A horizontal control strip that scrolls without a visible gutter.
+ *
+ * Filter chips and view toolbars keep to a single line on a phone and scroll
+ * sideways when they outrun it, the way the board and the tables already do —
+ * but a 10px trough under a 28px row of chips reads as chrome, not as content,
+ * so these scrollers hide the bar while staying swipeable. The overflow is
+ * still keyboard- and wheel-reachable; only the bar itself is gone.
+ */
+@utility no-scrollbar {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}

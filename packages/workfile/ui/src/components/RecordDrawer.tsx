@@ -89,6 +89,12 @@ export function RecordDrawer({
                             aria-label={
                                 expanded ? `Minimize ${label}` : `Maximize ${label}`
                             }
+                            // Below `sm` the drawer is already `max-w-[92vw]`
+                            // whether expanded or not — the two widths collapse
+                            // to the same sliver, so the toggle changes nothing
+                            // a phone can see. Hidden there rather than left as
+                            // an inert control.
+                            className="hidden sm:inline-flex"
                             onClick={() => onExpandedChange(!expanded)}
                         >
                             {expanded ? (

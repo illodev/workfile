@@ -203,12 +203,15 @@ export function HealthView({ onOpen }: { onOpen: (id: string) => void }) {
                 })}
             </div>
 
-            <div className="flex items-center gap-2.5 px-0.5 pt-4 pb-2">
+            {/* `ml-auto` over a flex-1 spacer, and the row wraps: on a phone
+                the two mono strings collided and broke mid-word into a knot of
+                three or four lines. Now the summary keeps its line and the
+                command drops below it cleanly when there is no room. */}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-0.5 pt-4 pb-2">
                 <span className="font-mono text-[11px] text-muted-foreground">
                     grouped by code · {moduleCounts} · checked {checkedAt}
                 </span>
-                <span className="flex-1" />
-                <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                <span className="ml-auto font-mono text-[10.5px] text-muted-foreground/70">
                     workfile doctor --json
                 </span>
             </div>

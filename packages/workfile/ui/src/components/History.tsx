@@ -885,8 +885,17 @@ export function HistoryView({
             [...records].sort((left, right) => {
                 if (left.kind !== right.kind)
                     return left.kind === "change" ? -1 : 1;
-                if (left.kind === "release" && right.kind === "release")
-                    return right.date.localeCompare(left.date);
+                if (left.kind === "release" && right.kind === "release") {
+                    // Date alone is not an order: this demo cuts 0.3.0, 0.4.0
+                    // and 0.5.0 on one day, so a date-only sort left them in
+                    // whatever order the records arrived — 0.3.0 above 0.5.0.
+                    // The id breaks the tie descending, newest release first,
+                    // the same reading the Overview's release tile settled on.
+                    const byDate = right.date.localeCompare(left.date);
+                    return byDate !== 0
+                        ? byDate
+                        : right.id.localeCompare(left.id);
+                }
                 return String(right.updated || "").localeCompare(
                     String(left.updated || "")
                 );
@@ -1102,8 +1111,10 @@ export function HistoryView({
                             <ChevronLeft aria-hidden="true" />
                             All history
                         </Button>
-                        <div className="flex items-center gap-2 font-mono text-[11px]">
-                            <span className="text-primary">{active.id}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px]">
+                            <span className="whitespace-nowrap text-primary">
+                                {active.id}
+                            </span>
                             <span className="text-muted-foreground/60">·</span>
                             <span className="text-muted-foreground/70">
                                 {active.kind}
@@ -1191,18 +1202,24 @@ export function HistoryView({
                                     </span>
                                 </>
                             )}
-                            <span className="flex-1" />
-                            {newFragmentButton}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Close record"
-                                title="Back to the derived changelog"
-                                onClick={() => onSelect("")}
-                            >
-                                <X aria-hidden="true" />
-                            </Button>
+                            {/* The actions ride their own group so they stay
+                                together and wrap as a unit onto a second line
+                                once the metadata fills the first — on a phone
+                                they used to crowd the row and push the close
+                                control off the right edge. */}
+                            <span className="ml-auto flex shrink-0 items-center gap-1">
+                                {newFragmentButton}
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Close record"
+                                    title="Back to the derived changelog"
+                                    onClick={() => onSelect("")}
+                                >
+                                    <X aria-hidden="true" />
+                                </Button>
+                            </span>
                         </div>
 
                         <h2 className="mt-2.5 mb-1 text-[26px] leading-tight font-semibold tracking-tight [text-wrap:pretty]">
@@ -1318,14 +1335,14 @@ export function HistoryView({
                     </>
                 ) : (
                     <>
-                        <div className="flex items-center gap-2.5 border-b pb-3">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b pb-3">
                             <span className="text-[13px] font-semibold">
                                 Derived changelog
                             </span>
                             <span className="font-mono text-[11px] text-muted-foreground">
                                 visibility {renderVisibility} · CHANGELOG.md
                             </span>
-                            <span className="flex-1" />
+                            <span className="ml-auto flex flex-wrap items-center gap-2.5">
                             <ButtonGroup>
                                 {schema.visibilities.map((value) => (
                                     <Button
@@ -1356,6 +1373,7 @@ export function HistoryView({
                                 render --write
                             </Badge>
                             {newFragmentButton}
+                            </span>
                         </div>
                         {rendered.error ? (
                             <Alert

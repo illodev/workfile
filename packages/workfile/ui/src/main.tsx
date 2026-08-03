@@ -410,7 +410,7 @@ function FilterChip({
                     size="sm"
                     aria-label={label}
                     className={cn(
-                        "h-7 gap-1 rounded-full px-2.5 text-xs",
+                        "h-7 shrink-0 gap-1 rounded-full px-2.5 text-xs",
                         value && "border-ring bg-accent"
                     )}
                 >
@@ -1350,18 +1350,25 @@ function App() {
 
                 <div className="flex min-h-0 flex-1">
                     <section className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-                            <span className="text-sm font-medium">
-                                {VIEW_TITLE[view]}
-                            </span>
-                            {viewMeta ? (
-                                <span className="truncate font-mono text-[11px] text-muted-foreground">
-                                    {viewMeta}
+                        {/* Below `sm` the title sits on its own line and the
+                            filters become a single horizontally-scrollable
+                            strip that bleeds to the screen edges — chips used
+                            to wrap into two and three stacked rows that ate the
+                            view's height. From `sm` up the title and the strip
+                            share one line again, the strip pushed right. */}
+                        <div className="flex min-h-10 shrink-0 flex-col gap-2 border-b px-3 py-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+                            <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
+                                <span className="text-sm font-medium">
+                                    {VIEW_TITLE[view]}
                                 </span>
-                            ) : null}
-                            <span className="flex-1" />
+                                {viewMeta ? (
+                                    <span className="truncate font-mono text-[11px] text-muted-foreground">
+                                        {viewMeta}
+                                    </span>
+                                ) : null}
+                            </div>
                             {isWorkView ? (
-                                <>
+                                <div className="no-scrollbar -mx-3 flex items-center gap-2 overflow-x-auto px-3 sm:mx-0 sm:ml-auto sm:overflow-visible sm:px-0">
                                     <FilterChip
                                         label="status"
                                         value={filters.status}
@@ -1458,13 +1465,13 @@ function App() {
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+                                            className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground"
                                             onClick={resetFilters}
                                         >
                                             reset
                                         </Button>
                                     ) : null}
-                                </>
+                                </div>
                             ) : null}
                         </div>
 
