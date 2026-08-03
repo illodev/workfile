@@ -76,17 +76,61 @@ meant a browser session as the repository's author; it does not, and
 description, the links or the category; those are set in the admin after
 claiming, or inferred by the crawler.
 
-A quality grade costs more, and stays out of reach without a decision:
-Glama scores from a built image, so it wants a Dockerfile configured at
-`/admin/dockerfile`, a build test and a release published through Glama.
-[[T-0136]] declined it for a local-first stdio server that would have nothing
-to serve in a hosted container. [[T-0141]] carries the one consequence worth
-watching, which is that an unscored server also shows no tools in the Schema
-tab and cannot appear in Glama's tool search.
+A quality grade costs more, and it is gated on a release. Glama scores from a
+built image: a Dockerfile configured at `/admin/dockerfile`, a build test, then
+a release published through Glama. [[T-0136]] declined that, reasoning the
+container would exist to be scored rather than run — and it named the one thing
+that would flip the answer, which was discovery rather than the grade. It did
+flip. [[T-0141]] settled the open question: **capabilities inspection is gated
+on a Glama release, not an automated job that had merely not run.** Until the
+release existed the Schema tab read "Server capabilities have not been
+inspected yet" and the server could not appear in Glama's tool search.
+
+The objection dissolved rather than being overruled. T-0136 assumed a hosted
+image would have no repository to serve, and the build spec that works clones
+this one:
+
+```json
+["pnpm install --ignore-scripts", "pnpm --filter @illodev/workfile run build:core"]
+```
+
+```json
+["node", "/app/packages/workfile/dist/bin/workfile.js", "mcp", "--root", "/app"]
+```
+
+Glama's template already runs `git clone` into `/app`, so `--root /app` serves
+Workfile's own `.project/` — 298 tracked files. No demo workspace had to be
+seeded into the image, which was the duplication T-0136 refused to pay for.
+Three details that are not obvious:
+
+- `--ignore-scripts` is not optional. `playwright` is a root devDependency and
+  its postinstall downloads browsers.
+- `build:core`, not `build`: the MCP server does not need the UI, and
+  `prepare-bin.ts` already tolerates a missing `dist/ui/static`.
+- The image's `PATH=/app/node_modules/.bin` is useless here. pnpm tries to link
+  the `workfile` bin during install, before `dist/` exists, and warns three
+  times. Use the absolute path to `node`.
+
+**The public API lags the score page.** After the release, the Score tab graded
+all 30 tools and the card badge showed the count, while
+`GET https://glama.ai/api/mcp/v1/servers/illodev/workfile` still returned
+`tools: []`. Both were checked the same day. So an empty `tools` array from that
+endpoint is not evidence that inspection has not run — read the Score tab
+instead, and treat the desync as Glama's rather than something to fix here.
 
 Two criteria move without touching Glama at all. Maintenance grades partly on
 GitHub Releases — publishing them lifted it B → A — and `glama.json` is a
 criterion in its own right.
+
+Tool definition quality is graded per tool across six dimensions: Behavior,
+Conciseness, Completeness, Parameters, Purpose and Usage Guidelines. The first
+grade was `C`, 3.2/5 across 30 tools, and the deficit was entirely in
+Parameters, Completeness and Usage Guidelines while Conciseness scored highest
+of the six. Length is not what it measures: one tool scored 5/5 on Conciseness
+with a 65-character description. What moved it to `A` was declaring structure —
+a `description` on every input property, `enum` on the vocabularies that are
+genuinely closed, `default` where the implementation already had one, and an
+`outputSchema` on every tool. See [[T-0146]].
 
 The score badge resolves for any repository path — including one that does not
 exist — so seeing a badge render proves nothing about being indexed. The
