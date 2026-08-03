@@ -679,6 +679,17 @@ export function createProjectServer(
             ) {
                 events.publish("activity.changed", { epoch: indexStore.epoch });
             }
+        },
+        // A watcher that loses coverage after `start()` had no way to say so:
+        // `watch.state` was published once and the interface stops polling the
+        // moment it hears `watch`. Announced on the same event, so a client
+        // that already stopped polling starts again.
+        onState(state) {
+            watchState = state.mode;
+            events.publish("watch.state", {
+                mode: watchState,
+                directories: state.watchedDirectories
+            });
         }
     });
     // Started on the first subscriber, not at boot. The watcher exists to

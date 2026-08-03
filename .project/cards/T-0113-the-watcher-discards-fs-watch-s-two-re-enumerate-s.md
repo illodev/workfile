@@ -1,14 +1,14 @@
 ---
 id: T-0113
 title: The watcher discards fs.watch's two re-enumerate signals
-status: deferred
+status: discarded
 type: bug
 priority: low
 area: core
-scope: [packages/workfile/src/core/watcher.ts]
+scope: [.project/cards]
 related: [T-0109]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-03
 ---
 
 Found while fixing [[T-0109]]. Not the cause of that flake, and stated as
@@ -58,6 +58,8 @@ before anything is built on the assumption that they do.
 - 2026-08-02 18:59Z illodev@local#aed59c5e · released
 - 2026-08-02 19:12Z illodev@local#aed59c5e · claimed
 - 2026-08-02 19:12Z illodev@local#aed59c5e · released
+- 2026-08-03 10:23Z illodev@local#bd44efc7 · claimed
+- 2026-08-03 10:23Z illodev@local#bd44efc7 · doing → discarded
 
 ## Notes
 
@@ -141,3 +143,21 @@ closes as `discarded`, one non-zero reading and it becomes a real fix.
 
 First card in this repository to sit in either state, so the distinction is
 worth having got right rather than close enough.
+- 2026-08-03 10:23Z illodev@local#bd44efc7 — The bar this card set has been met, twice over, and it splits the card rather than closing it whole.
+
+Every Windows job of every CI run since the counters shipped, read out of the job logs:
+
+    13 runs, 26 jobs on windows-latest 22 and 24, 2026-08-02 to 2026-08-03
+    {"nameless":0,"errors":0} in all 26
+
+The bar was "roughly ten Windows jobs of ordinary work". Every one of these ran the suite, which writes in bursts and drives a server, and neither branch fired once.
+
+So the first criterion is answered and the answer is no: `ReadDirectoryChangesW` named every event it delivered on these runners. Node's documentation says `filename` is not guaranteed, and that remains true, but a fix written from the documentation rather than from an observation is exactly what the third criterion refuses. Discarded on evidence, with the counters left in place — a single non-zero reading in a future run is a new card with a real trigger, and it costs nothing to keep watching.
+
+The second criterion is a different matter, and is why this card does not simply close. It was written as a Windows question and it is not one:
+
+    handle.on("error", () => { dropped.errors += 1; handle.close(); watchers.delete(relativeDirectory); });
+
+Nothing there is platform-specific. Any error on any established handle drops a directory out of the watch set while `mode` still reports `"watch"` and `/api/v2/metrics` still reports health — and [[T-0112]] has since made the interface act on that mode, so the lie now has a consumer. The vocabulary to tell the truth already exists a few lines below, where a watcher that cannot arm sets `mode = "unavailable"`.
+
+The reason this card deferred rather than fixing — "a fix would ship unverified" — has also stopped being true since it was written. [[T-0140]] and [[T-0142]] both drove failures this machine cannot produce by injecting the primitive, and the watcher takes `watch` the same way. Carried to [[T-0143]] on those terms.

@@ -2,6 +2,7 @@ import { realpath, watch } from "node:fs";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
+import { exists } from "./fs-utils.js";
 import { canDescendInto, normalizeRepoPath } from "./glob.js";
 
 /**
@@ -56,13 +57,21 @@ export function createWorkspaceWatcher(
     workspace,
     {
         onChange,
+        /** Called when the watcher's own verdict about itself changes. */
+        onState,
         debounceMs = 120,
         maxDebounceMs = 1000,
         maxDirectories = 4096,
         // Above this many paths in one batch, the change is reported as a reset
         // rather than a list: a `git checkout` touching a thousand records is
         // not something a consumer should try to apply record by record.
-        resetThreshold = 200
+        resetThreshold = 200,
+        /** Re-establish attempts per directory before the watcher gives up. */
+        maxRecoveries = 3,
+        // The primitive, overridable only so a dead handle can be delivered on
+        // purpose. Neither branch that handles one is reachable on Linux, and
+        // twenty-six Windows jobs never produced one either; see T-0113.
+        watch: watchImpl = watch
     }: any = {}
 ) {
     const protocolRoot = normalizeRepoPath(workspace.config.storage.root);
@@ -85,22 +94,24 @@ export function createWorkspaceWatcher(
     const pending = new Set<string>();
     /**
      * The two ways `fs.watch` says "something changed and I cannot tell you
-     * what", counted rather than acted on.
+     * what". One is counted and dropped; the other is answered.
      *
      * `nameless` is a callback with no filename — libuv's Windows backend
      * emits one when `ReadDirectoryChangesW` completes without being able to
-     * enumerate the changes, which is the platform asking for a re-scan.
-     * `errors` is a directory handle failing, after which nothing re-watches
-     * it and the reported mode still says everything is fine.
+     * enumerate the changes, which is the platform asking for a re-scan. It is
+     * still dropped, on evidence rather than on principle: twenty-six Windows
+     * jobs across thirteen CI runs reported zero, and Linux names every event
+     * of this shape. The counter stays, so a first sighting is a fact rather
+     * than an argument. See T-0113.
      *
-     * Both are dropped today. Measured on Linux before counting them: deleting
-     * a watched directory reports `rename` with a name and never fires `error`,
-     * and a burst of 20 000 writes produced 40 000 events with not one missing
-     * a name. So neither branch can be exercised on the machine this is
-     * developed on, and a fix for them would ship unverified — which is what
-     * these counters exist to change.
+     * `errors` is a directory handle failing. That one is acted on now — see
+     * `recover` — because it is not a platform quirk at all: any error, from
+     * any cause, used to drop a directory out of the watch set while the mode
+     * went on reporting health.
      */
     const dropped = { nameless: 0, errors: 0 };
+    /** Re-establish attempts spent per directory, so a flapping handle ends. */
+    const recoveries = new Map<string, number>();
     let timer: ReturnType<typeof setTimeout> | null = null;
     let firstPendingAt = 0;
     let closed = false;
@@ -143,7 +154,7 @@ export function createWorkspaceWatcher(
         const absolute = resolve(watchRoot, relativeDirectory);
         let handle;
         try {
-            handle = watch(absolute, { persistent: false }, (_event, name) => {
+            handle = watchImpl(absolute, { persistent: false }, (_event, name) => {
                 if (!name) {
                     dropped.nameless += 1;
                     return;
@@ -170,8 +181,51 @@ export function createWorkspaceWatcher(
             dropped.errors += 1;
             handle.close();
             watchers.delete(relativeDirectory);
+            void recover(relativeDirectory);
         });
         watchers.set(relativeDirectory, handle);
+    }
+
+    /**
+     * Stops claiming to be watching.
+     *
+     * The interface stops polling the moment the server says `watch`, and
+     * `watch.state` is published once, at start. So a watcher that loses
+     * coverage later has to say so out loud or the UI sits on a stream that
+     * will not deliver — the exact failure its own fallback exists to prevent.
+     * Said once: a tree falling apart is one verdict, not one per directory.
+     */
+    function degrade() {
+        if (mode === "unavailable") return;
+        mode = "unavailable";
+        onState?.({ mode, watchedDirectories: watchers.size });
+    }
+
+    /**
+     * Answers a dead directory handle.
+     *
+     * A handle that fails on a directory which no longer exists is not a
+     * broken promise: there is nothing left to report and dropping it is
+     * right. A handle that fails on a directory that is still there is a
+     * broken promise, and there are only two honest answers — re-establish the
+     * watch, or stop saying `watch`.
+     *
+     * A recovered directory also reports a `reset`, because whatever happened
+     * while it was unwatched was never delivered and a consumer that trusts
+     * the stream is now behind. Bounded, because a handle that dies as fast as
+     * it is created would otherwise re-establish forever.
+     */
+    async function recover(relativeDirectory) {
+        if (closed) return;
+        if (!(await exists(resolve(watchRoot, relativeDirectory)))) return;
+
+        const spent = (recoveries.get(relativeDirectory) ?? 0) + 1;
+        recoveries.set(relativeDirectory, spent);
+        if (spent > maxRecoveries) return degrade();
+
+        watchDirectory(relativeDirectory);
+        if (!watchers.has(relativeDirectory)) return degrade();
+        onChange?.({ type: "reset", count: 0, paths: [] });
     }
 
     async function adopt(parent) {
@@ -223,7 +277,7 @@ export function createWorkspaceWatcher(
                 try {
                     await mkdir(probeDirectory, { recursive: true });
                     await writeFile(probePath, "probe", { flag: "w" });
-                    handle = watch(probeDirectory, { persistent: false }, () =>
+                    handle = watchImpl(probeDirectory, { persistent: false }, () =>
                         done(true)
                     );
                     handle.on("error", () => done(false));

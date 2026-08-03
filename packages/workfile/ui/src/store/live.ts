@@ -90,8 +90,11 @@ export function createLiveConnection({
             serverId = data.serverId;
         });
 
-        // Sent once the watcher settles, and again if a later attempt succeeds
-        // where an earlier one failed.
+        // Sent once the watcher settles, again if a later attempt succeeds
+        // where an earlier one failed, and again if it loses coverage while
+        // running — a directory whose handle dies and cannot be re-established
+        // arrives here rather than leaving this client on a stream that has
+        // quietly stopped covering part of the tree.
         source.addEventListener("watch.state", (event) => {
             const data = JSON.parse((event as MessageEvent).data || "{}");
             applyWatchState(data.mode);
