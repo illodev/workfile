@@ -1,14 +1,12 @@
 ---
 id: T-0142
 title: Every atomic write ends in a rename Windows can refuse
-status: doing
+status: done
 type: task
 priority: medium
 area: core
 created: 2026-08-03
 updated: 2026-08-03
-claimed_by: "illodev@local#bd44efc7"
-claimed_at: "2026-08-03T09:59:44.034Z"
 scope: [packages/workfile/src/core/filesystem.ts, packages/workfile/src/server/http.ts, packages/workfile/test]
 ---
 
@@ -62,6 +60,7 @@ removes it, so this is a correctness question, not a litter one.
 ## Activity
 
 - 2026-08-03 09:59Z illodev@local#bd44efc7 · claimed
+- 2026-08-03 10:11Z illodev@local#bd44efc7 · doing → done
 
 ## Notes
 
@@ -95,3 +94,18 @@ Proven red before green by making the predicate return false:
 One test in that file proves nothing locally and is kept anyway: "a reader that lets go mid-write does not cost the write" opens the destination for real, releases it after 120ms, and asserts the write lands. On POSIX the rename never noticed the handle, so it passes either way. On Windows it is the entire scenario, and CI is where it counts.
 
 The probe was deleted once it had answered. Its numbers live in the comment at the top of `atomic-writes.test.ts`, where the next person to touch the retry will find them.
+- 2026-08-03 10:11Z illodev@local#bd44efc7 — Verified on Windows, and the red half of the proof came from the probe itself.
+
+Run 30804312704, commit 4b94931, all eight jobs green. The atomic-write tests ran on the Windows matrices rather than being skipped there:
+
+    ok 15 - a rename refused while somebody reads the destination is waited out
+    ok 16 - a destination held forever fails with its own errno, bounded
+    ok 17 - a destination nobody may write to fails at once, without waiting
+    ok 19 - a reader that lets go mid-write does not cost the write
+    ok 20 - a rename refusal is told apart from a disk that is full
+
+Test 19 is the one that matters and it closes the loop across platforms. The probe ran the *old* `writeFileAtomic` on those same runners and reported `node reader (fs.open r) --> EPERM rename`; test 19 runs the new one against a reader that holds the destination for 120ms and lands the write. Same platform, same scenario, opposite outcomes, before and after.
+
+Test 17 also confirms that the permanent case is real on Windows and not only on POSIX: `chmod 0o444` sets the read-only attribute there, `access(W_OK)` sees it, and the write fails on the first attempt without spending the window.
+
+Merged to main as #11. The branch carried the probe as its own commit so the experiment stays legible in the history, and the fix commit deletes it.
