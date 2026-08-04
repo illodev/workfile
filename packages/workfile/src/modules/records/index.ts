@@ -81,7 +81,11 @@ export function recordReferences(record) {
     const explicit = [];
     if (record.kind === "card") {
         if (record.parent) explicit.push(record.parent);
-        explicit.push(...(record.depends || []), ...(record.related || []));
+        explicit.push(
+            ...(record.depends || []),
+            ...(record.related || []),
+            ...(record.origin || [])
+        );
     } else if (record.kind === "doc") {
         explicit.push(...(record.related || []), ...(record.supersedes || []));
     } else if (record.kind === "change") {

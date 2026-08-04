@@ -56,10 +56,35 @@ one needs to find the correction where the mistake was.
 
 Exit codes: `3` stale revision · `2` configuration error · `1` validation / not found.
 
+## Accepted spellings
+
+The dispatcher answers to more words than this reference spells. Each pair below
+reaches the same code — there is no behavioural difference, and neither spelling
+is deprecated. The left column is what the rest of this document uses.
+
+| Documented | Also accepted |
+| --- | --- |
+| `workfile doc …` | `workfile docs …` |
+| `workfile changelog …` | `workfile history …` |
+| `workfile ui` | `workfile serve` |
+| `workfile agents check` | `workfile agents status` |
+| `workfile ci check` | `workfile ci status` |
+| `workfile changelog add` | `workfile changelog create` |
+| `workfile memory add` | `workfile memory create` |
+| `workfile claude install` | `workfile claude sync` |
+| `workfile mcp serve` | `workfile mcp stdio` |
+
+They are listed because an alias nobody documents is one nobody can rely on: it
+resolves today, it is not in `--help`, and the only way to learn it is to read
+the dispatcher. A test requires every subcommand the binary accepts to be named
+somewhere in this file, so a new spelling that skips this table fails the suite
+rather than arriving undocumented.
+
 ## Workspace
 
 ```bash
 workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
+workfile version                # the installed package version, one line
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
 workfile doctor --new              # only what appeared since the baseline
@@ -333,6 +358,26 @@ produced it. Resolution order: an explicit `--actor`, then `$WORKFILE_ACTOR`, th
 because two agent sessions in one checkout are two actors and a shared username
 would let them silently take each other's claims. Set `$WORKFILE_ACTOR` to pin a
 stable name.
+
+## Claude Code
+
+```bash
+workfile claude install [--dry-run] [--force]
+workfile claude check [--json]
+```
+
+`install` writes the Claude Code surface into the repository — the MCP server
+registration, the slash commands, the skill and the session hooks — as managed
+blocks a later resync updates without touching anything around them. `check`
+reports which of them are stale and exits `1` when any is, which is what makes
+it usable in CI.
+
+`workfile claude` with no subcommand runs `check`, because reporting is the
+safe default for a word that otherwise writes files.
+
+Neither command is what installs the *package* into a Claude Code session:
+a client reads `.mcp.json` and starts the server itself. See
+[mcp.md](mcp.md) for what `install` writes and what each hook does.
 
 ## CI templates
 

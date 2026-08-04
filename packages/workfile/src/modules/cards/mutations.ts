@@ -427,6 +427,7 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
         ...(input.effort ? { effort: input.effort } : {}),
         ...(input.scope?.length ? { scope: input.scope } : {}),
         ...(input.related?.length ? { related: input.related } : {}),
+        ...(input.origin?.length ? { origin: input.origin } : {}),
         ...(input.start ? { start: input.start } : {}),
         ...(input.due ? { due: input.due } : {}),
         ...(input.claimed_by ? { claimed_by: input.claimed_by } : {}),

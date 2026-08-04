@@ -320,6 +320,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--effort",
         "--json-input",
         "--milestone",
+        "--origin",
         "--parent",
         "--priority",
         "--related",
@@ -1340,6 +1341,9 @@ async function cardCommand(workspace, action) {
                 : {}),
             ...(listOption("--related")
                 ? { related: listOption("--related") }
+                : {}),
+            ...(listOption("--origin")
+                ? { origin: listOption("--origin") }
                 : {}),
             ...(axisOptions("--axis") ? { axes: axisOptions("--axis") } : {})
         };

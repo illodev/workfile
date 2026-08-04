@@ -995,7 +995,11 @@ const CREATE_FLAG_COVERAGE = {
     scope: ["--scope", "packages/api,packages/sdk"],
     start: ["--start", "2026-08-01"],
     due: ["--due", "2026-08-31"],
-    related: ["--related", "T-0001"]
+    related: ["--related", "T-0001"],
+    // Any record id, not only a card: a decision spawns work as often as a
+    // card does, and restricting the edge to cards throws away the half of the
+    // provenance tree that explains why the work exists.
+    origin: ["--origin", "T-0001,ADR-0001"]
 };
 
 test("card create reaches every field the mutation accepts", async () => {
@@ -1038,6 +1042,7 @@ test("card create reaches every field the mutation accepts", async () => {
         assert.deepEqual(created.tags, ["alpha", "beta"]);
         assert.deepEqual(created.scope, ["packages/api", "packages/sdk"]);
         assert.deepEqual(created.related, ["T-0001"]);
+        assert.deepEqual(created.origin, ["T-0001", "ADR-0001"]);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

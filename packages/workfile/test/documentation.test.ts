@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { createTestWorkspace } from "./support/workspace.ts";
+
 /**
  * The shipped documentation must not name things that do not exist.
  *
@@ -17,10 +19,21 @@ import test from "node:test";
 const repoRoot = new URL("../../../", import.meta.url);
 const packageRoot = new URL("../", import.meta.url);
 
-/** Documentation that reaches a reader: published docs plus the READMEs. */
+/**
+ * Documentation that reaches a reader: published docs plus the READMEs.
+ *
+ * SECURITY.md was missing from this list until T-0149, and it was the one file
+ * with a broken link — its only link, to the threat model, resolved to a path
+ * that does not exist. GitHub renders it in the Security tab, so the 404 was on
+ * the page whose whole job is telling a reporter what is in scope. It is also
+ * outside `docs.sources` in `project.config.mjs`, so the freshness tracking
+ * never saw it either. A document nothing reads is where this class of defect
+ * accumulates.
+ */
 const DOCS: ReadonlyArray<readonly [string, URL]> = [
     ["README.md", repoRoot],
     ["AGENTS.md", repoRoot],
+    ["SECURITY.md", repoRoot],
     ["packages/workfile/README.md", repoRoot],
     ["packages/search-local/README.md", repoRoot],
     ["docs/cli.md", packageRoot],
@@ -191,6 +204,41 @@ test("every test and script file named in the docs exists", async () => {
             assert.ok(found, `${path} names ${named}, which does not exist`);
         }
     }
+});
+
+/**
+ * A relative link that resolves to nothing is a 404 with a confident label.
+ *
+ * SECURITY.md pointed at `docs/security.md`, which reads correctly and does not
+ * exist: the file is `packages/workfile/docs/security.md`, and the repository
+ * root has no `docs/` at all. It survived because it is the kind of mistake
+ * that only shows when somebody clicks — the path is plausible, the link text
+ * is right, and every other check in this file reads commands rather than
+ * links.
+ *
+ * Anchors are stripped rather than verified. A missing file is unambiguous; a
+ * missing heading depends on how the renderer slugifies, and a check that
+ * guesses at that would fail on correct links.
+ */
+test("every relative link in the docs resolves", async () => {
+    const broken: string[] = [];
+    let checked = 0;
+    for (const [path, base] of DOCS) {
+        const document = new URL(path, base);
+        const text = await readFile(document, "utf8");
+        for (const match of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+            const target = match[1];
+            if (/^(?:https?:|mailto:|#)/.test(target)) continue;
+            const [file] = target.split("#");
+            if (!file) continue;
+            checked += 1;
+            if (existsSync(new URL(file, document))) continue;
+            const line = text.slice(0, match.index).split("\n").length;
+            broken.push(`${path}:${line} links ${target}, which does not exist`);
+        }
+    }
+    assert.ok(checked > 10, `resolved only ${checked} links; the scan broke`);
+    assert.deepEqual(broken, [], `\n${broken.join("\n")}\n`);
 });
 
 /**
@@ -381,6 +429,75 @@ test("cli.md's option tables state the contract the binary enforces", async () =
 });
 
 /**
+ * The reference must name every subcommand the binary accepts.
+ *
+ * Every check above runs in one direction: a doc must not teach something that
+ * does not exist. Nothing asked the opposite question, and the opposite
+ * question had answers — `docs/cli.md` documented neither `workfile version`
+ * nor the whole `claude` family, the command that writes the Claude Code
+ * surface into a repository. Six subcommand aliases resolved in the dispatcher
+ * and appeared in no document at all: `agents status`, `ci status`,
+ * `changelog create`, `memory create`, `claude sync`, `mcp stdio`.
+ *
+ * An undocumented alias is worse than a missing one. It works, so somebody
+ * uses it; it is in no reference, so nobody can be told it is supported; and
+ * the only way to learn it is to read the dispatcher. `cli.md` now carries an
+ * "Accepted spellings" table and this check keeps it whole.
+ *
+ * Deliberately no allowlist. An exception list is how the forward checks would
+ * have rotted too — the first hard case gets added to it and the second
+ * follows.
+ */
+test("cli.md names every subcommand the dispatcher accepts", async () => {
+    const { accepts } = await dispatchTable();
+    const text = await readFile(new URL("docs/cli.md", packageRoot), "utf8");
+    const missing = [...accepts.keys()].filter((key) => !text.includes(key)).sort();
+    assert.deepEqual(
+        missing,
+        [],
+        `\ndocs/cli.md never names: ${missing.join(", ")}\n`
+    );
+});
+
+/**
+ * Every configuration key must be documented somewhere a reader can find it.
+ *
+ * Three were not, in any document, either README or the example config:
+ * `cards.activityTrail`, `changelog.releasePrefix` and `mcp.maxMessageBytes`.
+ * A key nobody documents is a key nobody sets — it has a default, the default
+ * is usually right, and the one project that needs it different has no way to
+ * learn it exists short of reading `defaults.ts`.
+ *
+ * Membership only, deliberately. Checking that a description is *accurate* is
+ * not something a test can do, and a check that pretended to would be worse
+ * than none. What this catches is the whole class that actually happened:
+ * a key added to the schema and to nothing else.
+ */
+test("every configuration key is named in the documentation", async () => {
+    const { DEFAULT_CONFIG } = await import("../dist/src/index.js");
+    const leaves = (value, prefix = "") =>
+        Object.entries(value).flatMap(([key, nested]) =>
+            nested && typeof nested === "object" && !Array.isArray(nested)
+                ? leaves(nested, `${prefix}${key}.`)
+                : [`${prefix}${key}`]
+        );
+    const keys = leaves(DEFAULT_CONFIG);
+    assert.ok(keys.length > 40, `read ${keys.length} config keys; the walk broke`);
+
+    const corpus = [
+        ...(await documents()).map(([, text]) => text),
+        await readFile(new URL("project.config.example.mjs", packageRoot), "utf8")
+    ].join("\n");
+
+    // The leaf, not the dotted path: docs name `releasePrefix` in prose and
+    // `changelog.releasePrefix` in a table, and both are the key documented.
+    const orphans = keys
+        .filter((key) => !new RegExp(`\\b${key.split(".").pop()}\\b`).test(corpus))
+        .sort();
+    assert.deepEqual(orphans, [], `\nundocumented config keys: ${orphans.join(", ")}\n`);
+});
+
+/**
  * The same rename, on the surfaces that are compiled and shipped rather than
  * read: the usage block printed by `--help` and the diagnostics that tell a
  * user what to run next.
@@ -421,12 +538,22 @@ test("every stated MCP invocation agrees with the generated one", async () => {
     const generated = claudeMcpFile();
     const args = generated.mcpServers["workfile"].args;
 
-    for (const path of ["README.md", "packages/workfile/README.md"]) {
+    // `docs/mcp.md` is the fourth copy. It stated the registration in prose —
+    // "Registers `workfile-mcp`" — which stayed wrong from 0.4.0, when T-0116
+    // moved the invocation to `npx -y @illodev/workfile mcp`, until T-0153. A
+    // sentence is not something this check can read, so mcp.md now states the
+    // configuration as a block like the others and joins the comparison
+    // instead of being pinned by a second, weaker rule.
+    for (const [path, base] of [
+        ["README.md", repoRoot],
+        ["packages/workfile/README.md", repoRoot],
+        ["docs/mcp.md", packageRoot]
+    ] as ReadonlyArray<readonly [string, URL]>) {
         // Normalized because Windows checks these out with CRLF, and a fence
         // matched on a bare \n finds nothing there. The first version of this
         // test passed everywhere but the Windows runner, which is where the
         // repository's line endings stop being the ones it was written with.
-        const content = (await readFile(new URL(path, repoRoot), "utf8")).replaceAll(
+        const content = (await readFile(new URL(path, base), "utf8")).replaceAll(
             "\r\n",
             "\n"
         );
@@ -468,4 +595,175 @@ test("every stated MCP invocation agrees with the generated one", async () => {
     );
     assert.ok(positional, "server.json declares no positional argument");
     assert.equal(args[args.length - 1], positional.value);
+});
+
+/**
+ * The names the package publishes, read out of what it publishes.
+ *
+ * Values come from importing the built module, types from parsing its
+ * declaration file — a `.d.ts` erases at runtime, so `ProjectConfig` is
+ * unreachable through `import()` and a check that only imported would call
+ * every documented type a phantom.
+ *
+ * Keyed by the subpath a doc writes, because the exports map is the contract:
+ * README.md imports `createSemanticSearchProvider` from
+ * `@illodev/workfile/search`, and resolving that against the root's exports
+ * would pass for the wrong reason.
+ */
+async function publishedNames(subpath: string) {
+    const { exports: map } = JSON.parse(
+        await readFile(new URL("package.json", packageRoot), "utf8")
+    );
+    const entry = map[subpath];
+    if (!entry) return null;
+
+    const values = new Set(
+        Object.keys(await import(new URL(entry.import, packageRoot).href))
+    );
+    const declaration = await readFile(new URL(entry.types, packageRoot), "utf8");
+    const types = new Set<string>();
+    // `export type { A, B as C } from "./types.js"` re-exports, plus anything
+    // the file declares itself.
+    for (const block of declaration.matchAll(/export type \{([^}]*)\}/g)) {
+        for (const specifier of block[1].split(",")) {
+            const name = specifier.trim().split(/\s+as\s+/).pop();
+            if (name) types.add(name);
+        }
+    }
+    for (const declared of declaration.matchAll(/export (?:interface|type) (\w+)/g)) {
+        types.add(declared[1]);
+    }
+    return { values, types };
+}
+
+/**
+ * A doc must not name an MCP tool the server does not expose.
+ *
+ * SPEC section 23 catalogued fourteen "recommended tools" in a verb-first
+ * naming scheme — `project_list_cards`, `project_run_doctor` — and thirteen of
+ * them never existed. The server shipped noun-first (`project_card_list`) and
+ * grew to thirty tools; the section was never reconciled, so the normative
+ * document named none of the tools a client can actually call.
+ *
+ * The sibling checks above already open SPEC.md five times and never saw it:
+ * `INVOCATION` matches `workfile <word>`, and a tool name is not an
+ * invocation. `docs/mcp.md` names all thirty and is the document that was
+ * right, which is why this is measured against `listMcpTools` rather than
+ * against mcp.md.
+ */
+test("no doc names an MCP tool the server does not expose", async () => {
+    const { listMcpTools } = await import("../dist/src/index.js");
+    const exposed = new Set(listMcpTools().map((tool) => tool.name));
+    // A failed import or a renamed export would empty the set and report every
+    // documented tool as a phantom. Fail as what it is instead.
+    assert.ok(
+        exposed.size > 20 && exposed.has("project_search"),
+        `read ${exposed.size} tools from listMcpTools; the extraction broke`
+    );
+
+    const unknown: string[] = [];
+    for (const [path, text] of await documents()) {
+        text.split("\n").forEach((line, index) => {
+            for (const [name] of line.matchAll(/\bproject_[a-z_]+/g)) {
+                if (exposed.has(name)) continue;
+                unknown.push(`${path}:${index + 1} names \`${name}\``);
+            }
+        });
+    }
+    assert.deepEqual(unknown, [], `\n${unknown.join("\n")}\n`);
+});
+
+/**
+ * A doc must not import a name the package does not export.
+ *
+ * SPEC section 16.2 stated the programmatic API as two copyable blocks, and
+ * six of the names in them do not exist: `createProject`, `migrateProject` and
+ * `buildIndex` are really `initializeProject`, `applyLegacyMigration` and
+ * `buildProjectIndex`, while the types `Card`, `ManagedDocument` and
+ * `ChangeFragment` are `CardRecord`, `DocumentRecord` and `ChangeRecord`.
+ *
+ * `test/types/public-api.ts` typechecks the API that exists. Nothing read the
+ * API a reader is told exists, and the two had disagreed since 0.1.0.
+ *
+ * Deliberately name resolution rather than compilation: fenced blocks are
+ * fragments, most would not typecheck on their own, and a harness reporting
+ * forty false positives is a harness somebody deletes.
+ */
+test("no doc imports a name the package does not export", async () => {
+    const specifiers =
+        /(?:import|export)\s+(type\s+)?\{([^}]*)\}\s+from\s+"(@illodev\/workfile(?:\/[a-z-]+)?)"/g;
+    const wrong: string[] = [];
+    let checked = 0;
+
+    for (const [path, text] of await documents()) {
+        for (const statement of text.matchAll(specifiers)) {
+            const [, typeOnly, block, module] = statement;
+            const subpath = module.replace("@illodev/workfile", ".") as string;
+            const published = await publishedNames(subpath === "." ? "." : subpath);
+            if (!published) {
+                wrong.push(`${path} imports from \`${module}\`, an unpublished subpath`);
+                continue;
+            }
+            const line = text.slice(0, statement.index).split("\n").length;
+            for (const raw of block.split(",")) {
+                const specifier = raw.trim();
+                if (!specifier) continue;
+                const name = specifier.replace(/^type\s+/, "").split(/\s+as\s+/)[0];
+                const isType = Boolean(typeOnly) || /^type\s/.test(specifier);
+                checked += 1;
+                if (isType ? published.types.has(name) : published.values.has(name)) {
+                    continue;
+                }
+                wrong.push(
+                    `${path}:${line} imports ${isType ? "type " : ""}\`${name}\` ` +
+                        `from \`${module}\`, which does not export it`
+                );
+            }
+        }
+    }
+    // Every documented block sits inside a fence; if the pattern stops matching
+    // them the test passes on an empty set and means nothing.
+    assert.ok(checked > 10, `resolved only ${checked} specifiers; the scan broke`);
+    assert.deepEqual(wrong, [], `\n${wrong.join("\n")}\n`);
+});
+
+/**
+ * A doc must not hang a module repository off the workspace.
+ *
+ * The second half of section 16.2 taught `workspace.cards.list(query)`,
+ * `workspace.docs.search(query)`, `workspace.memory.create(kind, input)` and
+ * `workspace.changelog.createFragment(input)` — nine lines describing an
+ * object shape that has never existed. `ProjectWorkspace` carries
+ * configuration and paths; the real API is free functions taking a workspace,
+ * `loadCards(workspace)` and `createCard(workspace, input)`.
+ *
+ * Measured against a real loaded workspace rather than against `types.ts`,
+ * because the question a reader is asking is what the object has on it.
+ */
+test("no doc hangs a module repository off the workspace", async () => {
+    const { workspace, cleanup } = await createTestWorkspace();
+    try {
+        const present = new Set(Object.keys(workspace));
+        assert.ok(
+            present.has("config") && present.has("paths"),
+            "the loaded workspace lost its known keys; the check is measuring nothing"
+        );
+        const wrong: string[] = [];
+        for (const [path, text] of await documents()) {
+            text.split("\n").forEach((line, index) => {
+                for (const [, module, method] of line.matchAll(
+                    /\bworkspace\.([a-z]\w*)\.(\w+)\(/g
+                )) {
+                    if (present.has(module)) continue;
+                    wrong.push(
+                        `${path}:${index + 1} calls \`workspace.${module}.${method}()\`, ` +
+                            "and the workspace has no such member"
+                    );
+                }
+            });
+        }
+        assert.deepEqual(wrong, [], `\n${wrong.join("\n")}\n`);
+    } finally {
+        await cleanup();
+    }
 });

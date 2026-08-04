@@ -7,6 +7,7 @@ export default {
     docs: {
         sources: [
             "README.md",
+            "SECURITY.md",
             "packages/workfile/docs/**/*.md",
             "packages/*/README.md"
         ],

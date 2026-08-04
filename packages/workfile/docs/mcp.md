@@ -49,10 +49,29 @@ anything around them:
 
 | File | What it does |
 | --- | --- |
-| `.mcp.json` | Registers `workfile-mcp` — the binary that parses its own flags |
+| `.mcp.json` | Registers the server, exactly as below |
 | `.claude/commands/{next,claim,done,context}.md` | Slash commands over one CLI call each |
 | `.claude/skills/workfile/SKILL.md` | Projects `.project/agents/protocol.md` rather than restating it |
 | `.claude/settings.json` | Three hooks |
+
+```json
+{
+  "mcpServers": {
+    "workfile": {
+      "command": "npx",
+      "args": ["-y", "@illodev/workfile", "mcp"]
+    }
+  }
+}
+```
+
+It registers the package and the `mcp` subcommand, not the `workfile-mcp` bin.
+That bin exists and parses its own flags — `workfile mcp config` emits it, for
+hosts building a configuration themselves — but `npx` cannot select a named bin
+from a package spec, so registering it that way started the CLI instead of the
+server and every request was answered with the help text on stdout. T-0116
+changed it in 0.4.0; this table went on describing the old behaviour until it
+was corrected.
 
 **`SessionStart`** injects the board once — cards in flight, who holds them,
 which paths they cover — so a session begins informed without reading a record.
@@ -189,6 +208,23 @@ explicit target and omitted from the schema.
 - **Resources:** `project://workspace`, `project://health`, `project://protocol`,
   `project://record/{id}`.
 - **Prompts:** `start-work`, `finish-work`, `record-knowledge`.
+
+## Limits
+
+Two, both from `project.config.mjs`, and they guard opposite directions.
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `mcp.maxMessageBytes` | 1 MiB | An incoming JSON-RPC line larger than this is refused with `-32600` before it is parsed. |
+| `mcp.maxToolResultBytes` | 512 KiB | A result larger than this is truncated with a `truncated` marker rather than failing the call. |
+
+Both accept 1 KiB to 16 MiB. The asymmetry between them is deliberate: an
+oversized *request* is a client defect and failing it early is the honest
+answer, while an oversized *result* is usually a get-by-id with no query to
+narrow, so degrading beats refusing.
+
+`mcp.resourcePageSize` (default 100, range 1–500) bounds how many records one
+resource read returns.
 
 ## Process hygiene
 

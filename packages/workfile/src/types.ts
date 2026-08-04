@@ -129,7 +129,6 @@ export interface ProjectUiConfig {
     host: string;
     port: number;
     open: boolean;
-    defaultView: string;
 }
 
 export interface ProjectConfig {
@@ -285,6 +284,14 @@ export interface CardRecord extends BaseProjectRecord {
     parent?: string;
     depends?: string[];
     related?: string[];
+    /**
+     * Records this card came out of.
+     *
+     * Provenance, not decomposition: `parent` says the card is part of another,
+     * `origin` says it was discovered while working on one. Holds ids of any
+     * kind, because decisions and learnings spawn work as often as cards do.
+     */
+    origin?: string[];
     scope?: string[];
     tags?: string[];
     claimed_by?: string;
@@ -415,6 +422,8 @@ export interface CreateCardInput {
     effort?: CardEffort;
     scope?: string[];
     related?: string[];
+    /** Records this card came out of; see `CardRecord.origin`. */
+    origin?: string[];
     start?: string;
     due?: string;
     claimed_by?: string;
