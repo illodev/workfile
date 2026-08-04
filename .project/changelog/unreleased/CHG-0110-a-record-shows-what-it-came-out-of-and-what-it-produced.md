@@ -1,5 +1,5 @@
 ---
-id: CHG-0109
+id: CHG-0110
 title: A record shows what it came out of and what it produced
 type: added
 area: ui
