@@ -23,7 +23,8 @@ export const CARD_PATCHABLE_FIELDS = Object.freeze([
     "claimed_at",
     "start",
     "due",
-    "related"
+    "related",
+    "origin"
 ]);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

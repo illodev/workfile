@@ -59,6 +59,7 @@ export const CARD_RESERVED_KEYS = Object.freeze([
     "file",
     "id",
     "milestone",
+    "origin",
     "parent",
     "priority",
     "related",

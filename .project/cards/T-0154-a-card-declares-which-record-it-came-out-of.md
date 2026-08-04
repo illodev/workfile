@@ -1,13 +1,16 @@
 ---
 id: T-0154
 title: A card declares which record it came out of
-status: backlog
+status: doing
 type: feature
 priority: medium
 area: core
 effort: M
 created: 2026-08-04
 updated: 2026-08-04
+claimed_by: "illodev@local#cfe281b4"
+claimed_at: "2026-08-04T20:18:43.949Z"
+scope: [packages/workfile/src/config/defaults.ts, packages/workfile/src/types.ts, packages/workfile/src/modules/records/index.ts, packages/workfile/src/modules/cards, packages/workfile/bin/workfile.ts, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/src/modules/health/doctor.ts, packages/workfile/docs/SPEC.md]
 ---
 
 Work discovered while doing other work has no field to say so, and the
@@ -55,6 +58,7 @@ origins, so the list is short and authored where the knowledge is.
   `missing-source` rule is the model.
 - The `## Activity` trail is not the place for this. It records what a command
   did; `origin` is a declared fact about the card.
+- 2026-08-04 20:18Z illodev@local#cfe281b4 · claimed
 
 ## Migrating the 28
 
@@ -81,3 +85,15 @@ pixel drawn — `agents context --card` can answer what a card spawned, and
 - [ ] `agents context` surfaces both directions for the selected card
 - [ ] SPEC 11 documents the field and how it differs from the other four
 - [ ] `pnpm run check` green, doctor 0/0
+
+## Notes
+
+- 2026-08-04 20:23Z illodev@local#cfe281b4 — Half done, suite green at 275/275 and doctor 0/0, uncommitted.
+
+Landed and verified end to end: origin is in CARD_RESERVED_KEYS, CARD_LIST_KEYS, CARD_PATCHABLE_FIELDS, CardRecord and CreateCardInput; recordReferences emits it for cards; createCard writes it to frontmatter; card create takes --origin as a comma-separated list. Smoke test through the built binary with --origin T-0155,ADR-0005 came back with both ids, and through buildProjectIndex both classify as 'reference', not 'mention' — which was the point, and it accepts a non-card id.
+
+Two things the card did not anticipate. createCard assembles frontmatter from an explicit allowlist, so adding the field to the schema lists was not enough and the first smoke test came back with origin undefined while exiting 0 — the same silent-drop shape T-0052 fixed for --parent. And that is exactly what caught it: 'card create reaches every field the mutation accepts' failed until origin was wired into CREATE_FLAG_COVERAGE with an assertion. The guard works.
+
+card patch needs no CLI change: it reads changes from --json-input only, and origin is patchable now, consistent with every other field.
+
+Still to do: the origin parameter on project_card_create and project_card_patch; a doctor rule for an origin that resolves to no record; agents context surfacing both directions; --origin in cli.md; SPEC 11; and the 28 prose migrations, which stay manual. My own count is now 32 — T-0153, T-0157 and the three workflow cards were all authored with provenance in prose while this card was open.

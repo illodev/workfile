@@ -19,7 +19,13 @@ import {
     CARD_TYPES
 } from "../../config/defaults.js";
 
-export const CARD_LIST_KEYS = new Set(["tags", "depends", "scope", "related"]);
+export const CARD_LIST_KEYS = new Set([
+    "tags",
+    "depends",
+    "scope",
+    "related",
+    "origin"
+]);
 export const CARD_REQUIRED_KEYS = Object.freeze([
     "id",
     "title",
