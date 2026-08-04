@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, ExternalLink, Loader2 } from "lucide-react";
+import { Crosshair, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { MarkdownBody } from "../Markdown";
-import { RecordDrawer } from "../RecordDrawer";
-
 import { api } from "../../api";
 import { recordStatusColor } from "../../theme";
-import type { BaseRecord, GraphRecord } from "../../types";
+import type { GraphRecord } from "../../types";
 import {
     bounds,
     curve,
@@ -104,13 +101,11 @@ function Toggle({
 
 export function WorkflowView({
     selectedId,
-    onSelect,
-    onOpen
+    onSelect
 }: {
     selectedId: string | null;
-    /** Sets the app-wide selection. The canvas has no selection of its own. */
+    /** Sets the app-wide selection, which is what opens the shared drawer. */
     onSelect: (id: string | null) => void;
-    onOpen: (id: string) => void;
 }) {
     const [records, setRecords] = useState<GraphRecord[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -125,21 +120,17 @@ export function WorkflowView({
         stored.current.hideIsolated
     );
     const [hovered, setHovered] = useState<string | null>(null);
-    // Opened here rather than by navigating away. `onOpen` sends the reader to
-    // Explorer, Docs or Memory depending on the ID, which for a canvas is the
-    // opposite of the point: the whole reason to draw the graph was to stop
-    // going card by card, and being ejected on every click is going card by
-    // card with extra steps. The prop stays, on a control inside the drawer,
-    // so leaving is a choice rather than a consequence.
+    // Selecting rather than navigating. Routing a click by the shape of its ID
+    // would send the reader to Explorer, Docs or Memory, which for a canvas is
+    // the opposite of the point: the whole reason to draw the graph was to
+    // stop going card by card, and being ejected on every click is going card
+    // by card with extra steps. The drawer's own control is what leaves.
     //
-    // Which record is open *is* `selectedId`, not a copy of it. Holding a
-    // private one meant clicking a dot opened the drawer while the app-wide
-    // selection never moved, so the dot never drew as selected and the URL
-    // never said what was on screen — and a node only ever looked active if it
-    // had been selected somewhere else first.
-    const openId = selectedId;
-    const [opened, setOpened] = useState<BaseRecord | null>(null);
-    const [expanded, setExpanded] = useState(false);
+    // The drawer itself is the app's, not this view's. Holding a private copy
+    // of the selection meant clicking a dot opened a drawer while the app-wide
+    // selection never moved — the dot never drew as active and the URL never
+    // said what was on screen — and a second drawer stacked over the card
+    // inspector whenever both decided to open.
     const openedAt = useRef(0);
     const [view, setView] = useState({ x: 0, y: 0, k: 1 });
     // The simulation mutates node objects in place and the canvas reads them
@@ -172,22 +163,6 @@ export function WorkflowView({
             live = false;
         };
     }, []);
-
-    useEffect(() => {
-        if (!openId) return;
-        let live = true;
-        setOpened(null);
-        api.record(openId)
-            .then((response) => {
-                if (live) setOpened(response.record);
-            })
-            .catch(() => {
-                if (live) setOpened(null);
-            });
-        return () => {
-            live = false;
-        };
-    }, [openId]);
 
     useEffect(() => {
         localStorage.setItem(
@@ -551,87 +526,6 @@ export function WorkflowView({
                     </div>
                 ) : null}
             </div>
-            <RecordDrawer
-                open={Boolean(openId)}
-                expanded={expanded}
-                label="record"
-                description="The record behind the selected node, with its body."
-                onOpenChange={(next) => {
-                    if (!next) onSelect(null);
-                }}
-                onExpandedChange={setExpanded}
-                // Radix defers its outside-pointer dispatch until after the
-                // click handlers have run, so without this the click that
-                // opened the drawer arrives late as an outside event and
-                // closes it again. Same guard the memory lanes use.
-                holdOpen={() => performance.now() - openedAt.current < 200}
-            >
-                {openId ? (
-                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
-                        <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-medium">
-                                {openId}
-                            </span>
-                            {opened ? (
-                                <Badge
-                                    variant="secondary"
-                                    className="px-1.5 py-0 text-[10px] font-normal"
-                                >
-                                    {opened.recordType}
-                                </Badge>
-                            ) : null}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="ml-auto h-7 gap-1 px-2 text-xs"
-                                onClick={() => onOpen(openId)}
-                            >
-                                <ExternalLink
-                                    aria-hidden="true"
-                                    className="size-3"
-                                />
-                                Open in its view
-                            </Button>
-                        </div>
-                        <h2 className="mt-1 text-sm font-medium">
-                            {opened?.title ?? "…"}
-                        </h2>
-                        {opened ? (
-                            // The same knobs the card inspector sets, so a
-                            // record does not change size depending on which
-                            // sheet opened it: ~13px body, leading 1.6, and
-                            // prose capped at a readable measure while scroll
-                            // wrappers keep the full column. They have to land
-                            // on the `.typeset` element itself, whose
-                            // component-layer defaults beat an inherited
-                            // custom property.
-                            <div className="mt-3 [&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
-                                <MarkdownBody
-                                    source={
-                                        opened.body ||
-                                        "_This record has no body._"
-                                    }
-                                    // A wiki link inside the body moves the
-                                    // selection too, so following provenance
-                                    // through the drawer keeps the canvas
-                                    // pointing at whatever is being read.
-                                    onOpen={onSelect}
-                                    headingPrefix="workflow"
-                                />
-                            </div>
-                        ) : (
-                            <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-                                <Loader2
-                                    aria-hidden="true"
-                                    className="size-4 animate-spin"
-                                />
-                                Reading {openId}…
-                            </div>
-                        )}
-                    </div>
-                ) : null}
-            </RecordDrawer>
         </div>
     );
 }

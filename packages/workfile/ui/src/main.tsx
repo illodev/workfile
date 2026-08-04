@@ -75,6 +75,7 @@ import { api } from "./api";
 import { OverviewView } from "./components/domain/Overview";
 import { Inspector } from "./components/Inspector";
 import { RecordDrawer } from "./components/RecordDrawer";
+import { RecordPanel } from "./components/RecordPanel";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
 import { recordCollection, severityColor, since, statusColor } from "./theme";
@@ -288,6 +289,20 @@ interface NavItem {
     label: string;
     icon: typeof Table;
 }
+
+/**
+ * Views that draw their own panel for a collection, and keep it.
+ *
+ * The shared drawer stands down for these rather than opening over them.
+ * Memory's lanes carry graduate and supersede, and Docs carries an outline and
+ * freshness — editing bound to state those views own. Hoisting that is worth
+ * doing and is not this change; what this map buys is that everywhere *else*
+ * already goes through one drawer.
+ */
+const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
+    memory: "memory",
+    docs: "docs"
+};
 
 const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -711,7 +726,10 @@ function App() {
     const selectRecord = useCallback((id: string | null) => {
         lastSelectRef.current = performance.now();
         setSelectedId(id);
-        if (id && recordCollection(id) === "cards") setInspectorOpen(true);
+        // Any kind. This read `=== "cards"` while the drawer only held cards,
+        // and left behind the state where selecting a doc moved the selection
+        // and opened nothing.
+        if (id) setInspectorOpen(true);
     }, []);
 
     useEffect(() => {
@@ -1609,7 +1627,6 @@ function App() {
                                     <WorkflowView
                                         selectedId={selectedId}
                                         onSelect={selectRecord}
-                                        onOpen={openRecord}
                                     />
                                 ) : view === "history" ? (
                                     <HistoryView
@@ -1771,11 +1788,12 @@ function App() {
                 open={
                     inspectorOpen &&
                     selectedId !== null &&
-                    recordCollection(selectedId) === "cards" &&
-                    // Workflow opens records in its own drawer, for every
-                    // kind. Without this a card selected on the canvas raised
-                    // both, one over the other.
-                    view !== "workflow"
+                    // Any kind, not cards only. A drawer that opened for one
+                    // of the five meant every other kind had to be read in the
+                    // view that lists it, so a `[[DOC-0002]]` in a card body
+                    // led nowhere — and the graph grew a second drawer to say
+                    // what the first would not, which then stacked over it.
+                    VIEW_OWNS_DRAWER[view] !== recordCollection(selectedId)
                 }
                 expanded={inspectorExpanded}
                 label="inspector"
@@ -1795,6 +1813,18 @@ function App() {
                     performance.now() - lastSelectRef.current < 200
                 }
             >
+                {selectedId && !selected ? (
+                    // Not a card, or a card the board is not holding — an
+                    // archived one reached by ID, say. Either way the
+                    // inspector has nothing to render, and rendering nothing
+                    // is what used to close the sheet without a word.
+                    <RecordPanel
+                        key={selectedId}
+                        id={selectedId}
+                        onSelect={selectRecord}
+                        onOpen={(id) => openRecord(id, true)}
+                    />
+                ) : (
                 <Inspector
                     task={selected}
                     selectedId={selectedId}
@@ -1855,6 +1885,7 @@ function App() {
                     }}
                     projectName={projectName}
                 />
+                )}
             </RecordDrawer>
 
             <CommandPalette
