@@ -11,9 +11,14 @@ import {
     filterGraph,
     reconcile,
     RELATIONS,
+    MAX_SCALE,
+    MIN_SCALE,
+    panTo,
     seed,
     step,
-    type GraphNode
+    zoomAt,
+    type GraphNode,
+    type Viewport
 } from "../ui/src/workflow.ts";
 import { buildProjectIndex, loadWorkspace, projectRecord } from "../dist/src/index.js";
 
@@ -217,4 +222,47 @@ test("a curve leaves and arrives where the line would", () => {
     // Bowed, or A→B and B→A land on the same pixels and read as one edge.
     const [, controlY] = /Q (-?[\d.]+) (-?[\d.]+)/.exec(path)!.slice(1).map(Number);
     assert.notEqual(controlY, 0);
+});
+
+test("zooming holds the point under the cursor, and stays inside its range", () => {
+    // The property that matters is not the scale, it is that the pixel the
+    // reader put the cursor on is still under the cursor afterwards. Zooming
+    // to the centre instead walks it off screen at the moment they asked for a
+    // closer look.
+    const before = { x: 137, y: -42, k: 0.8 };
+    const [px, py] = [400, 300];
+    const graphPoint = (view: Viewport) => ({
+        x: (px - view.x) / view.k,
+        y: (py - view.y) / view.k
+    });
+    const anchored = graphPoint(before);
+    for (const factor of [1.12, 0.89, 1.12 ** 5, 0.89 ** 5]) {
+        const after = zoomAt(before, px, py, factor);
+        const moved = graphPoint(after);
+        assert.ok(
+            Math.abs(moved.x - anchored.x) < 1e-9 &&
+                Math.abs(moved.y - anchored.y) < 1e-9,
+            `the anchor drifted to ${moved.x},${moved.y} at factor ${factor}`
+        );
+    }
+
+    // Clamped at both ends, so a fast scroll cannot invert the canvas or
+    // shrink it to a point it can never be zoomed back out of.
+    let out = { x: 0, y: 0, k: 1 };
+    for (let i = 0; i < 200; i += 1) out = zoomAt(out, 0, 0, 0.89);
+    assert.equal(out.k, MIN_SCALE);
+    let inward = { x: 0, y: 0, k: 1 };
+    for (let i = 0; i < 200; i += 1) inward = zoomAt(inward, 0, 0, 1.12);
+    assert.equal(inward.k, MAX_SCALE);
+});
+
+test("panning translates by the pointer's travel, taking its origin as an argument", () => {
+    // `panTo` takes the origin rather than reading it, which is the whole
+    // point: the old handler read it off a ref inside the setState updater,
+    // React ran that after `pointerup` had nulled the ref, and a single click
+    // on the background threw `Cannot read properties of null (reading 'x')`.
+    const origin = { x: 100 - 30, y: 200 - 45 };
+    assert.deepEqual(panTo(origin, 160, 260), { x: 90, y: 105 });
+    // Pure and total: no ref, no event, nothing that can be absent later.
+    assert.deepEqual(panTo({ x: 0, y: 0 }, 0, 0), { x: 0, y: 0 });
 });

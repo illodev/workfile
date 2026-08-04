@@ -4,6 +4,7 @@ import type { ProjectApi } from "./api";
 import type {
     ActivitySnapshot,
     ChangeRecord,
+    BaseRecord,
     DocumentRecord,
     GraphRecord,
     HealthReport,
@@ -280,6 +281,38 @@ export const demoApi: ProjectApi = {
     // demo shows its loading states; a canvas that pops in after an invented
     // delay only looks broken.
     graph: async () => clone(state.graph),
+    // Every pool the snapshot carries, because the caller does not know which
+    // one holds the ID — that is the reason this reader exists.
+    record: async (id: string) => {
+        await wait();
+        const pools = [
+            state.docs.records,
+            state.changelog.records,
+            state.memory.records
+        ] as unknown as Array<Array<Record<string, unknown>>>;
+        for (const pool of pools) {
+            const found = pool.find((entry) => entry.id === id);
+            if (found) return clone({ record: found as unknown as BaseRecord });
+        }
+        const card = state.tasks.tasks.find((task) => task.id === id);
+        if (card) {
+            // A card in the snapshot is raw frontmatter, not an indexed
+            // record. Filling the shape here rather than letting a reader see
+            // `undefined` where the server would have sent a value.
+            return clone({
+                record: {
+                    ...card,
+                    kind: "card",
+                    recordType: card.type,
+                    path: card.file,
+                    outgoing: [],
+                    incoming: [],
+                    issues: []
+                } as unknown as BaseRecord
+            });
+        }
+        throw new Error(`Unknown record ${id}`);
+    },
     docs: async (query = "") => {
         await wait();
         const records = state.docs.records.filter((record) =>

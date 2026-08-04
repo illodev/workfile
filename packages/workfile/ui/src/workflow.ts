@@ -276,6 +276,56 @@ export function curve(
     return `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
 }
 
+export interface Viewport {
+    x: number;
+    y: number;
+    k: number;
+}
+
+export const MIN_SCALE = 0.08;
+export const MAX_SCALE = 4;
+
+/**
+ * Zoom towards a point rather than towards the centre.
+ *
+ * The pixel under the cursor is the one the reader is asking about, so it has
+ * to stay under the cursor: zooming to the centre walks it off screen at
+ * exactly the moment they wanted a closer look. Solving for that is what the
+ * two subtractions do — the point's position in graph space is held fixed
+ * while the scale changes around it.
+ */
+export function zoomAt(
+    view: Viewport,
+    px: number,
+    py: number,
+    factor: number
+): Viewport {
+    const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.k * factor));
+    return {
+        k,
+        x: px - ((px - view.x) / view.k) * k,
+        y: py - ((py - view.y) / view.k) * k
+    };
+}
+
+/**
+ * Where the canvas sits while a drag is in flight.
+ *
+ * A function rather than three lines inside the handler because of how it
+ * failed: the offset used to be read off a ref *inside* the `setState`
+ * updater, which React runs after the handler returns — and `pointerup`
+ * lands in between on a plain click, so the ref was null by then and the
+ * updater threw `Cannot read properties of null`. Taking the origin as an
+ * argument means there is no later moment for it to be read at.
+ */
+export function panTo(
+    origin: { x: number; y: number },
+    clientX: number,
+    clientY: number
+): { x: number; y: number } {
+    return { x: clientX - origin.x, y: clientY - origin.y };
+}
+
 /** The box the settled layout occupies, for the fit-to-screen control. */
 export function bounds(nodes: readonly GraphNode[]) {
     let minX = Infinity;

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, Loader2 } from "lucide-react";
+import { Crosshair, ExternalLink, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { MarkdownBody } from "../Markdown";
+import { RecordDrawer } from "../RecordDrawer";
+
 import { api } from "../../api";
 import { recordStatusColor } from "../../theme";
-import type { GraphRecord } from "../../types";
+import type { BaseRecord, GraphRecord } from "../../types";
 import {
     bounds,
     curve,
@@ -17,8 +20,10 @@ import {
     KINDS,
     reconcile,
     RELATIONS,
+    panTo,
     step,
     type GraphLink,
+    zoomAt,
     type GraphNode
 } from "../../workflow";
 
@@ -117,6 +122,16 @@ export function WorkflowView({
         stored.current.hideIsolated
     );
     const [hovered, setHovered] = useState<string | null>(null);
+    // Opened here rather than by navigating away. `onOpen` sends the reader to
+    // Explorer, Docs or Memory depending on the ID, which for a canvas is the
+    // opposite of the point: the whole reason to draw the graph was to stop
+    // going card by card, and being ejected on every click is going card by
+    // card with extra steps. The prop stays, on a control inside the drawer,
+    // so leaving is a choice rather than a consequence.
+    const [openId, setOpenId] = useState<string | null>(null);
+    const [opened, setOpened] = useState<BaseRecord | null>(null);
+    const [expanded, setExpanded] = useState(false);
+    const openedAt = useRef(0);
     const [view, setView] = useState({ x: 0, y: 0, k: 1 });
     // The simulation mutates node objects in place and the canvas reads them
     // during render. React is told a frame happened, not what changed — 300
@@ -146,6 +161,22 @@ export function WorkflowView({
             live = false;
         };
     }, []);
+
+    useEffect(() => {
+        if (!openId) return;
+        let live = true;
+        setOpened(null);
+        api.record(openId)
+            .then((response) => {
+                if (live) setOpened(response.record);
+            })
+            .catch(() => {
+                if (live) setOpened(null);
+            });
+        return () => {
+            live = false;
+        };
+    }, [openId]);
 
     useEffect(() => {
         localStorage.setItem(
@@ -236,20 +267,8 @@ export function WorkflowView({
         if (!box) return;
         const px = event.clientX - box.left;
         const py = event.clientY - box.top;
-        setView((current) => {
-            const k = Math.min(
-                4,
-                Math.max(0.08, current.k * (event.deltaY < 0 ? 1.12 : 0.89))
-            );
-            // Zoom towards the pointer: the point under the cursor is the one
-            // the reader is asking about, and zooming to the centre walks it
-            // off screen at exactly the moment they wanted a closer look.
-            return {
-                k,
-                x: px - ((px - current.x) / current.k) * k,
-                y: py - ((py - current.y) / current.k) * k
-            };
-        });
+        const factor = event.deltaY < 0 ? 1.12 : 0.89;
+        setView((current) => zoomAt(current, px, py, factor));
     };
 
     const drag = useRef<{ x: number; y: number } | null>(null);
@@ -258,13 +277,20 @@ export function WorkflowView({
         (event.target as Element).setPointerCapture?.(event.pointerId);
     };
     const onPointerMove = (event: React.PointerEvent) => {
-        if (!drag.current) return;
-        setView((current) => ({
-            ...current,
-            x: event.clientX - drag.current!.x,
-            y: event.clientY - drag.current!.y
-        }));
+        // Read the ref and the event *here*, not inside the updater.
+        //
+        // The updater runs when React processes the queue, which is after this
+        // handler returns — and `pointerup` lands in between on a plain click,
+        // so `drag.current` was already null by the time the old code read
+        // `drag.current!.x` and it threw `Cannot read properties of null`. The
+        // guard was true at event time and said nothing about update time; the
+        // `!` is what let that compile.
+        const origin = drag.current;
+        if (!origin) return;
+        const next = panTo(origin, event.clientX, event.clientY);
+        setView((current) => ({ ...current, ...next }));
     };
+
     const onPointerUp = () => {
         drag.current = null;
     };
@@ -288,6 +314,10 @@ export function WorkflowView({
         [nodes, view]
     );
     const focus = hovered ?? selectedId;
+    // Resolved once. Three `byId.get(focus)!` in the same expression asserted
+    // three times over a map that is rebuilt every frame, and the assertion is
+    // the same shape as the one that made the drag handler throw.
+    const focused = focus ? byId.get(focus) : undefined;
     const adjacent = useMemo(() => {
         if (!focus) return null;
         const set = new Set<string>([focus]);
@@ -449,7 +479,8 @@ export function WorkflowView({
                                     onPointerLeave={() => setHovered(null)}
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        onOpen(node.id);
+                                        openedAt.current = performance.now();
+                                        setOpenId(node.id);
                                     }}
                                 >
                                     <circle
@@ -488,7 +519,7 @@ export function WorkflowView({
                         })}
                     </g>
                 </svg>
-                {focus && byId.get(focus) ? (
+                {focused ? (
                     <div className="pointer-events-none absolute bottom-3 left-3 max-w-[min(30rem,70%)] rounded-md border bg-background/95 px-3 py-2 shadow-sm">
                         <div className="flex items-center gap-2">
                             <span className="font-mono text-[11px] font-medium">
@@ -498,15 +529,80 @@ export function WorkflowView({
                                 variant="secondary"
                                 className="px-1.5 py-0 text-[10px] font-normal"
                             >
-                                {byId.get(focus)!.record.recordType}
+                                {focused.record.recordType}
                             </Badge>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
-                            {byId.get(focus)!.record.title}
+                            {focused.record.title}
                         </p>
                     </div>
                 ) : null}
             </div>
+            <RecordDrawer
+                open={Boolean(openId)}
+                expanded={expanded}
+                label="record"
+                description="The record behind the selected node, with its body."
+                onOpenChange={(next) => {
+                    if (!next) setOpenId(null);
+                }}
+                onExpandedChange={setExpanded}
+                // Radix defers its outside-pointer dispatch until after the
+                // click handlers have run, so without this the click that
+                // opened the drawer arrives late as an outside event and
+                // closes it again. Same guard the memory lanes use.
+                holdOpen={() => performance.now() - openedAt.current < 200}
+            >
+                {openId ? (
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
+                        <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-medium">
+                                {openId}
+                            </span>
+                            {opened ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="px-1.5 py-0 text-[10px] font-normal"
+                                >
+                                    {opened.recordType}
+                                </Badge>
+                            ) : null}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="ml-auto h-7 gap-1 px-2 text-xs"
+                                onClick={() => onOpen(openId)}
+                            >
+                                <ExternalLink
+                                    aria-hidden="true"
+                                    className="size-3"
+                                />
+                                Open in its view
+                            </Button>
+                        </div>
+                        <h2 className="mt-1 text-sm font-medium">
+                            {opened?.title ?? "…"}
+                        </h2>
+                        {opened ? (
+                            <MarkdownBody
+                                source={opened.body || "_This record has no body._"}
+                                onOpen={setOpenId}
+                                headingPrefix="workflow"
+                                className="mt-3"
+                            />
+                        ) : (
+                            <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="size-4 animate-spin"
+                                />
+                                Reading {openId}…
+                            </div>
+                        )}
+                    </div>
+                ) : null}
+            </RecordDrawer>
         </div>
     );
 }

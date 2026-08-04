@@ -2,6 +2,7 @@ import type {
     ChangeRecord,
     DocumentRecord,
     ActivitySnapshot,
+    BaseRecord,
     GraphRecord,
     HealthReport,
     SearchResponse,
@@ -122,6 +123,18 @@ export const httpApi = {
     graph: () =>
         request<RecordsResponse<GraphRecord>>(
             "/api/v2/records?view=graph&limit=500"
+        ),
+    /**
+     * Any record by ID, whatever its kind, with its body.
+     *
+     * The typed readers below each know one collection, so a view holding a
+     * mixed set — the graph holds cards, docs, memory, changes and releases at
+     * once — had no way to open one without knowing which reader to call from
+     * the shape of the ID.
+     */
+    record: (id: string) =>
+        request<{ record: BaseRecord }>(
+            `/api/v2/records/${encodeURIComponent(id)}`
         ),
     docs: (query = "") => {
         const params = new URLSearchParams();
