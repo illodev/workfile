@@ -20,7 +20,7 @@ model — so anything that lets a page bypass them is in scope:
 - writing through a surface that ignores `readOnly`.
 
 The threat model, and what is deliberately *out* of scope, is written up in
-[`docs/security.md`](docs/security.md).
+[`packages/workfile/docs/security.md`](packages/workfile/docs/security.md).
 
 ## Supported versions
 

@@ -77,6 +77,7 @@ record re-embeds that record only.
 localSearchIntegration({
     id: "local-embeddings",             // integration id, referenced by search.provider
     model: "Xenova/multilingual-e5-small",
+    dtype: "q8",                        // model quantization passed to transformers.js
     cacheDir: "~/.cache/workfile/embeddings-or-null",
     passageChars: 2000,                 // body characters embedded per record
     embedder: null,                     // inject your own (texts) => vectors

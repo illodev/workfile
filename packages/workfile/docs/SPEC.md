@@ -310,8 +310,7 @@ export default defineProject({
     ui: {
         host: "127.0.0.1",
         port: 4747,
-        open: true,
-        defaultView: "work"
+        open: true
     }
 });
 ```
@@ -524,10 +523,26 @@ The submission endpoint can create duplicate records after a network retry.
 - [ ] Repeated requests with the same idempotency key create one invoice.
 - [ ] Existing non-idempotent clients remain compatible.
 
+## Activity
+
+- 2026-07-28 09:32Z alice@studio · claimed
+- 2026-07-28 11:04Z alice@studio · backlog → doing
+
 ## Notes
 
 - 2026-07-28 — Claimed after confirming no overlapping active scope.
 ```
+
+`## Activity` is the durable trail: every claim, release, transition and
+renumber appends one line, written by the mutation itself rather than by the
+caller. A command that moved nothing appends nothing, so `transition ID review`
+against a card already in `review` leaves no entry. `## Notes` is the opposite —
+free prose a human or agent writes deliberately.
+
+Set `cards.activityTrail: false` to switch the trail off for a workspace. It
+defaults to `true`, and the only reason to disable it is a repository where the
+churn costs more than the history is worth; the claim guards and the doctor do
+not read it.
 
 ### 11.3 Statuses
 
@@ -882,7 +897,7 @@ Release record example:
 
 ```yaml
 ---
-id: REL-2026-07-28
+id: REL-0017
 title: Version 2.4.0
 version: 2.4.0
 date: 2026-07-28
@@ -892,6 +907,11 @@ commit: 1a2b3c4
 
 Release notes may contain curated introductory text.
 ```
+
+Release ids are sequential like every other record id, not derived from the
+date: `changelog.releasePrefix` supplies the prefix and defaults to `REL`. An
+earlier revision of this example showed `REL-2026-07-28`, which no release has
+ever been called.
 
 ### 13.5 Generated changelog
 
@@ -1114,15 +1134,18 @@ core does not enforce.
 
 ### 16.2 Public core API
 
-The package SHOULD expose a documented programmatic API:
+The package exposes a documented programmatic API. Every name below is resolved
+against the built package by "no doc imports a name the package does not
+export" in `test/documentation.test.ts`, so this block cannot drift from what
+ships without failing the suite.
 
 ```ts
 export {
     defineProject,
     loadWorkspace,
-    createProject,
-    migrateProject,
-    buildIndex,
+    initializeProject,
+    applyLegacyMigration,
+    buildProjectIndex,
     runDoctor
 } from "@illodev/workfile";
 
@@ -1130,27 +1153,40 @@ export type {
     ProjectConfig,
     ProjectWorkspace,
     ProjectRecord,
-    Card,
-    ManagedDocument,
-    ChangeFragment,
+    CardRecord,
+    DocumentRecord,
+    ChangeRecord,
     MemoryRecord,
     DoctorReport
 } from "@illodev/workfile";
 ```
 
-Module repositories expose operations rather than raw file writes:
+Module operations are free functions taking a workspace, not repositories
+hanging off one. `ProjectWorkspace` carries the configuration, the resolved
+paths, the effective schema and the declared integrations — it exposes no
+methods, and a caller reaches every operation through the functions below
+rather than through a raw file write:
 
 ```ts
-workspace.cards.list(query);
-workspace.cards.get(id);
-workspace.cards.create(input);
-workspace.cards.patch(id, changes);
-workspace.cards.claim(id, claim);
-workspace.cards.transition(id, status);
-workspace.docs.search(query);
-workspace.memory.create(kind, input);
-workspace.changelog.createFragment(input);
+const { cards } = await loadCards(workspace);
+await createCard(workspace, input);
+await patchCard(workspace, id, changes, { actor });
+await claimCard(workspace, id, { actor, scope });
+await transitionCard(workspace, id, status, { actor });
+const { documents } = await loadDocuments(workspace);
+await createChangeFragment(workspace, input);
+await createMemoryRecord(workspace, collection, input);
+searchProjectRecords(records, query, { kinds, limit });
 ```
+
+`searchProjectRecords` takes records rather than a workspace because ranking is
+pure: the caller decides what corpus is eligible, which is what lets the CLI,
+the HTTP API and MCP share one ranking over different candidate sets.
+
+Subpath exports group the same functions by module — `@illodev/workfile/cards`,
+`/docs`, `/changelog`, `/memory`, `/records`, `/search`, `/agents`, `/ci`,
+`/core`, `/server`, `/mcp`, `/init`, `/migration`, `/claude`,
+`/integrations` — and the root re-exports all of them.
 
 ### 16.3 Filesystem adapter
 
@@ -1684,24 +1720,20 @@ relative to the installed protocol version or project configuration.
 
 MCP is an adapter over core services, not a second implementation.
 
-Recommended tools:
+The tool catalogue is **not restated here**. `docs/mcp.md` documents every
+shipped tool with its parameters and reply shape, and `workfile mcp inspect`
+prints the same list from the definitions the server answers `tools/list` with.
+An earlier revision of this section listed fourteen recommended tools in a
+verb-first naming scheme. The server shipped noun-first in 0.1.0 and grew past
+it, so from the first release until this was corrected the normative document
+named thirteen tools no client could call. A second copy of a catalogue is only
+right until one of them moves.
 
-```text
-project_get_workspace
-project_search
-project_list_cards
-project_get_card
-project_create_card
-project_claim_card
-project_transition_card
-project_release_card
-project_list_docs
-project_get_document
-project_create_changelog_fragment
-project_list_memory
-project_create_memory
-project_run_doctor
-```
+Tools are named `project_<module>_<operation>` — the module first, so a client
+listing them reads them grouped: `project_card_list`, `project_card_claim`,
+`project_doc_create`, `project_memory_add`. Operations that answer for any
+record type drop the module: `project_search`, `project_next`,
+`project_get_record`, `project_workspace`, `project_doctor`.
 
 Rules:
 
