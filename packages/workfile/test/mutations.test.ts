@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -877,6 +877,46 @@ test("doctor --fix moves stray trail entries back into the trail", async () => {
         assert.deepEqual(
             (await healMisplacedTrailEntries(workspace, { actor: "doctor" })).moved,
             []
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+// CI runs Windows and the developers do not, so a card written with CRLF is a
+// shape no local run ever produces. Sections are joined with `\n`, which left
+// `\r\n` inside each section and a bare `\n` between them — one file, two
+// kinds of line ending, from a command that claimed to touch one section.
+test("a card written with CRLF keeps its line endings", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Written on Windows",
+            area: "api",
+            body: "Prose.\n\n## Acceptance criteria\n\n- [ ] something"
+        });
+        const path = join(
+            workspace.paths.cards,
+            (await loadCards(workspace)).cards.find(
+                (card) => card.id === created.id
+            ).file
+        );
+        const asWindows = (await readFile(path, "utf8")).replace(/\r?\n/g, "\r\n");
+        await writeFile(path, asWindows);
+
+        await claimCard(workspace, created.id, { actor: "alice" });
+        await appendCardNote(workspace, created.id, { text: "a note" });
+        await patchCardBody(workspace, created.id, {
+            body: "Rewritten prose.\r\n\r\n## Acceptance criteria\r\n\r\n- [ ] something"
+        });
+
+        const written = await readFile(path, "utf8");
+        assert.match(written, /Rewritten prose\./);
+        assert.match(written, /## Activity/);
+        assert.equal(
+            /[^\r]\n/.test(written),
+            false,
+            "a bare newline survived in a CRLF card"
         );
     } finally {
         await cleanup();

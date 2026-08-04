@@ -1941,13 +1941,23 @@ test("doctor reports and repairs a trail written outside its section", async () 
         };
         const file = await named();
         const original = await readFile(file, "utf8");
+        // Written with the file's own line ending: the fixture arrives CRLF on
+        // Windows, and a hard-coded `\n---\n` matched nothing there, so the
+        // test injected no damage and then asserted the damage was reported.
+        const eol = original.includes("\r\n") ? "\r\n" : "\n";
         await writeFile(
             file,
             original.replace(
-                /\n---\n/,
-                "\n---\n\nThe trail lives in `## Activity`.\n" +
-                    "- 2026-08-02 16:56Z alice · claimed\n" +
-                    "- 2026-08-02 17:07Z alice · doing → done\n"
+                /\r?\n---\r?\n/,
+                [
+                    "",
+                    "---",
+                    "",
+                    "The trail lives in `## Activity`.",
+                    "- 2026-08-02 16:56Z alice · claimed",
+                    "- 2026-08-02 17:07Z alice · doing → done",
+                    ""
+                ].join(eol)
             )
         );
 
@@ -1964,8 +1974,18 @@ test("doctor reports and repairs a trail written outside its section", async () 
         // Re-resolved: `--fix` also reslugs, and the fixture's filename does
         // not match its title, so the repair lands under a new name.
         const repaired = await readFile(await named(), "utf8");
-        assert.match(repaired, /## Activity\n\n- 2026-08-02 16:56Z alice · claimed/);
-        assert.match(repaired, /^The trail lives in `## Activity`\.$/m);
+        assert.match(
+            repaired,
+            /## Activity\r?\n\r?\n- 2026-08-02 16:56Z alice · claimed/
+        );
+        assert.match(repaired, /^The trail lives in `## Activity`\.\r?$/m);
+        // The repair rewrites the whole body, so it is also where a file would
+        // acquire a second kind of line ending if the writers disagreed.
+        assert.equal(
+            /\r\n/.test(repaired) && /[^\r]\n/.test(repaired),
+            false,
+            "the repaired card has mixed line endings"
+        );
         assert.deepEqual(
             JSON.parse(
                 (await outcome(["doctor", "--root", root, "--json"])).stdout

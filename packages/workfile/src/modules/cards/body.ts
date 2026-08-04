@@ -96,8 +96,19 @@ export function splitSections(body: string): BodySection[] {
     }
     return sections.map((section) => ({
         heading: section.heading,
-        text: section.lines.join("\n").replace(/^\n+/, "").replace(/\s+$/, "")
+        // `trimStart`/`trimEnd` rather than `/^\s+/` and `/\s+$/`: those are
+        // the polynomial-backtracking shape CodeQL flags, and a card body is
+        // caller-supplied text arriving over HTTP and MCP. The built-ins do
+        // the same job in one pass.
+        text: trimBlankLines(section.lines.join("\n"))
     }));
+}
+
+/** Leading blank lines and trailing whitespace, without a backtracking regex. */
+function trimBlankLines(text: string): string {
+    let start = 0;
+    while (text[start] === "\n" || text[start] === "\r") start += 1;
+    return text.slice(start).trimEnd();
 }
 
 /** What `activityEntry` produces, as a line of the trail. */
@@ -134,7 +145,7 @@ export function isProtocolSection(heading: string | null): heading is string {
  * the frontmatter it already parsed.
  */
 export function appendUnderHeading(body: string, heading: string, line: string): string {
-    const sections = splitSections(body.replace(/\s+$/, ""));
+    const sections = splitSections(body.trimEnd());
     const at = sections.findIndex((section) => section.heading === heading);
     if (at === -1) {
         const existing = sections
@@ -162,5 +173,12 @@ export function appendUnderHeading(body: string, heading: string, line: string):
  * touched it last. One helper, one answer.
  */
 export function withFrontmatter(prefix: string, body: string): string {
-    return `${prefix}${body ? `\n${body}\n` : ""}`;
+    const eol = prefix.includes("\r\n") ? "\r\n" : "\n";
+    if (!body) return prefix;
+    // Sections are joined with `\n`, so rebuilding a CRLF body left `\r\n`
+    // inside each section and a bare `\n` between them — a file with two kinds
+    // of line ending, written by a command that claimed to touch one section.
+    // The document decides, the same way `patchFrontmatter` already lets it.
+    const text = body.replace(/\r\n/g, "\n").split("\n").join(eol);
+    return `${prefix}${eol}${text}${eol}`;
 }
