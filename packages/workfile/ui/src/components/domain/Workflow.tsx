@@ -104,9 +104,12 @@ function Toggle({
 
 export function WorkflowView({
     selectedId,
+    onSelect,
     onOpen
 }: {
     selectedId: string | null;
+    /** Sets the app-wide selection. The canvas has no selection of its own. */
+    onSelect: (id: string | null) => void;
     onOpen: (id: string) => void;
 }) {
     const [records, setRecords] = useState<GraphRecord[] | null>(null);
@@ -128,7 +131,13 @@ export function WorkflowView({
     // going card by card, and being ejected on every click is going card by
     // card with extra steps. The prop stays, on a control inside the drawer,
     // so leaving is a choice rather than a consequence.
-    const [openId, setOpenId] = useState<string | null>(null);
+    //
+    // Which record is open *is* `selectedId`, not a copy of it. Holding a
+    // private one meant clicking a dot opened the drawer while the app-wide
+    // selection never moved, so the dot never drew as selected and the URL
+    // never said what was on screen — and a node only ever looked active if it
+    // had been selected somewhere else first.
+    const openId = selectedId;
     const [opened, setOpened] = useState<BaseRecord | null>(null);
     const [expanded, setExpanded] = useState(false);
     const openedAt = useRef(0);
@@ -147,6 +156,8 @@ export function WorkflowView({
         alpha: 0
     });
     const surface = useRef<SVGSVGElement | null>(null);
+    /** Set the moment the reader pans or zooms; the auto-framing then stops. */
+    const moved = useRef(false);
 
     useEffect(() => {
         let live = true;
@@ -209,21 +220,6 @@ export function WorkflowView({
         setFrame((frame) => frame + 1);
     }, [graph]);
 
-    useEffect(() => {
-        let raf = 0;
-        const tick = () => {
-            const state = simulation.current;
-            if (state.alpha > 0.02 && state.nodes.length) {
-                step(state.nodes, state.links, state.alpha);
-                state.alpha *= 0.97;
-                setFrame((frame) => frame + 1);
-            }
-            raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(raf);
-    }, []);
-
     const fit = useCallback(() => {
         const nodes = simulation.current.nodes;
         const element = surface.current;
@@ -248,18 +244,30 @@ export function WorkflowView({
         });
     }, []);
 
-    // Fit once the first settle is done, and only then: fitting every frame
-    // fights the simulation, and fitting immediately frames a graph that is
-    // still a knot at the origin.
-    const fitted = useRef(false);
     useEffect(() => {
-        if (fitted.current || !graph.records.length) return;
-        const timer = setTimeout(() => {
-            fitted.current = true;
-            fit();
-        }, 900);
-        return () => clearTimeout(timer);
-    }, [graph.records.length, fit]);
+        let raf = 0;
+        const tick = () => {
+            const state = simulation.current;
+            if (state.alpha > 0.02 && state.nodes.length) {
+                step(state.nodes, state.links, state.alpha);
+                state.alpha *= 0.97;
+                // Keep the camera on the graph while it expands, rather than
+                // framing it once at the end. The layout starts as a knot at
+                // the origin and the origin is the top-left corner, so a
+                // static transform showed the view opening off-centre and
+                // then jumping when the fit landed. Following it reads as a
+                // camera pulling back, and there is nothing to jump from.
+                //
+                // Until the reader touches it, at which point the camera is
+                // theirs and must stop moving under them.
+                if (!moved.current) fit();
+                setFrame((frame) => frame + 1);
+            }
+            raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [fit]);
 
     const onWheel = (event: React.WheelEvent) => {
         event.preventDefault();
@@ -267,12 +275,14 @@ export function WorkflowView({
         if (!box) return;
         const px = event.clientX - box.left;
         const py = event.clientY - box.top;
+        moved.current = true;
         const factor = event.deltaY < 0 ? 1.12 : 0.89;
         setView((current) => zoomAt(current, px, py, factor));
     };
 
     const drag = useRef<{ x: number; y: number } | null>(null);
     const onPointerDown = (event: React.PointerEvent) => {
+        moved.current = true;
         drag.current = { x: event.clientX - view.x, y: event.clientY - view.y };
         (event.target as Element).setPointerCapture?.(event.pointerId);
     };
@@ -381,7 +391,10 @@ export function WorkflowView({
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1 px-2 text-xs"
-                        onClick={fit}
+                        onClick={() => {
+                            moved.current = false;
+                            fit();
+                        }}
                     >
                         <Crosshair aria-hidden="true" className="size-3" />
                         Fit
@@ -480,7 +493,7 @@ export function WorkflowView({
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         openedAt.current = performance.now();
-                                        setOpenId(node.id);
+                                        onSelect(node.id);
                                     }}
                                 >
                                     <circle
@@ -544,7 +557,7 @@ export function WorkflowView({
                 label="record"
                 description="The record behind the selected node, with its body."
                 onOpenChange={(next) => {
-                    if (!next) setOpenId(null);
+                    if (!next) onSelect(null);
                 }}
                 onExpandedChange={setExpanded}
                 // Radix defers its outside-pointer dispatch until after the
@@ -585,12 +598,28 @@ export function WorkflowView({
                             {opened?.title ?? "…"}
                         </h2>
                         {opened ? (
-                            <MarkdownBody
-                                source={opened.body || "_This record has no body._"}
-                                onOpen={setOpenId}
-                                headingPrefix="workflow"
-                                className="mt-3"
-                            />
+                            // The same knobs the card inspector sets, so a
+                            // record does not change size depending on which
+                            // sheet opened it: ~13px body, leading 1.6, and
+                            // prose capped at a readable measure while scroll
+                            // wrappers keep the full column. They have to land
+                            // on the `.typeset` element itself, whose
+                            // component-layer defaults beat an inherited
+                            // custom property.
+                            <div className="mt-3 [&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
+                                <MarkdownBody
+                                    source={
+                                        opened.body ||
+                                        "_This record has no body._"
+                                    }
+                                    // A wiki link inside the body moves the
+                                    // selection too, so following provenance
+                                    // through the drawer keeps the canvas
+                                    // pointing at whatever is being read.
+                                    onOpen={onSelect}
+                                    headingPrefix="workflow"
+                                />
+                            </div>
                         ) : (
                             <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
                                 <Loader2

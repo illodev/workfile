@@ -78,6 +78,7 @@ import { RecordDrawer } from "./components/RecordDrawer";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
 import { recordCollection, severityColor, since, statusColor } from "./theme";
+import { viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
@@ -905,14 +906,15 @@ function App() {
     const openRecord = useCallback(
         (id: string) => {
             selectRecord(id);
-            if (taskById.has(id) || id.startsWith("T-")) setView("explorer");
-            else if (id.startsWith("DOC-") || id.startsWith("PATH-"))
-                setView("docs");
-            else if (id.startsWith("CHG-") || id.startsWith("REL-"))
-                setView("history");
-            else setView("memory");
+            // A card opens where you already are, if where you are shows
+            // cards. Sending every card click to Explorer meant stepping
+            // through `depends` inside Flow ejected you from the board on the
+            // first hop, and the panel you were reading in is not the panel
+            // you end up in.
+            const target = viewForRecord(id, view, taskById.has(id));
+            if (target) setView(target);
         },
-        [taskById]
+        [taskById, view]
     );
 
     const patch = useCallback(async (id: string, requested: TaskPatch) => {
@@ -1600,6 +1602,7 @@ function App() {
                                 ) : view === "workflow" ? (
                                     <WorkflowView
                                         selectedId={selectedId}
+                                        onSelect={selectRecord}
                                         onOpen={openRecord}
                                     />
                                 ) : view === "history" ? (
@@ -1762,7 +1765,11 @@ function App() {
                 open={
                     inspectorOpen &&
                     selectedId !== null &&
-                    recordCollection(selectedId) === "cards"
+                    recordCollection(selectedId) === "cards" &&
+                    // Workflow opens records in its own drawer, for every
+                    // kind. Without this a card selected on the canvas raised
+                    // both, one over the other.
+                    view !== "workflow"
                 }
                 expanded={inspectorExpanded}
                 label="inspector"
@@ -1785,7 +1792,14 @@ function App() {
                     orderedIds={visibleTasks.map(
                         (task) => task.id
                     )}
-                    onOpen={selectRecord}
+                    // `openRecord`, not `selectRecord`. This prop reaches the
+                    // body's `[[DOC-0002]]` links and the `origin` and
+                    // `related` rows, all of which carry records of any kind.
+                    // `selectRecord` only opens a panel for cards, so a doc
+                    // set the selection to something the inspector could not
+                    // render: the sheet closed, the view never changed, and
+                    // nothing errored.
+                    onOpen={openRecord}
                     onClose={() => setSelectedId(null)}
                     onPatch={patch}
                     onEditingChange={(editing) => {
