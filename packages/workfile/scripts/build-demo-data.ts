@@ -42,6 +42,12 @@ async function main() {
         docs: await collect("/api/v2/docs"),
         changelog: await collect("/api/v2/changelog"),
         memory: await collect("/api/v2/memory"),
+        // Its own pool rather than something the Workflow view derives from
+        // the four above. Those carry cards without edges — `/api/tasks` is the
+        // raw frontmatter — and the edges are the whole point. The `graph`
+        // projection is what keeps this affordable: the same records cost 75 KB
+        // here against 305 KB as summaries, on a snapshot that is 600 KB.
+        graph: await request("/api/v2/records?view=graph&limit=500&offset=0"),
         changelogRender: {
             public: (
                 await request("/api/v2/changelog/render?visibility=public")

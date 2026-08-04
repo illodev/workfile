@@ -5,6 +5,7 @@ import type {
     ActivitySnapshot,
     ChangeRecord,
     DocumentRecord,
+    GraphRecord,
     HealthReport,
     SearchHit,
     HistoryRecord,
@@ -24,6 +25,7 @@ interface DemoData {
     docs: RecordsResponse<DocumentRecord>;
     changelog: RecordsResponse<HistoryRecord>;
     memory: RecordsResponse<MemoryRecord>;
+    graph: RecordsResponse<GraphRecord>;
     changelogRender: { public: string; internal: string };
 }
 
@@ -273,6 +275,11 @@ export const demoApi: ProjectApi = {
             provider: null
         };
     },
+    // The snapshot is already the whole graph, so this is the one read that
+    // needs no filtering — and no `wait()`. The others simulate latency so the
+    // demo shows its loading states; a canvas that pops in after an invented
+    // delay only looks broken.
+    graph: async () => clone(state.graph),
     docs: async (query = "") => {
         await wait();
         const records = state.docs.records.filter((record) =>

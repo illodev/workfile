@@ -17,6 +17,7 @@ import {
     Columns3,
     Database,
     FileDiff,
+    Waypoints,
     Gauge,
     Lightbulb,
     ListChecks,
@@ -115,7 +116,8 @@ const loaders = {
     health: () => import("./components/Health"),
     history: () => import("./components/History"),
     memory: () => import("./components/Memory"),
-    triage: () => import("./components/Triage")
+    triage: () => import("./components/Triage"),
+    workflow: () => import("./components/domain/Workflow")
 };
 
 const FlowBoard = lazy(() =>
@@ -145,6 +147,9 @@ const HealthView = lazy(() =>
 const Explorer = lazy(() =>
     loaders.explorer().then((module) => ({ default: module.Explorer }))
 );
+const WorkflowView = lazy(() =>
+    loaders.workflow().then((module) => ({ default: module.WorkflowView }))
+);
 
 const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
     explorer: "explorer",
@@ -155,6 +160,7 @@ const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
     docs: "docs",
     memory: "memory",
     history: "history",
+    workflow: "workflow",
     health: "health"
 };
 
@@ -304,6 +310,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
         label: "Project",
         items: [
+            { value: "workflow", label: "Workflow", icon: Waypoints },
             { value: "history", label: "History", icon: FileDiff },
             { value: "health", label: "Health", icon: Shield }
         ]
@@ -320,6 +327,7 @@ const VIEW_TITLE: Record<View, string> = {
     docs: "Docs",
     memory: "Memory",
     history: "History",
+    workflow: "Workflow",
     health: "Health"
 };
 
@@ -336,6 +344,8 @@ const VIEW_COLLECTION: Record<View, string> = {
     docs: "docs",
     memory: "memory",
     history: "changelog",
+    // Its node set is every record kind, so no single collection names it.
+    workflow: "workflow",
     health: "doctor"
 };
 
@@ -1030,6 +1040,9 @@ function App() {
             // A dashboard wears no badge: a count beside it would restate what
             // the page itself says, and a badge stuck at 0 says less than none.
             overview: null,
+            // Nor does the graph. Its node count is a filter away from
+            // anything the sidebar could claim, and the canvas states it.
+            workflow: null,
             explorer: openTasks.length,
             triage: openTasks.filter((task) => task.status === "backlog")
                 .length,
@@ -1583,6 +1596,11 @@ function App() {
                                         selectedId={selectedId}
                                         onSelect={selectRecord}
                                         onOpenCard={openRecord}
+                                    />
+                                ) : view === "workflow" ? (
+                                    <WorkflowView
+                                        selectedId={selectedId}
+                                        onOpen={openRecord}
                                     />
                                 ) : view === "history" ? (
                                     <HistoryView

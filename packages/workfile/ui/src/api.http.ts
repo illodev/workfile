@@ -2,6 +2,7 @@ import type {
     ChangeRecord,
     DocumentRecord,
     ActivitySnapshot,
+    GraphRecord,
     HealthReport,
     SearchResponse,
     HistoryRecord,
@@ -108,6 +109,19 @@ export const httpApi = {
     search: (term: string, limit = 8) =>
         request<SearchResponse>(
             `/api/v2/search?q=${encodeURIComponent(term)}&limit=${limit}&view=list`
+        ),
+    /**
+     * Every record as a node with its edges, in one call.
+     *
+     * Unpaginated on purpose. A graph cannot draw a page of itself — a layout
+     * over half the nodes puts them in different places than a layout over all
+     * of them — so the `graph` projection is small enough to ask for whole:
+     * this workspace answers with 332 records in 75 KB, against 305 KB for the
+     * same records as summaries.
+     */
+    graph: () =>
+        request<RecordsResponse<GraphRecord>>(
+            "/api/v2/records?view=graph&limit=500"
         ),
     docs: (query = "") => {
         const params = new URLSearchParams();

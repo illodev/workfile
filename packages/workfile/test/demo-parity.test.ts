@@ -83,6 +83,41 @@ test("the demo snapshot has a timeline to draw", async () => {
     );
 });
 
+test("the demo snapshot has a graph to draw", async () => {
+    const snapshot = JSON.parse(
+        await readFile(new URL("../ui/src/demo-data.json", import.meta.url), "utf8")
+    );
+    const records = snapshot.graph?.records ?? [];
+    assert.ok(records.length > 100, `the snapshot carries ${records.length} graph records`);
+
+    // Edges are the view. A snapshot rebuilt from a workspace whose index lost
+    // its relationships would still have every node, and the hosted demo would
+    // open the Workflow view on a field of unconnected dots with nothing
+    // failing anywhere.
+    const edges = records.reduce(
+        (total, record) => total + (record.edges?.length ?? 0),
+        0
+    );
+    assert.ok(edges > 100, `only ${edges} edges across ${records.length} records`);
+
+    // And the default filters have to leave something standing. `mention` is
+    // off and changes and releases are off, so a snapshot carrying only prose
+    // edges between history records would pass the count above and still draw
+    // nothing.
+    const { filterGraph, DEFAULT_KINDS, DEFAULT_RELATIONS } = await import(
+        "../ui/src/workflow.ts"
+    );
+    const drawn = filterGraph(records, {
+        relations: new Set(DEFAULT_RELATIONS),
+        kinds: new Set(DEFAULT_KINDS),
+        hideIsolated: true
+    });
+    assert.ok(
+        drawn.records.length > 50 && drawn.links.length > 50,
+        `the defaults leave ${drawn.records.length} nodes and ${drawn.links.length} edges`
+    );
+});
+
 // The snapshot is the demo's entire backend. A key the adapter reads but the
 // builder never wrote is not a type error — `demo-data.json` is typed by
 // assertion — it is `undefined` at runtime, in the browser, for every visitor.
