@@ -51,6 +51,9 @@ export interface Task {
     archived: boolean;
     parent?: string;
     depends?: string[];
+    /** Records this card was discovered while working on. Any record kind. */
+    origin?: string[];
+    related?: string[];
     milestone?: string;
     source?: string;
     tags?: string[];

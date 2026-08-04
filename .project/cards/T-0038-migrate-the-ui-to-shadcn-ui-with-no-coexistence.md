@@ -6,8 +6,9 @@ type: epic
 priority: high
 area: ui
 created: 2026-07-31
-updated: 2026-07-31
+updated: 2026-08-04
 scope: [packages/workfile/ui, packages/workfile/test, packages/workfile/docs/ui.md, packages/workfile/package.json, packages/workfile/vite.config.mjs, packages/workfile/tsconfig.json]
+origin: [ADR-0005]
 ---
 ## Intent
 

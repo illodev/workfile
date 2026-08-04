@@ -8,7 +8,8 @@ area: core
 scope: [packages/workfile/src/modules/cards/cards.ts, packages/workfile/bin/workfile.ts, packages/workfile/docs]
 related: [T-0060]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [ADR-0008]
 ---
 
 Per [[ADR-0008]]. Write-time validation only covers cards written after the

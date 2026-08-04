@@ -233,18 +233,46 @@ function CardInspector({
                 relation: "depends"
             });
         }
+        // `origin` and `related` hold records of any kind, so the title lookup
+        // misses for a decision or a learning and the row falls back to the ID
+        // alone. Shown anyway: half the value of provenance is that it points
+        // outside the card corpus, and a row reading `ADR-0005` with no title
+        // still tells the reader where to look. `taskById` only knows cards.
+        for (const source of task.origin || []) {
+            rows.push({
+                id: source,
+                title: taskById.get(source)?.title ?? "",
+                relation: "origin"
+            });
+        }
+        for (const peer of task.related || []) {
+            rows.push({
+                id: peer,
+                title: taskById.get(peer)?.title ?? "",
+                relation: "related"
+            });
+        }
         return rows;
-    }, [task.parent, task.depends, taskById]);
+    }, [task.parent, task.depends, task.origin, task.related, taskById]);
 
+    // Reverse edges are derived here and stored nowhere. A card names its own
+    // origins; nothing writes a `spawned` field, and the doctor would have
+    // nothing to check if it did — the forward edge is the fact.
+    //
+    // One pass and no `else if`: a card can hold several relationships to the
+    // same record at once, and the chain kept whichever it tested first. On
+    // this repository that hid `origin` behind `depends` eleven times over.
     const backlinks = useMemo(() => {
-        const rows: Array<{ card: Task; relation: string }> = [];
+        const rows: Array<{ card: Task; relations: string[] }> = [];
         for (const candidate of tasks) {
             if (candidate.id === task.id) continue;
-            if (candidate.parent === task.id) {
-                rows.push({ card: candidate, relation: "child" });
-            } else if (candidate.depends?.includes(task.id)) {
-                rows.push({ card: candidate, relation: "depends" });
-            }
+            const relations = [
+                candidate.parent === task.id && "child",
+                candidate.origin?.includes(task.id) && "spawned",
+                candidate.depends?.includes(task.id) && "depends",
+                candidate.related?.includes(task.id) && "related"
+            ].filter(Boolean) as string[];
+            if (relations.length) rows.push({ card: candidate, relations });
         }
         return rows;
     }, [task.id, tasks]);
@@ -708,9 +736,9 @@ function CardInspector({
                             {backlinks.length}
                         </span>
                     </span>
-                    {backlinks.map(({ card, relation }) => (
+                    {backlinks.map(({ card, relations }) => (
                         <Item
-                            key={`${relation}-${card.id}`}
+                            key={card.id}
                             asChild
                             variant="outline"
                             size="sm"
@@ -731,12 +759,15 @@ function CardInspector({
                                 <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground">
                                     {card.title}
                                 </span>
-                                <Badge
-                                    variant="secondary"
-                                    className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
-                                >
-                                    {relation}
-                                </Badge>
+                                {relations.map((relation) => (
+                                    <Badge
+                                        key={relation}
+                                        variant="secondary"
+                                        className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
+                                    >
+                                        {relation}
+                                    </Badge>
+                                ))}
                             </button>
                         </Item>
                     ))}

@@ -1,7 +1,7 @@
 ---
 id: T-0159
 title: The graph cannot tell parent from depends, related or origin
-status: review
+status: done
 type: feature
 priority: high
 area: core
@@ -86,9 +86,11 @@ UI gets the specific name.
 ## Notes
 
 - 2026-08-04 20:56Z illodev@local#cfe281b4 — Measured after the T-0154 backfill landed 21 origin edges on this repository: 11 of them, 52 percent, are invisible in the graph. Each is a card that already carried depends or related to the same id, and classifiedReferences keys its map by target id, so the origin merges into the existing edge and the relation stays 'reference'. T-0061->T-0054, T-0096->T-0088, T-0098->T-0088, T-0100->T-0098, T-0112->T-0109, T-0113->T-0109, T-0115->T-0108, T-0117->T-0108, T-0128->T-0104, T-0129->T-0104, T-0130->T-0128. So the collapse is not only a missing label: it silently drops half the provenance that was just declared. A card pair can hold two different relationships at once and the index can represent one.
+- 2026-08-04 21:29Z illodev@local#cfe281b4 — Verified on the platform: PR #16 green on all nine jobs — ubuntu 22/24 (1m06s, 57s), macos 22/24 (1m01s, 1m06s), windows 22/24 (2m24s, 2m13s), plus smoke, codeql and doctor. Merged at 0a860dc. On this repository the edges now read: mention 294, wikilink 154, cards 117, fragments 102, related 49, markdown 22, origin 21, source 10, depends 4, supersedes 2, superseded_by 2, corrective_actions 2, decisions 1. 30 of 742 edges hold more than one relationship where every one of them held exactly one before.
 
 ## Activity
 
 - 2026-08-04 21:09Z illodev@local#cfe281b4 · claimed
 - 2026-08-04 21:21Z illodev@local#cfe281b4 · doing → review
+- 2026-08-04 21:29Z illodev@local#cfe281b4 · review → done
 

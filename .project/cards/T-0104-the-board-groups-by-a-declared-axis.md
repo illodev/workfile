@@ -8,7 +8,8 @@ area: ui
 scope: [packages/workfile/ui/src/components/domain/Boards.tsx]
 related: [T-0060]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [ADR-0008]
 ---
 
 Per [[ADR-0008]]. The reporter's stated payoff was reading the board by domain,
