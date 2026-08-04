@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.0 — 2026-08-04
+
+### Added
+
+- A card declares which record it came out of (T-0154)
+- A record shows what it came out of and what it produced (T-0155)
+- A Workflow view draws the record graph, with a filter per relationship (T-0156, ADR-0010)
+
+### Changed
+
+- A graph edge says which field declared it, and a pair can hold several (T-0159)
+
+### Fixed
+
+- The CLI reference names every command and alias the binary accepts (T-0151)
+- The security policy links a threat model that exists (T-0149)
+- The spec names the MCP tools and the API that actually ship (T-0150)
+- The MCP guide states the registration the install actually writes (T-0153)
+
+### Removed
+
+- The schema stops offering a ui.defaultView nothing ever read (T-0152)
+
 ## 0.5.4 — 2026-08-03
 
 ### Added
