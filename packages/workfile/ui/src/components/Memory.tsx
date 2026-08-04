@@ -358,14 +358,19 @@ function RelationList({
                             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                                 {link.title || "Missing record"}
                             </span>
-                            {link.relation || link.kind ? (
-                                <Badge
-                                    variant="secondary"
-                                    className="h-[18px] rounded-md px-1.5 font-mono text-[10px] font-medium"
-                                >
-                                    {link.relation || link.kind}
-                                </Badge>
-                            ) : null}
+                            {/* One badge per relationship, falling back to the
+                                record kind when the edge carries no relation. */}
+                            {(link.relations ?? [link.relation || link.kind])
+                                .filter(Boolean)
+                                .map((relation) => (
+                                    <Badge
+                                        key={relation}
+                                        variant="secondary"
+                                        className="h-[18px] rounded-md px-1.5 font-mono text-[10px] font-medium"
+                                    >
+                                        {relation}
+                                    </Badge>
+                                ))}
                         </button>
                     </Item>
                 );

@@ -77,61 +77,126 @@ export function recordFromMemory(record) {
     return { ...record, kind: "memory", recordType: record.collection };
 }
 
-export function recordReferences(record) {
-    const explicit = [];
-    if (record.kind === "card") {
-        if (record.parent) explicit.push(record.parent);
-        explicit.push(
-            ...(record.depends || []),
-            ...(record.related || []),
-            ...(record.origin || [])
-        );
-    } else if (record.kind === "doc") {
-        explicit.push(...(record.related || []), ...(record.supersedes || []));
-    } else if (record.kind === "change") {
-        explicit.push(
-            ...(record.cards || []),
-            ...(record.decisions || []),
-            ...(record.related || [])
-        );
-    } else if (record.kind === "release") {
-        explicit.push(...(record.fragments || []));
-    } else if (record.kind === "memory") {
-        explicit.push(
-            ...(record.related || []),
-            ...(record.supersedes || []),
-            ...(record.superseded_by || []),
-            ...(record.graduated_to || []),
-            ...(record.corrective_actions || [])
-        );
-    } else {
-        explicit.push(...(record.related || []));
+/**
+ * The frontmatter fields that carry record IDs, per record kind.
+ *
+ * One table rather than a branch per kind, because two functions read it and
+ * they disagreed silently when it was written twice: `origin` reached the ID
+ * list and the relation classifier separately, and either could have been
+ * missed. A kind absent here still carries `related`, which every record has.
+ */
+const REFERENCE_FIELDS: Record<string, string[]> = {
+    card: ["parent", "depends", "origin", "related"],
+    doc: ["supersedes", "related"],
+    change: ["cards", "decisions", "related"],
+    release: ["fragments"],
+    memory: [
+        "supersedes",
+        "superseded_by",
+        "graduated_to",
+        "corrective_actions",
+        "related"
+    ]
+};
+
+/**
+ * Every declared reference, keyed by target, carrying the fields that made it.
+ *
+ * A set of fields rather than one, because a pair can hold more than one
+ * relationship at a time and the index used to keep whichever it saw first. On
+ * this repository that hid 11 of 21 `origin` edges: each was a card that also
+ * had `depends` or `related` to the same record, so the provenance merged into
+ * the edge already there and became unrenderable as provenance.
+ */
+function fieldReferences(record): Map<string, Set<string>> {
+    const found = new Map<string, Set<string>>();
+    const add = (id: string, field: string) => {
+        if (!id || id === record.id) return;
+        if (!found.has(id)) found.set(id, new Set());
+        found.get(id).add(field);
+    };
+    for (const field of REFERENCE_FIELDS[record.kind] || ["related"]) {
+        const value = record[field];
+        if (!value) continue;
+        if (Array.isArray(value)) for (const id of value) add(id, field);
+        else add(String(value), field);
     }
+    return found;
+}
+
+export function recordReferences(record) {
     const inline = String(record.body || "").match(RECORD_ID_RE) || [];
-    return [...new Set([...explicit, ...inline])].filter(
+    return [...new Set([...fieldReferences(record).keys(), ...inline])].filter(
         (reference) => reference && reference !== record.id
     );
 }
 
 /**
- * References split by how they were declared.
+ * References named after whatever declared them.
  *
- * An ID written in prose is not the same thing as one listed in `depends` or
- * `related`, but both used to arrive labelled `reference` and a consumer had no
- * way to tell them apart. On a real workspace that made ~43% of the graph's
- * edges prose, which is noise for anything trying to follow real dependencies.
+ * An ID written in prose is not the same thing as one listed in `depends`, and
+ * a `depends` is not the same thing as an `origin` — but all three used to
+ * arrive labelled `reference`, so a consumer could tell a real dependency from
+ * a sentence and nothing more. On a real workspace prose is ~38% of the edges;
+ * splitting the rest by the field that produced them is that same argument one
+ * level down, and it is what lets a view offer a filter per relationship rather
+ * than a two-way switch.
+ *
+ * The value is a list, ordered strongest first. `wikilink` is kept apart from
+ * both: `[[T-0042]]` is a deliberate link, which a bare ID in a sentence is
+ * not, but it is still prose and does not outrank a declared field.
  */
-export function classifiedReferences(record) {
-    const explicit = new Set(recordReferences({ ...record, body: "" }));
+export function classifiedReferences(record): Map<string, string[]> {
+    const relations = fieldReferences(record);
+    const note = (id: string, relation: string) => {
+        if (!id || id === record.id) return;
+        if (!relations.has(id)) relations.set(id, new Set());
+        relations.get(id).add(relation);
+    };
     for (const match of String(record.body || "").matchAll(WIKI_LINK_RE)) {
-        if (match[1] !== record.id) explicit.add(match[1]);
+        note(match[1], "wikilink");
     }
-    const relations = new Map<string, string>();
-    for (const id of explicit) relations.set(id, "reference");
     for (const id of recordReferences(record)) {
-        if (!relations.has(id)) relations.set(id, "mention");
+        if (!relations.has(id)) note(id, "mention");
     }
-    return relations;
+    return new Map(
+        [...relations].map(([id, fields]) => [id, rankRelations([...fields])])
+    );
+}
+
+/**
+ * Ranked strongest first: a declared field beats a link, a link beats a bare ID.
+ *
+ * Consulted twice for different reasons — to pick the primary name a link
+ * reports, and to decide which backlinks survive truncation on a record
+ * everybody cites. Unknown names sort last rather than throwing, so a field
+ * added to `REFERENCE_FIELDS` without a rank degrades to prose-level ordering
+ * instead of taking an accidental place at the front.
+ */
+const RELATION_RANK: Record<string, number> = {
+    source: 0,
+    parent: 1,
+    depends: 1,
+    origin: 1,
+    supersedes: 1,
+    superseded_by: 1,
+    graduated_to: 1,
+    corrective_actions: 1,
+    cards: 1,
+    decisions: 1,
+    fragments: 1,
+    related: 2,
+    wikilink: 3,
+    markdown: 4,
+    mention: 5
+};
+
+function rankRelations(relations: string[]): string[] {
+    return [...relations].sort(
+        (left, right) =>
+            (RELATION_RANK[left] ?? 9) - (RELATION_RANK[right] ?? 9) ||
+            left.localeCompare(right)
+    );
 }
 
 function markdownDocumentPaths(record) {
@@ -174,26 +239,37 @@ function decorateRelationships(records: any[], maxBacklinks = DEFAULT_MAX_BACKLI
     );
     for (const record of records) {
         const targets = classifiedReferences(record);
+        // Both of these add to whatever the frontmatter already declared rather
+        // than replacing or skipping it. A card whose `source` path resolves to
+        // a document it also lists in `related` holds both relationships, and
+        // the reader that wants to follow sources must not lose it because the
+        // reader that wants `related` got there first.
+        const also = (id: string, relation: string) => {
+            if (!id || id === record.id) return;
+            targets.set(id, rankRelations([...(targets.get(id) || []), relation]));
+        };
         if (record.kind === "card" && record.source) {
             const sourcePath = normalizeRepoPath(
                 String(record.source).split("#", 1)[0]
             );
-            const sourceRecord = byPath.get(sourcePath);
-            if (sourceRecord && sourceRecord.id !== record.id) {
-                targets.set(sourceRecord.id, "source");
-            }
+            also(byPath.get(sourcePath)?.id, "source");
         }
         for (const linkedPath of markdownDocumentPaths(record)) {
-            const linkedRecord = byPath.get(linkedPath);
-            if (linkedRecord && linkedRecord.id !== record.id) {
-                if (!targets.has(linkedRecord.id)) {
-                    targets.set(linkedRecord.id, "markdown");
-                }
-            }
+            also(byPath.get(linkedPath)?.id, "markdown");
         }
-        record.outgoing = [...targets].map(([id, relation]) => ({
+        record.outgoing = [...targets].map(([id, relations]) => ({
             id,
-            relation,
+            // `relation` stays, and stays a string: it is what every existing
+            // consumer reads and what the UI prints on a badge. It is now the
+            // strongest of the relationships rather than the only one kept.
+            relation: relations[0],
+            // And `relations` appears only when it says something `relation`
+            // does not. 30 of this repository's 742 edges hold more than one
+            // relationship, so carrying the array on all of them spent 3,636
+            // bytes of a 33,000-byte search payload restating the singular —
+            // enough to breach the budget on its own. Read it as
+            // `link.relations ?? [link.relation]`.
+            ...(relations.length > 1 ? { relations } : {}),
             exists: byId.has(id),
             ...(byId.has(id)
                 ? {
@@ -210,12 +286,12 @@ function decorateRelationships(records: any[], maxBacklinks = DEFAULT_MAX_BACKLI
             incoming.get(link.id).push({
                 id: record.id,
                 relation: link.relation,
+                ...(link.relations ? { relations: link.relations } : {}),
                 kind: record.kind,
                 title: record.title
             });
         }
     }
-    const RELATION_RANK = { source: 0, reference: 1, markdown: 2, mention: 3 };
     for (const record of records) {
         const all = incoming.get(record.id) || [];
         // Hub records are the ones everybody links to, so they are exactly the
@@ -759,13 +835,15 @@ const SUMMARY_FIELDS = Object.freeze([
     // Carried rather than filtered out, because `project_card_reopen` exists:
     // a listing that hid them would leave nothing to reopen.
     "archived",
+    // All four card edges, not just `parent`. A listing that carries one of
+    // them makes the reader open the file to find the rest, and a view drawing
+    // the graph from a summary projection cannot draw what it never received —
+    // it would have shown hierarchy and provenance while silently omitting
+    // every blocking and loose edge.
     "parent",
-    // Alongside `parent` for the same reason: both answer "where does this sit"
-    // and a listing that drops them makes the reader open the file to find out.
-    // The other two edges — `depends`, `related` — are still summary-invisible,
-    // which is a gap, but one with its own card rather than a silent widening
-    // here.
+    "depends",
     "origin",
+    "related",
     "milestone",
     "tags",
     "managed",
