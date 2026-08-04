@@ -82,3 +82,7 @@ out of", and a filter that can say which.
 - [ ] The library choice is recorded as a decision, against ADR-0005
 - [ ] Reads at 321 records without a hand-tuned layout
 - [ ] `pnpm run check` green, doctor 0/0
+
+## Notes
+
+- 2026-08-04 21:27Z illodev@local#cfe281b4 — Design input from T-0155, measured rather than assumed, and it changes this card's premise. A cards-only canvas is not viable: 159 cards carry 55 explicit card-to-card edges, 64 percent of cards have none at all, and the graph breaks into 117 components whose largest is 8 nodes. Over all records it is one object: 328 records, 449 explicit edges, 9 percent isolated, and a largest component of 225 that contains 111 of the 159 cards alongside 80 change fragments, 22 memory records, 8 releases and 4 docs. The changelog is what connects the board, because a fragment names the cards it closes and a release names its fragments. Two consequences. The node set is records, not cards, and the filters therefore have to include record kind, not only edge type. And parent contributes zero edges across the whole repository, so any layout that leans on hierarchy has nothing to lean on here.

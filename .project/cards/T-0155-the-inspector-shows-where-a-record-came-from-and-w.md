@@ -1,7 +1,7 @@
 ---
 id: T-0155
 title: The inspector shows where a record came from and what it spawned
-status: backlog
+status: review
 type: feature
 priority: medium
 area: ui
@@ -9,6 +9,7 @@ depends: [T-0154]
 effort: S
 created: 2026-08-04
 updated: 2026-08-04
+scope: [packages/workfile/ui/src, packages/workfile/src/modules/api]
 ---
 `Inspector.tsx` already builds two lists for the selected record: references
 out (`parent`, `depends`, labelled by relation) and backlinks in (`child`, and
@@ -41,8 +42,17 @@ record you are on.
 
 ## Acceptance criteria
 
-- [ ] Origin rows appear in the references list, labelled
-- [ ] Spawned rows appear in the backlinks list, derived not stored
-- [ ] A memory record or doc that spawned a card shows it in the drawer
-- [ ] A note records how dense the card graph turned out, for [[T-0156]]
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] Origin rows appear in the references list, labelled
+- [x] Spawned rows appear in the backlinks list, derived not stored
+- [x] A memory record or doc that spawned a card shows it in the drawer
+- [x] A note records how dense the card graph turned out, for [[T-0156]]
+- [x] `pnpm run check` green, doctor 0/0
+
+## Activity
+
+- 2026-08-04 21:23Z illodev@local#cfe281b4 · claimed
+- 2026-08-04 21:28Z illodev@local#cfe281b4 · doing → review
+
+## Notes
+
+- 2026-08-04 21:27Z illodev@local#cfe281b4 — Measured, which is what this card existed to do, and the answer inverts what T-0156 assumed. The card-only graph is an archipelago: 159 cards, 55 explicit card-to-card edges, 102 of them (64 percent) with no card edge at all, 117 connected components, and the largest holds 8 nodes. Median degree is 0 and the maximum is 4. parent contributes zero edges — 159 cards and not one uses hierarchy; the edges are related 30, origin 21, depends 4. Drawn whole, that is a hundred floating dots and forty islands, which is not a view. The full record graph is a different object: 328 records, 449 explicit non-mention edges, only 9 percent isolated, 46 components, and the largest holds 225 records — 111 cards, 80 changes, 22 memory records, 8 releases and 4 docs. So 111 of the 159 cards are in one component, but only when changelog fragments and releases are nodes too. The changelog is the connective tissue: a fragment names the cards it closes, a release names its fragments. Conclusion for T-0156: the Workflow view is over records, not over cards. A card-only canvas cannot be made legible by layout because the edges are not there.
