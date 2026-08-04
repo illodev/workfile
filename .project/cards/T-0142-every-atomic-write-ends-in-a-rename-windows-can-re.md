@@ -6,8 +6,9 @@ type: task
 priority: medium
 area: core
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-04
 scope: [packages/workfile/src/core/filesystem.ts, packages/workfile/src/server/http.ts, packages/workfile/test]
+origin: [T-0140]
 ---
 
 Found while auditing the locks for [[T-0140]], which fixed the exclusive

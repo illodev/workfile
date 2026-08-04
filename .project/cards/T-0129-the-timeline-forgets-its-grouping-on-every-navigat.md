@@ -8,7 +8,8 @@ area: ui
 scope: [packages/workfile/ui/src/components/domain/Boards.tsx]
 related: [T-0104]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0104]
 ---
 
 Found while adding axis grouping ([[T-0104]]), and it predates that work — the

@@ -182,7 +182,8 @@ workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent I
 workfile card show ID [--json]
 workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
                     [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
-                    [--depends ID,ID] [--related ID,ID] [--milestone M] [--effort S|M|L]
+                    [--depends ID,ID] [--related ID,ID] [--origin ID,ID]
+                    [--milestone M] [--effort S|M|L]
                     [--start DATE] [--due DATE] [--body TEXT] [--axis NAME=VALUE]
 workfile card create --json-input FILE
 workfile card patch ID --json-input FILE [--expected-revision REV]
@@ -215,6 +216,15 @@ body. It takes the whole record — title, body, parent, source, tags, scope —
 one call, and a JSON file survives backticks, `$` and accents that a shell
 heredoc quietly mangles. The flag form above writes the same fields; it is the
 body that argues for the file.
+
+`--origin ID,ID` records which records the work came out of — the card being
+worked when it was found, the decision that produced it. Any record kind, not
+cards only. It is provenance, not decomposition: use `--parent` when the card is
+genuinely part of another, and `--origin` when it merely came out of it. There
+is no `card patch --origin`; patching any card field goes through
+`--json-input`, the same as every other field. `agents context --card ID` reads
+it back in both directions, and `doctor` reports an origin that resolves to
+nothing.
 
 `--axis NAME=VALUE` writes a classification axis the project declares under
 `cards.axes` — a second axis alongside `area`, for domains rather than delivery

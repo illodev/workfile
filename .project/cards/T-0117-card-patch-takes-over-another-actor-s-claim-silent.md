@@ -8,7 +8,8 @@ area: core
 scope: [packages/workfile/src/modules/cards/mutations.ts]
 related: [T-0108]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0108]
 ---
 
 Found while fixing [[T-0108]], from a reviewer's observation that a change of

@@ -7,7 +7,8 @@ priority: low
 area: mcp
 tags: [mcp, truncation]
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-04
+origin: [T-0146]
 ---
 
 `buildAgentContext` returns `truncated: boolean` — true when related records

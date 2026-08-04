@@ -72,7 +72,13 @@ export async function runDoctor(workspace, options: any = {}) {
                 unreadable: index.unreadable.cards,
                 workspace,
                 now: options.now || new Date(),
-                checkPaths: options.checkPaths !== false
+                checkPaths: options.checkPaths !== false,
+                // Built here because this is the only layer that holds every
+                // kind at once: `origin` resolves against decisions and
+                // learnings as readily as against cards.
+                knownIds: new Set(
+                    index.records.map((record) => record.id).filter(Boolean)
+                )
             })
         );
     }

@@ -6,8 +6,9 @@ type: task
 priority: medium
 area: ui
 created: 2026-07-31
-updated: 2026-07-31
+updated: 2026-08-04
 scope: [packages/workfile/ui/src/query.ts, packages/workfile/ui/src/main.tsx, packages/workfile/test/schema-parity.test.ts, site/index.html]
+origin: [T-0047]
 ---
 ## Notes
 

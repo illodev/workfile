@@ -7,6 +7,7 @@ priority: medium
 area: core
 created: 2026-08-04
 updated: 2026-08-04
+origin: [T-0155]
 ---
 
 `patchCardBody` protects `## Activity` and `## Notes` from being replaced —

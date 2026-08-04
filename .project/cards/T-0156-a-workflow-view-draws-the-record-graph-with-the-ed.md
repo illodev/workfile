@@ -5,7 +5,7 @@ status: backlog
 type: feature
 priority: medium
 area: ui
-depends: [T-0154, T-0155]
+depends: [T-0154, T-0155, T-0159]
 effort: L
 created: 2026-08-04
 updated: 2026-08-04

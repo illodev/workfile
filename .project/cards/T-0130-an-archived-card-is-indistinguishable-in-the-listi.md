@@ -8,7 +8,8 @@ area: mcp
 scope: [packages/workfile/src/modules/records/index.ts, packages/workfile/src/modules/mcp/tools.ts]
 related: [T-0128]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0128]
 ---
 
 Found while fixing [[T-0128]], measuring what the `list` projection drops.

@@ -8,7 +8,8 @@ area: core
 scope: [packages/workfile/test/cli.test.ts]
 related: [T-0091, T-0098]
 created: 2026-08-01
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0098]
 ---
 
 `assertKnownFlags` keys on `"word subcommand"`, falls back to `word`, and

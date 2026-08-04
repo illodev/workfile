@@ -505,9 +505,34 @@ export async function buildAgentContext(workspace, options: any = {}) {
             );
         }
     }
+    // Provenance, both ways, read off the field rather than off the graph edge.
+    //
+    // The edge cannot answer this. `classifiedReferences` collapses every
+    // explicit frontmatter link to the single relation `reference`, so in the
+    // index an origin is indistinguishable from a `related` or a `depends` —
+    // the records already arrive through `direct` below, but nothing says which
+    // of them this card came out of and which came out of it. The field says it
+    // exactly, and in both directions: one read off the focus card, the other
+    // off everything naming it.
+    // Narrowed here rather than above: `focus.kind !== "card"` already threw,
+    // but that guard sits inside `if (cardId)` and the union widens again on
+    // the way out, so `origin` — a card-only field — is unreachable without it.
+    const cameFrom = focus?.kind === "card" ? focus.origin || [] : [];
+    const spawned = focus
+        ? index.records
+              .filter(
+                  (record) =>
+                      record.kind === "card" &&
+                      (record.origin || []).includes(focus.id)
+              )
+              .map((record) => record.id)
+              .sort()
+        : [];
     const directIds = new Set([
         ...(focus?.outgoing || []).map((item) => item.id),
-        ...(focus?.incoming || []).map((item) => item.id)
+        ...(focus?.incoming || []).map((item) => item.id),
+        ...cameFrom,
+        ...spawned
     ]);
     const direct = index.records.filter((record) => directIds.has(record.id));
     // Draft is included deliberately. A convention that has been written down
@@ -594,12 +619,23 @@ export async function buildAgentContext(workspace, options: any = {}) {
             ? `Contexto mínimo derivado del índice canónico. No sustituye la lectura de los archivos cuando necesites detalle.`
             : `Minimal context derived from the canonical index. It does not replace reading source files when detail is needed.`,
         "",
+        // Two lines, not a section. The bundle is budgeted, and the records
+        // themselves follow immediately below — this only has to say which way
+        // provenance runs between them.
+        ...(cameFrom.length
+            ? [`${isEs ? "**Surgió de**" : "**Came out of**"}: ${cameFrom.join(", ")}`]
+            : []),
+        ...(spawned.length
+            ? [`${isEs ? "**Ha generado**" : "**Spawned**"}: ${spawned.join(", ")}`]
+            : []),
+        ...(cameFrom.length || spawned.length ? [""] : []),
         ...records.flatMap((record) => [renderRecordSummary(record), ""])
     ]
         .join("\n")
         .trimEnd();
     return {
         focus: focus?.id || null,
+        provenance: focus ? { origin: cameFrom, spawned } : null,
         generatedAt: new Date().toISOString(),
         truncated: prioritized.length > records.length,
         totalAvailable: prioritized.length,

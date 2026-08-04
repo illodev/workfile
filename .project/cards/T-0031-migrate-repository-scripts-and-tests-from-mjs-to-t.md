@@ -6,8 +6,9 @@ type: task
 priority: medium
 area: infra
 created: 2026-07-30
-updated: 2026-07-30
+updated: 2026-08-04
 scope: [scripts/, packages/workfile/scripts/, packages/workfile/test/, packages/search-local/test/, package.json, packages/workfile/package.json, packages/search-local/package.json, .github/workflows/release.yml, packages/workfile/tsconfig.strict.json]
+origin: [T-0030]
 ---
 ## Intent
 

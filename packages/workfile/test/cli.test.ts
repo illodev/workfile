@@ -1433,6 +1433,61 @@ test("doctor --new gates on what appeared since the accepted baseline", async ()
     }
 });
 
+/**
+ * Through the CLI because the rule is only half in `diagnoseCards`.
+ *
+ * `origin` accepts any record kind, and that module is handed cards alone — so
+ * the set it resolves against is assembled a layer up, in `runDoctor`, from the
+ * whole index. A unit test against `diagnoseCards` would pass with that wiring
+ * cut and every non-card origin reported as dangling.
+ *
+ * Which is what the LRN-0001 case guards. It is the one assertion here that
+ * fails if the known set is ever narrowed back to card IDs, and the failure it
+ * describes is silent: a card citing the decision it came out of, told the
+ * decision does not exist.
+ */
+test("doctor resolves an origin against every record kind, not just cards", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-origin-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const learning = (
+            await run([
+                "memory", "add", "learnings", "--root", root,
+                "--title", "Something worth knowing"
+            ])
+        ).stdout;
+        assert.match(learning, /LRN-0001/, "the fixture gained no learning to cite");
+
+        await run([
+            "card", "create", "--root", root,
+            "--title", "Came out of a card and a learning",
+            "--origin", "T-0001,LRN-0001"
+        ]);
+        const clean = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        );
+        assert.deepEqual(
+            clean.issues.filter((issue) => issue.code.endsWith("origin")),
+            [],
+            "an origin naming a real card and a real learning was reported as broken"
+        );
+
+        await run([
+            "card", "create", "--root", root,
+            "--title", "Came out of nothing at all",
+            "--origin", "T-9999"
+        ]);
+        const dangling = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        ).issues.filter((issue) => issue.code === "missing-origin");
+        assert.equal(dangling.length, 1);
+        assert.equal(dangling[0].severity, "warning");
+        assert.match(dangling[0].message, /T-9999/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 // Found while testing the above: a boolean flag left off the no-value list is
 // assumed to consume the next token, so it swallowed the flag after it.
 // `doctor --fix --bogus` accepted `--bogus` and ran the repair anyway.

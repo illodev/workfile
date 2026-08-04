@@ -6,8 +6,9 @@ type: feature
 priority: low
 area: core
 created: 2026-07-30
-updated: 2026-07-30
+updated: 2026-08-04
 scope: [src/modules/agents, src/modules/ci, src/modules/claude, src/modules/upgrade, bin/workfile.ts, test, docs]
+origin: [T-0025]
 ---
 ## Context
 

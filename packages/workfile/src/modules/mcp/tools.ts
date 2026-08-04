@@ -594,6 +594,16 @@ const TOOL_DEFINITIONS = [
         outputSchema: output(
             {
                 focus: text("ID of the card the bundle was built around."),
+                provenance: {
+                    type: "object",
+                    additionalProperties: true,
+                    description:
+                        "Which records this card came out of, and which came out of it. Both are read off the origin field, so the direction is exact — the graph edge alone cannot tell provenance from any other explicit link.",
+                    properties: {
+                        origin: strings("Records this card was discovered while working on."),
+                        spawned: strings("Cards that declare this record as their origin.")
+                    }
+                },
                 generatedAt: text("When the bundle was assembled, RFC 3339."),
                 truncated: flag("True when relevant records were dropped to respect limit."),
                 totalAvailable: count("Related records before limit was applied."),
@@ -820,6 +830,9 @@ const TOOL_DEFINITIONS = [
                     "Repository paths this work will change. Declared here, enforced when the card is claimed."
                 ),
                 related: strings("IDs of records worth reading alongside this one."),
+                origin: strings(
+                    "IDs of the records this work came out of — the card being worked when it was discovered, the decision that spawned it. Any record kind, not cards only. Unlike parent, it does not make this card part of them."
+                ),
                 effort: choice(CARD_EFFORTS, "Rough size: S, M or L."),
                 start: text("Planned start date, YYYY-MM-DD."),
                 due: text("Target completion date, YYYY-MM-DD."),
@@ -843,7 +856,8 @@ const TOOL_DEFINITIONS = [
                 depends: stringList(args.depends, "depends"),
                 tags: stringList(args.tags, "tags"),
                 scope: stringList(args.scope, "scope"),
-                related: stringList(args.related, "related")
+                related: stringList(args.related, "related"),
+                origin: stringList(args.origin, "origin")
             });
             invalidate(context);
             return recordResult(recordFromCard(context.workspace, result.card));

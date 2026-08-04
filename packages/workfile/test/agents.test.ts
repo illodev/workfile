@@ -99,6 +99,16 @@ test("agent context stays bounded and includes related durable knowledge", async
             related: ["T-0001"],
             body: "Run integration tests before review."
         });
+        // Provenance is asserted in both directions from the same bundle,
+        // because only one of them can be read off the focus card. `Came out
+        // of` is its own `origin` field; `Spawned` has to be found by scanning
+        // every other card for one naming it, and a bundle that reported only
+        // the first would look correct from the card that declared the edge.
+        const spawned = await createCard(workspace, {
+            title: "Found while working the example",
+            area: "api",
+            origin: ["T-0001"]
+        });
         const context = await buildAgentContext(workspace, {
             cardId: "T-0001",
             limit: 10
@@ -108,6 +118,20 @@ test("agent context stays bounded and includes related durable knowledge", async
         assert.ok(context.records.some((record) => record.id === convention.id));
         assert.match(context.markdown, /T-0001 — Example task/);
         assert.match(context.markdown, /API operating guide/);
+        // Asserted on `provenance` rather than on the rendered line, because
+        // this fixture declares `language: "es"` and the markdown renders
+        // `**Ha generado**`. The structure is the contract; the wording is
+        // localized, and pinning it here would make the bundle the one place a
+        // language change breaks a test.
+        assert.deepEqual(context.provenance, { origin: [], spawned: [spawned.id] });
+        assert.match(context.markdown, new RegExp(`: ${spawned.id}$`, "m"));
+
+        const child = await buildAgentContext(workspace, {
+            cardId: spawned.id,
+            limit: 10
+        });
+        assert.deepEqual(child.provenance, { origin: ["T-0001"], spawned: [] });
+        assert.match(child.markdown, /: T-0001$/m);
         assert.ok(context.records.length <= 10);
     } finally {
         await rm(root, { recursive: true, force: true });

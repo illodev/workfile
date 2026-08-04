@@ -198,11 +198,27 @@ async function pathExists(repoRoot, repoPath) {
     }
 }
 
+/**
+ * `knownIds` is every project record ID, not every card ID.
+ *
+ * `origin` accepts any record kind — ADR-0005 spawned two cards, and four cards
+ * cite an LRN — so the set this rule resolves against is wider than the one
+ * `missing-parent` and `missing-dependency` use, and this module cannot build
+ * it: it is handed cards. Absent, the rule stays quiet rather than reporting
+ * every non-card origin as dangling, which is the same bargain `checkPaths`
+ * makes for `missing-source`.
+ */
 export async function diagnoseCards({
     cards,
     unreadable = [],
     workspace,
     checkPaths = true,
+    // Annotated through the default rather than on the destructure: `null`
+    // alone infers `never`, so every `knownIds.has(...)` below becomes an
+    // error — but annotating the whole parameter `any` silences two unrelated
+    // baseline errors this file is still carrying, which the ratchet reads as
+    // progress that nobody made.
+    knownIds = null as Set<string> | null,
     now = new Date()
 }) {
     const issues = unreadable.map((entry) =>
@@ -399,6 +415,31 @@ export async function diagnoseCards({
             if (dependency === card.id) {
                 issues.push(
                     issue("error", "self-dependency", card, "Card cannot depend on itself")
+                );
+            }
+        }
+        for (const source of card.origin || []) {
+            if (source === card.id) {
+                issues.push(
+                    issue("error", "self-origin", card, "Card cannot originate from itself")
+                );
+            } else if (knownIds && !knownIds.has(source)) {
+                // A warning where `missing-parent` is an error, and the
+                // difference is what breaks. A dangling parent corrupts the
+                // hierarchy depth every other card is measured against, and a
+                // dangling dependency makes unblocked work look blocked;
+                // nothing computes on `origin`, so what a dangling one costs is
+                // one missing edge in a graph nobody is blocked by. It still
+                // has to be reported: the value replaces prose that named IDs
+                // freely, so a typo here reads exactly like a real provenance
+                // and would otherwise go on looking like one forever.
+                issues.push(
+                    issue(
+                        "warning",
+                        "missing-origin",
+                        card,
+                        `Origin ${source} does not resolve to any project record`
+                    )
                 );
             }
         }
