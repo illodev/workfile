@@ -107,3 +107,7 @@ SPEC would only drift from again, and correct 16.2 to the API that exists.
 Two things the card did not anticipate. The drift is older than it looked: git dates both defects to v0.1.0, so the spec named tools no client could call from the first tagged release, not for six as I first wrote — corrected in both the section and the test comment before committing to it. And section 23 keeps the naming rule rather than a corrected catalogue, because a second copy of thirty tools is only right until one of them moves; docs/mcp.md and workfile mcp inspect are the two that cannot disagree with the server.
 
 Not yet verified on Windows. The three checks read files and one loads a temp workspace, which is the class T-0140 and T-0142 came from, so this stays in review until CI is green on both platforms. Uncommitted: the working tree carries the SPEC edit, the tests and CHG-0103.
+- 2026-08-04 20:29Z illodev@local#cfe281b4 — CI green on all eight matrix jobs at 86be3c0 (PR #14, run 30947778231): ubuntu, macos and windows on node 22 and 24, plus smoke, codeql and doctor. Windows 22 in 1m59s, Windows 24 in 3m42s. That closes the platform gap every note above flagged — the checks resolve paths through new URL against a document base, and Windows checkouts are where that has broken before.
+
+Staying in review rather than done: the protocol reads review as 'awaiting verification, deployment or approval', and this is awaiting approval. The runtime evidence exists; the merge does not.
+

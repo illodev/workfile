@@ -75,3 +75,7 @@ Criterion 4 asked for a schema migration and none was needed — checked rather 
 Criterion 3 does not apply — it was conditional on keeping the key.
 
 pnpm run check exit 0, suite 275/275, ratchet 554 across 56 files none new, doctor 0/0. This one is a source change rather than a doc change, so CI on both platforms is the verification that matters. Stays in review. Uncommitted.
+- 2026-08-04 20:29Z illodev@local#cfe281b4 — CI green on all eight matrix jobs at 86be3c0 (PR #14, run 30947778231): ubuntu, macos and windows on node 22 and 24, plus smoke, codeql and doctor. Windows 22 in 1m59s, Windows 24 in 3m42s. That closes the platform gap every note above flagged — the checks resolve paths through new URL against a document base, and Windows checkouts are where that has broken before.
+
+Staying in review rather than done: the protocol reads review as 'awaiting verification, deployment or approval', and this is awaiting approval. The runtime evidence exists; the merge does not.
+

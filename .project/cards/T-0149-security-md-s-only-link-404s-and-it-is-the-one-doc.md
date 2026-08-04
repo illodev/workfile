@@ -80,4 +80,7 @@ One consequence not paid here: ui/src/demo-data.json snapshots this repository's
 
 Not verified on Windows — the link check resolves paths through new URL against a document base, which is exactly where Windows checkouts have bitten before. Stays in review until CI is green. Uncommitted.
 - 2026-08-04 19:40Z illodev@local#cfe281b4 — Correction to the note above: no demo regeneration is owed. LRN-0003 records that vercel.json runs build:demo, which runs demo:data first, so the hosted demo rebuilds its snapshot from the .project/ of the deployed commit on every deploy. The tracked ui/src/demo-data.json exists only so a local --mode demo run has data without rebuilding the core. Indexing SECURITY.md therefore reaches the hosted Docs view on the next push with nothing to run by hand. I asserted the opposite without checking memory first, which is the exact failure LRN-0005 is about.
+- 2026-08-04 20:29Z illodev@local#cfe281b4 — CI green on all eight matrix jobs at 86be3c0 (PR #14, run 30947778231): ubuntu, macos and windows on node 22 and 24, plus smoke, codeql and doctor. Windows 22 in 1m59s, Windows 24 in 3m42s. That closes the platform gap every note above flagged — the checks resolve paths through new URL against a document base, and Windows checkouts are where that has broken before.
+
+Staying in review rather than done: the protocol reads review as 'awaiting verification, deployment or approval', and this is awaiting approval. The runtime evidence exists; the merge does not.
 

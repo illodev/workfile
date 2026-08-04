@@ -104,3 +104,7 @@ Two defects found while writing this, neither in the card. SPEC 13.4 showed a re
 The claim was extended mid-card to mcp.md, with --force against my own claim, to host mcp.maxMessageBytes next to maxToolResultBytes where a reader looking for limits will find it.
 
 Not verified on Windows. Stays in review until CI is green. Uncommitted.
+- 2026-08-04 20:29Z illodev@local#cfe281b4 — CI green on all eight matrix jobs at 86be3c0 (PR #14, run 30947778231): ubuntu, macos and windows on node 22 and 24, plus smoke, codeql and doctor. Windows 22 in 1m59s, Windows 24 in 3m42s. That closes the platform gap every note above flagged — the checks resolve paths through new URL against a document base, and Windows checkouts are where that has broken before.
+
+Staying in review rather than done: the protocol reads review as 'awaiting verification, deployment or approval', and this is awaiting approval. The runtime evidence exists; the merge does not.
+
