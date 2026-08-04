@@ -1,7 +1,7 @@
 ---
 id: T-0156
 title: A Workflow view draws the record graph, with the edges you choose
-status: backlog
+status: doing
 type: feature
 priority: medium
 area: ui
@@ -9,6 +9,9 @@ depends: [T-0154, T-0155, T-0159]
 effort: L
 created: 2026-08-04
 updated: 2026-08-04
+claimed_by: "illodev@local#cfe281b4"
+claimed_at: "2026-08-04T21:33:47.786Z"
+scope: [packages/workfile/ui/src]
 ---
 
 A tenth view: records as nodes, typed relationships as edges, pan and zoom,
@@ -86,3 +89,8 @@ out of", and a filter that can say which.
 ## Notes
 
 - 2026-08-04 21:27Z illodev@local#cfe281b4 — Design input from T-0155, measured rather than assumed, and it changes this card's premise. A cards-only canvas is not viable: 159 cards carry 55 explicit card-to-card edges, 64 percent of cards have none at all, and the graph breaks into 117 components whose largest is 8 nodes. Over all records it is one object: 328 records, 449 explicit edges, 9 percent isolated, and a largest component of 225 that contains 111 of the 159 cards alongside 80 change fragments, 22 memory records, 8 releases and 4 docs. The changelog is what connects the board, because a fragment names the cards it closes and a release names its fragments. Two consequences. The node set is records, not cards, and the filters therefore have to include record kind, not only edge type. And parent contributes zero edges across the whole repository, so any layout that leans on hierarchy has nothing to lean on here.
+- 2026-08-04 21:33Z illodev@local#cfe281b4 — Node and edge set decided, measured on this workspace rather than assumed. Six candidate sets compared. Cards with declared fields only: 160 nodes, 45 edges, 64 percent isolated, largest component 9. Cards counting wikilinks: 115 edges, largest component 65. Cards plus memory plus docs with wikilinks: 204 nodes, 227 edges, 33 percent isolated, largest component 108, maximum degree 11. Everything including changes and releases: 331 nodes, 454 edges, 9 percent isolated, largest component 236, maximum degree 25. Decision: the default node set is cards, memory and docs. Fragments and releases go behind a toggle, off by default. Releases are the reason: they take maximum degree from 11 to 25 because one hangs off fifteen to twenty fragments, they are visual hubs, and they connect records by when the work shipped, which is what the history and timeline views already answer better. Wikilinks must count as edges by default or the view opens on a graveyard: they are 154 edges against 45 declared card edges, so seven eighths of the card graph lives in prose rather than in frontmatter. But they are weaker data, with no direction and no doctor rule, so they must render differently from a declared edge. That makes the view a backfill instrument as well as a reader: a dashed edge between two cards that obviously belong together is a missing origin or related, visible at a glance.
+
+## Activity
+
+- 2026-08-04 21:33Z illodev@local#cfe281b4 · claimed
