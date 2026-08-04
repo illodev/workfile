@@ -13,7 +13,9 @@ import {
     archiveCard,
     claimCard,
     createCard,
+    healMisplacedTrailEntries,
     loadCards,
+    misplacedTrailEntries,
     loadWorkspace,
     patchCard,
     patchCardBody,
@@ -346,15 +348,25 @@ test("reopening into doing carries an actor, on every surface", async () => {
  * `card note` appends carry the same timestamp shape, so a card with notes
  * counted them as trail entries.
  */
+// Reads the trail the way a reader does, which means skipping fenced blocks: a
+// card quoting an example trail used to answer this helper with the quote,
+// exactly as it answered the code that wrote into it.
 function trail(card) {
-    const heading = "## Activity";
-    const at = card.body.indexOf(heading);
-    if (at === -1) return [];
-    const rest = card.body.slice(at + heading.length);
-    const end = rest.indexOf("\n## ");
-    return (end === -1 ? rest : rest.slice(0, end))
-        .split("\n")
-        .filter((line) => /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z /.test(line));
+    const entries: string[] = [];
+    let fence: string | null = null;
+    let inside = false;
+    for (const line of card.body.split("\n")) {
+        const delimiter = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+        if (delimiter) {
+            const marker = delimiter[1][0];
+            if (!fence) fence = marker;
+            else if (fence === marker) fence = null;
+        } else if (fence) continue;
+        else if (/^##(?!#)\s+\S/.test(line)) inside = line.trim() === "## Activity";
+        else if (inside && /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z /.test(line))
+            entries.push(line);
+    }
+    return entries;
 }
 
 // Nothing asserted on `## Activity` before this, which is how a no-op line got
@@ -599,6 +611,273 @@ test("a body write cannot erase the protocol sections", async () => {
             body: "just prose"
         });
         assert.equal(written.card.body.trim(), "just prose");
+    } finally {
+        await cleanup();
+    }
+});
+
+// The guard above was positional: it kept the stored body from the first
+// protocol heading *to the end of the document*. So a card with anything below
+// its notes — acceptance criteria, in practice — had a section nothing could
+// rewrite, and `card write` said it had written it. This is T-0157's repro.
+test("a body write reaches the sections below the protocol ones", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Criteria under notes",
+            area: "api",
+            body: [
+                "Original prose.",
+                "",
+                "## Notes",
+                "",
+                "- Old note.",
+                "",
+                "## Acceptance criteria",
+                "",
+                "- [ ] old criterion"
+            ].join("\n")
+        });
+
+        const result = await patchCardBody(workspace, created.id, {
+            body: [
+                "REWRITTEN prose.",
+                "",
+                "## Notes",
+                "",
+                "- Old note.",
+                "",
+                "## Acceptance criteria",
+                "",
+                "- [ ] corrected criterion"
+            ].join("\n")
+        });
+
+        assert.match(result.card.body, /REWRITTEN prose/);
+        assert.match(result.card.body, /- \[ \] corrected criterion/);
+        assert.doesNotMatch(result.card.body, /old criterion/);
+        // The note is still carried over from the stored copy, and the write
+        // that reached past it was not reported as partial.
+        assert.match(result.card.body, /- Old note\./);
+        assert.deepEqual(result.ignored, []);
+    } finally {
+        await cleanup();
+    }
+});
+
+// The same positional read found headings inside fenced code blocks. T-0157's
+// own body quotes a repro containing `## Notes`, so the card describing this
+// bug was one of the cards it made unwritable.
+test("a heading inside a fenced block is prose, not a protocol section", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Quotes a body",
+            area: "api",
+            body: [
+                "## Reproduced",
+                "",
+                "```text",
+                "## Notes",
+                "",
+                "Old note.",
+                "```",
+                "",
+                "## Why it matters",
+                "",
+                "Because the quote is not a section."
+            ].join("\n")
+        });
+        await appendCardNote(workspace, created.id, { text: "a real note" });
+
+        const result = await patchCardBody(workspace, created.id, {
+            body: [
+                "## Reproduced",
+                "",
+                "```text",
+                "## Notes",
+                "",
+                "Old note.",
+                "```",
+                "",
+                "## Why it matters",
+                "",
+                "REWRITTEN reasoning."
+            ].join("\n")
+        });
+
+        assert.match(result.card.body, /REWRITTEN reasoning/);
+        assert.doesNotMatch(result.card.body, /Because the quote is not a section/);
+        // And the real note, which lives below all of it, is still there.
+        assert.match(result.card.body, /a real note/);
+        assert.deepEqual(result.ignored, []);
+    } finally {
+        await cleanup();
+    }
+});
+
+// The trail and `card note` located their heading the same way, so a card
+// quoting one wrote *into the quote*: the claim line landed inside a fenced
+// block, where a reader sees it as literal text and `trail()` never finds it.
+// The card documenting the bug is exactly this shape.
+test("the trail is appended to a section, not into a quoted one", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Quotes a trail",
+            area: "api",
+            body: [
+                "How a trail looks:",
+                "",
+                "```text",
+                "## Activity",
+                "",
+                "- 2026-01-01 00:00Z someone · claimed",
+                "```"
+            ].join("\n")
+        });
+        await claimCard(workspace, created.id, { actor: "alice" });
+        const moved = await transitionCard(workspace, created.id, "review", {
+            actor: "alice"
+        });
+
+        const fence = moved.card.body.indexOf("```text");
+        const closing = moved.card.body.indexOf("```", fence + 7);
+        const quoted = moved.card.body.slice(fence, closing);
+        assert.doesNotMatch(quoted, /alice/, "the trail was written into the quote");
+
+        const entries = trail(moved.card);
+        assert.equal(entries.length, 2);
+        assert.match(entries[1], /doing → review$/);
+        // And the quote survives intact, because it is prose.
+        assert.match(moved.card.body, /- 2026-01-01 00:00Z someone · claimed/);
+    } finally {
+        await cleanup();
+    }
+});
+
+// The instance that actually happened, four times, in this repository. The
+// cards written *about* the trail are the cards that name it in prose, so
+// `indexOf("## Activity")` found it inside a sentence — and T-0108's entire
+// four-entry trail ended up in its second paragraph, with no section at all.
+test("a heading quoted inline is not where the trail goes", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Names the trail",
+            area: "api",
+            body: [
+                "`card transition` appends `review → review` to `## Activity`",
+                "even when nothing moved.",
+                "",
+                "## Reproduced",
+                "",
+                "Three identical transitions, three lines."
+            ].join("\n")
+        });
+        await claimCard(workspace, created.id, { actor: "alice" });
+
+        const entries = trail((await loadCards(workspace)).cards.find(
+            (card) => card.id === created.id
+        ));
+        assert.equal(entries.length, 1, "the claim landed somewhere else");
+        assert.match(entries[0], /claimed$/);
+        // The sentence that names the heading is untouched prose.
+        assert.match(
+            (await loadCards(workspace)).cards.find((card) => card.id === created.id)
+                .body,
+            /appends `review → review` to `## Activity`\neven when nothing moved\./
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+// Silence over a half-applied write is the failure shape this repository has
+// named the worst available: the instruction evaporates and the exit code says
+// it worked. The sections stay append-only; they stop being quiet about it.
+test("a body write names the protocol sections it declined to take", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, { title: "Named", area: "api" });
+        await claimCard(workspace, created.id, { actor: "alice" });
+        await appendCardNote(workspace, created.id, { text: "human context" });
+
+        const edited = await patchCardBody(workspace, created.id, {
+            body: "prose\n\n## Notes\n\n- rewritten note\n"
+        });
+        assert.deepEqual(edited.ignored, ["## Notes"]);
+        assert.match(edited.card.body, /human context/);
+        assert.doesNotMatch(edited.card.body, /rewritten note/);
+
+        // Inventing a section the card does not have is the same answer: the
+        // protocol commands are the only writers of a trail.
+        const plain = await createCard(workspace, { title: "Plain", area: "api" });
+        const fabricated = await patchCardBody(workspace, plain.id, {
+            body: "prose\n\n## Activity\n\n- 2026-08-05 10:00Z mallory · claimed\n"
+        });
+        assert.deepEqual(fabricated.ignored, ["## Activity"]);
+        assert.equal(fabricated.card.body.trim(), "prose");
+
+        // A faithful round trip stays quiet.
+        const again = await patchCardBody(workspace, created.id, {
+            body: edited.card.body
+        });
+        assert.deepEqual(again.ignored, []);
+    } finally {
+        await cleanup();
+    }
+});
+
+// The repair for what the positional search already wrote. It is deliberately
+// the only way back: the entries are prose now, so `card write` can delete
+// them but cannot put them where the protocol owns the section.
+test("doctor --fix moves stray trail entries back into the trail", async () => {
+    const { workspace, cleanup } = await temporaryWorkspace();
+    try {
+        const created = await createCard(workspace, {
+            title: "Damaged before the fix",
+            area: "api",
+            body: [
+                "Prose about `## Activity`.",
+                "- 2026-08-02 16:56Z alice · claimed",
+                "- 2026-08-02 17:07Z alice · doing → done",
+                "",
+                "## Reproduced",
+                "",
+                "```text",
+                "- 2026-01-01 00:00Z quoted · claimed",
+                "```"
+            ].join("\n")
+        });
+
+        const before = (await loadCards(workspace)).cards.find(
+            (card) => card.id === created.id
+        );
+        assert.equal(misplacedTrailEntries(before.body).length, 2);
+
+        const healed = await healMisplacedTrailEntries(workspace, { actor: "doctor" });
+        assert.deepEqual(healed.moved, [{ id: created.id, entries: 2 }]);
+
+        const after = (await loadCards(workspace)).cards.find(
+            (card) => card.id === created.id
+        );
+        assert.deepEqual(misplacedTrailEntries(after.body), []);
+        const entries = trail(after);
+        // Both moved, in order, plus the line recording the repair itself.
+        assert.equal(entries.length, 3);
+        assert.match(entries[0], /alice · claimed$/);
+        assert.match(entries[1], /alice · doing → done$/);
+        assert.match(entries[2], /doctor · moved 2 trail entries into the trail$/);
+        // The quoted one is an example, not damage, and stays where it is.
+        assert.match(after.body, /- 2026-01-01 00:00Z quoted · claimed/);
+        assert.match(after.body, /^Prose about `## Activity`\.$/m);
+
+        // And a second pass has nothing left to do.
+        assert.deepEqual(
+            (await healMisplacedTrailEntries(workspace, { actor: "doctor" })).moved,
+            []
+        );
     } finally {
         await cleanup();
     }

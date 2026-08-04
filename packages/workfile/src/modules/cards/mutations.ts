@@ -21,6 +21,16 @@ import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
 import { ensureWritable } from "../../core/guards.js";
 import { CARD_LIST_KEYS, loadCards, parseCard } from "./cards.js";
+import {
+    TRAIL_ENTRY,
+    appendUnderHeading,
+    isProtocolSection,
+    misplacedTrailEntries,
+    scanBody,
+    splitSections,
+    trailStamp,
+    withFrontmatter
+} from "./body.js";
 import { slugify } from "./slug.js";
 import {
     applyCardChanges,
@@ -87,12 +97,20 @@ function pathForCard(workspace, card) {
     );
 }
 
+/**
+ * The reason one actor gave for taking another’s claim, under `## Notes`.
+ *
+ * Went through the same helper as everything else once it existed: this used
+ * to append at the end of the *file* whenever a `## Notes` heading existed
+ * anywhere, so on a card whose trail came after its notes the reason landed
+ * inside the trail.
+ */
 function appendNote(content, text) {
-    const separator = content.endsWith("\n") ? "" : "\n";
-    if (/^## Notes\s*$/m.test(content)) {
-        return `${content}${separator}- ${text}\n`;
-    }
-    return `${content}${separator}\n## Notes\n\n- ${text}\n`;
+    const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
+    return withFrontmatter(
+        content.slice(0, parsed.prefixLength),
+        appendUnderHeading(parsed.body, "## Notes", `- ${text}`)
+    );
 }
 
 function normalizedSavedCard(file, content, archived) {
@@ -261,20 +279,87 @@ async function mutateCard(
  */
 export function appendActivityLine(content, entry) {
     const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
-    const prefix = content.slice(0, parsed.prefixLength);
-    const body = parsed.body.replace(/\s+$/, "");
-    const heading = "## Activity";
-    const line = `- ${entry}`;
-    if (!body.includes(heading)) {
-        return `${prefix}${body ? `${body}\n\n` : ""}${heading}\n\n${line}\n`;
-    }
-    const at = body.indexOf(heading) + heading.length;
-    const next = body.indexOf("\n## ", at);
-    const end = next === -1 ? body.length : next;
-    return `${prefix}${body.slice(0, end).replace(/\s+$/, "")}\n${line}\n${body.slice(end)}\n`.replace(
-        /\n{3,}/g,
-        "\n\n"
+    return withFrontmatter(
+        content.slice(0, parsed.prefixLength),
+        appendUnderHeading(parsed.body, "## Activity", `- ${entry}`)
     );
+}
+
+/**
+ * Moves stray trail entries back into `## Activity`, where a reader looks.
+ *
+ * A one-off repair for what the positional heading search wrote before the
+ * scan replaced it, in the shape of the healers `doctor --fix` already runs.
+ * It is not reversible by any other command: the entries are prose now, so
+ * `card write` can delete them but cannot put them somewhere the protocol
+ * owns — which is the correct asymmetry, and the reason this exists.
+ *
+ * Entries are merged in timestamp order, because a card can hold both a stray
+ * trail and a real one and chronology is the only thing the trail promises.
+ */
+export async function healMisplacedTrailEntries(
+    workspace,
+    { actor = null, now }: any = {}
+) {
+    ensureWritable(workspace);
+    const loaded = await loadCards(workspace);
+    const moved: Array<{ id: string; entries: number }> = [];
+    for (const card of loaded.cards) {
+        const stray = misplacedTrailEntries(card.body);
+        if (!stray.length) continue;
+        await mutateCard(workspace, card.id, {}, {
+            bodyOnly: true,
+            transformContent: (content) => {
+                const parsed = requireFrontmatter(content, {
+                    listKeys: CARD_LIST_KEYS
+                });
+                const lifted: string[] = [];
+                const kept: string[] = [];
+                for (const { line, heading, fenced } of scanBody(parsed.body)) {
+                    if (!fenced && heading !== "## Activity" && TRAIL_ENTRY.test(line)) {
+                        lifted.push(line);
+                        continue;
+                    }
+                    kept.push(line);
+                }
+                const sections = splitSections(kept.join("\n"));
+                const at = sections.findIndex(
+                    (section) => section.heading === "## Activity"
+                );
+                const under =
+                    at === -1 ? [] : sections[at].text.split("\n").slice(1);
+                const entries = [
+                    ...under.filter((line) => TRAIL_ENTRY.test(line)),
+                    ...lifted
+                ].sort((a, b) => trailStamp(a).localeCompare(trailStamp(b)));
+                // The repair is itself a protocol event, and it goes last
+                // because it happened now. Same rule `reslugStaleCardFiles`
+                // follows when it renames a file underneath a card.
+                if (trailEnabled(workspace)) {
+                    entries.push(
+                        `- ${activityEntry(
+                            actor,
+                            `moved ${stray.length} trail ${
+                                stray.length === 1 ? "entry" : "entries"
+                            } into the trail`,
+                            now
+                        )}`
+                    );
+                }
+                const trail = ["## Activity", "", ...entries].join("\n");
+                const written = sections
+                    .map((section, index) => (index === at ? trail : section.text))
+                    .filter(Boolean);
+                if (at === -1) written.push(trail);
+                return withFrontmatter(
+                    content.slice(0, parsed.prefixLength),
+                    written.join("\n\n")
+                );
+            }
+        });
+        moved.push({ id: card.id, entries: stray.length });
+    }
+    return { moved };
 }
 
 export function activityEntry(actor, text, now) {
@@ -749,7 +834,7 @@ export async function transitionCard(
 }
 
 /**
- * Replaces a card's Markdown body.
+ * Replaces a card's body, except for the content of the protocol sections.
  *
  * Deliberately separate from `patchCard`, which is a frontmatter diff: the two
  * have different conflict semantics, and mixing them would put a whole-document
@@ -757,39 +842,23 @@ export async function transitionCard(
  * existed, no surface — CLI, HTTP or MCP — could write a card body at all, so
  * an agent recording a result had to reach past the protocol with a raw file
  * write, skipping the lock, the revision check and validation.
- */
-/**
- * The sections of a card body that only protocol commands write.
  *
- * `## Activity` is the durable trail and `## Notes` holds what `card note`
- * appends, including the reason one actor gave for taking another's claim.
- * Both live in the body, and a body write replaced the body — so a single
- * `card write` erased the record of who moved the card and why. "Durable" was
- * true only until any agent called the tool whose whole purpose is replacing a
- * body, and `project_card_write` is agent-facing.
- */
-const PROTOCOL_SECTIONS = ["## Activity", "## Notes"];
-
-/** Where the protocol sections begin in a body, or -1 if it has none. */
-function protocolSectionsAt(body) {
-    const marks = PROTOCOL_SECTIONS.map((heading) =>
-        body.indexOf(heading)
-    ).filter((at) => at !== -1);
-    return marks.length ? Math.min(...marks) : -1;
-}
-
-/**
- * Replaces a card's prose, and only its prose.
+ * `## Activity` and `## Notes` are carried over from what is stored rather
+ * than from what was sent, so a caller that omits them cannot delete them and
+ * one that hands back a shortened trail cannot shorten it. The trail is
+ * specified as append-only — a merge between two branches resolves by keeping
+ * both sides' lines — which is not true of a section any write can replace.
  *
- * The protocol sections are carried over from what is stored rather than from
- * what was sent, so a caller that omits them cannot delete them and one that
- * hands back a shortened trail cannot shorten it. The trail is specified as
- * append-only — a merge between two branches resolves by keeping both sides'
- * lines — which is not true of a section any write can replace.
+ * Everything else belongs to the caller, *wherever it sits*. That is the
+ * correction ADR-0011 records: the guard used to keep the stored body from the
+ * first protocol heading to the end of the document, so a card with acceptance
+ * criteria below its notes had a criteria list nothing could rewrite, and
+ * `card write` reported success while dropping it.
  *
- * A caller that round-trips the body faithfully gets back exactly what it
- * sent. One that edits inside those sections is ignored there, which is the
- * price of them being append-only: `card note` appends, and nothing edits.
+ * A section the caller kept stays where the caller put it; one they omitted is
+ * appended, in stored order. A caller that edits inside those sections is
+ * still ignored there — but no longer silently: the headings whose content did
+ * not survive come back as `ignored`.
  */
 export async function patchCardBody(workspace, id, { body, expectedRevision }: any = {}) {
     if (typeof body !== "string") {
@@ -798,27 +867,49 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
             "body must be a string."
         );
     }
-    return mutateCard(workspace, id, {}, {
+    let ignored: string[] = [];
+    const result = await mutateCard(workspace, id, {}, {
         expectedRevision,
         bodyOnly: true,
         transformContent: (content) => {
             const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
-            const storedAt = protocolSectionsAt(parsed.body);
-            const kept =
-                storedAt === -1
-                    ? ""
-                    : parsed.body.slice(storedAt).replace(/\s+$/, "");
-            // Whatever the caller put under those headings is dropped in
-            // favour of the stored copy, so the two cannot disagree.
-            const sent = String(body).replace(/\s+$/, "");
-            const sentAt = protocolSectionsAt(sent);
-            const prose = (
-                sentAt === -1 ? sent : sent.slice(0, sentAt)
-            ).replace(/\s+$/, "");
-            const next = [prose, kept].filter(Boolean).join("\n\n");
-            return `${content.slice(0, parsed.prefixLength)}${next ? `${next}\n` : ""}`;
+            const held = splitSections(parsed.body)
+                .filter((section) => isProtocolSection(section.heading))
+                .map((section) => ({ ...section, taken: false }));
+            const declined: string[] = [];
+            const next: string[] = [];
+            for (const section of splitSections(String(body))) {
+                if (!isProtocolSection(section.heading)) {
+                    if (section.text) next.push(section.text);
+                    continue;
+                }
+                const stored = held.find(
+                    (candidate) =>
+                        !candidate.taken && candidate.heading === section.heading
+                );
+                // A caller cannot open one of these sections either: the
+                // protocol commands are the only writers, so a trail that
+                // appears out of a body write is a fabricated trail.
+                if (!stored) {
+                    declined.push(section.heading);
+                    continue;
+                }
+                stored.taken = true;
+                if (stored.text !== section.text) declined.push(section.heading);
+                next.push(stored.text);
+            }
+            for (const stored of held) {
+                if (!stored.taken) next.push(stored.text);
+            }
+            ignored = [...new Set(declined)];
+            const written = next.join("\n\n");
+            return withFrontmatter(
+                content.slice(0, parsed.prefixLength),
+                written
+            );
         }
     });
+    return { ...result, ignored };
 }
 
 /**
@@ -897,19 +988,9 @@ export async function appendCardNote(
         bodyOnly: true,
         transformContent: (content) => {
             const parsed = requireFrontmatter(content, { listKeys: CARD_LIST_KEYS });
-            const prefix = content.slice(0, parsed.prefixLength);
-            const heading = `## ${section}`;
-            const existing = parsed.body.replace(/\s+$/, "");
-            if (!existing.includes(heading)) {
-                return `${prefix}${existing ? `${existing}\n\n` : ""}${heading}\n\n${entry}\n`;
-            }
-            const at = existing.indexOf(heading) + heading.length;
-            const nextHeading = existing.indexOf("\n## ", at);
-            const end = nextHeading === -1 ? existing.length : nextHeading;
-            const before = existing.slice(0, end).replace(/\s+$/, "");
-            return `${prefix}${before}\n${entry}\n${existing.slice(end)}\n`.replace(
-                /\n{3,}/g,
-                "\n\n"
+            return withFrontmatter(
+                content.slice(0, parsed.prefixLength),
+                appendUnderHeading(parsed.body, `## ${section}`, entry)
             );
         }
     });

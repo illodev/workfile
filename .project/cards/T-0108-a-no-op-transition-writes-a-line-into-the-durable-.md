@@ -7,7 +7,7 @@ priority: low
 area: core
 scope: [packages/workfile/src/modules/cards/mutations.ts]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
 ---
 
 `card transition ID review` on a card already in `review` appends
@@ -33,10 +33,6 @@ what erodes that: the reader cannot tell a real move from a repeated command.
 The fix is a guard where the trail is written, not at the callers — `patchCard`,
 the HTTP routes and the MCP tools all reach the same place, and a rule enforced
 at one of four entrances is the failure this module has already had once.
-- 2026-08-02 16:56Z illodev@local#aed59c5e · claimed
-- 2026-08-02 17:07Z illodev@local#aed59c5e · doing → done
-- 2026-08-02 17:17Z illodev@local#aed59c5e · claimed
-- 2026-08-02 17:20Z illodev@local#aed59c5e · doing → done
 
 ## Acceptance criteria
 
@@ -138,3 +134,11 @@ has enforced a rule at some of its entrances.
 
 Verification after the reopen: 228 + 7 tests pass, strict holds, and the
 unarchive case was reproduced from the CLI before and after.
+
+## Activity
+
+- 2026-08-02 16:56Z illodev@local#aed59c5e · claimed
+- 2026-08-02 17:07Z illodev@local#aed59c5e · doing → done
+- 2026-08-02 17:17Z illodev@local#aed59c5e · claimed
+- 2026-08-02 17:20Z illodev@local#aed59c5e · doing → done
+- 2026-08-04 23:35Z illodev@local#cfe281b4 · moved 4 trail entries into the trail

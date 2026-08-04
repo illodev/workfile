@@ -51,8 +51,6 @@ that cannot be forgotten.
 
 Worth deciding as part of it: whether a body write should itself leave a trail
 line. It is a protocol event by any reading, and today it leaves none.
-- 2026-08-02 17:49Z illodev@local#aed59c5e · claimed
-- 2026-08-02 17:53Z illodev@local#aed59c5e · doing → done
 
 ## Acceptance criteria
 
@@ -105,3 +103,9 @@ so a card with notes counted them as trail entries. It had no notes in that
 test, so it passed. Now scoped to its section.
 
 230 + 7 tests pass, strict holds at baseline.
+
+## Activity
+
+- 2026-08-02 17:49Z illodev@local#aed59c5e · claimed
+- 2026-08-02 17:53Z illodev@local#aed59c5e · doing → done
+- 2026-08-04 23:35Z illodev@local#cfe281b4 · moved 2 trail entries into the trail

@@ -13,6 +13,7 @@ export {
     loadCards,
     parseCard
 } from "./cards.js";
+export { misplacedTrailEntries, splitSections } from "./body.js";
 export {
     appendCardNote,
     setCardAcceptance,
@@ -20,6 +21,7 @@ export {
     bulkPatchCards,
     claimCard,
     createCard,
+    healMisplacedTrailEntries,
     nextCardSequence,
     patchCard,
     patchCardBody,
