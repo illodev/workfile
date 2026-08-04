@@ -259,7 +259,6 @@ export const DEFAULT_CONFIG = Object.freeze({
     ui: {
         host: "127.0.0.1",
         port: 4747,
-        open: true,
-        defaultView: "work"
+        open: true
     }
 });

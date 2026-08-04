@@ -129,7 +129,6 @@ export interface ProjectUiConfig {
     host: string;
     port: number;
     open: boolean;
-    defaultView: string;
 }
 
 export interface ProjectConfig {
