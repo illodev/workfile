@@ -7,6 +7,15 @@ import {
     type View
 } from "./types";
 
+/**
+ * The views a URL may name, which the `View` union cannot supply at runtime.
+ *
+ * Two lists that have to agree and no compiler saying so: adding `workflow` to
+ * the type and not here meant reloading on it silently answered `overview`,
+ * because an unrecognised view falls back rather than failing. `schema-parity`
+ * covers the pairs like this that cross the wire; this one never left the
+ * bundle, so nothing was looking.
+ */
 const VIEWS: View[] = [
     "overview",
     "explorer",
@@ -17,8 +26,10 @@ const VIEWS: View[] = [
     "docs",
     "history",
     "memory",
+    "workflow",
     "health"
 ];
+
 
 export function readUrlState(): {
     view: View;

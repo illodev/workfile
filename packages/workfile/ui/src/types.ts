@@ -37,6 +37,7 @@ export type View =
     | "docs"
     | "history"
     | "memory"
+    | "workflow"
     | "health";
 
 export interface Task {
@@ -198,6 +199,28 @@ export interface RecordIssue {
     id?: string;
     file?: string;
     message: string;
+}
+
+/**
+ * A record as the Workflow canvas needs it: identity enough to draw a node,
+ * and its outgoing edges. No body, no excerpt, no dates, and no per-link title
+ * — the canvas already holds the node an edge points at.
+ */
+export interface GraphEdge {
+    to: string;
+    /** Every relationship this pair holds, strongest first. */
+    rel: string[];
+}
+
+export interface GraphRecord {
+    id: string;
+    kind: string;
+    recordType: string;
+    title: string;
+    status?: string;
+    area?: string;
+    archived?: boolean;
+    edges: GraphEdge[];
 }
 
 export interface BaseRecord {

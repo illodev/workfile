@@ -2,6 +2,8 @@ import type {
     ChangeRecord,
     DocumentRecord,
     ActivitySnapshot,
+    BaseRecord,
+    GraphRecord,
     HealthReport,
     SearchResponse,
     HistoryRecord,
@@ -108,6 +110,31 @@ export const httpApi = {
     search: (term: string, limit = 8) =>
         request<SearchResponse>(
             `/api/v2/search?q=${encodeURIComponent(term)}&limit=${limit}&view=list`
+        ),
+    /**
+     * Every record as a node with its edges, in one call.
+     *
+     * Unpaginated on purpose. A graph cannot draw a page of itself — a layout
+     * over half the nodes puts them in different places than a layout over all
+     * of them — so the `graph` projection is small enough to ask for whole:
+     * this workspace answers with 332 records in 75 KB, against 305 KB for the
+     * same records as summaries.
+     */
+    graph: () =>
+        request<RecordsResponse<GraphRecord>>(
+            "/api/v2/records?view=graph&limit=500"
+        ),
+    /**
+     * Any record by ID, whatever its kind, with its body.
+     *
+     * The typed readers below each know one collection, so a view holding a
+     * mixed set — the graph holds cards, docs, memory, changes and releases at
+     * once — had no way to open one without knowing which reader to call from
+     * the shape of the ID.
+     */
+    record: (id: string) =>
+        request<{ record: BaseRecord }>(
+            `/api/v2/records/${encodeURIComponent(id)}`
         ),
     docs: (query = "") => {
         const params = new URLSearchParams();

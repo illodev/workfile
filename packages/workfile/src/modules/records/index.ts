@@ -881,6 +881,35 @@ function excerptOf(body) {
  * open without being handed everything.
  */
 export function projectRecord(record, view = "full", fields = null) {
+    // A node and its edges, and nothing a canvas cannot draw.
+    //
+    // Its own view rather than `summary` with fields trimmed, because the
+    // difference is not marginal: the same 332 records cost 305 KB as summaries
+    // and 74 KB here, and the graph wants all of them at once rather than a
+    // page. What goes is the per-link title and path — a canvas resolves those
+    // from the node it already holds — along with the excerpt, the revision and
+    // every date.
+    //
+    // Edges to IDs that resolve to nothing are dropped. Prose scanning turns
+    // the SPEC's citation of RFC 2119 into a reference, and a graph is the one
+    // reader that would draw `RFC-2119` as a node.
+    if (view === "graph") {
+        return {
+            id: record.id,
+            kind: record.kind,
+            recordType: record.recordType,
+            title: record.title,
+            ...(record.status ? { status: record.status } : {}),
+            ...(record.area ? { area: record.area } : {}),
+            ...(record.archived ? { archived: true } : {}),
+            edges: (record.outgoing || [])
+                .filter((link) => link.exists)
+                .map((link) => ({
+                    to: link.id,
+                    rel: link.relations ?? [link.relation]
+                }))
+        };
+    }
     if (fields?.length) {
         return Object.fromEntries(
             fields
@@ -910,11 +939,26 @@ export function projectRecord(record, view = "full", fields = null) {
     projected.bodyBytes = Buffer.byteLength(String(record.body || ""), "utf8");
     if (view !== "list") projected.excerpt = excerptOf(record.body);
     if (view === "summary") {
+        // `relations` travels with them. This projection is what anything
+        // drawing the graph asks for — the full view carries every body — and
+        // rebuilding the link by hand dropped the one field that says a pair
+        // holds more than one relationship, which is most of what a reader
+        // filtering by edge type is looking for. Still absent when there is
+        // only one, so the cost is paid by the 4% of edges that carry it.
         projected.outgoing = (record.outgoing || []).map(
-            ({ id, relation, exists }) => ({ id, relation, exists })
+            ({ id, relation, relations, exists }) => ({
+                id,
+                relation,
+                ...(relations ? { relations } : {}),
+                exists
+            })
         );
         projected.incoming = (record.incoming || []).map(
-            ({ id, relation }) => ({ id, relation })
+            ({ id, relation, relations }) => ({
+                id,
+                relation,
+                ...(relations ? { relations } : {})
+            })
         );
     }
     return projected;

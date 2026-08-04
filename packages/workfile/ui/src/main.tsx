@@ -17,6 +17,7 @@ import {
     Columns3,
     Database,
     FileDiff,
+    Waypoints,
     Gauge,
     Lightbulb,
     ListChecks,
@@ -74,9 +75,11 @@ import { api } from "./api";
 import { OverviewView } from "./components/domain/Overview";
 import { Inspector } from "./components/Inspector";
 import { RecordDrawer } from "./components/RecordDrawer";
+import { RecordPanel } from "./components/RecordPanel";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
 import { recordCollection, severityColor, since, statusColor } from "./theme";
+import { viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
@@ -115,7 +118,8 @@ const loaders = {
     health: () => import("./components/Health"),
     history: () => import("./components/History"),
     memory: () => import("./components/Memory"),
-    triage: () => import("./components/Triage")
+    triage: () => import("./components/Triage"),
+    workflow: () => import("./components/domain/Workflow")
 };
 
 const FlowBoard = lazy(() =>
@@ -145,6 +149,18 @@ const HealthView = lazy(() =>
 const Explorer = lazy(() =>
     loaders.explorer().then((module) => ({ default: module.Explorer }))
 );
+// The drawer's per-kind panels, lazily from the same chunks their views use.
+// Imported eagerly they would drag the memory lanes and the docs reader into
+// the entry bundle to render a panel most sessions never open.
+const MemoryPanel = lazy(() =>
+    loaders.memory().then((module) => ({ default: module.MemoryPanel }))
+);
+const DocPanel = lazy(() =>
+    loaders.docs().then((module) => ({ default: module.DocPanel }))
+);
+const WorkflowView = lazy(() =>
+    loaders.workflow().then((module) => ({ default: module.WorkflowView }))
+);
 
 const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
     explorer: "explorer",
@@ -155,6 +171,7 @@ const VIEW_MODULE: Record<string, keyof typeof loaders | undefined> = {
     docs: "docs",
     memory: "memory",
     history: "history",
+    workflow: "workflow",
     health: "health"
 };
 
@@ -282,6 +299,23 @@ interface NavItem {
     icon: typeof Table;
 }
 
+/**
+ * Views that draw their own panel for a collection, and keep it.
+ *
+ * The shared drawer stands down for these rather than opening over them.
+ * Memory's lanes carry graduate and supersede, and Docs carries an outline and
+ * freshness — editing bound to state those views own. Hoisting that is worth
+ * doing and is not this change; what this map buys is that everywhere *else*
+ * already goes through one drawer.
+ */
+const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
+    // Docs alone, and not because it owns a drawer — it owns a *reader*. The
+    // list sits beside the document rather than over it, which is the right
+    // shape for the one view whose job is reading something long, and an
+    // overlay on top of it would cover the list it was opened from.
+    docs: "docs"
+};
+
 const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
         label: "Work",
@@ -304,6 +338,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
         label: "Project",
         items: [
+            { value: "workflow", label: "Workflow", icon: Waypoints },
             { value: "history", label: "History", icon: FileDiff },
             { value: "health", label: "Health", icon: Shield }
         ]
@@ -320,6 +355,7 @@ const VIEW_TITLE: Record<View, string> = {
     docs: "Docs",
     memory: "Memory",
     history: "History",
+    workflow: "Workflow",
     health: "Health"
 };
 
@@ -336,6 +372,8 @@ const VIEW_COLLECTION: Record<View, string> = {
     docs: "docs",
     memory: "memory",
     history: "changelog",
+    // Its node set is every record kind, so no single collection names it.
+    workflow: "workflow",
     health: "doctor"
 };
 
@@ -700,7 +738,10 @@ function App() {
     const selectRecord = useCallback((id: string | null) => {
         lastSelectRef.current = performance.now();
         setSelectedId(id);
-        if (id && recordCollection(id) === "cards") setInspectorOpen(true);
+        // Any kind. This read `=== "cards"` while the drawer only held cards,
+        // and left behind the state where selecting a doc moved the selection
+        // and opened nothing.
+        if (id) setInspectorOpen(true);
     }, []);
 
     useEffect(() => {
@@ -892,17 +933,27 @@ function App() {
     const isWorkView = !["overview", "docs", "history", "memory", "health"].includes(
         view
     );
+    /** Which collection the drawer is showing, or null when it is closed. */
+    const drawerCollection = selectedId ? recordCollection(selectedId) : null;
+
     const openRecord = useCallback(
-        (id: string) => {
+        // `leave` is the reader saying so outright, which is not the same as
+        // clicking a link: a link should keep them where they are when it can.
+        (id: string, leave = false) => {
             selectRecord(id);
-            if (taskById.has(id) || id.startsWith("T-")) setView("explorer");
-            else if (id.startsWith("DOC-") || id.startsWith("PATH-"))
-                setView("docs");
-            else if (id.startsWith("CHG-") || id.startsWith("REL-"))
-                setView("history");
-            else setView("memory");
+            // A card opens where you already are, if where you are shows
+            // cards. Sending every card click to Explorer meant stepping
+            // through `depends` inside Flow ejected you from the board on the
+            // first hop, and the panel you were reading in is not the panel
+            // you end up in.
+            const target = viewForRecord(
+                id,
+                leave ? null : view,
+                taskById.has(id)
+            );
+            if (target) setView(target);
         },
-        [taskById]
+        [taskById, view]
     );
 
     const patch = useCallback(async (id: string, requested: TaskPatch) => {
@@ -1030,6 +1081,9 @@ function App() {
             // A dashboard wears no badge: a count beside it would restate what
             // the page itself says, and a badge stuck at 0 says less than none.
             overview: null,
+            // Nor does the graph. Its node count is a filter away from
+            // anything the sidebar could claim, and the canvas states it.
+            workflow: null,
             explorer: openTasks.length,
             triage: openTasks.filter((task) => task.status === "backlog")
                 .length,
@@ -1584,6 +1638,11 @@ function App() {
                                         onSelect={selectRecord}
                                         onOpenCard={openRecord}
                                     />
+                                ) : view === "workflow" ? (
+                                    <WorkflowView
+                                        selectedId={selectedId}
+                                        onSelect={selectRecord}
+                                    />
                                 ) : view === "history" ? (
                                     <HistoryView
                                         selectedId={selectedId}
@@ -1744,18 +1803,70 @@ function App() {
                 open={
                     inspectorOpen &&
                     selectedId !== null &&
-                    recordCollection(selectedId) === "cards"
+                    // Any kind, not cards only. A drawer that opened for one
+                    // of the five meant every other kind had to be read in the
+                    // view that lists it, so a `[[DOC-0002]]` in a card body
+                    // led nowhere — and the graph grew a second drawer to say
+                    // what the first would not, which then stacked over it.
+                    VIEW_OWNS_DRAWER[view] !== recordCollection(selectedId)
                 }
                 expanded={inspectorExpanded}
                 label="inspector"
                 description="Details and editing for the selected record."
-                onOpenChange={setInspectorOpen}
+                onOpenChange={(next) => {
+                    setInspectorOpen(next);
+                    // And drop the selection, which is what the memory and doc
+                    // sheets already do. Closing only the panel left
+                    // `?record=` in the URL naming something no longer on
+                    // screen, so a reload — or a shared link — reopened a
+                    // record the reader had deliberately dismissed.
+                    if (!next) setSelectedId(null);
+                }}
                 onExpandedChange={setInspectorExpanded}
                 holdOpen={() =>
                     editingRef.current ||
                     performance.now() - lastSelectRef.current < 200
                 }
             >
+                {selectedId && !selected ? (
+                    // Not a card, or a card the board is not holding — an
+                    // archived one reached by ID, say. Either way the
+                    // inspector has nothing to render, and rendering nothing
+                    // is what used to close the sheet without a word.
+                    //
+                    // A panel per kind rather than one generic reader: a
+                    // decision has a lifecycle to act on and a document has a
+                    // status, a path and a freshness warning, and none of that
+                    // survives being rendered as "a record with a body".
+                    // `RecordPanel` stays as the fallback, which is what
+                    // changelog fragments and releases get.
+                    drawerCollection === "memory" ? (
+                        <MemoryPanel
+                            key={selectedId}
+                            id={selectedId}
+                            schema={schema.memory}
+                            onSelect={selectRecord}
+                            onOpenRecord={(id) => openRecord(id, true)}
+                            onDialogOpenChange={(open) => {
+                                editingRef.current = open;
+                            }}
+                        />
+                    ) : drawerCollection === "docs" ? (
+                        <DocPanel
+                            key={selectedId}
+                            id={selectedId}
+                            onSelect={selectRecord}
+                            onOpen={(id) => openRecord(id, true)}
+                        />
+                    ) : (
+                        <RecordPanel
+                            key={selectedId}
+                            id={selectedId}
+                            onSelect={selectRecord}
+                            onOpen={(id) => openRecord(id, true)}
+                        />
+                    )
+                ) : (
                 <Inspector
                     task={selected}
                     selectedId={selectedId}
@@ -1767,7 +1878,14 @@ function App() {
                     orderedIds={visibleTasks.map(
                         (task) => task.id
                     )}
-                    onOpen={selectRecord}
+                    // `openRecord`, not `selectRecord`. This prop reaches the
+                    // body's `[[DOC-0002]]` links and the `origin` and
+                    // `related` rows, all of which carry records of any kind.
+                    // `selectRecord` only opens a panel for cards, so a doc
+                    // set the selection to something the inspector could not
+                    // render: the sheet closed, the view never changed, and
+                    // nothing errored.
+                    onOpen={openRecord}
                     onClose={() => setSelectedId(null)}
                     onPatch={patch}
                     onEditingChange={(editing) => {
@@ -1809,6 +1927,7 @@ function App() {
                     }}
                     projectName={projectName}
                 />
+                )}
             </RecordDrawer>
 
             <CommandPalette

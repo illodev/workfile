@@ -37,12 +37,8 @@ function headingId(prefix: string, line: number) {
     return `${prefix}-${line}`;
 }
 
-export interface OutlineEntry {
-    id: string;
-    text: string;
-    /** 1 for `#`, 2 for `##`, … as written in the source. */
-    level: number;
-}
+export type { OutlineEntry } from "../outline";
+import type { OutlineEntry } from "../outline";
 
 /** Inline markers removed: an outline entry is a label, not a document. */
 function plainText(source: string) {

@@ -273,10 +273,10 @@ function integerQuery(value, { fallback, min = 0, max = Number.MAX_SAFE_INTEGER 
  */
 function projectionFrom(url) {
     const view = url.searchParams.get("view") || "full";
-    if (!["full", "summary", "list"].includes(view)) {
+    if (!["full", "summary", "list", "graph"].includes(view)) {
         throw new ValidationError(
             "REQUEST_QUERY_INVALID",
-            `Unknown view: ${view}. Expected full, summary or list.`
+            `Unknown view: ${view}. Expected full, summary, list or graph.`
         );
     }
     const fields = url.searchParams.get("fields");

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ChevronLeft,
+    ExternalLink,
     Eye,
     Pencil,
     Search,
@@ -47,6 +48,7 @@ import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
 import { BodyEditor } from "./BodyEditor";
 import { documentOutline, MarkdownBody, type OutlineEntry } from "./Markdown";
+import { OutlineRail } from "./OutlineRail";
 
 /** Heading anchors for this view — see `documentOutline`. */
 const DOC_HEADINGS = "doc-h";
@@ -266,6 +268,115 @@ const SEPARATOR = (
         ·
     </span>
 );
+
+/**
+ * A document in the shared drawer, fetched by ID.
+ *
+ * Not a replacement for this view. Docs is a two-pane reader — a list beside
+ * the document — because its job is reading something long, and an overlay is
+ * a worse shape for that. What this covers is the document reached from
+ * somewhere else: a `[[DOC-0002]]` in a card body, or a node on the graph.
+ * Those used to fall through to the generic record panel and lose every piece
+ * of chrome that says what a document is.
+ *
+ * Lazily imported by `main.tsx` from this module, so it rides the docs chunk
+ * rather than pulling the reader into the entry bundle.
+ */
+export function DocPanel({
+    id,
+    onSelect,
+    onOpen
+}: {
+    id: string;
+    onSelect: (id: string) => void;
+    onOpen: (id: string) => void;
+}) {
+    const [record, setRecord] = useState<DocumentRecord | null>(null);
+    const [error, setError] = useState("");
+    const scroller = useRef<HTMLDivElement | null>(null);
+    const outline = useMemo(
+        () => (record ? documentOutline(record.body || "", DOC_HEADINGS) : []),
+        [record]
+    );
+    useEffect(() => {
+        let live = true;
+        setRecord(null);
+        setError("");
+        api.record(id)
+            .then((response) => {
+                if (live)
+                    setRecord(response.record as unknown as DocumentRecord);
+            })
+            .catch((cause: Error) => {
+                if (live) setError(cause.message);
+            });
+        return () => {
+            live = false;
+        };
+    }, [id]);
+
+    if (error) {
+        return (
+            <div className="px-4 py-3 text-xs text-muted-foreground">{error}</div>
+        );
+    }
+    if (!record) {
+        return (
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                <Spinner /> Reading {id}…
+            </div>
+        );
+    }
+    return (
+        <div
+            ref={scroller}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3"
+        >
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                <span>{record.id}</span>
+                {SEPARATOR}
+                <span>{record.documentKind}</span>
+                {SEPARATOR}
+                <span style={{ color: recordStatusColor(record.status) }}>
+                    {record.status}
+                </span>
+                {SEPARATOR}
+                <span>{record.managed ? "managed" : "indexed"}</span>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 gap-1 px-2 text-xs"
+                    onClick={() => onOpen(id)}
+                >
+                    <ExternalLink aria-hidden="true" className="size-3" />
+                    Open in Docs
+                </Button>
+            </div>
+            <h2 className="mt-1 text-sm font-medium">{record.title}</h2>
+            <p className="font-mono text-[11px] text-muted-foreground">
+                {record.path}
+            </p>
+            {record.freshness?.length ? (
+                <Alert className="mt-3">
+                    <AlertDescription>
+                        {record.freshness.map((issue) => issue.message).join(" ")}
+                    </AlertDescription>
+                </Alert>
+            ) : null}
+            <div className="mt-3 flex min-w-0 items-start gap-1">
+                <div className="min-w-0 flex-1 [&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
+                    <MarkdownBody
+                        source={record.body || "_This document is empty._"}
+                        onOpen={onSelect}
+                        headingPrefix={DOC_HEADINGS}
+                    />
+                </div>
+                <OutlineRail entries={outline} container={scroller} />
+            </div>
+        </div>
+    );
+}
 
 export function DocsView({
     selectedId,
