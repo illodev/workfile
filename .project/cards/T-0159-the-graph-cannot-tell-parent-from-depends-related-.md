@@ -1,12 +1,12 @@
 ---
 id: T-0159
 title: The graph cannot tell parent from depends, related or origin
-status: backlog
+status: review
 type: feature
 priority: high
 area: core
 effort: M
-scope: [packages/workfile/src/modules/records/index.ts, packages/workfile/test/budgets.test.ts, packages/workfile/test/docs.test.ts]
+scope: [packages/workfile/src/modules/records, packages/workfile/test, packages/workfile/ui/src/components]
 origin: [T-0154]
 created: 2026-08-04
 updated: 2026-08-04
@@ -76,13 +76,19 @@ UI gets the specific name.
 
 ## Acceptance criteria
 
-- [ ] Each explicit frontmatter field produces a relation named after it
-- [ ] Prose mentions stay distinguishable from every frontmatter edge
-- [ ] Backlink truncation still prefers frontmatter edges over prose
-- [ ] `depends` and `related` reach the summary projection
-- [ ] The UI labels the specific relation rather than `reference`
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] Each explicit frontmatter field produces a relation named after it
+- [x] Prose mentions stay distinguishable from every frontmatter edge
+- [x] Backlink truncation still prefers frontmatter edges over prose
+- [x] `depends` and `related` reach the summary projection
+- [x] The UI labels the specific relation rather than `reference`
+- [x] `pnpm run check` green, doctor 0/0
 
 ## Notes
 
 - 2026-08-04 20:56Z illodev@local#cfe281b4 — Measured after the T-0154 backfill landed 21 origin edges on this repository: 11 of them, 52 percent, are invisible in the graph. Each is a card that already carried depends or related to the same id, and classifiedReferences keys its map by target id, so the origin merges into the existing edge and the relation stays 'reference'. T-0061->T-0054, T-0096->T-0088, T-0098->T-0088, T-0100->T-0098, T-0112->T-0109, T-0113->T-0109, T-0115->T-0108, T-0117->T-0108, T-0128->T-0104, T-0129->T-0104, T-0130->T-0128. So the collapse is not only a missing label: it silently drops half the provenance that was just declared. A card pair can hold two different relationships at once and the index can represent one.
+
+## Activity
+
+- 2026-08-04 21:09Z illodev@local#cfe281b4 · claimed
+- 2026-08-04 21:21Z illodev@local#cfe281b4 · doing → review
+

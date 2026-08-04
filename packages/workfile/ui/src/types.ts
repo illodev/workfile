@@ -180,7 +180,10 @@ export interface HealthReport {
 export interface RecordLink {
     id: string;
     exists?: boolean;
+    /** The strongest relationship, named after the field that declared it. */
     relation?: string;
+    /** All of them, strongest first — present only when there is more than one. */
+    relations?: string[];
     kind?: string;
     title?: string;
     path?: string;

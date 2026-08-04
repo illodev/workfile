@@ -26,7 +26,7 @@
     "src/modules/memory/validation.ts": 4,
     "src/modules/migration/legacy.ts": 25,
     "src/modules/migration/schema.ts": 2,
-    "src/modules/records/index.ts": 24,
+    "src/modules/records/index.ts": 19,
     "src/modules/records/registry.ts": 1,
     "src/modules/search/search.ts": 1,
     "src/server/http.ts": 18,

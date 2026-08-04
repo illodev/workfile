@@ -365,7 +365,20 @@ export type ProjectRecord =
 
 export interface ProjectRecordLink {
     id: string;
+    /**
+     * The strongest relationship this edge carries, named after the field that
+     * declared it: `parent`, `depends`, `origin`, `related`, `supersedes`,
+     * `cards`, `fragments` and so on, plus `source`, `markdown` for a link to a
+     * document's path, `wikilink` for `[[T-0042]]`, and `mention` for a bare ID
+     * in prose.
+     */
     relation: string;
+    /**
+     * Every relationship the pair holds, strongest first, and present **only
+     * when there is more than one** — read it as `relations ?? [relation]`. A
+     * card can come out of another and also depend on it.
+     */
+    relations?: string[];
     exists?: boolean;
     kind?: ProjectRecord["kind"];
     title?: string;

@@ -184,21 +184,59 @@ test("a hub record stays readable however many things link to it", async () => {
 
         // Explicit edges outrank prose when the list is trimmed: a `parent` or
         // `depends` entry is a real dependency, an ID in a sentence is not.
+        // Asserted against the set of frontmatter relation names rather than
+        // one of them, because the name is now the field that declared it and
+        // a hub is cited through whichever the fixture happens to use.
+        const FRONTMATTER = new Set([
+            "parent", "depends", "origin", "related", "supersedes",
+            "superseded_by", "graduated_to", "corrective_actions",
+            "cards", "decisions", "fragments"
+        ]);
         const ranks = hub.incoming.map((link) => link.relation);
         assert.ok(
             ranks.indexOf("mention") === -1 ||
-                ranks.lastIndexOf("reference") < ranks.indexOf("mention"),
+                ranks.findLastIndex((relation) => FRONTMATTER.has(relation)) <
+                    ranks.indexOf("mention"),
             `explicit relations must come first, got ${ranks.join(",")}`
         );
 
-        // And the two kinds are distinguishable at all, which they were not.
+        // And every kind is distinguishable, not just explicit from prose. A
+        // single `reference` name told a reader that an edge was declared and
+        // nothing about what it declared, so `parent`, `depends` and `origin`
+        // were one thing — which is the difference between a filter and a
+        // two-way switch for anything drawing this graph.
+        const all = (link) => link.relations ?? [link.relation];
         const relations = new Set(
-            index.records.flatMap((record) =>
-                record.outgoing.map((link) => link.relation)
-            )
+            index.records.flatMap((record) => record.outgoing.flatMap(all))
         );
-        assert.ok(relations.has("reference"), "frontmatter edges");
         assert.ok(relations.has("mention"), "prose mentions");
+        assert.ok(
+            [...FRONTMATTER].some((name) => relations.has(name)),
+            "frontmatter edges carry the name of the field that declared them"
+        );
+        assert.equal(
+            relations.has("reference"),
+            false,
+            "the collapsed name outlived the fields it was hiding"
+        );
+
+        // A pair can hold more than one relationship, and the index used to
+        // keep whichever it saw first. `relations` is present only when it
+        // carries more than the singular does, so this also pins that rule:
+        // a one-element array would be 3.6 KB of restatement in the search
+        // payload alone.
+        for (const link of index.records.flatMap((record) => record.outgoing)) {
+            if (!link.relations) continue;
+            assert.ok(
+                link.relations.length > 1,
+                "relations was emitted without saying more than relation does"
+            );
+            assert.equal(
+                link.relation,
+                link.relations[0],
+                "the primary relation must be the strongest, not an arbitrary one"
+            );
+        }
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -465,8 +503,8 @@ test("a wiki-link is a declared edge, a bare mention is not", async () => {
         const relationOf = (id) =>
             record.outgoing.find((link) => link.id === id)?.relation;
 
-        assert.equal(relationOf("T-0001"), "reference", "wiki-link");
-        assert.equal(relationOf("T-0003"), "reference", "labelled wiki-link");
+        assert.equal(relationOf("T-0001"), "wikilink", "wiki-link");
+        assert.equal(relationOf("T-0003"), "wikilink", "labelled wiki-link");
         assert.equal(relationOf("T-0002"), "mention", "bare id in prose");
 
         // A record citing itself is not an edge in its own graph.

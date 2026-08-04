@@ -240,14 +240,19 @@ function RelationList({
                                         ? "Missing record"
                                         : link.id)}
                             </span>
-                            {link.relation ? (
-                                <Badge
-                                    variant="secondary"
-                                    className="font-mono text-[10px]"
-                                >
-                                    {link.relation}
-                                </Badge>
-                            ) : null}
+                            {/* One badge per relationship: a pair can hold
+                                several, and the strongest alone hides the rest. */}
+                            {(link.relations ?? [link.relation])
+                                .filter(Boolean)
+                                .map((relation) => (
+                                    <Badge
+                                        key={relation}
+                                        variant="secondary"
+                                        className="font-mono text-[10px]"
+                                    >
+                                        {relation}
+                                    </Badge>
+                                ))}
                         </button>
                     </Item>
                 );
