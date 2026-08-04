@@ -8,7 +8,8 @@ area: core
 scope: [packages/workfile/src/modules/records/index.ts]
 related: [T-0104]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0104]
 ---
 
 Found while building the board's axis grouping ([[T-0104]]).

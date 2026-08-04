@@ -9,8 +9,9 @@ source: .project/docs/research/DOC-0001-fube-session-feedback-verified-triage.md
 tags: [fube-feedback, housekeeping]
 related: [T-0054]
 created: 2026-07-31
-updated: 2026-07-31
+updated: 2026-08-04
 scope: [.project/cards, packages/workfile/ui/src/demo-data.json]
+origin: [T-0054]
 ---
 
 The `filename-stale` rule from [[T-0054]] found nine on its first run against

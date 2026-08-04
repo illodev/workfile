@@ -8,6 +8,7 @@ area: mcp
 created: 2026-08-04
 updated: 2026-08-04
 scope: [packages/workfile/docs/mcp.md, packages/workfile/test/documentation.test.ts]
+origin: [T-0151]
 ---
 
 `docs/mcp.md:52` describes what `workfile claude install` writes:

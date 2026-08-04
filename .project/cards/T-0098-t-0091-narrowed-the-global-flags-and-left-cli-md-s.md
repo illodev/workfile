@@ -7,8 +7,9 @@ priority: medium
 area: docs
 scope: [packages/workfile/docs/cli.md, packages/workfile/test/documentation.test.ts]
 created: 2026-08-01
-updated: 2026-08-02
+updated: 2026-08-04
 related: [T-0088]
+origin: [T-0088]
 ---
 
 `docs/cli.md:16-26` has a table headed **Global options** listing seven. Two

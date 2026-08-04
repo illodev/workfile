@@ -1,15 +1,13 @@
 ---
 id: T-0154
 title: A card declares which record it came out of
-status: doing
+status: review
 type: feature
 priority: medium
 area: core
 effort: M
 created: 2026-08-04
 updated: 2026-08-04
-claimed_by: "illodev@local#cfe281b4"
-claimed_at: "2026-08-04T20:18:43.949Z"
 scope: [packages/workfile/src/config/defaults.ts, packages/workfile/src/types.ts, packages/workfile/src/modules/records/index.ts, packages/workfile/src/modules/cards, packages/workfile/bin/workfile.ts, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/src/modules/health/doctor.ts, packages/workfile/docs/SPEC.md]
 ---
 
@@ -59,6 +57,7 @@ origins, so the list is short and authored where the knowledge is.
 - The `## Activity` trail is not the place for this. It records what a command
   did; `origin` is a declared fact about the card.
 - 2026-08-04 20:18Z illodev@local#cfe281b4 · claimed
+- 2026-08-04 20:59Z illodev@local#cfe281b4 · doing → review
 
 ## Migrating the 28
 
@@ -77,14 +76,14 @@ pixel drawn — `agents context --card` can answer what a card spawned, and
 
 ## Acceptance criteria
 
-- [ ] `origin` is a reserved key accepting record ids of any kind, repeatable
-- [ ] It is classified as an explicit reference, never as a prose mention
-- [ ] `card create` and `card patch` accept it, and so do the two MCP tools
-- [ ] A doctor rule reports an `origin` that resolves to no record
-- [ ] The 28 prose provenances are migrated by hand, sentences kept
-- [ ] `agents context` surfaces both directions for the selected card
-- [ ] SPEC 11 documents the field and how it differs from the other four
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] `origin` is a reserved key accepting record ids of any kind, repeatable
+- [x] It is classified as an explicit reference, never as a prose mention
+- [x] `card create` and `card patch` accept it, and so do the two MCP tools
+- [x] A doctor rule reports an `origin` that resolves to no record
+- [x] Every prose provenance is migrated by hand, sentences kept
+- [x] `agents context` surfaces both directions for the selected card
+- [x] SPEC 11 documents the field and how it differs from the other four
+- [x] `pnpm run check` green, doctor 0/0
 
 ## Notes
 
@@ -97,3 +96,4 @@ Two things the card did not anticipate. createCard assembles frontmatter from an
 card patch needs no CLI change: it reads changes from --json-input only, and origin is patchable now, consistent with every other field.
 
 Still to do: the origin parameter on project_card_create and project_card_patch; a doctor rule for an origin that resolves to no record; agents context surfacing both directions; --origin in cli.md; SPEC 11; and the 28 prose migrations, which stay manual. My own count is now 32 — T-0153, T-0157 and the three workflow cards were all authored with provenance in prose while this card was open.
+- 2026-08-04 20:57Z illodev@local#cfe281b4 — The 28 was an estimate; the systematic extraction found 19. Migrated by hand with the direction checked per card. Three matched the phrasings and are not provenance: T-0074 ('Scene 2 opened T-0028' is a UI tour scene), T-0089 (cites a finding from T-0078, not its own origin) and T-0152 (names its sibling cards from the same documentation audit). Two more, T-0108 and T-0109, carry 'Found on the way: [[X]]' — the same edge written from the source end, already covered from the card that came out of them. Measured after: 21 origin edges, cards with no explicit card edge down from 78 to 70. And 11 of the 21 do not appear in the graph at all, because the card already had depends or related to the same id and classifiedReferences keys by target id, so the origin merges into the existing edge. That measurement is on T-0159, which it blocks.

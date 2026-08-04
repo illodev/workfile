@@ -504,6 +504,7 @@ priority: high
 area: billing
 parent: T-0010
 depends: [T-0038]
+origin: [T-0031, ADR-0004]
 source: .project/sources/audits/invoicing.md
 tags: [invoices, idempotency]
 effort: M
@@ -626,7 +627,7 @@ not produce one diagnostic per finished record.
 The schema surface reports the declared axes, so an agent discovers them the way
 it discovers areas rather than by reading the config file.
 
-### 11.7 Hierarchy
+### 11.7 Hierarchy and relationships
 
 The default hierarchy is:
 
@@ -643,6 +644,30 @@ Rules:
 - hierarchy cycles are invalid;
 - deleting a parent is forbidden while references remain;
 - `depends:` is an ordering hint, not a hard execution lock.
+
+A card carries five relationship fields, and they are not interchangeable:
+
+| Field | Holds | Means |
+|---|---|---|
+| `parent` | one card ID | this card is **part of** that one |
+| `depends` | card IDs | those must close **before** this one is actionable |
+| `origin` | record IDs, any kind | this card was **discovered while working on** those |
+| `related` | record IDs, any kind | worth reading alongside; no direction, no claim |
+| `source` | a repository-relative path | the file the work came from, checked on disk |
+
+`origin` is provenance, not decomposition. A card found while working on another
+is not part of it — the origin is usually already closed, blocks nothing, and
+the reason it matters is the direction: it answers *where did this come from*,
+and read backwards, *what did that produce*. It accepts decisions and learnings
+as readily as cards, because a decision spawns work as often as a card does.
+
+`origin` is declared, never inferred. Prose naming a record is a `mention` in
+the reference graph; an `origin` is a `reference`, and the two are not mixed.
+An origin that resolves to no record is reported by `doctor` as
+`missing-origin`, and a card naming itself as `self-origin`.
+
+`agents context --card ID` reports both directions of it: **Came out of** for
+the card's own `origin`, **Spawned** for every card declaring this one.
 
 ### 11.8 Claims and scope
 

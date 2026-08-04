@@ -8,7 +8,8 @@ area: core
 scope: [.project/cards]
 related: [T-0109]
 created: 2026-08-02
-updated: 2026-08-03
+updated: 2026-08-04
+origin: [T-0109]
 ---
 
 Found while fixing [[T-0109]]. Not the cause of that flake, and stated as

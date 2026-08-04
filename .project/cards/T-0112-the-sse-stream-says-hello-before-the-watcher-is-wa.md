@@ -8,7 +8,8 @@ area: core
 scope: [packages/workfile/src/server/http.ts, packages/workfile/ui/src/store/live.ts]
 related: [T-0109]
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-04
+origin: [T-0109]
 ---
 
 Found while fixing [[T-0109]], which was the test paying for this.

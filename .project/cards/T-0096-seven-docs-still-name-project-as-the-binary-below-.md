@@ -7,8 +7,9 @@ priority: medium
 area: docs
 scope: [packages/workfile/docs/SPEC.md, packages/workfile/docs/getting-started.md, README.md, packages/workfile/test/documentation.test.ts]
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-04
 related: [T-0088]
+origin: [T-0088]
 ---
 
 `documentation.test.ts` has a test called "no doc teaches the removed project

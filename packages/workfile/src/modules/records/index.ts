@@ -760,6 +760,12 @@ const SUMMARY_FIELDS = Object.freeze([
     // a listing that hid them would leave nothing to reopen.
     "archived",
     "parent",
+    // Alongside `parent` for the same reason: both answer "where does this sit"
+    // and a listing that drops them makes the reader open the file to find out.
+    // The other two edges — `depends`, `related` — are still summary-invisible,
+    // which is a gap, but one with its own card rather than a silent widening
+    // here.
+    "origin",
     "milestone",
     "tags",
     "managed",

@@ -6,8 +6,9 @@ type: task
 priority: medium
 area: core
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-04
 scope: [packages/workfile/src/core/watcher.ts, packages/workfile/src/server/http.ts, packages/workfile/test, packages/workfile/ui/src/store/live.ts]
+origin: [T-0113]
 ---
 
 Split out of [[T-0113]], which was discarded on evidence. That card asked two
