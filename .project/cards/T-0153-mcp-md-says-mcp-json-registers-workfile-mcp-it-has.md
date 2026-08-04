@@ -1,7 +1,7 @@
 ---
 id: T-0153
 title: mcp.md says .mcp.json registers workfile-mcp; it has not since 0.4.0
-status: review
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -66,6 +66,7 @@ scope does not include mcp.md.
 
 - 2026-08-04 19:38Z illodev@local#cfe281b4 · claimed
 - 2026-08-04 19:40Z illodev@local#cfe281b4 · doing → review
+- 2026-08-04 20:32Z illodev@local#cfe281b4 · review → done
 
 ## Notes
 
@@ -77,4 +78,3 @@ Checked the neighbouring claim while here: 'workfile mcp config emits the Node e
 - 2026-08-04 20:29Z illodev@local#cfe281b4 — CI green on all eight matrix jobs at 86be3c0 (PR #14, run 30947778231): ubuntu, macos and windows on node 22 and 24, plus smoke, codeql and doctor. Windows 22 in 1m59s, Windows 24 in 3m42s. That closes the platform gap every note above flagged — the checks resolve paths through new URL against a document base, and Windows checkouts are where that has broken before.
 
 Staying in review rather than done: the protocol reads review as 'awaiting verification, deployment or approval', and this is awaiting approval. The runtime evidence exists; the merge does not.
-
