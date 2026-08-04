@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 
 import { api } from "../api";
 import type { BaseRecord } from "../types";
-import { MarkdownBody } from "./Markdown";
+import { documentOutline, MarkdownBody } from "./Markdown";
+import { OutlineRail } from "./OutlineRail";
 
 /**
  * Any record, read-only, in the shared drawer.
@@ -35,6 +36,11 @@ export function RecordPanel({
 }) {
     const [record, setRecord] = useState<BaseRecord | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const scroller = useRef<HTMLDivElement | null>(null);
+    const outline = useMemo(
+        () => (record ? documentOutline(record.body || "", "record") : []),
+        [record]
+    );
 
     useEffect(() => {
         let live = true;
@@ -53,7 +59,10 @@ export function RecordPanel({
     }, [id]);
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
+        <div
+            ref={scroller}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3"
+        >
             <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-medium">{id}</span>
                 {record ? (
@@ -87,12 +96,15 @@ export function RecordPanel({
                 // wrappers keep the full column. They have to land on the
                 // `.typeset` element itself, whose component-layer defaults
                 // beat an inherited custom property.
-                <div className="mt-3 [&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
-                    <MarkdownBody
-                        source={record.body || "_This record has no body._"}
-                        onOpen={onSelect}
-                        headingPrefix="record"
-                    />
+                <div className="mt-3 flex min-w-0 items-start gap-1">
+                    <div className="min-w-0 flex-1 [&>.typeset]:[--typeset-leading:1.6] [&>.typeset]:[--typeset-size:0.8125rem] [&>.typeset>:not(.typeset-scroll)]:max-w-[72ch]">
+                        <MarkdownBody
+                            source={record.body || "_This record has no body._"}
+                            onOpen={onSelect}
+                            headingPrefix="record"
+                        />
+                    </div>
+                    <OutlineRail entries={outline} container={scroller} />
                 </div>
             ) : (
                 <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">

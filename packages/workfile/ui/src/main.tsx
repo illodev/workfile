@@ -149,6 +149,15 @@ const HealthView = lazy(() =>
 const Explorer = lazy(() =>
     loaders.explorer().then((module) => ({ default: module.Explorer }))
 );
+// The drawer's per-kind panels, lazily from the same chunks their views use.
+// Imported eagerly they would drag the memory lanes and the docs reader into
+// the entry bundle to render a panel most sessions never open.
+const MemoryPanel = lazy(() =>
+    loaders.memory().then((module) => ({ default: module.MemoryPanel }))
+);
+const DocPanel = lazy(() =>
+    loaders.docs().then((module) => ({ default: module.DocPanel }))
+);
 const WorkflowView = lazy(() =>
     loaders.workflow().then((module) => ({ default: module.WorkflowView }))
 );
@@ -300,7 +309,10 @@ interface NavItem {
  * already goes through one drawer.
  */
 const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
-    memory: "memory",
+    // Docs alone, and not because it owns a drawer — it owns a *reader*. The
+    // list sits beside the document rather than over it, which is the right
+    // shape for the one view whose job is reading something long, and an
+    // overlay on top of it would cover the list it was opened from.
     docs: "docs"
 };
 
@@ -921,6 +933,9 @@ function App() {
     const isWorkView = !["overview", "docs", "history", "memory", "health"].includes(
         view
     );
+    /** Which collection the drawer is showing, or null when it is closed. */
+    const drawerCollection = selectedId ? recordCollection(selectedId) : null;
+
     const openRecord = useCallback(
         // `leave` is the reader saying so outright, which is not the same as
         // clicking a link: a link should keep them where they are when it can.
@@ -1818,12 +1833,39 @@ function App() {
                     // archived one reached by ID, say. Either way the
                     // inspector has nothing to render, and rendering nothing
                     // is what used to close the sheet without a word.
-                    <RecordPanel
-                        key={selectedId}
-                        id={selectedId}
-                        onSelect={selectRecord}
-                        onOpen={(id) => openRecord(id, true)}
-                    />
+                    //
+                    // A panel per kind rather than one generic reader: a
+                    // decision has a lifecycle to act on and a document has a
+                    // status, a path and a freshness warning, and none of that
+                    // survives being rendered as "a record with a body".
+                    // `RecordPanel` stays as the fallback, which is what
+                    // changelog fragments and releases get.
+                    drawerCollection === "memory" ? (
+                        <MemoryPanel
+                            key={selectedId}
+                            id={selectedId}
+                            schema={schema.memory}
+                            onSelect={selectRecord}
+                            onOpenRecord={(id) => openRecord(id, true)}
+                            onDialogOpenChange={(open) => {
+                                editingRef.current = open;
+                            }}
+                        />
+                    ) : drawerCollection === "docs" ? (
+                        <DocPanel
+                            key={selectedId}
+                            id={selectedId}
+                            onSelect={selectRecord}
+                            onOpen={(id) => openRecord(id, true)}
+                        />
+                    ) : (
+                        <RecordPanel
+                            key={selectedId}
+                            id={selectedId}
+                            onSelect={selectRecord}
+                            onOpen={(id) => openRecord(id, true)}
+                        />
+                    )
                 ) : (
                 <Inspector
                     task={selected}

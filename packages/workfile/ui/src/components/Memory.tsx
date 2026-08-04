@@ -55,12 +55,14 @@ import type {
     RuntimeSchema
 } from "../types";
 import { MarkdownBody } from "./Markdown";
-import { RecordDrawer } from "./RecordDrawer";
 
 /**
  * Memory: one lane per collection (learnings, decisions, incidents,
- * conventions, context), a tile per record, and the shared RecordDrawer over
- * them when a record is selected — the same overlay a card opens in. Lanes are
+ * conventions, context), and a tile per record. Selecting one opens the app's
+ * drawer, which renders `MemoryPanel` from this module — this view composed
+ * its own drawer around the same panel until that turned out to be one of four
+ * copies of the same overlay, each with its own idea of selection and closing.
+ * Lanes are
  * shadcn Cards sharing the kanban geometry; behaviour is the old view's
  * inventory (search, filters, live reload, create, edit, graduate, supersede —
  * all with `If-Match` revisions).
@@ -1192,6 +1194,81 @@ function collectionStatuses(
     return collections.find((item) => item.id === collection)?.statuses || [];
 }
 
+/**
+ * A memory record in the shared drawer, fetched by ID.
+ *
+ * `DetailPanel` needs the record; the drawer only knows an ID, because the
+ * selection is app-wide and the reader may have arrived from the graph or from
+ * a link in a card body rather than from these lanes. Reading it here is what
+ * lets one drawer serve every kind while each kind keeps the panel that knows
+ * how to edit it.
+ *
+ * Lazily imported by `main.tsx` from this module rather than a new one, so it
+ * rides the memory chunk that already exists instead of pulling the lanes into
+ * the entry bundle.
+ */
+export function MemoryPanel({
+    id,
+    schema,
+    onSelect,
+    onOpenRecord,
+    onDialogOpenChange,
+    onChanged
+}: {
+    id: string;
+    schema: RuntimeSchema["memory"];
+    onSelect: (id: string) => void;
+    onOpenRecord: (id: string) => void;
+    onDialogOpenChange?: (open: boolean) => void;
+    /** Raised after a write, so a list showing this record can catch up. */
+    onChanged?: () => void;
+}) {
+    const [record, setRecord] = useState<MemoryRecord | null>(null);
+    const [error, setError] = useState("");
+    useEffect(() => {
+        let live = true;
+        setRecord(null);
+        setError("");
+        api.record(id)
+            .then((response) => {
+                if (live) setRecord(response.record as unknown as MemoryRecord);
+            })
+            .catch((cause: Error) => {
+                if (live) setError(cause.message);
+            });
+        return () => {
+            live = false;
+        };
+    }, [id]);
+
+    if (error) {
+        return (
+            <div className="px-4 py-3 text-xs text-muted-foreground">{error}</div>
+        );
+    }
+    if (!record) {
+        return (
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                <Spinner /> Reading {id}…
+            </div>
+        );
+    }
+    return (
+        <DetailPanel
+            key={record.id}
+            record={record}
+            statuses={collectionStatuses(schema.collections, record.collection)}
+            onOpenRelation={onSelect}
+            onOpenRecord={onOpenRecord}
+            onUpdated={(next) => {
+                setRecord(next);
+                onChanged?.();
+            }}
+            onDialogOpenChange={onDialogOpenChange}
+        />
+    );
+}
+
 export function MemoryView({
     selectedId,
     onSelect,
@@ -1210,20 +1287,6 @@ export function MemoryView({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [createFor, setCreateFor] = useState<string | null>(null);
-    /** The drawer's width preference, kept like the inspector's. */
-    const [expanded, setExpanded] = useState(
-        () => localStorage.getItem("workfile-memory-drawer") === "expanded"
-    );
-    useEffect(() => {
-        localStorage.setItem(
-            "workfile-memory-drawer",
-            expanded ? "expanded" : "normal"
-        );
-    }, [expanded]);
-    // Set while a dialog raised from inside the drawer is up. Radix reports a
-    // click in that dialog as an interaction outside the drawer, and the
-    // drawer closing would take the dialog down with it.
-    const dialogRef = useRef(false);
     // Every tile click stamps this: Radix defers its pointer-down-outside
     // dispatch until after the click handlers have run, so browsing tile to
     // tile would otherwise dismiss the drawer the click just retargeted.
@@ -1437,37 +1500,6 @@ export function MemoryView({
                     ))}
                 </div>
             </div>
-            <RecordDrawer
-                open={Boolean(active)}
-                expanded={expanded}
-                label="record"
-                description="Details and lifecycle for the selected memory record."
-                onOpenChange={(next) => {
-                    if (!next) onSelect("");
-                }}
-                onExpandedChange={setExpanded}
-                holdOpen={() =>
-                    dialogRef.current ||
-                    performance.now() - lastSelectRef.current < 200
-                }
-            >
-                {active ? (
-                    <DetailPanel
-                        key={active.id}
-                        record={active}
-                        statuses={collectionStatuses(
-                            schema.collections,
-                            active.collection
-                        )}
-                        onOpenRelation={openRelation}
-                        onOpenRecord={onOpenRecord}
-                        onUpdated={applyUpdate}
-                        onDialogOpenChange={(open) => {
-                            dialogRef.current = open;
-                        }}
-                    />
-                ) : null}
-            </RecordDrawer>
             {createFor !== null ? (
                 <CreateDialog
                     schema={schema}
