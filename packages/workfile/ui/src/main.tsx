@@ -904,14 +904,20 @@ function App() {
         view
     );
     const openRecord = useCallback(
-        (id: string) => {
+        // `leave` is the reader saying so outright, which is not the same as
+        // clicking a link: a link should keep them where they are when it can.
+        (id: string, leave = false) => {
             selectRecord(id);
             // A card opens where you already are, if where you are shows
             // cards. Sending every card click to Explorer meant stepping
             // through `depends` inside Flow ejected you from the board on the
             // first hop, and the panel you were reading in is not the panel
             // you end up in.
-            const target = viewForRecord(id, view, taskById.has(id));
+            const target = viewForRecord(
+                id,
+                leave ? null : view,
+                taskById.has(id)
+            );
             if (target) setView(target);
         },
         [taskById, view]
@@ -1774,7 +1780,15 @@ function App() {
                 expanded={inspectorExpanded}
                 label="inspector"
                 description="Details and editing for the selected record."
-                onOpenChange={setInspectorOpen}
+                onOpenChange={(next) => {
+                    setInspectorOpen(next);
+                    // And drop the selection, which is what the memory and doc
+                    // sheets already do. Closing only the panel left
+                    // `?record=` in the URL naming something no longer on
+                    // screen, so a reload — or a shared link — reopened a
+                    // record the reader had deliberately dismissed.
+                    if (!next) setSelectedId(null);
+                }}
                 onExpandedChange={setInspectorExpanded}
                 holdOpen={() =>
                     editingRef.current ||

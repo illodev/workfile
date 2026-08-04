@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import { CARD_VIEWS, viewForRecord } from "../ui/src/navigation.ts";
 import type { View } from "../ui/src/types.ts";
@@ -59,4 +60,49 @@ test("Workflow keeps the reader on the canvas", () => {
     // happen on it, or the view answers its own question by leaving.
     assert.ok(CARD_VIEWS.has("workflow"));
     assert.equal(viewForRecord("T-0154", "workflow", true), null);
+});
+
+/**
+ * `View` is a type and `KNOWN_VIEWS` is a value, and nothing makes them agree.
+ *
+ * An unrecognised `?view=` falls back to the overview rather than failing, so
+ * the whole symptom of forgetting one is that reloading on it quietly lands
+ * somewhere else. `workflow` was added to the union and not to the list, and
+ * that is exactly what it did.
+ *
+ * The assertion runs the other way too: a view in the list that the union does
+ * not have is a URL the app accepts and then cannot render.
+ */
+test("every view a URL can name is a view the app has", async () => {
+    const read = (name: string) =>
+        readFile(new URL(`../ui/src/${name}`, import.meta.url), "utf8");
+    // Both sides read as source rather than imported. `query.ts` imports
+    // values from `./types` without an extension, which the bundler requires
+    // and Node's ESM loader refuses — so importing it here is not available,
+    // and a parity check that cannot run is worse than none.
+    const routable = /const VIEWS: View\[\] = \[([^\]]+)\]/.exec(
+        await read("query.ts")
+    )?.[1];
+    const union = /export type View =\s*([^;]+);/.exec(await read("types.ts"))?.[1];
+    const names = (source: string | undefined) =>
+        [...(source ?? "").matchAll(/"([a-z]+)"/g)].map((match) => match[1]).sort();
+
+    const declared = names(union);
+    assert.ok(declared.length > 5, "the View union was not read");
+    assert.deepEqual(
+        names(routable),
+        declared,
+        "the routable views and the View union disagree"
+    );
+
+    // And the sidebar has to offer each one, or a view is reachable only by
+    // typing its URL.
+    const main = await read("main.tsx");
+    for (const view of declared) {
+        assert.match(
+            main,
+            new RegExp(`value: "${view}"`),
+            `${view} has no entry in the sidebar`
+        );
+    }
 });

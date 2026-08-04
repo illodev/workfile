@@ -43,14 +43,20 @@ export const CARD_VIEWS: ReadonlySet<View> = new Set<View>([
  * `isCard` is passed rather than inferred where the caller already knows —
  * the card corpus is in hand there, and a project can configure its own ID
  * prefix, which is why the `T-` test is a fallback and not the rule.
+ *
+ * A `null` current view means the reader asked to leave, so the stay-put rule
+ * does not apply. Workflow's "Open in its view" needs that: the canvas is in
+ * `CARD_VIEWS` so following a link does not walk off the graph, which also
+ * made the one control whose entire purpose is to walk off the graph do
+ * nothing at all for a card.
  */
 export function viewForRecord(
     id: string,
-    current: View,
+    current: View | null,
     isCard = false
 ): View | null {
     if (isCard || id.startsWith("T-")) {
-        return CARD_VIEWS.has(current) ? null : "explorer";
+        return current && CARD_VIEWS.has(current) ? null : "explorer";
     }
     if (id.startsWith("DOC-") || id.startsWith("PATH-")) return "docs";
     if (id.startsWith("CHG-") || id.startsWith("REL-")) return "history";
