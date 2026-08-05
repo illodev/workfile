@@ -1,7 +1,7 @@
 ---
 id: T-0199
 title: Only cards heal a duplicate id, and every branch adds a changelog fragment
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -71,3 +71,4 @@ something already cut into a release would rewrite shipped history.
 ## Activity
 
 - 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 20:46Z illodev@local#bf4c5f67 · review → done

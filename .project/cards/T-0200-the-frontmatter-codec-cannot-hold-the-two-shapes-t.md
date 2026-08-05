@@ -1,7 +1,7 @@
 ---
 id: T-0200
 title: The frontmatter codec cannot hold the two shapes the done gate needs
-status: review
+status: done
 type: feature
 priority: high
 area: core
@@ -68,6 +68,7 @@ provable on the corpus: no card, doc, fragment, release or memory record in
 
 - 2026-08-05 19:31Z illodev@local#bf4c5f67 · claimed
 - 2026-08-05 20:31Z illodev@local#bf4c5f67 · doing → review
+- 2026-08-05 20:46Z illodev@local#bf4c5f67 · review → done
 
 ## Notes
 

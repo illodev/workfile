@@ -1,7 +1,7 @@
 ---
 id: T-0196
 title: The footer counts claims and says nothing about them
-status: review
+status: done
 type: feature
 priority: low
 area: ui
@@ -36,3 +36,4 @@ scope is the one claim state that needs acting on rather than noting.
 ## Activity
 
 - 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 20:46Z illodev@local#bf4c5f67 · review → done

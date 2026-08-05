@@ -1,7 +1,7 @@
 ---
 id: T-0198
 title: The sidebar hides its labels and holds settings that are not its job
-status: review
+status: done
 type: task
 priority: low
 area: ui
@@ -37,3 +37,4 @@ dialog gives them somewhere to go that does not cost sidebar space.
 ## Activity
 
 - 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 20:46Z illodev@local#bf4c5f67 · review → done
