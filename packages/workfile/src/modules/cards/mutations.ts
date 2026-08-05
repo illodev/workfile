@@ -18,8 +18,8 @@ import {
 import {
     parseFrontmatter,
     patchFrontmatter,
-    requireFrontmatter,
-    serializeValue
+    renderFrontmatterEntry,
+    requireFrontmatter
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
@@ -75,8 +75,8 @@ export async function nextCardSequence(workspace) {
 }
 
 function renderCard(metadata, body = "") {
-    const lines = Object.entries(metadata).map(
-        ([key, value]) => `${key}: ${serializeValue(key, value, CARD_LIST_KEYS)}`
+    const lines = Object.entries(metadata).flatMap(([key, value]) =>
+        renderFrontmatterEntry(key, value, { listKeys: CARD_LIST_KEYS })
     );
     return `---\n${lines.join("\n")}\n---\n\n${String(body).trim()}\n`;
 }
