@@ -51,6 +51,7 @@ one needs to find the correction where the mistake was.
 | --- | --- |
 | `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `changelog release`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
 | `--force` — proceed past the check the command would otherwise fail | `agents sync`, `card claim`, `card patch`, `card release`, `card transition`, `ci sync`, `claude install`, `claude sync`, `init`, `migrate apply` |
+| `--reason TEXT` — why a check was waived; recorded on the card | `card claim`, `card patch`, `card release`, `card transition` |
 | `--read-only` — disable the MCP mutation tools | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio` |
 | `--yes` — accept the initializer defaults without prompting | `init` |
 
@@ -196,8 +197,8 @@ workfile card create --json-input FILE
 workfile card patch ID --json-input FILE [--expected-revision REV]
 workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clears it
 workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
-workfile card release ID [--actor ACTOR] [--status next]
-workfile card transition ID STATUS [--actor ACTOR]
+workfile card release ID [--actor ACTOR] [--status next] [--force --reason TEXT]
+workfile card transition ID STATUS [--actor ACTOR] [--force --reason TEXT]
 workfile card archive ID [--actor ACTOR]
 workfile card reopen ID [--status backlog] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
@@ -216,7 +217,17 @@ to the wrong line.
 
 `card transition ID done` refuses while any criterion is unproven and names the ones
 that are, because `done` means verified where the code actually runs. `--force` gets
-through for the cases the criteria did not anticipate.
+through for the cases the criteria did not anticipate, and takes `--reason TEXT`,
+which the card's trail carries in place of the gate:
+
+```text
+- 2026-08-05 11:04Z alice@studio · review → done (forced past 3 unproven criteria: the last two need hardware CI does not have)
+```
+
+The reason is required only when `--force` actually waives something — the gate names
+what it let through, so a `--force` that nothing refused records nothing and asks for
+nothing. Taking another actor's claim is the other waivable gate, and it is written the
+same way.
 
 `card create --json-input FILE` is the form to reach for when the card has a
 body. It takes the whole record — title, body, parent, source, tags, scope — in

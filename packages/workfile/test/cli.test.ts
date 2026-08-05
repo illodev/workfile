@@ -1880,8 +1880,16 @@ test("no subcommand reports a missing argument as a missing record", async () =>
 test("card reopen carries an actor into doing, resolved or given", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "workfile-reopen-"));
     await cp(fixture, workspace, { recursive: true });
-    const park = () =>
-        outcome(["card", "transition", "T-0001", "done", "--force", "--root", workspace]);
+    // Asserted rather than fired and forgotten: a `park` that fails leaves the
+    // card where it was, and the next step then fails for a reason that has
+    // nothing to do with what this test is about.
+    const park = async () => {
+        const parked = await outcome([
+            "card", "transition", "T-0001", "done",
+            "--force", "--reason", "Parked by a test", "--root", workspace
+        ]);
+        assert.equal(parked.code, 0, parked.stderr);
+    };
     const status = async () => {
         const shown = await outcome(["card", "show", "T-0001", "--json", "--root", workspace]);
         return JSON.parse(shown.stdout);

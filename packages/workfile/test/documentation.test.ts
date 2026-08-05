@@ -407,7 +407,7 @@ test("cli.md's option tables state the contract the binary enforces", async () =
         "the global table and GLOBAL_FLAGS disagree about what is global"
     );
 
-    assert.equal(perCommand.length, 4, "the per-subcommand table lost a row");
+    assert.equal(perCommand.length, 5, "the per-subcommand table lost a row");
     for (const [option, applies] of perCommand) {
         const [flag] = named(option);
         assert.ok(

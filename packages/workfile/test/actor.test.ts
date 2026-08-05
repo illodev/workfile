@@ -165,13 +165,29 @@ test("release and transition refuse another actor's claim instead of silently ta
         assert.match(released.stderr, /CARD_CLAIM/);
 
         // The guard has to have a documented way through, or the plugin's own
-        // finalization path becomes a wall rather than a bypass.
+        // finalization path becomes a wall rather than a bypass. What it does
+        // not have is a silent one: taking a claim over says why, the way
+        // `card claim --force` has always had to.
+        const unexplained = await runCli(
+            ["card", "transition", id, "review", "--force", "--root", root],
+            { env: mine }
+        );
+        assert.notEqual(unexplained.code, 0);
+        assert.match(unexplained.stderr, /CARD_FORCE_REASON_REQUIRED/);
+
         const forced = await runCli(
-            ["card", "transition", id, "review", "--force", "--json", "--root", root],
+            [
+                "card", "transition", id, "review", "--force",
+                "--reason", "agent-other stopped answering", "--json", "--root", root
+            ],
             { env: mine }
         );
         assert.equal(forced.code, 0, forced.stderr);
         assert.equal(JSON.parse(forced.stdout).status, "review");
+        assert.match(
+            JSON.parse(forced.stdout).body,
+            /· doing → review \(forced past agent-other's claim: agent-other stopped answering\)/
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }

@@ -542,6 +542,12 @@ archived card leaves none either. Archiving and unarchiving are written as
 moves the status. `## Notes` is the opposite — free prose a human or agent
 writes deliberately.
 
+A move that `force` let past a gate MUST say which gate and why, on the same
+line — `review → done (forced past 3 unproven criteria: REASON)` — and the
+reason MUST be demanded when, and only when, `force` waived something. Without
+it a forced close and a proven one are the same entry, and every count taken
+over closed cards counts them alike.
+
 Set `cards.activityTrail: false` to switch the trail off for a workspace. It
 defaults to `true`, and the only reason to disable it is a repository where the
 churn costs more than the history is worth; the claim guards and the doctor do
