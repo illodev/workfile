@@ -4,7 +4,7 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
-import { parseAcceptance } from "./acceptance.js";
+import { parseAcceptance, unreadableCriteria } from "./acceptance.js";
 import { misplacedTrailEntries } from "./body.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { cardFileName } from "./slug.js";
@@ -512,7 +512,28 @@ export async function diagnoseCards({
         // list to work through. The count alone told a reviewer that something
         // was unproven but never which thing, so the only way to act on it was
         // to open the card and read.
-        const pending = parseAcceptance(card.body).unchecked;
+        const reading = parseAcceptance(card.body);
+        // Reported at any status, not only at `done`. The point of the check is
+        // that the card is carrying criteria nothing can see, and the moment
+        // worth saying so is while there is still time to fix the heading —
+        // by `done` the gate has already refused, or already let it through on
+        // the version of this repository that shipped before it existed.
+        const unreadable = card.archived ? [] : unreadableCriteria(reading);
+        if (unreadable.length) {
+            issues.push(
+                issue(
+                    "warning",
+                    "acceptance-unreadable",
+                    card,
+                    `Card has ${unreadable.length} unchecked checklist ` +
+                        `${unreadable.length === 1 ? "item" : "items"} under no ` +
+                        `heading the acceptance reader recognises: ` +
+                        unreadable.map((item) => item.text).join("; "),
+                    { unreadable: unreadable.map(({ text }) => ({ text })) }
+                )
+            );
+        }
+        const pending = reading.unchecked;
         if (card.status === "done" && pending.length) {
             issues.push(
                 issue(

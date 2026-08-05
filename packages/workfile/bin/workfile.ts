@@ -78,6 +78,7 @@ import {
     parseAcceptance,
     resolveActor,
     setCardAcceptance,
+    unreadableCriteria,
     ValidationError,
     wholeNumber
 } from "../src/index.js";
@@ -1374,7 +1375,21 @@ async function cardCommand(workspace, action) {
             const reading = parseAcceptance(card.body);
             if (has("--json")) return print(reading);
             if (!reading.present) {
-                return console.log(`${id} declares no acceptance criteria`);
+                // Not "declares none": that is a claim about the card, and the
+                // reader has no basis for it when the body is carrying boxes.
+                const unreadable = unreadableCriteria(reading);
+                if (!unreadable.length) {
+                    return console.log(`${id} declares no acceptance criteria`);
+                }
+                console.log(
+                    `${id} — no heading this reader recognises, and ` +
+                        `${unreadable.length} unchecked checklist ` +
+                        `${unreadable.length === 1 ? "item" : "items"} below one it does not:`
+                );
+                for (const item of unreadable) console.log(`    ${item.text}`);
+                return console.log(
+                    `Put them under \`## Acceptance criteria\` to make them checkable.`
+                );
             }
             console.log(`${id} — ${acceptanceSummary(reading)} met`);
             for (const item of reading.items) {

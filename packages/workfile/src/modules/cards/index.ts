@@ -1,7 +1,8 @@
 export {
     acceptanceSummary,
     applyAcceptance,
-    parseAcceptance
+    parseAcceptance,
+    unreadableCriteria
 } from "./acceptance.js";
 export type { AcceptanceItem, AcceptanceReading } from "./acceptance.js";
 export {

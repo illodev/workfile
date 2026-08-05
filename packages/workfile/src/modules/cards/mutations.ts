@@ -3,7 +3,11 @@ import { basename, dirname, join } from "node:path";
 
 import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
 import { reserveRecordId } from "../../core/record-ids.js";
-import { applyAcceptance, parseAcceptance } from "./acceptance.js";
+import {
+    applyAcceptance,
+    parseAcceptance,
+    unreadableCriteria
+} from "./acceptance.js";
 import { claimBoardChanged, updateClaimBoard } from "./claims.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
@@ -427,20 +431,44 @@ function releasedStatus(current, status) {
  */
 function assertAcceptanceMet(id, current, status, force) {
     if (status !== "done" || force) return;
-    const pending = parseAcceptance(current.body).unchecked;
-    if (!pending.length) return;
+    const reading = parseAcceptance(current.body);
+    const pending = reading.unchecked;
+    if (pending.length) {
+        throw new ConflictError(
+            "CARD_ACCEPTANCE_UNMET",
+            `${id} has ${pending.length} unproven acceptance criteria: ` +
+                `${pending
+                    .map((item) => `#${item.index} ${item.text}`)
+                    .join("; ")}. Check them, or pass force.`,
+            {
+                id,
+                unchecked: pending.map((item) => ({
+                    index: item.index,
+                    text: item.text
+                }))
+            }
+        );
+    }
+    // A card with no region the reader recognises used to arrive here as a card
+    // with nothing to prove, and closed. That is how T-0026 through T-0029 in
+    // this repository reached `done` with four unchecked criteria between them,
+    // under `## Acceptance`, and how the board in DOC-0005 closed a card the
+    // gate never saw. The distinction the gate needs is between a card that
+    // proves nothing because there is nothing to prove and a card whose
+    // criteria it could not read.
+    const unreadable = unreadableCriteria(reading);
+    if (!unreadable.length) return;
     throw new ConflictError(
-        "CARD_ACCEPTANCE_UNMET",
-        `${id} has ${pending.length} unproven acceptance criteria: ` +
-            `${pending
-                .map((item) => `#${item.index} ${item.text}`)
-                .join("; ")}. Check them, or pass force.`,
+        "CARD_ACCEPTANCE_UNREADABLE",
+        `${id} has ${unreadable.length} unchecked checklist ` +
+            `${unreadable.length === 1 ? "item" : "items"} under no heading ` +
+            `this gate recognises: ${unreadable
+                .map((item) => item.text)
+                .join("; ")}. Put them under \`## Acceptance criteria\` so they ` +
+            `can be checked, or pass force if they are not criteria.`,
         {
             id,
-            unchecked: pending.map((item) => ({
-                index: item.index,
-                text: item.text
-            }))
+            unreadable: unreadable.map((item) => ({ text: item.text }))
         }
     );
 }

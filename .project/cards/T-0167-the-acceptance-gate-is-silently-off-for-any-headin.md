@@ -1,7 +1,7 @@
 ---
 id: T-0167
 title: The acceptance gate is silently off for any heading the parser does not know
-status: next
+status: review
 type: bug
 priority: critical
 area: core
@@ -9,7 +9,7 @@ tags: [acceptance, doctor, field-report]
 origin: [DOC-0005]
 created: 2026-08-05
 updated: 2026-08-05
-scope: [packages/workfile/src/modules/cards/acceptance.ts]
+scope: [packages/workfile/src/modules/cards/acceptance.ts, packages/workfile/src/modules/cards/mutations.ts, packages/workfile/src/modules/doctor]
 related: [T-0158, ADR-0012]
 ---
 
@@ -101,14 +101,20 @@ original report. This card is what is left when they land.
 
 ## Acceptance criteria
 
-- [ ] A body with checklist items under no recognised heading is reported, not read as empty
-- [ ] `card ac` distinguishes "no criteria" from "no heading I recognised"
-- [ ] `doctor` surfaces the card the tester closed, from its body alone
-- [ ] The recognised heading vocabulary covers `Definition of done` and `Success criteria`
-- [ ] Whether `done` refuses on an orphan checklist is decided and recorded
+- [x] A body with checklist items under no recognised heading is reported, not read as empty
+- [x] `card ac` distinguishes "no criteria" from "no heading I recognised"
+- [x] `doctor` surfaces the card the tester closed, from its body alone
+- [x] The recognised heading vocabulary covers `Definition of done` and `Success criteria`
+- [x] Whether `done` refuses on an orphan checklist is decided and recorded
 
 ## Activity
 
 - 2026-08-05 10:41Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 10:42Z illodev@local#2cddaf94 · released
 - 2026-08-05 10:42Z illodev@local#2cddaf94 · renamed file to T-0167-the-acceptance-gate-is-silently-off-for-any-headin.md
+- 2026-08-05 10:46Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 10:55Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 10:55Z illodev@local#2cddaf94 — Decision on the two open calls, both taken with the owner before code moved: a checklist under no recognised heading is a doctor WARNING, not an error, because a card may legitimately keep a list that was never a criterion and failing doctor on a correct body costs more than the false positive; and `done` REFUSES with CARD_ACCEPTANCE_UNREADABLE, with force as the escape, symmetric with the CARD_ACCEPTANCE_UNMET gate that already says 'Check them, or pass force'. Recorded in CHG-0114.

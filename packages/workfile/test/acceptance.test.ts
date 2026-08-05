@@ -19,7 +19,8 @@ import {
     patchCardBody,
     releaseCard,
     setCardAcceptance,
-    transitionCard
+    transitionCard,
+    unreadableCriteria
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -62,11 +63,14 @@ test("the acceptance region is read, and stops where the section does", () => {
     assert.equal(reading.unchecked.length, 3);
 
     // A card that never declares the section is a different thing from one that
-    // declares it empty, and the doctor should not treat them alike.
+    // declares it empty, and the doctor should not treat them alike. Prose with
+    // no boxes anywhere really does declare nothing — that reading is honest,
+    // and it is the only case in which it is.
     assert.deepEqual(parseAcceptance("no section here"), {
         present: false,
         items: [],
-        unchecked: []
+        unchecked: [],
+        orphans: []
     });
     assert.equal(parseAcceptance("## Acceptance criteria\n").present, true);
 });
@@ -354,4 +358,120 @@ test("criteria inside a fenced block are a quote, not the card's own", () => {
     const applied = applyAcceptance(body, { check: [1] });
     assert.match(applied.body, /- \[x\] the real one/);
     assert.match(applied.body, /- \[ \] quoted criterion/);
+});
+
+// The reader used to answer "declares no acceptance criteria" for every
+// heading but one, and `done` had nothing to hold. T-0026 through T-0029 of
+// this repository were closed that way, under `## Acceptance`, with four
+// unproven criteria between them; DOC-0005 reported the same hole reached
+// through `## Criterio de aceptación`. Both are the same defect, and neither is
+// about the phrase that was missing.
+test("the headings people actually write open the region", () => {
+    const items = ["", "- [ ] one", "- [x] two"];
+    for (const heading of [
+        "## Acceptance criteria",
+        "## Acceptance",
+        "### acceptance CRITERIA",
+        "## Definition of done",
+        "## Success criteria",
+        "## Exit criteria",
+        "## Acceptance criteria (revised)"
+    ]) {
+        const reading = parseAcceptance([heading, ...items].join("\n"));
+        assert.equal(reading.present, true, heading);
+        assert.equal(reading.items.length, 2, heading);
+        assert.equal(reading.unchecked.length, 1, heading);
+        // A card that declares its region has no orphans to answer for, even
+        // when its body carries other lists.
+        assert.deepEqual(unreadableCriteria(reading), [], heading);
+    }
+});
+
+test("a checklist under no recognised heading is reported, not read as empty", () => {
+    const body = [
+        "## Criterio de aceptación",
+        "",
+        "- [ ] El bucle corre a 60 Hz",
+        "- [x] Ya probado",
+        "",
+        "## Notes",
+        "",
+        "- [ ] A note is prose, and its boxes are not criteria"
+    ].join("\n");
+
+    const reading = parseAcceptance(body);
+    assert.equal(reading.present, false);
+    assert.equal(reading.items.length, 0);
+
+    // The unchecked one is the finding. The checked one proves nothing is
+    // outstanding, and `## Notes` is excluded outright.
+    const unreadable = unreadableCriteria(reading);
+    assert.equal(unreadable.length, 1);
+    assert.equal(unreadable[0].text, "El bucle corre a 60 Hz");
+    assert.equal(
+        reading.orphans.some((item) => item.text.startsWith("A note is prose")),
+        false
+    );
+
+    // A body with no boxes at all is still a card that declares nothing, and
+    // must not be dressed up as a finding.
+    assert.deepEqual(unreadableCriteria(parseAcceptance("Just prose.")), []);
+
+    // Nor does a quote count, for the same reason the region cannot open in one.
+    const quoted = ["```text", "## Whatever", "- [ ] quoted", "```"].join("\n");
+    assert.deepEqual(unreadableCriteria(parseAcceptance(quoted)), []);
+});
+
+test("done refuses a card whose criteria it cannot read, and force gets through", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-ac-unreadable-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const body = [
+            "## Acceptancia",
+            "",
+            "- [ ] The thing nobody could see",
+            "- [ ] The other one"
+        ].join("\n");
+
+        const created = await createCard(workspace, {
+            title: "Closed on nothing",
+            area: "api"
+        });
+        await patchCardBody(workspace, created.id, { body });
+
+        await assert.rejects(
+            () => transitionCard(workspace, created.id, "done", { actor: "tester" }),
+            (error: any) => {
+                assert.equal(error.code, "CARD_ACCEPTANCE_UNREADABLE");
+                assert.equal(error.details.unreadable.length, 2);
+                assert.match(error.message, /The thing nobody could see/);
+                // The message has to say what to do about it, because the
+                // author's next move is to rename a heading.
+                assert.match(error.message, /## Acceptance criteria/);
+                return true;
+            }
+        );
+
+        // Renaming the heading is the fix, and it leaves the card gated on its
+        // criteria rather than on their invisibility.
+        await patchCardBody(workspace, created.id, {
+            body: body.replace("## Acceptancia", "## Acceptance criteria")
+        });
+        await assert.rejects(
+            () => transitionCard(workspace, created.id, "done", { actor: "tester" }),
+            (error: any) => error.code === "CARD_ACCEPTANCE_UNMET"
+        );
+
+        // And the escape hatch, for a checklist that was never a criterion.
+        const second = await createCard(workspace, { title: "Not criteria", area: "api" });
+        await patchCardBody(workspace, second.id, { body });
+        const forced = await transitionCard(workspace, second.id, "done", {
+            actor: "tester",
+            force: true
+        });
+        assert.equal(forced.card.status, "done");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
