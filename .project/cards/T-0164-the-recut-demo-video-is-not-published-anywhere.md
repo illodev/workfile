@@ -1,7 +1,7 @@
 ---
 id: T-0164
 title: The recut demo video is not published anywhere
-status: blocked
+status: done
 type: task
 priority: medium
 area: docs
@@ -20,7 +20,7 @@ The stills under `.github/media/` are a separate staleness: `flow.png` and the r
 
 ## Acceptance criteria
 
-- [ ] The README plays the recut film, not the old one
+- [x] The README plays the recut film, not the old one
 - [x] The thumbnail is a frame from the cut it introduces
 - [x] The stills carry a version that matches what npm serves
 
@@ -28,6 +28,7 @@ The stills under `.github/media/` are a separate staleness: `flow.png` and the r
 
 - 2026-08-05 09:33Z illodev@local#b2ee1fa3 · claimed
 - 2026-08-05 09:42Z illodev@local#b2ee1fa3 · doing → blocked
+- 2026-08-05 10:10Z illodev@local#b2ee1fa3 · blocked → done
 
 ## Notes
 
@@ -46,3 +47,12 @@ Writing the README caption for it surfaced T-0165: the graph draws 46 nodes and 
 Not done: README:26 embeds the old cut through a GitHub user-attachments URL. That is content GitHub hosts, not a path in this repository, so no edit here can change it — the mp4 has to be uploaded to GitHub (drag it into an issue or PR comment) and the URL swapped. `artifacts/` is gitignored, so the file to upload is `site/assets/workfile-demo.mp4`.
 
 doctor 0/0, strict ratchet unchanged at 549 known errors.
+- 2026-08-05 10:10Z illodev@local#b2ee1fa3 — The README embed was swapped by hand, and the file behind it is the recut cut.
+
+README:26 now points at `user-attachments/assets/c9cd3035-6729-4cda-9172-984829ab5dbc`, replacing `d45a817d-4279-4cde-8f10-29495c0daf2d`. Committed as 5ad5450 on main.
+
+Verified rather than assumed: a range request follows the redirect to the signed asset and reports `Content-Range: bytes 0-0/19296049`, byte-identical to `site/assets/workfile-demo.mp4`. A HEAD is refused by the signed URL, so the size came from a one-byte GET.
+
+That is the whole of what this card was blocked on. Every surface now carries the 83s cut and stills captured at 0.6.0: the README, the landing page, and `.github/media`.
+
+Left open elsewhere, deliberately: [[T-0165]] — the Workflow picture on all of those surfaces draws cards only, because the curated corpus declares no relation between collections. The captions describe what is drawn; the corpus is what should change.
