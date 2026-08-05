@@ -1,12 +1,12 @@
 ---
 id: T-0157
 title: card write silently drops everything below a protocol heading
-status: review
+status: done
 type: bug
 priority: medium
 area: core
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-05
 origin: [T-0155]
 scope: [packages/workfile/src/modules/cards/mutations.ts]
 ---
@@ -131,3 +131,8 @@ stored. There is no CLI path back from that state.
 - 2026-08-04 23:13Z illodev@local#cfe281b4 · claimed
 - 2026-08-04 23:35Z illodev@local#cfe281b4 · moved 1 trail entry into the trail
 - 2026-08-04 23:40Z illodev@local#cfe281b4 · doing → review
+- 2026-08-05 00:15Z illodev@local#cfe281b4 · review → done
+
+## Notes
+
+- 2026-08-05 00:15Z illodev@local#cfe281b4 — Verified on merged main (a93e05e) against a clean workspace built from dist: prose rewritten including a sentence naming `## Activity` inline, the criterion below the quoted `## Notes` corrected, the fenced quote untouched, a forged `## Notes` declined and reported, the real note under its own section and the trail under `## Activity`. check 304/304, doctor 0/0.
