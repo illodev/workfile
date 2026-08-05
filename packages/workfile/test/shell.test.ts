@@ -8,8 +8,18 @@ import { readFile } from "node:fs/promises";
  * assertions about decisions that are invisible at runtime until someone
  * notices the symptom weeks later.
  */
-const read = (name: string) =>
-    readFile(new URL(`../ui/src/${name}`, import.meta.url), "utf8");
+/**
+ * Line endings are normalised because these assertions match against them, and
+ * a Windows checkout hands back `\r\n`. `/\n}\n/` below then matches nothing and
+ * the file reads as though the code had been deleted — a failure that cannot
+ * happen on the machine the test was written on, and that says "NavTooltip is
+ * gone" when it is right there.
+ */
+const read = async (name: string) =>
+    (await readFile(new URL(`../ui/src/${name}`, import.meta.url), "utf8")).replaceAll(
+        "\r\n",
+        "\n"
+    );
 
 /** The `function NavTooltip(...) { ... }` block, closing brace included. */
 function navTooltipSource(main: string) {
