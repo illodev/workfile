@@ -185,6 +185,48 @@ export async function runUpgrade(workspace, { dryRun = false }: any = {}) {
         version: installed,
         dryRun: Boolean(dryRun),
         surfaces,
-        orphans: await orphanBlocks(workspace)
+        orphans: await orphanBlocks(workspace),
+        binary: await binaryAgreement(workspace, installed)
+    };
+}
+
+/**
+ * The binary doing the upgrading, against the one the workspace will run.
+ *
+ * The docs recommend installing as a devDependency; the update instructions in
+ * circulation are `pnpm i -g @illodev/workfile` and `wf upgrade`. Run that way
+ * the global binary regenerates every managed file and stamps its own version
+ * into headers the local hooks and MCP server will never match — and the
+ * surface reports current throughout, because the stamp is provenance and the
+ * content is whatever the newer binary generates.
+ *
+ * Both halves are knowable at the moment of the upgrade: this process knows
+ * its version, and the workspace's copy states its own. So the command says
+ * so, rather than leaving it to be found through symptoms that look like
+ * anything else.
+ */
+async function binaryAgreement(workspace, installed) {
+    const path = join(
+        workspace.root,
+        "node_modules",
+        "@illodev",
+        "workfile",
+        "package.json"
+    );
+    if (!(await exists(path))) {
+        // Not a mismatch: a workspace with no local copy runs this one, and
+        // the generated registration says `npx` for exactly that reason.
+        return { running: installed, local: null, mismatched: false };
+    }
+    let local: string | null = null;
+    try {
+        local = JSON.parse(await readFile(path, "utf8")).version || null;
+    } catch {
+        local = null;
+    }
+    return {
+        running: installed,
+        local,
+        mismatched: Boolean(local && local !== installed)
     };
 }

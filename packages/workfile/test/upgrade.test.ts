@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -137,6 +137,55 @@ test("every owned surface is stamped, not only the first one behind", async () =
             assert.equal(surface(settled, id).status, "current");
         }
         assert.deepEqual(settled.orphans, []);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("upgrading with a binary the workspace does not have is reported", async () => {
+    const { root, workspace } = await makeWorkspace();
+    try {
+        // No local copy is not a mismatch: this binary is the only one, and
+        // the generated registration says `npx` for exactly that reason.
+        const alone = await runUpgrade(workspace, { dryRun: true });
+        assert.deepEqual(alone.binary, {
+            running: installed,
+            local: null,
+            mismatched: false
+        });
+
+        // The shape the docs warn about and the update instructions produce:
+        // `pnpm i -g @illodev/workfile` upgrading a workspace pinned to an
+        // older release. The hooks and the MCP server run the pinned one.
+        const packagePath = join(
+            root,
+            "node_modules",
+            "@illodev",
+            "workfile",
+            "package.json"
+        );
+        await mkdir(join(root, "node_modules", "@illodev", "workfile"), {
+            recursive: true
+        });
+        await writeFile(
+            packagePath,
+            `${JSON.stringify({ name: "@illodev/workfile", version: "0.0.1" }, null, 2)}\n`
+        );
+        const behind = await runUpgrade(workspace, { dryRun: true });
+        assert.deepEqual(behind.binary, {
+            running: installed,
+            local: "0.0.1",
+            mismatched: true
+        });
+
+        // Same version on both sides is the ordinary case and says nothing.
+        await writeFile(
+            packagePath,
+            `${JSON.stringify({ name: "@illodev/workfile", version: installed }, null, 2)}\n`
+        );
+        const agreed = await runUpgrade(workspace, { dryRun: true });
+        assert.equal(agreed.binary.mismatched, false);
+        assert.equal(agreed.binary.local, installed);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

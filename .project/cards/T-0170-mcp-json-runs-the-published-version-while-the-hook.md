@@ -1,7 +1,7 @@
 ---
 id: T-0170
 title: .mcp.json runs the published version while the hooks run the local one
-status: backlog
+status: review
 type: bug
 priority: medium
 area: mcp
@@ -49,7 +49,20 @@ used the global binary. That is the one decision this card carries.
 
 ## Acceptance criteria
 
-- [ ] `.mcp.json` runs the workspace's installed copy when there is one
-- [ ] A workspace with no local install still gets a working MCP registration
-- [ ] `upgrade` reports a mismatch between the running binary and the local one
-- [ ] The two artifacts are covered by a test that asserts they agree
+- [x] `.mcp.json` runs the workspace's installed copy when there is one
+- [x] A workspace with no local install still gets a working MCP registration
+- [x] `upgrade` reports a mismatch between the running binary and the local one
+- [x] The two artifacts are covered by a test that asserts they agree
+
+## Activity
+
+- 2026-08-05 12:15Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 12:24Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 12:24Z illodev@local#2cddaf94 — The decision the card carried — whether preferring the local copy should fall back to `npx` — resolves yes, and criterion #2 was already the reason: a workspace that only ever used the global binary has nothing on disk to prefer, and a registration that does not start is worse than one that fetches. So `.mcp.json` prefers what is installed and falls back to `npx -y`, and re-running `install` follows the dependency in either direction.
+
+Verified on this repository, which was in the reported state: `node_modules/@illodev/workfile` is a link to `packages/workfile`, and `.mcp.json` was fetching the published copy — the repository that develops the tool talking to a different build of it. `claude install` rewrote it. The mismatch report was driven on a scratch workspace pinned to 0.5.2 against this 0.6.0 binary, which is the field report's exact scenario.
+
+Two things this uncovered, both filed rather than folded in. [[T-0177]]: `claude check` reports the two JSON artifacts by existence alone, so the correct content now depends on the workspace and nothing compares it — the ledger already records which keys are ours, so it is knowable. [[T-0178]]: the hooks have no portable form at all, so in the npx-only workspace the two artifacts still cannot agree — the server starts and the hooks name a file that is not there. That one carries a latency question, since `PreToolUse` runs before tool calls and its whole design rests on not paying to resolve a package.

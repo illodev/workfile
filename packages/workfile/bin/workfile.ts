@@ -2587,6 +2587,11 @@ async function main() {
                 `  ORPHAN        ${orphan.file}: block ${orphan.kind} (v${orphan.version || "?"}) has no owning target — add "${orphan.target}" to the config or remove the block`
             );
         }
+        if (result.binary.mismatched) {
+            console.log(
+                `  MISMATCH      this binary is v${result.binary.running}, node_modules has v${result.binary.local} — the hooks and the MCP server run the local copy, so install v${result.binary.running} there or upgrade with the local binary`
+            );
+        }
         return;
     }
     printUsage();

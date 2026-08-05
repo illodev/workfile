@@ -4,6 +4,8 @@ export {
     claudeHooksFile,
     claudeMcpFile,
     claudeSkillFile,
+    LOCAL_CLI_RUNTIME,
+    NPM_HOOK_RUNTIME,
     PLUGIN_HOOK_RUNTIME,
     PLUGIN_PROJECT_ROOT,
     claudeArtifacts,
