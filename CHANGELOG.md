@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.7.0 — 2026-08-05
+
+### Added
+
+- A criterion can name the command that proves it, and stops being yours to check (T-0185)
+- done records how it was proved, and a card can only run what the project permits (T-0186, T-0187, T-0188, T-0203)
+- The filter every view had behind it now has a control in front of it (T-0195)
+- The footer's claim count opens into the claims it was counting (T-0196)
+
+### Changed
+
+- A card's context bundle carries the memory that is about that card
+- A forced transition records which gate it walked past, and why (T-0184)
+- Accepted decisions past the context limit are listed by title instead of dropped
+- Archiving a card records who filed it and when
+- Frontmatter holds one level of nesting, and refuses the rest by name (T-0200)
+- init says when it applied the defaults instead of asking (T-0171)
+- A collapsed sidebar says where each icon goes, and settings have a home (T-0198)
+
+### Fixed
+
+- A card body write reaches everything below the protocol sections (T-0157, ADR-0011)
+- A duplicate id heals for every kind of record, not only for cards (T-0199)
+- A generated file that lost its trailing newline can be repaired
+- A note quoting a trail entry is no longer filed as one
+- A record body can no longer stall the doctor or choose a link scheme
+- A record with no id is reported, not fatal (T-0204)
+- A regex search pattern can no longer hang the process
+- init --dry-run counts what init creates (T-0173)
+- The acceptance gate stops mistaking a heading it does not know for a card with nothing to prove
+- The demo film opened on a skeleton, and every still was two minor versions old (T-0163, T-0164)
+- claude check compares the generated JSON instead of counting the file (T-0177)
+- The hooks reach the package in a workspace that does not carry it (T-0178)
+- The MCP server and the hooks run the same copy of the package
+- A filter strip scrolls under your thumb, and the controls agree on a size (T-0193, T-0194)
+- Every filter bar is shaped the same, and the controls in it agree on a corner (T-0211, T-0212)
+- Leaving a document no longer opens an empty inspector over the list (T-0192)
+- Reading a changelog fragment no longer covers the fragment (T-0197)
+- The board names who moved a card, and claiming from it no longer locks you out
+- The Workflow view applies the filters it draws (T-0191)
+
+### Removed
+
+- The protocol surface is English everywhere, and config.language stops meaning anything
+
 ## 0.6.0 — 2026-08-04
 
 ### Added
