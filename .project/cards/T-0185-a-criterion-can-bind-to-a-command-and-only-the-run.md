@@ -1,7 +1,7 @@
 ---
 id: T-0185
 title: A criterion can bind to a command, and only the runner may check it
-status: doing
+status: review
 type: feature
 priority: high
 area: core
@@ -13,8 +13,6 @@ updated: 2026-08-05
 origin: [ADR-0016]
 depends: [T-0200]
 related: [LRN-0025]
-claimed_by: "illodev@local#bf4c5f67"
-claimed_at: "2026-08-05T19:52:50.201Z"
 scope: [packages/workfile/src/modules/cards]
 ---
 
@@ -51,12 +49,17 @@ as opaque and refused on the first write.
 
 ## Acceptance criteria
 
-- [ ] `verify` entries validate on write; an unknown key, a duplicate id, a missing command or a digest matching no criterion is refused with a named error.
-- [ ] The binding is a hash of the criterion's normalised text, and normalisation survives reflow but not a change of wording.
-- [ ] Reordering the criteria list leaves every binding intact, proven by a test.
-- [ ] `card ac --check` refuses a bound criterion and names the command that owns it.
-- [ ] Editing a bound criterion's text breaks its binding and `doctor` reports it.
+- [x] `verify` entries validate on write; an unknown key, a duplicate id, a missing command or a digest matching no criterion is refused with a named error.
+- [x] The binding is a hash of the criterion's normalised text, and normalisation survives reflow but not a change of wording.
+- [x] Reordering the criteria list leaves every binding intact, proven by a test.
+- [x] `card ac --check` refuses a bound criterion and names the command that owns it.
+- [x] Editing a bound criterion's text breaks its binding and `doctor` reports it.
 
 ## Activity
 
 - 2026-08-05 19:52Z illodev@local#bf4c5f67 · claimed
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · doing → review
+
+## Notes
+
+- 2026-08-05 20:30Z illodev@local#bf4c5f67 — Verified: 7 tests in test/verify.test.ts covering normalisation, the digest, reorder-survives, edit-breaks, the card ac refusal through the real mutation surface, the runner's own bound-only rule, and the doctor rule for a binding whose criterion was reworded. The verify block round-trips through the file, which is what T-0200 had to move the codec boundary for. card verify itself is deliberately absent and is T-0203: it executes card-declared shell, which T-0188 exists to bound.

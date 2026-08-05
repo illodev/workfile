@@ -1370,6 +1370,20 @@ The doctor validates at least:
 - generated agent instructions out of sync;
 - uncommitted schema migrations where detectable.
 
+Duplicate identity has a repair contract, because sequential IDs are allocated by scanning
+the local maximum and two clones therefore mint the same one independently. Filenames carry
+a title slug, so both files merge without a conflict and the collision surfaces only in the
+doctor.
+
+- A duplicate is healed by moving the losing record to a free ID in its own sequence. The
+  surviving record keeps the ID and keeps every reference already written to it.
+- The survivor MUST be chosen deterministically, so two clones repairing the same collision
+  converge without coordinating. Comparisons MUST order by code unit rather than by locale.
+- A record that has been published MUST NOT move. A released changelog fragment is frozen
+  when its release is cut, and renumbering it would rewrite history that has shipped.
+- A collision the tool declines to heal MUST be reported with the reason it declined, and
+  MUST NOT name a command that cannot perform the repair.
+
 ### 18.4 Baseline mode
 
 `--accept-baseline` records the current issues as known, and `--new` then exits non-zero only

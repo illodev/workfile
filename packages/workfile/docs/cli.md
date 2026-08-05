@@ -115,6 +115,12 @@ alike, so nobody can require it. `--accept-baseline` writes the current issue se
 to `.project/doctor-baseline.json`, and `--new` then reports only what appeared
 afterwards, exiting `1` on anything new and `0` otherwise.
 
+`doctor --fix` repairs the three findings a repair can be derived from: a
+duplicate ID on any record kind, a filename whose slug no longer matches the
+card's title, and protocol trail entries written outside `## Activity`. It never
+invents content, and it never hides what it did not do — a collision it cannot
+heal is printed as `cannot fix:` with the reason, and the run still fails on it.
+
 That file is committed on purpose. A baseline under the cache would be
 per-clone and missing in CI, which is the one place a "nothing new" verdict has
 to hold, and keeping it in the tree puts newly accepted debt in the diff where a
@@ -268,13 +274,30 @@ flood nobody acts on rather than a signal.
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.
 
-Sequential IDs are allocated per clone, so two branches can create the same
-card ID and git merges both files without a conflict. `card renumber
---duplicates` (or `doctor --fix`) heals that deterministically: the older card
-keeps the ID, the younger moves to the next free one. When the moved ID was
-unique, every reference inside `.project/` is rewritten; after a collision the
-references are ambiguous by construction, so they are listed under `review`
-instead of being silently repointed.
+Sequential IDs are allocated per clone, so two branches can mint the same ID and
+git merges both files without a conflict. Cards are the least exposed kind: a
+card is created once, by whoever picks up the work, while a changelog fragment
+is written by *every* branch that changes anything user-visible. `doctor --fix`
+heals all of them — cards, changelog fragments, managed documents and memory
+records — and picks the same survivor on every clone: the oldest `created` keeps
+the ID and the rest move to the next free one, ties broken by path. A released
+fragment is the exception and always keeps it, because a fragment cut into a
+version is frozen and the release record lists it by ID. `card renumber
+--duplicates` stays card-scoped and reports every other collision under
+`skipped`.
+
+When the moved ID was unique, every reference inside `.project/` is rewritten;
+after a collision the references are ambiguous by construction, so they are
+listed under `review` instead of being silently repointed. Only the ID half of
+the filename moves — the title slug survives — and `doctor --fix` brings a
+card's slug back in step afterwards, which it does not do for the other kinds.
+
+A collision is refused rather than repaired when moving a record would not be
+the correction — two *released* fragments carrying one ID (describe it in a new
+fragment instead), a release record, an indexed file outside `docs.managedPath`
+declaring a managed ID in its frontmatter, or one ID spanning two record kinds.
+For each of those `doctor --fix` prints a `cannot fix:` line naming the reason
+and the run still exits `1`, because the error is still there.
 
 Filter flags take comma-separated values (`--type bug,task`) and combine with
 AND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for

@@ -70,9 +70,9 @@ light one declares.
   Gantt: Workfile's own decisions about how work is displayed, composed
   from registry parts.
 - Everything else in `ui/src/components/` is application glue — the
-  inspector, the editors, the palette. `RecordDrawer` is the overlay a
-  record is read in, and both the card inspector and the memory record go
-  through it: one drawer, one set of dismissal rules.
+  inspector, the editors, the palette, the settings dialog. `RecordDrawer`
+  is the overlay a record is read in, and both the card inspector and the
+  memory record go through it: one drawer, one set of dismissal rules.
 - `ui/src/lib/utils.ts` carries `cn()`; `ui/src/hooks/` the registry hooks.
 
 ### Adding a component
@@ -99,11 +99,50 @@ file is checked.
   depend on.
 - **Density is one token.** Components never hardcode a row height; they
   read `var(--row-h)`. The comfortable/compact switch is the `data-density`
-  attribute on the root element.
+  attribute on the root element, flipped from the settings dialog alongside
+  the theme. Both are browser preferences the shell owns and persists in
+  `localStorage`; `components/Settings.tsx` renders them and stores nothing,
+  because a theme that needed a dialog mounted to exist would be worse than
+  the two header buttons it replaced.
 - **Colours are tokens.** Status, priority and severity ride the semantic
   namespaces via `theme.ts`; everything else is a shadcn token utility. A
   literal colour anywhere in `ui/src` fails the suite — the brand mark in
   the sidebar strokes `currentColor` for exactly that reason.
+- **Free text is one control that says what it matches.** Every filter bar
+  renders `ui/src/components/FilterSearch.tsx`, and its two placeholders are
+  the only place the match rule is written down. The record collections
+  search on the server over id, title, metadata and body — the body by whole
+  token, the title by substring — while the card views filter in the browser
+  over identity and metadata, reaching prose only through `body:`. Two
+  corpora, so two sentences, neither promising what the other does. The term
+  rides the address bar like every other filter (`?q=` for cards, `?find=`
+  for docs, history and memory). `test/filter-search.test.ts` fails if a view
+  grows a box of its own or a wording of its own.
+- **The footer's claim area is one control.** The ledger strip and the
+  compact badge beside the doctor chip are two triggers for the same popover,
+  because the strip is `lg:` only and a narrower window would otherwise have
+  no way in. What the popover says about staleness is `claim.state`, computed
+  on the server from `cards.claimLeaseHours` — the interface never carries a
+  second copy of that threshold, and `RuntimeSchema` deliberately does not
+  publish the number. Its scope overlaps come from `activity.conflicts`
+  (claimed cards, different actors, shared paths), not from `main.tsx`'s
+  `scopeConflicts`, which pairs in-progress cards whether or not anybody
+  claimed them and stays on its own work-view alert. Rows are ordered worst
+  first in the ladder the Overview's verdict sentence already uses, so the two
+  surfaces cannot disagree about which claim matters;
+  `test/claim-ledger.test.ts` pins that order.
+- **A collapsed rail names itself; an expanded one stays quiet.**
+  `SidebarMenuButton` takes a `tooltip` prop for this and `main.tsx` does not
+  use it. The prop renders the tooltip in both states and only marks it
+  `hidden` while the rail is expanded, and hidden is not unmounted: Radix
+  still opens it on hover, and an open tooltip is a dismissable layer that
+  answers Escape in the capture phase — so a hovered rail would take the key
+  off the shell for no reason the reader can see. `NavTooltip` mounts the
+  content only while the labels are hidden, and keeps the `Tooltip` around
+  the button in both states, because a wrapper that came and went would
+  change the element type at that position and have React rebuild the button
+  underneath, dropping keyboard focus on every toggle.
+  `test/shell.test.ts` holds both halves.
 - **Escape belongs to the topmost overlay.** The shell's global Escape
   handler is the floor under the Radix layers and skips a key one of them
   already consumed (`event.defaultPrevented`). Asking the DOM which dialog

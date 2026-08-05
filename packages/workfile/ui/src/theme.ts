@@ -1,4 +1,4 @@
-import type { IssueSeverity, Priority, Status } from "./types";
+import type { ClaimState, IssueSeverity, Priority, Status } from "./types";
 
 /**
  * Colour helpers for the semantic namespaces (ADR-0005).
@@ -58,6 +58,34 @@ export function recordStatusColor(status: string): string {
     if (token) return `var(--status-${token})`;
     // Card statuses pass through; anything unknown reads as parked.
     return `var(--status-${status in CARD_STATUS ? status : "backlog"})`;
+}
+
+/**
+ * A claim state as a colour. `live` and `held` ride the card-status hues of
+ * the statuses they correspond to; `stale` and `orphaned` are severities,
+ * because those two are the ones the reader has to act on rather than note.
+ *
+ * The threshold that turns a hold stale is `cards.claimLeaseHours`, applied
+ * server-side and shipped as `claim.state`. Nothing here knows that number and
+ * nothing here may learn it: a second copy of a configurable rule in the
+ * browser is a rule that drifts from the one the protocol enforces.
+ *
+ * Exhaustive rather than defaulted, so a state added to the union fails the
+ * typecheck instead of rendering as "parked".
+ */
+export function claimStateColor(state: ClaimState): string {
+    switch (state) {
+        case "live":
+            return statusColor("doing");
+        case "held":
+            return statusColor("review");
+        case "stale":
+            return severityColor("warning");
+        case "orphaned":
+            return severityColor("error");
+        case "unclaimed":
+            return statusColor("backlog");
+    }
 }
 
 const CARD_STATUS: Record<string, true> = {

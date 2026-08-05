@@ -13,7 +13,9 @@ import {
 } from "../dist/src/modules/cards/acceptance.js";
 import {
     createCard,
+    diagnoseCards,
     loadCards,
+    patchCardBody,
     patchCard,
     setCardAcceptance,
     transitionCard
@@ -258,6 +260,61 @@ test("card ac refuses a criterion a command owns", async () => {
                 assert.equal(error.code, "CARD_ACCEPTANCE_UNMET");
                 return true;
             }
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+test("doctor reports a binding whose criterion was reworded", async () => {
+    const { workspace, cleanup } = await createTestWorkspace();
+    try {
+        const criterion = "The gate refuses done while a criterion is unproven.";
+        const created = await createCard(workspace, {
+            title: "A card whose criterion is about to change",
+            type: "task",
+            area: "api",
+            body: ["## Acceptance criteria", "", `- [ ] ${criterion}`, ""].join("\n"),
+            verify: [
+                { id: "gate", run: "pnpm test acceptance", criteria: [criterionDigest(criterion)] }
+            ]
+        });
+        const diagnose = async () => {
+            const loaded = await loadCards(workspace);
+            return await diagnoseCards({ ...loaded, workspace });
+        };
+        assert.equal(
+            (await diagnose()).issues.filter(
+                (found: any) => found.code === "verify-binding-stale"
+            ).length,
+            0
+        );
+
+        // The body is not the field validator's to see — `card write` goes
+        // through `bodyOnly`, so the write succeeds and the binding is left
+        // pointing at text nobody carries. That is exactly what doctor is for.
+        await patchCardBody(
+            workspace,
+            created.id,
+            {
+                body: [
+                    "## Acceptance criteria",
+                    "",
+                    "- [ ] The gate refuses done, always.",
+                    ""
+                ].join("\n")
+            }
+        );
+        const issues = (await diagnose()).issues.filter(
+            (found: any) => found.code === "verify-binding-stale"
+        );
+        assert.equal(issues.length, 1);
+        const [stale] = issues as any[];
+        assert.equal(stale.severity, "warning");
+        assert.match(stale.message, /gate/);
+        assert.deepEqual(
+            stale.details.bindings.map((binding: any) => binding.entry),
+            ["gate"]
         );
     } finally {
         await cleanup();

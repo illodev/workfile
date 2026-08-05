@@ -1,7 +1,7 @@
 ---
 id: T-0200
 title: The frontmatter codec cannot hold the two shapes the done gate needs
-status: doing
+status: review
 type: feature
 priority: high
 area: core
@@ -12,8 +12,6 @@ scope: [packages/workfile/src/core/frontmatter.ts, packages/workfile/docs/SPEC.m
 origin: [ADR-0016]
 created: 2026-08-05
 updated: 2026-08-05
-claimed_by: "illodev@local#bf4c5f67"
-claimed_at: "2026-08-05T19:31:36.019Z"
 ---
 
 ADR-0016 draws `verify:` as a block sequence of mappings and `verified:` as a nested
@@ -59,13 +57,18 @@ provable on the corpus: no card, doc, fragment, release or memory record in
 
 ## Acceptance criteria
 
-- [ ] A block sequence of flat mappings parses to an array of objects and renders back byte-identically.
-- [ ] A flat nested mapping parses to an object and renders back byte-identically.
-- [ ] A nested shape outside those two stays `opaque` and behaves exactly as today.
-- [ ] Writing a key the codec cannot represent fails with a `ProtocolError` carrying a code, not a bare `Error`.
-- [ ] Every record under `.project/` re-renders byte-for-byte unchanged, proven by a test over the real corpus.
-- [ ] SPEC §10.4 states the new boundary, and its multiline-scalar clause stops being false.
+- [x] A block sequence of flat mappings parses to an array of objects and renders back byte-identically.
+- [x] A flat nested mapping parses to an object and renders back byte-identically.
+- [x] A nested shape outside those two stays `opaque` and behaves exactly as today.
+- [x] Writing a key the codec cannot represent fails with a `ProtocolError` carrying a code, not a bare `Error`.
+- [x] Every record under `.project/` re-renders byte-for-byte unchanged, proven by a test over the real corpus.
+- [x] SPEC §10.4 states the new boundary, and its multiline-scalar clause stops being false.
 
 ## Activity
 
 - 2026-08-05 19:31Z illodev@local#bf4c5f67 · claimed
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · doing → review
+
+## Notes
+
+- 2026-08-05 20:30Z illodev@local#bf4c5f67 — Verified: 13 new tests in test/frontmatter.test.ts, including a corpus pass over all 403 records in this repository (3374 entries) re-rendered from what they parsed to and compared byte for byte — it passed before the change and after, which is the only evidence that rules out the classifier quietly reading an existing record as something else. All four hand-built renderers (cards, changelog, docs, memory) go through the codec now, so the [object Object] hole is closed on every create path. Full suite 378 pass, strict ratchet 491 with none new (three fewer than before: typing splitListItems' accumulator removed four errors and added one).

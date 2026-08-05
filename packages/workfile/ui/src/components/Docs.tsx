@@ -4,7 +4,6 @@ import {
     ExternalLink,
     Eye,
     Pencil,
-    Search,
     SlidersHorizontal,
     TriangleAlert
 } from "lucide-react";
@@ -27,11 +26,6 @@ import {
 } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-    InputGroup,
-    InputGroupAddon,
-    InputGroupInput
-} from "@/components/ui/input-group";
 import { Item } from "@/components/ui/item";
 import {
     NativeSelect,
@@ -47,6 +41,7 @@ import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
 import { BodyEditor } from "./BodyEditor";
+import { FilterSearch } from "./FilterSearch";
 import { documentOutline, MarkdownBody, type OutlineEntry } from "./Markdown";
 import { OutlineRail } from "./OutlineRail";
 
@@ -381,7 +376,9 @@ export function DocPanel({
 export function DocsView({
     selectedId,
     onSelect,
-    onOpenCard
+    onOpenCard,
+    search,
+    onSearchChange
 }: {
     selectedId: string | null;
     // `null` is "no document", which the back control needs to be able to say.
@@ -390,9 +387,12 @@ export function DocsView({
     // inspector open over the list this control exists to go back to.
     onSelect: (id: string | null) => void;
     onOpenCard: (id: string) => void;
+    // Owned by the shell, shared with history and memory, and serialised to
+    // the address bar: the local state this replaced died on every reload.
+    search: string;
+    onSearchChange: (value: string) => void;
 }) {
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
-    const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [managedOnly, setManagedOnly] = useState(false);
@@ -424,7 +424,7 @@ export function DocsView({
         const timeout = window.setTimeout(
             () => {
                 void api
-                    .docs(query.trim())
+                    .docs(search.trim())
                     .then((response) => {
                         if (!cancelled) {
                             setDocuments(response.records);
@@ -443,13 +443,13 @@ export function DocsView({
                         if (!cancelled) setLoading(false);
                     });
             },
-            query ? 180 : 0
+            search ? 180 : 0
         );
         return () => {
             cancelled = true;
             window.clearTimeout(timeout);
         };
-    }, [query, reloadKey]);
+    }, [search, reloadKey]);
 
     useEffect(() => {
         if (!metaDraft || docSchema) return;
@@ -658,19 +658,12 @@ export function DocsView({
                 )}
             >
                 <div className="flex flex-col gap-2 pb-2.5">
-                    <InputGroup className="h-8">
-                        <InputGroupAddon>
-                            <Search aria-hidden="true" />
-                        </InputGroupAddon>
-                        <InputGroupInput
-                            className="h-8"
-                            type="search"
-                            value={query}
-                            aria-label="Search documentation"
-                            placeholder="Search documentation…"
-                            onChange={(event) => setQuery(event.target.value)}
-                        />
-                    </InputGroup>
+                    <FilterSearch
+                        scope="records"
+                        value={search}
+                        label="Search documentation"
+                        onChange={onSearchChange}
+                    />
                     <div className="flex gap-1.5">
                         <Button
                             type="button"

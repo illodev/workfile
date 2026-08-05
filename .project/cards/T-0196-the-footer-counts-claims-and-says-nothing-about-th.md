@@ -1,7 +1,7 @@
 ---
 id: T-0196
 title: The footer counts claims and says nothing about them
-status: backlog
+status: review
 type: feature
 priority: low
 area: ui
@@ -24,7 +24,15 @@ scope is the one claim state that needs acting on rather than noting.
 
 ## Acceptance criteria
 
-- [ ] The claim area opens a popover listing every active claim with card, actor, scope and age.
-- [ ] A claim past the staleness threshold is visually distinct.
-- [ ] Overlapping scopes are called out rather than left for the reader to spot.
-- [ ] Selecting a claim opens its card.
+- [x] The claim area opens a popover listing every active claim with card, actor, scope and age.
+- [x] A claim past the staleness threshold is visually distinct.
+- [x] Overlapping scopes are called out rather than left for the reader to spot.
+- [x] Selecting a claim opens its card.
+
+## Notes
+
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 — Verified in a real browser, twice. Against this workspace: the footer's claim area opens a popover listing each claim with card, actor, scope and state, and selecting a row opens the card. Against a fabricated workspace carrying the states this one does not — a claim held six hours, one untouched three days, two actors whose scopes overlap — all three are listed with the state the server computed, stale renders var(--sev-warning) against held's var(--status-review) so they differ by more than the word, the overlap is called out by name with the shared path, and the most urgent claim leads the list. That last one is the agent's own addition: the strip and the popover must not be two differently sorted lists of the same claims, so Overview's verdict ladder now picks the same card the ledger puts first.
+
+## Activity
+
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review

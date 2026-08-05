@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 import { Accent } from "../Accent";
 import { api } from "../../api";
+import { orderClaims, overlapsByCard } from "../../claims";
 import { changeTouches, useWorkspaceChanges } from "../../store/live";
 import { priorityColor, severityColor, since, statusColor } from "../../theme";
 import type {
@@ -292,10 +293,23 @@ export function OverviewView({
         return seen;
     }, [trail]);
 
-    const held = (activity?.claims ?? []).filter((entry) =>
-        ["stale", "orphaned"].includes(entry.claim.state)
-    );
     const conflicts = activity?.conflicts ?? [];
+    /**
+     * Ordered by the same rule as the footer's claim ledger, so the card this
+     * sentence names is the card that sits at the top of the ledger. Filtered
+     * first because the verdict only speaks about a hold that has gone wrong,
+     * while the ledger lists every claim there is.
+     */
+    const held = useMemo(
+        () =>
+            orderClaims(
+                (activity?.claims ?? []).filter((entry) =>
+                    ["stale", "orphaned"].includes(entry.claim.state)
+                ),
+                overlapsByCard(activity?.conflicts ?? [])
+            ),
+        [activity?.claims, activity?.conflicts]
+    );
     const blocked = openTasks.filter((task) => task.status === "blocked");
     const inFlight = openTasks.filter((task) =>
         ["doing", "review"].includes(task.status)

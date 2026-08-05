@@ -8,12 +8,14 @@ import {
     useMemo,
     useRef,
     useState,
-    type CSSProperties
+    type CSSProperties,
+    type ReactNode
 } from "react";
 import {
     Book,
     Calendar,
     ChevronDown,
+    ChevronUp,
     Columns3,
     Database,
     FileDiff,
@@ -21,15 +23,12 @@ import {
     Gauge,
     Lightbulb,
     ListChecks,
-    Moon,
     Plus,
-    Rows3,
-    Rows4,
     Search,
     Shield,
     SquareKanban,
-    Sun,
     Table,
+    TriangleAlert,
     X
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
@@ -66,19 +65,34 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarProvider,
-    SidebarTrigger
+    SidebarTrigger,
+    useSidebar
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { api } from "./api";
+import { ClaimLedgerPopover } from "./components/domain/ClaimLedger";
 import { OverviewView } from "./components/domain/Overview";
+import { FilterSearch } from "./components/FilterSearch";
 import { Inspector } from "./components/Inspector";
 import { RecordDrawer } from "./components/RecordDrawer";
 import { RecordPanel } from "./components/RecordPanel";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
-import { severityColor, since, statusColor } from "./theme";
+import { SettingsDialog } from "./components/Settings";
+import {
+    claimStateColor,
+    severityColor,
+    since,
+    statusColor
+} from "./theme";
+import { activeClaims, orderClaims, overlapsByCard } from "./claims";
 import { drawerCovers, recordCollection, viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
@@ -328,6 +342,44 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     }
 ];
 
+/**
+ * The name a destination gives itself once the rail is collapsed to icons.
+ *
+ * `SidebarMenuButton` has a `tooltip` prop for exactly this, and it is not
+ * used: the prop only marks the content `hidden` while the rail is expanded,
+ * and hidden is not unmounted. The tooltip still opens on hover, and an open
+ * Radix tooltip is a dismissable layer that answers Escape in the capture
+ * phase — so resting the pointer on an expanded rail would silently take
+ * Escape away from the shell, which is the one thing its global handler
+ * exists to prevent. Mounting the content only while the labels are invisible
+ * keeps the expanded rail out of the layer stack entirely.
+ *
+ * The `Tooltip` itself stays mounted in both states. Swapping the wrapper in
+ * and out changes the element type at that position, and React answers that
+ * by rebuilding the button underneath — which drops keyboard focus every time
+ * the rail is toggled with the sidebar shortcut.
+ */
+function NavTooltip({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    const { isMobile, state } = useSidebar();
+    // On mobile the sidebar is a sheet at full width, so its labels are
+    // never the ones being hidden.
+    const collapsed = state === "collapsed" && !isMobile;
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>{children}</TooltipTrigger>
+            {collapsed ? (
+                <TooltipContent side="right">{label}</TooltipContent>
+            ) : null}
+        </Tooltip>
+    );
+}
+
 const VIEW_TITLE: Record<View, string> = {
     overview: "Overview",
     explorer: "Explorer",
@@ -519,6 +571,16 @@ function App() {
     const [selectedId, setSelectedId] = useState<string | null>(
         INITIAL.selectedId
     );
+    /**
+     * Free text for docs, history and memory, held here rather than in each of
+     * them.
+     *
+     * All three used to own a `useState("")`, which died on reload and on every
+     * view switch while the axis filters beside it survived both. One value
+     * across the three is also the better reading: half-remember a phrase, type
+     * it once, and try each collection with it.
+     */
+    const [recordSearch, setRecordSearch] = useState(INITIAL.recordSearch);
     const [showNewCard, setShowNewCard] = useState(false);
     const [showPalette, setShowPalette] = useState(false);
     /**
@@ -738,8 +800,8 @@ function App() {
         const signature = `${view}|${selectedId ?? ""}`;
         const push = signature !== lastNavigation.current;
         lastNavigation.current = signature;
-        writeUrlState(view, filters, selectedId, { push });
-    }, [filters, selectedId, view]);
+        writeUrlState(view, filters, selectedId, { push, find: recordSearch });
+    }, [filters, recordSearch, selectedId, view]);
 
     useEffect(() => {
         const onPopState = () => {
@@ -748,6 +810,7 @@ function App() {
             setView(next.view);
             setFilters(next.filters);
             setSelectedId(next.selectedId);
+            setRecordSearch(next.recordSearch);
         };
         window.addEventListener("popstate", onPopState);
         return () => window.removeEventListener("popstate", onPopState);
@@ -1168,9 +1231,29 @@ function App() {
 
     const liveAgents =
         activity?.sessions.filter((session) => session.live).length ?? 0;
-    const ledgerClaims = (activity?.claims ?? []).filter((entry) =>
-        ["live", "held", "stale", "orphaned"].includes(entry.claim.state)
+    /**
+     * Worst first, so the three names the strip has room for are the three
+     * worth reading rather than the three whose ids sort earliest. The popover
+     * lists the same array, so its first three rows are those names.
+     */
+    const claimOverlaps = useMemo(
+        () => overlapsByCard(activity?.conflicts ?? []),
+        [activity?.conflicts]
     );
+    const ledgerClaims = useMemo(
+        () => orderClaims(activeClaims(activity?.claims ?? []), claimOverlaps),
+        [activity?.claims, claimOverlaps]
+    );
+    /** One sentence, so both triggers announce the ledger the same way. */
+    const claimSummary = `${ledgerClaims.length} active claim${
+        ledgerClaims.length === 1 ? "" : "s"
+    }${
+        activity?.conflicts.length
+            ? `, ${activity.conflicts.length} scope overlap${
+                  activity.conflicts.length === 1 ? "" : "s"
+              }`
+            : ""
+    }`;
     const indexedTotal =
         tasks.length + (moduleCounts.docs ?? 0) + (moduleCounts.memory ?? 0);
 
@@ -1249,42 +1332,46 @@ function App() {
                                                 <SidebarMenuItem
                                                     key={option.value}
                                                 >
-                                                    <SidebarMenuButton
-                                                        type="button"
-                                                        isActive={active}
-                                                        aria-current={
-                                                            active
-                                                                ? "page"
-                                                                : undefined
-                                                        }
-                                                        onMouseEnter={() =>
-                                                            prefetchView(
-                                                                option.value
-                                                            )
-                                                        }
-                                                        onFocus={() =>
-                                                            prefetchView(
-                                                                option.value
-                                                            )
-                                                        }
-                                                        onClick={() =>
-                                                            setView(
-                                                                option.value
-                                                            )
-                                                        }
+                                                    <NavTooltip
+                                                        label={option.label}
                                                     >
-                                                        <Icon
-                                                            aria-hidden="true"
-                                                            className={
+                                                        <SidebarMenuButton
+                                                            type="button"
+                                                            isActive={active}
+                                                            aria-current={
                                                                 active
-                                                                    ? undefined
-                                                                    : "text-muted-foreground"
+                                                                    ? "page"
+                                                                    : undefined
                                                             }
-                                                        />
-                                                        <span>
-                                                            {option.label}
-                                                        </span>
-                                                    </SidebarMenuButton>
+                                                            onMouseEnter={() =>
+                                                                prefetchView(
+                                                                    option.value
+                                                                )
+                                                            }
+                                                            onFocus={() =>
+                                                                prefetchView(
+                                                                    option.value
+                                                                )
+                                                            }
+                                                            onClick={() =>
+                                                                setView(
+                                                                    option.value
+                                                                )
+                                                            }
+                                                        >
+                                                            <Icon
+                                                                aria-hidden="true"
+                                                                className={
+                                                                    active
+                                                                        ? undefined
+                                                                        : "text-muted-foreground"
+                                                                }
+                                                            />
+                                                            <span>
+                                                                {option.label}
+                                                            </span>
+                                                        </SidebarMenuButton>
+                                                    </NavTooltip>
                                                     {count != null ? (
                                                         <SidebarMenuBadge className="font-mono text-[11px] font-normal text-muted-foreground">
                                                             {count.toLocaleString()}
@@ -1363,41 +1450,17 @@ function App() {
                         </span>
                         <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
                     </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title={
-                            comfortable
-                                ? "Compact rows"
-                                : "Comfortable rows"
-                        }
-                        aria-label="Toggle row density"
-                        aria-pressed={comfortable}
-                        className="shrink-0"
-                        onClick={() => setComfortable((current) => !current)}
-                    >
-                        {comfortable ? (
-                            <Rows3 aria-hidden="true" />
-                        ) : (
-                            <Rows4 aria-hidden="true" />
-                        )}
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title="Toggle theme"
-                        aria-label="Toggle theme"
-                        className="shrink-0"
-                        onClick={() => setDark((current) => !current)}
-                    >
-                        {dark ? (
-                            <Sun aria-hidden="true" />
-                        ) : (
-                            <Moon aria-hidden="true" />
-                        )}
-                    </Button>
+                    {/* Settings, not navigation — and there will be more of
+                        them than a bar this size can hold. The header is h-12
+                        and already drops the breadcrumb below lg, so the two
+                        icon buttons this replaces were spending width the
+                        search field wanted. */}
+                    <SettingsDialog
+                        dark={dark}
+                        onDarkChange={setDark}
+                        comfortable={comfortable}
+                        onComfortableChange={setComfortable}
+                    />
                     <Button
                         type="button"
                         size="sm"
@@ -1431,110 +1494,134 @@ function App() {
                                 ) : null}
                             </div>
                             {isWorkView ? (
-                                <div className="no-scrollbar -mx-3 flex items-center gap-2 overflow-x-auto px-3 sm:mx-0 sm:ml-auto sm:overflow-visible sm:px-0">
-                                    <FilterChip
-                                        label="status"
-                                        value={filters.status}
-                                        options={STATUSES.map((status) => ({
-                                            value: status,
-                                            color: statusColor(status)
-                                        }))}
-                                        onChange={(status) =>
+                                <>
+                                    {/* `filters.search` has had a token
+                                        grammar, a `/pattern/flags` form and a
+                                        deferred pass behind it for as long as
+                                        the URL has carried `q`, and nothing was
+                                        ever bound to it: the most capable
+                                        filter in the app could only be reached
+                                        by typing an address. It sits outside
+                                        the scrolling chip strip because a field
+                                        you have to scroll to is a field you do
+                                        not find. */}
+                                    <FilterSearch
+                                        scope="cards"
+                                        value={filters.search}
+                                        label="Search cards"
+                                        className="sm:w-[240px] sm:shrink-0"
+                                        onChange={(search) =>
                                             setFilters((current) => ({
                                                 ...current,
-                                                status: status as Filters["status"]
+                                                search
                                             }))
                                         }
                                     />
-                                    <FilterChip
-                                        label="area"
-                                        value={filters.area}
-                                        options={areas.map((area) => ({
-                                            value: area
-                                        }))}
-                                        onChange={(area) =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                area
-                                            }))
-                                        }
-                                    />
-                                    <FilterChip
-                                        label="type"
-                                        value={filters.type}
-                                        options={TYPES.map((type) => ({
-                                            value: type
-                                        }))}
-                                        onChange={(type) =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                type: type as Filters["type"]
-                                            }))
-                                        }
-                                    />
-                                    <FilterChip
-                                        label="priority"
-                                        value={filters.priority}
-                                        options={PRIORITIES.map((priority) => ({
-                                            value: priority
-                                        }))}
-                                        onChange={(priority) =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                priority:
-                                                    priority as Filters["priority"]
-                                            }))
-                                        }
-                                    />
-                                    {milestones.length > 0 ? (
+                                    <div className="no-scrollbar -mx-3 flex items-center gap-2 overflow-x-auto px-3 sm:mx-0 sm:ml-auto sm:overflow-visible sm:px-0">
                                         <FilterChip
-                                            label="milestone"
-                                            value={filters.milestone}
-                                            options={milestones.map(
-                                                (milestone) => ({
-                                                    value: milestone
-                                                })
-                                            )}
-                                            onChange={(milestone) =>
+                                            label="status"
+                                            value={filters.status}
+                                            options={STATUSES.map((status) => ({
+                                                value: status,
+                                                color: statusColor(status)
+                                            }))}
+                                            onChange={(status) =>
                                                 setFilters((current) => ({
                                                     ...current,
-                                                    milestone
+                                                    status: status as Filters["status"]
                                                 }))
                                             }
                                         />
-                                    ) : null}
-                                    <FilterToggle
-                                        label="ideas"
-                                        on={filters.showIdeas}
-                                        onChange={(showIdeas) =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                showIdeas
-                                            }))
-                                        }
-                                    />
-                                    <FilterToggle
-                                        label="closed"
-                                        on={filters.showClosed}
-                                        onChange={(showClosed) =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                showClosed
-                                            }))
-                                        }
-                                    />
-                                    {anyFilter ? (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground"
-                                            onClick={resetFilters}
-                                        >
-                                            reset
-                                        </Button>
-                                    ) : null}
-                                </div>
+                                        <FilterChip
+                                            label="area"
+                                            value={filters.area}
+                                            options={areas.map((area) => ({
+                                                value: area
+                                            }))}
+                                            onChange={(area) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    area
+                                                }))
+                                            }
+                                        />
+                                        <FilterChip
+                                            label="type"
+                                            value={filters.type}
+                                            options={TYPES.map((type) => ({
+                                                value: type
+                                            }))}
+                                            onChange={(type) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    type: type as Filters["type"]
+                                                }))
+                                            }
+                                        />
+                                        <FilterChip
+                                            label="priority"
+                                            value={filters.priority}
+                                            options={PRIORITIES.map((priority) => ({
+                                                value: priority
+                                            }))}
+                                            onChange={(priority) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    priority:
+                                                        priority as Filters["priority"]
+                                                }))
+                                            }
+                                        />
+                                        {milestones.length > 0 ? (
+                                            <FilterChip
+                                                label="milestone"
+                                                value={filters.milestone}
+                                                options={milestones.map(
+                                                    (milestone) => ({
+                                                        value: milestone
+                                                    })
+                                                )}
+                                                onChange={(milestone) =>
+                                                    setFilters((current) => ({
+                                                        ...current,
+                                                        milestone
+                                                    }))
+                                                }
+                                            />
+                                        ) : null}
+                                        <FilterToggle
+                                            label="ideas"
+                                            on={filters.showIdeas}
+                                            onChange={(showIdeas) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    showIdeas
+                                                }))
+                                            }
+                                        />
+                                        <FilterToggle
+                                            label="closed"
+                                            on={filters.showClosed}
+                                            onChange={(showClosed) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    showClosed
+                                                }))
+                                            }
+                                        />
+                                        {anyFilter ? (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground"
+                                                onClick={resetFilters}
+                                            >
+                                                reset
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </>
                             ) : null}
                         </div>
 
@@ -1646,6 +1733,8 @@ function App() {
                                         selectedId={selectedId}
                                         onSelect={selectRecord}
                                         onOpenCard={openRecord}
+                                        search={recordSearch}
+                                        onSearchChange={setRecordSearch}
                                     />
                                 ) : view === "workflow" ? (
                                     <WorkflowView
@@ -1663,6 +1752,8 @@ function App() {
                                         onOpenRecord={openRecord}
                                         schema={schema.changelog}
                                         areas={areas}
+                                        search={recordSearch}
+                                        onSearchChange={setRecordSearch}
                                     />
                                 ) : view === "memory" ? (
                                     <MemoryView
@@ -1670,6 +1761,8 @@ function App() {
                                         onSelect={selectRecord}
                                         onOpenRecord={openRecord}
                                         schema={schema.memory}
+                                        search={recordSearch}
+                                        onSearchChange={setRecordSearch}
                                     />
                                 ) : (
                                     <HealthView onOpen={openRecord} />
@@ -1689,62 +1782,139 @@ function App() {
                         the part that can wait — it is a detail of who is working
                         where, and the badges are the app's health readout. */}
                     <div className="hidden min-w-0 flex-1 items-center gap-3 overflow-hidden lg:flex">
-                    {ledgerClaims.slice(0, 3).map((entry) => {
-                        const tone =
-                            entry.claim.state === "live"
-                                ? statusColor("doing")
-                                : entry.claim.state === "held"
-                                  ? statusColor("review")
-                                  : entry.claim.state === "stale"
-                                    ? "var(--sev-warning)"
-                                    : "var(--sev-error)";
-                        return (
+                    {ledgerClaims.length || activity?.conflicts.length ? (
+                        // The whole strip is the trigger, rather than the
+                        // "+N more" it would be natural to hang this off:
+                        // that control only appears above three claims, so
+                        // with one or two the ledger would have no way in.
+                        // The three names it shows stay one click from their
+                        // cards through the popover row of the same name.
+                        <ClaimLedgerPopover
+                            claims={ledgerClaims}
+                            conflicts={activity?.conflicts ?? []}
+                            align="start"
+                            onOpen={openRecord}
+                        >
                             <button
-                                key={entry.id}
                                 type="button"
-                                className="flex min-w-0 items-center gap-1.5 hover:text-foreground"
-                                onClick={() => openRecord(entry.id)}
-                                title={`${entry.claim.by} · ${entry.claim.state}`}
+                                aria-label={claimSummary}
+                                title={claimSummary}
+                                className="flex min-w-0 items-center gap-3 overflow-hidden rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
-                                <span
-                                    className="size-1.5 shrink-0 rounded-full"
-                                    style={{ background: tone }}
+                                {ledgerClaims.slice(0, 3).map((entry) => {
+                                    const tone = claimStateColor(
+                                        entry.claim.state
+                                    );
+                                    return (
+                                        <span
+                                            key={entry.id}
+                                            className="flex min-w-0 items-center gap-1.5"
+                                        >
+                                            <span
+                                                className="size-1.5 shrink-0 rounded-full"
+                                                style={{ background: tone }}
+                                                aria-hidden="true"
+                                            />
+                                            <span style={{ color: tone }}>
+                                                {entry.claim.by}
+                                            </span>
+                                            <span className="truncate">
+                                                claim {entry.id}
+                                                {entry.scope.length
+                                                    ? ` · scope ${entry.scope[0]}${entry.scope.length > 1 ? "…" : ""}`
+                                                    : ""}
+                                                {entry.claim.ageHours != null
+                                                    ? ` · ${since(entry.claim.ageHours)}`
+                                                    : ""}
+                                            </span>
+                                        </span>
+                                    );
+                                })}
+                                {ledgerClaims.length > 3 ? (
+                                    <span>
+                                        +{ledgerClaims.length - 3} more
+                                    </span>
+                                ) : null}
+                                {activity?.conflicts.length ? (
+                                    <>
+                                        <span
+                                            className="opacity-40"
+                                            aria-hidden="true"
+                                        >
+                                            |
+                                        </span>
+                                        <span
+                                            style={{
+                                                color: severityColor("warning")
+                                            }}
+                                        >
+                                            {activity.conflicts.length} scope
+                                            overlap
+                                            {activity.conflicts.length === 1
+                                                ? ""
+                                                : "s"}
+                                        </span>
+                                    </>
+                                ) : null}
+                                <ChevronUp
+                                    className="size-3 shrink-0 opacity-60"
                                     aria-hidden="true"
                                 />
-                                <span style={{ color: tone }}>
-                                    {entry.claim.by}
-                                </span>
-                                <span className="truncate">
-                                    claim {entry.id}
-                                    {entry.scope.length
-                                        ? ` · scope ${entry.scope[0]}${entry.scope.length > 1 ? "…" : ""}`
-                                        : ""}
-                                    {entry.claim.ageHours != null
-                                        ? ` · ${since(entry.claim.ageHours)}`
-                                        : ""}
-                                </span>
                             </button>
-                        );
-                    })}
-                    {ledgerClaims.length > 3 ? (
-                        <span>+{ledgerClaims.length - 3} more</span>
-                    ) : null}
-                    {activity?.conflicts.length ? (
-                        <>
-                            <span className="opacity-40" aria-hidden="true">
-                                |
-                            </span>
-                            <span style={{ color: "var(--sev-warning)" }}>
-                                {activity.conflicts.length} scope overlap
-                                {activity.conflicts.length === 1 ? "" : "s"}
-                            </span>
-                        </>
-                    ) : null}
-                    {!ledgerClaims.length && !activity?.conflicts.length ? (
+                        </ClaimLedgerPopover>
+                    ) : (
                         <span>no active claims</span>
-                    ) : null}
+                    )}
                     </div>
                     <div className="ml-auto flex shrink-0 items-center gap-3">
+                    {/* Below `lg` the strip above is not rendered at all, so
+                        the footer would otherwise say nothing about claims on
+                        the width where two agents are most likely to be read
+                        about rather than run from. Same popover, same order,
+                        anchored to the other edge. */}
+                    {ledgerClaims.length || activity?.conflicts.length ? (
+                        <ClaimLedgerPopover
+                            claims={ledgerClaims}
+                            conflicts={activity?.conflicts ?? []}
+                            align="end"
+                            onOpen={openRecord}
+                        >
+                            <Badge
+                                asChild
+                                variant="outline"
+                                className="shrink-0 cursor-pointer font-mono text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden"
+                            >
+                                <button type="button" aria-label={claimSummary}>
+                                    {/* The worst claim, because the list is
+                                        ordered worst first. Overlaps get an
+                                        icon rather than the warning hue: on
+                                        the dot it would be indistinguishable
+                                        from a stale hold. */}
+                                    <span
+                                        className="size-1.5 rounded-full"
+                                        style={{
+                                            background: claimStateColor(
+                                                ledgerClaims[0]?.claim.state ??
+                                                    "held"
+                                            )
+                                        }}
+                                        aria-hidden="true"
+                                    />
+                                    {ledgerClaims.length} claim
+                                    {ledgerClaims.length === 1 ? "" : "s"}
+                                    {activity?.conflicts.length ? (
+                                        <TriangleAlert
+                                            className="size-3"
+                                            style={{
+                                                color: severityColor("warning")
+                                            }}
+                                            aria-hidden="true"
+                                        />
+                                    ) : null}
+                                </button>
+                            </Badge>
+                        </ClaimLedgerPopover>
+                    ) : null}
                     {health ? (
                         <Badge
                             asChild

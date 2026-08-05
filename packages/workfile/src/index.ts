@@ -136,9 +136,21 @@ export * from "./modules/mcp/index.js";
 export { runDoctor } from "./modules/health/doctor.js";
 export {
     healDuplicateCardIds,
+    healDuplicateRecordIds,
     renumberCard,
+    renumberRecord,
     reslugStaleCardFiles
 } from "./modules/health/renumber.js";
+export {
+    HEALABLE_KINDS,
+    byCodeUnit,
+    classifyDuplicates,
+    duplicateIssueMessage
+} from "./modules/health/duplicates.js";
+export type {
+    DuplicateClassification,
+    DuplicateRefusal
+} from "./modules/health/duplicates.js";
 export {
     baselineMissing,
     diffAgainstBaseline,

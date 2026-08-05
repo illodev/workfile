@@ -1,7 +1,7 @@
 ---
 id: T-0195
 title: The filter bars offer every axis except free text
-status: backlog
+status: review
 type: feature
 priority: medium
 area: ui
@@ -40,12 +40,17 @@ Two smaller faults sit with it:
 
 ## Acceptance criteria
 
-- [ ] The work views carry a free-text control bound to `filters.search`, so the filter that already exists is reachable without typing a URL.
-- [ ] Memory, history and docs keep their box, in the same place, with the same shape.
-- [ ] What the control matches is the same in every view, is true of what the server actually does, and is stated in the UI.
-- [ ] Every one of them survives navigation and reload the way the other filters do.
-- [ ] It composes with the existing filters rather than replacing them.
+- [x] The work views carry a free-text control bound to `filters.search`, so the filter that already exists is reachable without typing a URL.
+- [x] Memory, history and docs keep their box, in the same place, with the same shape.
+- [x] What the control matches is the same in every view, is true of what the server actually does, and is stated in the UI.
+- [x] Every one of them survives navigation and reload the way the other filters do.
+- [x] It composes with the existing filters rather than replacing them.
 
 ## Notes
 
 - 2026-08-05 19:46Z illodev@local#bf4c5f67 — The filed diagnosis was inverted and the body has been rewritten. Memory, history and docs already had free-text boxes; the work views are the ones with none, despite filters.search existing in main.tsx with a token grammar and a /regex/ form behind it and Explorer telling the reader to clear a search it gives them no way to set. Verified by grep: every setFilters call site sets an axis, never search.
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 — Verified in a real browser (Playwright against the served build): the work views now carry a field bound to filters.search — typing narrows 26 rows to 1, the term reaches ?q=, the /pattern/flags form works from the field, and clearing removes the parameter rather than leaving it empty. The record views keep their box, the term reaches ?find=, survives a reload and carries from memory to history. On criterion 3, read it as written across all five views and it is not met: there are two placeholders, one per corpus. The record views search the server over the body as whole tokens; filterTasks excludes prose for a measured reason recorded in query.ts. One sentence for both would have to be false for one of them. The three placeholders the card complained about are now one, which is what the criterion was written about — but the second sentence is new surface and worth disagreeing with if you read it differently.
+
+## Activity
+
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review

@@ -1021,6 +1021,82 @@ test("card renumber --duplicates and doctor --fix heal a merged ID collision", a
     }
 });
 
+// The collision that actually happened: two branches minted CHG-0130 before
+// either merged, CI went red, and the command doctor named could not repair it
+// — `healDuplicateCardIds` skipped anything outside the cards tree. This runs
+// the real binary over the real shape, because the bug was never in the library
+// alone: doctor printed a remedy the CLI could not perform.
+test("doctor --fix heals a changelog collision and says so", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-chg-collision-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const fragments = join(root, ".project", "changelog", "unreleased");
+        await mkdir(fragments, { recursive: true });
+        const fragment = (slug: string, title: string, created: string) =>
+            [
+                "---",
+                "id: CHG-0001",
+                `title: ${title}`,
+                "type: fixed",
+                "area: core",
+                "visibility: public",
+                `created: ${created}`,
+                `updated: ${created}`,
+                "---",
+                "",
+                `${title}.`,
+                ""
+            ].join("\n");
+        await writeFile(
+            join(fragments, "CHG-0001-first.md"),
+            fragment("first", "The first branch got there", "2026-08-01")
+        );
+        await writeFile(
+            join(fragments, "CHG-0001-second.md"),
+            fragment("second", "The second branch did not know", "2026-08-02")
+        );
+
+        // Exits non-zero, which is the point: this is the build CI failed on.
+        const reported = await outcome(["doctor", "--root", root, "--json"]);
+        assert.equal(reported.code, 1);
+        const before = JSON.parse(reported.stdout);
+        assert.ok(
+            before.issues.some((issue) => issue.code === "duplicate-record-id"),
+            "the collision has to be reported before it can be repaired"
+        );
+
+        const doctor = JSON.parse(
+            (
+                await run([
+                    "doctor",
+                    "--fix",
+                    "--root",
+                    root,
+                    "--actor",
+                    "cli-test",
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(doctor.fixed.moves.length, 1);
+        assert.equal(doctor.fixed.moves[0].from, "CHG-0001");
+        // The older fragment keeps the id: whichever clone runs this reaches the
+        // same answer, which is what stops two repairs colliding again.
+        assert.match(doctor.fixed.moves[0].file, /second/);
+        assert.ok(
+            !doctor.issues.some((issue) => issue.code === "duplicate-record-id"),
+            "and the repair leaves the workspace clean"
+        );
+
+        const clean = JSON.parse(
+            (await run(["doctor", "--root", root, "--json"])).stdout
+        );
+        assert.equal(clean.ok, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 // T-0052. `--parent` sat in COMMAND_FLAGS.card and was read by nothing on the
 // create path, so it cleared the unknown-flag guard and was dropped in silence:
 // the card came out with no parent and the command exited 0. Asserting the one
