@@ -1,0 +1,30 @@
+{
+    "$comment": [
+        "Alerts that stay open on purpose, in the shape the strict and doctor",
+        "baselines already use: a committed list a check compares against, so",
+        "debt is visible in the diff and only an unaccounted alert breaks the",
+        "build.",
+        "",
+        "Only for alerts that are real and not yet fixed. An alert that is a",
+        "false positive belongs in GitHub's own dismissal, with its reason,",
+        "where it stops being open at all — three were dismissed that way on",
+        "2026-08-05 after being measured linear. This file is the other case:",
+        "known, real, and waiting on a decision.",
+        "",
+        "Keyed by rule and path rather than by alert number, because a number",
+        "belongs to an instance and changes when the line moves — which is how",
+        "the same acceptance.ts pattern arrived as a `new` alert on PR #22",
+        "after the file was edited around it.",
+        "",
+        "An entry is a promise that somebody measured it and opened a card."
+    ],
+    "accepted": [
+        {
+            "rule": "js/regex-injection",
+            "path": "packages/workfile/src/modules/search/search.ts",
+            "card": "T-0190",
+            "reason": "Not a false positive. `/(a+)+$/` — six characters, inside the 256-character pattern cap and the imsu flag subset — takes 57s against a 32-character body and does not finish against the 20,000-character one the search path allows. Open because the fix needs a design decision the card lays out, not because it is noise.",
+            "measured": "2026-08-05"
+        }
+    ]
+}

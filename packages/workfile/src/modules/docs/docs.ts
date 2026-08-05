@@ -392,8 +392,25 @@ async function maxSequence(directory, prefix) {
  * escapes are rejected with the same containment criterion the workspace
  * configuration uses for its own paths.
  */
+/**
+ * Trailing separators are stripped by slicing, not by `/\/+$/`.
+ *
+ * That pattern is unanchored at the start, so on a folder of nothing but
+ * separators the engine restarted the greedy run at every position and failed
+ * at `$` each time: 0.8ms at 1,000 characters and 189ms at 16,000, which is
+ * quadratic on a value that arrives from `doc create --folder` and from the
+ * HTTP body. The loop below is the same operation and reads as what it does.
+ */
+function withoutTrailingSlashes(value: string): string {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "/") end -= 1;
+    return value.slice(0, end);
+}
+
 export function normalizeDocumentFolder(workspace, folder) {
-    const raw = normalizeRepoPath(String(folder ?? "").trim()).replace(/\/+$/, "");
+    const raw = withoutTrailingSlashes(
+        normalizeRepoPath(String(folder ?? "").trim())
+    );
     if (!raw || raw === ".") return "";
     const resolved = containedPath(workspace.paths.docs, raw);
     if (!resolved) {
