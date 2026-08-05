@@ -31,3 +31,13 @@ Worth naming: T-0109 wrote down that re-running until green launders a real sign
 - [ ] Delivery latency on the Windows runner is measured across runs rather than inferred from one
 - [ ] The ceiling is set from that measurement, or the regression behind it is found
 - [ ] A failure at the ceiling stays distinguishable from a lost event
+
+## Notes
+
+- 2026-08-05 10:05Z illodev@local#b2ee1fa3 — The re-run this card warns about came back at 435ms.
+
+`check (windows-latest, 24)`, same commit, run 30995325157: `✔ the SSE channel reports writes made outside the server (435.8452ms)`. That is one sample, and it is the sample the card said would not be a verdict — 435ms against 2243ms on the same commit and the same runner image is the spread the measurement has to explain, not evidence there is nothing to explain.
+
+It does place the observation with T-0109's post-fix numbers (340ms, 512ms) rather than apart from them, which narrows the question: the ceiling is 4x the typical delivery and one run still crossed it. Contention is the likelier reading of the two this card left open, but 'likelier' is where it stands.
+
+PR #20 merged green on that re-run.
