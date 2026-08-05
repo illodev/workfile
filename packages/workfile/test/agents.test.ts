@@ -18,6 +18,7 @@ import {
     createManagedDocument,
     createMemoryRecord,
     loadWorkspace,
+    patchCard,
     syncAgentInstructions
 } from "../dist/src/index.js";
 
@@ -298,6 +299,117 @@ test("syncing over nested-era debris sweeps orphan markers", async () => {
             targets: ["agents-md"]
         });
         assert.equal(verdict.ok, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The bundle every card opens with, and the reason DOC-0005 called this the
+ * finding most worth fixing.
+ *
+ * `scopeMatches` was the filter and could not be one: it returns true whenever
+ * either side declares no scope, `memory add` sets none, and most cards carry
+ * none either — so two unrelated cards received an identical bundle and the
+ * record cap was the only thing bounding it. `protocol.md` line 12 tells agents
+ * to load the smallest relevant context, and the command implementing that rule
+ * was the one breaking it.
+ */
+test("two unrelated cards get different bundles out of unscoped memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-relevance-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        const render = await createCard(workspace, {
+            title: "The render loop drops frames above 60 Hz",
+            type: "bug",
+            area: "api"
+        });
+        const locomotion = await createCard(workspace, {
+            title: "Locomotion model for the player character",
+            type: "task",
+            area: "api"
+        });
+        // Not one of these declares a scope, which is the ordinary case and
+        // the one the old filter could say nothing about.
+        const frames = await createMemoryRecord(workspace, "learnings", {
+            title: "The render loop budget is 16ms per frame",
+            body: "Anything above it drops frames."
+        });
+        const rootMotion = await createMemoryRecord(workspace, "learnings", {
+            title: "Locomotion uses root motion rather than velocity",
+            body: "The player character is driven by the animation."
+        });
+        const atlas = await createMemoryRecord(workspace, "learnings", {
+            title: "Texture atlas packing wastes a third of its space",
+            body: "Unrelated to either card."
+        });
+        const rule = await createMemoryRecord(workspace, "conventions", {
+            title: "Protocol records are written in English",
+            status: "active",
+            body: "Applies to everything and mentions neither subject."
+        });
+
+        const ids = (context) => new Set(context.records.map((record) => record.id));
+        const first = ids(await buildAgentContext(workspace, { cardId: render.id, limit: 20 }));
+        const second = ids(
+            await buildAgentContext(workspace, { cardId: locomotion.id, limit: 20 })
+        );
+
+        assert.ok(first.has(frames.id));
+        assert.ok(!first.has(rootMotion.id));
+        assert.ok(second.has(rootMotion.id));
+        assert.ok(!second.has(frames.id));
+        // Relevant to neither, and in neither bundle.
+        assert.ok(!first.has(atlas.id) && !second.has(atlas.id));
+        // A rule binds work that does not mention it. Both keep it.
+        assert.ok(first.has(rule.id) && second.has(rule.id));
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a record relevance drops is still reachable by naming it, and the bundle says what it left out", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-relevance-escape-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        const card = await createCard(workspace, {
+            title: "The render loop drops frames above 60 Hz",
+            type: "bug",
+            area: "api"
+        });
+        const unrelated = await createMemoryRecord(workspace, "learnings", {
+            title: "The audio bus caps at 32 concurrent voices",
+            body: "Nothing to do with rendering."
+        });
+        const alsoUnrelated = await createMemoryRecord(workspace, "learnings", {
+            title: "Input mapping is rebindable at runtime",
+            body: "Nothing to do with rendering either."
+        });
+
+        const before = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(!before.records.some((record) => record.id === unrelated.id));
+        // Silence is the failure mode this replaces: a bundle that drops
+        // records reads exactly like a workspace that has none.
+        assert.deepEqual(
+            [...before.omitted.relevance].sort(),
+            [unrelated.id, alsoUnrelated.id].sort()
+        );
+        assert.match(before.markdown, /\*\*Left out\*\*: 2 below the relevance threshold/);
+
+        // Naming it is the escape hatch, and it does not go through relevance.
+        await patchCard(workspace, card.id, { related: [unrelated.id] });
+        const after = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(after.records.some((record) => record.id === unrelated.id));
+        // And it stops being counted as left out, having not been.
+        assert.deepEqual(after.omitted.relevance, [alsoUnrelated.id]);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

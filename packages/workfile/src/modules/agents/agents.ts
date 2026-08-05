@@ -9,7 +9,11 @@ import {
     renderManagedBlock,
     syncManagedFile
 } from "../generated/managed-files.js";
-import { buildProjectIndex, findProjectRecord } from "../records/public.js";
+import {
+    buildProjectIndex,
+    findProjectRecord,
+    searchProjectRecords
+} from "../records/public.js";
 import type { ProjectRecord } from "../../types.js";
 
 const PACKAGE_VERSION = JSON.parse(
@@ -352,6 +356,96 @@ function renderRecordSummary(record) {
     return `## ${record.id} — ${record.title}\n\n${heading ? `${heading}\n\n` : ""}${record.body || record.excerpt || ""}`.trim();
 }
 
+/**
+ * What the card asks its own workspace for.
+ *
+ * Stripped to bare words on the way out: `parseQuery` reads `key:value` as a
+ * filter and a leading `-` as a negation, and card titles carry both. A query
+ * built out of prose has to arrive as prose or it silently becomes a filter
+ * that matches nothing.
+ *
+ * The body is capped. Relevance comes from what the card is about, which the
+ * title, area, tags and opening paragraphs carry; feeding a whole card in
+ * makes every long card match everything.
+ */
+function relevanceQuery(focus) {
+    return [
+        focus.title,
+        focus.area,
+        ...(focus.tags || []),
+        String(focus.body || focus.excerpt || "").slice(0, 600)
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .split(" ")
+        .filter((word) => word.length > 1 && !STOPWORDS.has(word.toLowerCase()))
+        .join(" ")
+        .trim();
+}
+
+/**
+ * Words carried by the query that say nothing about what a card is about.
+ *
+ * The search this ranks with does not remove them, and does not need to: a
+ * human types the terms that matter. A query built from prose types all of
+ * them, and `searchScore` awards a title hit 15 points whether the word is
+ * "locomotion" or "the" — so "The render loop drops frames" and "Locomotion
+ * uses root motion rather than velocity" matched each other on `the`, and
+ * every card was relevant to every record again by a different route.
+ *
+ * English only, which is the whole surface since ADR-0012. The list is
+ * deliberately short: a word that carries no subject, not a word that is
+ * merely common. It is a heuristic and it is worth knowing it is one — two
+ * records about genuinely different subjects that share an unusual ordinary
+ * word will still meet.
+ */
+const STOPWORDS = new Set([
+    "a", "about", "above", "after", "again", "against", "all", "an", "and",
+    "any", "are", "as", "at", "be", "been", "before", "being", "below",
+    "between", "both", "but", "by", "can", "did", "do", "does", "doing",
+    "down", "during", "each", "few", "for", "from", "further", "had", "has",
+    "have", "having", "how", "if", "in", "into", "is", "it", "its", "itself",
+    "just", "more", "most", "no", "nor", "not", "now", "of", "off", "on",
+    "once", "only", "or", "other", "our", "out", "over", "own", "rather",
+    "same", "should", "so", "some", "such", "than", "that", "the", "their",
+    "them", "then", "there", "these", "they", "this", "those", "through",
+    "to", "too", "under", "until", "up", "very", "was", "we", "were", "what",
+    "when", "where", "which", "while", "who", "why", "will", "with", "would",
+    "you", "your"
+]);
+
+/**
+ * Memory ranked against the focus card, by id, best first.
+ *
+ * `scopeMatches` was supposed to be doing this and could not: it returns true
+ * whenever either side declares no scope, `memory add` sets none, and most
+ * cards carry none either — so in an ordinary workspace the filter passed
+ * everything and the only thing between a card and the whole of memory was the
+ * record cap. Two unrelated cards received an identical bundle, which is what
+ * DOC-0005 reported and what `protocol.md` line 12 tells agents not to do.
+ *
+ * Scored by the same search the CLI exposes rather than by a second notion of
+ * relevance invented here: it already tokenizes without diacritics, weights
+ * title over body, and — the part that matters — drops records that score
+ * zero. A relevance rule that only works on annotated records would be the
+ * same no-op with more code, because the annotation is what nobody fills in.
+ */
+function rankMemoryAgainst(index, focus) {
+    const query = relevanceQuery(focus);
+    if (!query) return null;
+    const ranked = searchProjectRecords(index.records, query, {
+        kinds: ["memory"],
+        limit: index.records.length,
+        view: "summary"
+    });
+    // Typed rather than inferred: `map` over a two-element array literal widens
+    // to `(string | number)[]`, and the ranks then stop being numbers.
+    return new Map<string, number>(
+        ranked.records.map((record, at) => [record.id, at] as [string, number])
+    );
+}
+
 export async function buildAgentContext(workspace, options: any = {}) {
     // This is the route an agent hits most, and it rebuilt the whole index to
     // produce a few hundred bytes. Callers that already hold one pass it in.
@@ -459,24 +553,63 @@ export async function buildAgentContext(workspace, options: any = {}) {
             record.status === "active" &&
             scopeMatches(record.scope, focus?.scope)
     );
-    const prioritized = [];
+    // No focus means no query, and a session-start bundle keeps every record it
+    // qualified for: there is nothing yet for relevance to be relative to.
+    const ranked = focus ? rankMemoryAgainst(index, focus) : null;
+    // Normative records are exempt, informational ones are not, and the line
+    // is whether the record constrains work it does not mention.
+    //
+    // A convention is a rule and a decision is a choice nothing may silently
+    // contradict — both bind a card that shares no vocabulary with them.
+    // CONV-0001, "protocol records are written in English", has nothing in
+    // common with a card about a render loop and governs it completely, and
+    // dropping it is how it became unreachable once already. Learnings,
+    // incidents and context describe a subject instead, and a subject is
+    // exactly what relevance can judge.
+    //
+    // The cost is honest and worth naming: a workspace with many accepted
+    // decisions still gets all of them, bounded only by `--limit`. Ranking
+    // decides which survive that cap, so the order is useful even when the
+    // filter cannot help.
+    const NORMATIVE = ["conventions", "decisions"];
+    const relevant = (record) =>
+        !ranked || NORMATIVE.includes(record.collection) || ranked.has(record.id);
+    // `Infinity` rather than 0 for a record with no rank: without a query
+    // nothing is ranked and the comparator has to be a no-op, and with one an
+    // unranked record was already dropped by `relevant`.
+    const rankOf = (record) => ranked?.get(record.id) ?? Number.POSITIVE_INFINITY;
+    const byRank = (left, right) => rankOf(left) - rankOf(right);
+    // Decisions lead because they are normative and always present; the rest
+    // are ranked in among them by the sort below.
+    const qualified = [...decisions, ...incidents, ...learnings, ...contexts];
+    // Typed rather than inferred: an empty literal is `never[]`, so everything
+    // read back off it — including `cut` below — has no properties at all.
+    const prioritized: ProjectRecord[] = [];
     const seen = new Set();
     for (const record of [
         focus,
         ...direct,
         ...inFlight,
         ...conventions,
-        ...decisions,
-        ...incidents,
-        ...learnings,
-        ...contexts
+        // Ranked across the four collections rather than within each, so a
+        // learning that is plainly about this card outranks a decision that
+        // merely qualified. Direct relations are already above this line and
+        // never compete: a record the card names is in the bundle whatever it
+        // scores.
+        ...qualified.filter(relevant).sort(byRank)
     ]) {
         if (!record || seen.has(record.id)) continue;
         seen.add(record.id);
         prioritized.push(record);
     }
+    // Measured against what actually got in, not against what relevance
+    // rejected: a record the card names explicitly is admitted above this by
+    // `direct`, and counting it as left out reported a record the bundle was
+    // carrying.
+    const dropped = qualified.filter((record) => !seen.has(record.id));
     const maxRecords = Math.max(1, Math.min(50, Number(options.limit || 20)));
     const records = prioritized.slice(0, maxRecords);
+    const cut = prioritized.slice(maxRecords);
     const markdown = [
         `# Agent context${focus ? ` — ${focus.id}` : ""}`,
         "",
@@ -488,7 +621,22 @@ export async function buildAgentContext(workspace, options: any = {}) {
         ...(cameFrom.length ? [`**Came out of**: ${cameFrom.join(", ")}`] : []),
         ...(spawned.length ? [`**Spawned**: ${spawned.join(", ")}`] : []),
         ...(cameFrom.length || spawned.length ? [""] : []),
-        ...records.flatMap((record) => [renderRecordSummary(record), ""])
+        ...records.flatMap((record) => [renderRecordSummary(record), ""]),
+        // A bundle that silently leaves records out reads exactly like a
+        // workspace that has none, and the agent has no way to tell which it is
+        // looking at. It says so, and says what reaches the rest.
+        ...(dropped.length || cut.length
+            ? [
+                  `---`,
+                  "",
+                  `**Left out**: ${[
+                      dropped.length ? `${dropped.length} below the relevance threshold for this card` : null,
+                      cut.length ? `${cut.length} beyond \`--limit ${maxRecords}\`` : null
+                  ]
+                      .filter(Boolean)
+                      .join(", ")}. \`${workspace.cli} search "query"\` reaches every record; \`--limit\` raises the ceiling.`
+              ]
+            : [])
     ]
         .join("\n")
         .trimEnd();
@@ -498,6 +646,14 @@ export async function buildAgentContext(workspace, options: any = {}) {
         generatedAt: new Date().toISOString(),
         truncated: prioritized.length > records.length,
         totalAvailable: prioritized.length,
+        // Kept separate from `truncated` rather than folded into it. The two
+        // are different questions — "the cap dropped relations" against "this
+        // card is not what these records are about" — and T-0147 is open on
+        // what happens when one field carries two meanings.
+        omitted: {
+            relevance: dropped.map((record) => record.id),
+            limit: cut.map((record) => record.id)
+        },
         records,
         markdown
     };
