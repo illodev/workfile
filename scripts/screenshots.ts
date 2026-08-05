@@ -20,6 +20,15 @@ import {
  * two runs on different machines produce comparable pictures and nobody's
  * private backlog ends up in a screenshot.
  */
+/**
+ * Every view in the primary nav, in nav order.
+ *
+ * That is the rule, and it is worth stating because the list drifted from it:
+ * `workflow` shipped and nothing captured it, so the one view that draws the
+ * four collections as a single graph was missing from the README, the landing
+ * page and the safety net this file exists to be. A view absent here is a view
+ * whose regressions nobody sees.
+ */
 const VIEWS = [
     "overview",
     "explorer",
@@ -29,6 +38,7 @@ const VIEWS = [
     "timeline",
     "docs",
     "memory",
+    "workflow",
     "history",
     "health"
 ];

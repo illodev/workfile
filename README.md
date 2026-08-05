@@ -633,7 +633,8 @@ Navigation is a collapsible sidebar grouped by domain:
   month scale, today marker).
 - **Knowledge:** Docs (search, Markdown, metadata, freshness, scope, backlinks) and
   Memory (typed collections, lifecycle warnings, graduation and supersession).
-- **Project:** History (fragments, releases, release preparation, rendered changelog
+- **Project:** Workflow (the provenance graph — every record a node, typed relations as
+  edges), History (fragments, releases, release preparation, rendered changelog
   preview) and Health.
 
 Health issues can navigate to records in any domain. Runtime configuration drives card
@@ -654,6 +655,14 @@ trail of every move the agents wrote while you were away.
 | History with releases | Memory (dark theme) |
 | --- | --- |
 | ![History: change fragments, the derived changelog and release preparation](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/history.png) | ![Memory: learnings, decisions and incidents as typed collections](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/memory-dark.png) |
+
+![Workflow: every record a node and every typed relation an edge, with the collections and relation types as filters above the canvas](https://raw.githubusercontent.com/illodev/workfile/main/.github/media/workflow.png)
+
+Workflow reads the collections into one graph instead of four lists: the first row of
+toggles selects them, the second selects relation types. A relation declared in
+frontmatter draws a solid edge and an ID written into a sentence a dashed one, because a
+link in prose is a weaker claim than a field and should not look equally solid. Prose
+scanning is off by default — it is 294 of this workspace's 742 edges.
 
 ## Development
 
