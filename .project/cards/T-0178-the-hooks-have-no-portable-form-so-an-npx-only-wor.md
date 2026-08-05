@@ -1,7 +1,7 @@
 ---
 id: T-0178
 title: The hooks have no portable form, so an npx-only workspace gets dead hooks
-status: review
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -45,6 +45,7 @@ launcher that falls back once and caches.
 
 - 2026-08-05 15:17Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 15:36Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:27Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -76,3 +77,4 @@ Vacuity checked against the built `dist`: forcing the local form fails the surfa
 
 Still `review`: this is verified on Linux with a symlinked shim on PATH. The Windows path through `PATHEXT` and npm's generated `.cmd` shims is covered by code and by CI, not yet by a run I have watched.
 - 2026-08-05 17:22Z illodev@local#2cddaf94 — Not closed on the CI matrix, unlike the other sixteen. The card shipped saying the Windows path through PATHEXT and npm's generated .cmd shims was covered by code and by CI but not by a run I had watched — and checking that turned out to be right: the reachability test sets PATH to the empty string, which every platform reaches identically, because the directory loop does nothing and PATHEXT is split and then never used. The positive lookup had no test at all. Added 'the hook runtime is found under the extension the platform installs it with': it writes workfile-hooks.cmd on Windows and workfile-hooks elsewhere, puts that directory on PATH, and asserts the runtime resolves — plus, on Windows only, that a bare extensionless file does not count, since that is exactly what npm does not write. Vacuity: forcing the win32 branch on Linux fails it, so the extension candidates are load-bearing rather than decoration. Stays in review until a Windows runner has executed it.
+- 2026-08-05 17:27Z illodev@local#2cddaf94 — Closed on a run I watched, which is what the card was held open for. windows-latest node 22 and node 24 both green on commit 37b486c, and the new test appears by name in the Windows log: 'ok 79 - the hook runtime is found under the extension the platform installs it with'. So the PATHEXT lookup has now resolved a real .cmd on a real Windows runner, rather than being covered by reading the code.
