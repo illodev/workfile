@@ -2098,7 +2098,8 @@ async function claudeCommand(workspace, action) {
                 `${report.files.filter((f) => f.status !== "current").length} to sync`
         );
         for (const file of report.files) {
-            console.log(`  ${file.status.padEnd(10)} ${file.path}`);
+            const why = file.reason ? `  (${file.reason})` : "";
+            console.log(`  ${file.status.padEnd(10)} ${file.path}${why}`);
         }
         process.exitCode = report.ok ? 0 : 1;
         return;

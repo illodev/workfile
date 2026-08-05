@@ -10,6 +10,7 @@ import {
 } from "../../core/package-manager.js";
 import {
     inspectManagedFile,
+    type ManagedFileReport,
     renderManagedBlock,
     stripManagedMarkers,
     syncManagedFile
@@ -452,7 +453,7 @@ export async function syncClaudeSurface(workspace, options: any = {}) {
 
 export async function checkClaudeSurface(workspace) {
     const plan = await planClaudeSurface(workspace);
-    const files = [];
+    const files: ManagedFileReport[] = [];
     for (const file of plan.files) {
         files.push(await inspectManagedFile(file));
     }

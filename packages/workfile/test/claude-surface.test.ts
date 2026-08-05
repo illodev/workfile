@@ -556,6 +556,65 @@ test("an installed command opens with its frontmatter, not with a marker", async
     }
 });
 
+test("a generated file that lost its last byte can be given it back", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-newline-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await syncClaudeSurface(workspace);
+
+        const installed = [
+            ".claude/commands/next.md",
+            ".claude/commands/claim.md",
+            ".claude/commands/done.md",
+            ".claude/commands/context.md",
+            ".claude/skills/workfile/SKILL.md"
+        ];
+        for (const relative of installed) {
+            const content = await readFile(join(root, relative), "utf8");
+            assert.equal(
+                content.endsWith("\n"),
+                true,
+                `${relative}: a text file ends with a newline`
+            );
+        }
+
+        // The defect these five files were in: the byte sits outside the
+        // digest, so the file merged back into itself, the write path saw no
+        // change, and check called it current with nothing able to fix it.
+        const claim = join(root, ".claude/commands/claim.md");
+        const healthy = await readFile(claim, "utf8");
+        await writeFile(claim, healthy.replace(/\n+$/, ""));
+
+        const stripped = await checkClaudeSurface(workspace);
+        const entry = stripped.files.find(
+            (file) => file.path === ".claude/commands/claim.md"
+        );
+        assert.ok(entry, "the file was missing from the report");
+        assert.equal(entry.status, "stale");
+        // The reason is the point. `stale` on a file whose digest agrees is
+        // what sent the field report looking at the generator, where the
+        // fault was not.
+        assert.equal(entry.reason, "trailing-newline");
+        assert.equal(stripped.ok, false);
+
+        await syncClaudeSurface(workspace);
+        assert.equal(await readFile(claim, "utf8"), healthy);
+        assert.equal((await checkClaudeSurface(workspace)).ok, true);
+
+        // And the digest is still stable against a blank line at the end,
+        // which is the whole reason it trims before hashing.
+        await writeFile(claim, `${healthy}\n\n`);
+        assert.equal(
+            (await checkClaudeSurface(workspace)).ok,
+            true,
+            "a trailing blank line was read as drift"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("the skill embeds the protocol without nesting its markers", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-nest-"));
     try {

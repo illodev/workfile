@@ -233,7 +233,28 @@ export function findManagedBlock(content, kind, preferredStyle?) {
     return null;
 }
 
+/**
+ * The final byte, which no digest here covers.
+ *
+ * `renderManagedBlock` digests `trimEnd()`-ed bytes deliberately: that is what
+ * keeps a file stable when an editor adds or drops a blank line at the end,
+ * which editors do. The cost is that the trailing newline sits outside the
+ * comparison entirely — a file that lost it merges back into itself, the write
+ * path sees `before === after` and reports `unchanged`, and every check calls
+ * it current forever. Five files in this repository were in that state.
+ *
+ * So the byte is settled beside the digest rather than inside it: normalised
+ * here on every write, and asserted separately on read.
+ */
+function endWithNewline(text) {
+    return text.endsWith("\n") ? text : `${text}\n`;
+}
+
 export function mergeManagedBlock(existing, block, options: any = {}) {
+    return endWithNewline(mergeManagedText(existing, block, options));
+}
+
+function mergeManagedText(existing, block, options) {
     const pair = isPairStyle(STYLES[block.style]);
     // A file installed before its kind moved to a line-style block still
     // carries the old pair. Finding it under any style is what migrates the
@@ -267,11 +288,27 @@ export function mergeManagedBlock(existing, block, options: any = {}) {
     return `${existing.trimEnd()}\n\n${block.text}\n`;
 }
 
-export async function inspectManagedFile({ path, block, label }) {
+export type ManagedFileReport = {
+    path: string;
+    status: "missing" | "unmanaged" | "current" | "stale";
+    /** Which comparison failed, when the status is `stale`. */
+    reason?: string | null;
+    current?: string | null;
+    declared?: string | null;
+    expected?: string | null;
+    version?: string | null;
+};
+
+export async function inspectManagedFile({
+    path,
+    block,
+    label
+}): Promise<ManagedFileReport> {
     if (!(await exists(path))) {
         return {
             path: label,
             status: "missing",
+            reason: null,
             current: null,
             expected: block.digest
         };
@@ -286,35 +323,50 @@ export async function inspectManagedFile({ path, block, label }) {
         return {
             path: label,
             status: "unmanaged",
+            reason: null,
             current: null,
             expected: block.digest
         };
     }
     const actualDigest = digestText(current.body);
     const metadataDigest = current.metadata.digest || null;
-    // The version stamp is information, not part of the decision. Comparing it
-    // marked every generated file stale on each package bump even when the
-    // content was byte-identical — and the fix is not cosmetic: the Claude Code
-    // surface generates roughly twenty of these, so a version bump would have
-    // produced twenty false warnings and taught everyone to skip the report.
-    // The style is compared because it is part of what is managed, and because
-    // an old pair-style file wraps exactly the same bytes: without this, a file
-    // whose frontmatter is inert — the marker still above the fence — reports
-    // current, since both the body and the digest match.
-    const status =
-        current.style === block.style &&
-        current.body === block.body &&
-        metadataDigest === block.digest
-            ? "current"
-            : "stale";
+    const reason = stalenessReason(current, block, content);
     return {
         path: label,
-        status,
+        status: reason ? "stale" : "current",
+        reason,
         current: actualDigest,
         declared: metadataDigest,
         expected: block.digest,
         version: current.metadata.version || null
     };
+}
+
+/**
+ * What makes this file not current, or `null` if nothing does.
+ *
+ * Named rather than left as a bare boolean, because one of these reasons is
+ * invisible from the outside: a file whose block matches byte for byte and
+ * whose digest agrees is stale over a byte that no digest covers. A report
+ * that says `stale` with nothing further to say is what sent an external
+ * field report looking for the fault in the generator, where it was not.
+ *
+ * The version stamp is information, not part of the decision. Comparing it
+ * marked every generated file stale on each package bump even when the content
+ * was byte-identical — and the fix is not cosmetic: the Claude Code surface
+ * generates roughly twenty of these, so a version bump would have produced
+ * twenty false warnings and taught everyone to skip the report. The style is
+ * compared because it is part of what is managed, and because an old
+ * pair-style file wraps exactly the same bytes: without this, a file whose
+ * frontmatter is inert — the marker still above the fence — reports current,
+ * since both the body and the digest match.
+ */
+function stalenessReason(current, block, content): string | null {
+    if (current.style !== block.style) return "style";
+    if (current.body !== block.body) return "body";
+    if ((current.metadata.digest || null) !== block.digest) return "digest";
+    if (!content.endsWith("\n")) return "trailing-newline";
+    return null;
 }
 
 export async function syncManagedFile({

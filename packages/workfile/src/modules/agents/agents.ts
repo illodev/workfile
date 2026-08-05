@@ -5,6 +5,7 @@ import { ValidationError } from "../../core/errors.js";
 import { ensureWritable } from "../../core/guards.js";
 import {
     inspectManagedFile,
+    type ManagedFileReport,
     relativeLabel,
     renderManagedBlock,
     syncManagedFile
@@ -278,7 +279,7 @@ export async function syncAgentInstructions(workspace, options: any = {}) {
 
 export async function checkAgentInstructions(workspace, options: any = {}) {
     const files = renderAgentFiles(workspace, options);
-    const results = [];
+    const results: ManagedFileReport[] = [];
     for (const file of files) {
         results.push(
             await inspectManagedFile({
@@ -304,7 +305,7 @@ export async function checkAgentInstructions(workspace, options: any = {}) {
                     ? `Generated agent instructions are missing: ${item.path}`
                     : item.status === "unmanaged"
                       ? `Generated agent instructions have no managed block: ${item.path}`
-                      : `Generated agent instructions are stale: ${item.path}`,
+                      : `Generated agent instructions are stale: ${item.path}${item.reason ? ` (${item.reason})` : ""}`,
             details: item
         }));
     return {

@@ -81,6 +81,36 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
     }
 });
 
+test("the file's last byte is repaired without touching the prose around it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-tail-"));
+    await cp(fixture, root, { recursive: true });
+    await writeFile(join(root, "AGENTS.md"), "# Team notes\n\nKeep this paragraph.\n");
+    const workspace = await loadWorkspace({ root });
+    try {
+        // A pair-style block, where the merge keeps whatever surrounds it —
+        // the path where the last byte belongs to the author, not to us.
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const healthy = await readFile(join(root, "AGENTS.md"), "utf8");
+        assert.equal(healthy.endsWith("\n"), true);
+
+        await writeFile(join(root, "AGENTS.md"), healthy.replace(/\n+$/, ""));
+        const stale = await checkAgentInstructions(workspace, {
+            targets: ["agents-md"]
+        });
+        assert.equal(stale.ok, false, "the missing byte reported current");
+        const issue = stale.issues.find((entry) => entry.file === "AGENTS.md");
+        assert.ok(issue, "AGENTS.md was not among the issues");
+        assert.equal(issue.details.reason, "trailing-newline");
+
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const repaired = await readFile(join(root, "AGENTS.md"), "utf8");
+        assert.equal(repaired, healthy);
+        assert.match(repaired, /Keep this paragraph\./);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("agent context stays bounded and includes related durable knowledge", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-context-"));
     await cp(fixture, root, { recursive: true });

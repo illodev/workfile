@@ -1,7 +1,7 @@
 ---
 id: T-0169
 title: A file that lost its trailing newline can never get it back
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
@@ -56,7 +56,18 @@ these too.
 
 ## Acceptance criteria
 
-- [ ] A managed file whose trailing newline was removed is rewritten with it
-- [ ] `claude check` reports that file as stale rather than current
-- [ ] The digest stays stable against trailing blank lines, as it is now
-- [ ] This repository's own `.claude/commands/*.md` end in `0a`
+- [x] A managed file whose trailing newline was removed is rewritten with it
+- [x] `claude check` reports that file as stale rather than current
+- [x] The digest stays stable against trailing blank lines, as it is now
+- [x] This repository's own `.claude/commands/*.md` end in `0a`
+
+## Activity
+
+- 2026-08-05 11:35Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 11:43Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 11:43Z illodev@local#2cddaf94 — Verified on this checkout, which was in the reported state: `claude check` named all five files `stale (trailing-newline)`, `claude install` rewrote them, the diff is one byte per file, and the re-check is 7 current. Two tests cover it — one per marker style, since the merge takes a different path for each — and both fail against the previous build with `current` where `stale` was expected.
+
+Two things the card had not anticipated. The report now carries a `reason` (`style`, `body`, `digest`, `trailing-newline`) rather than a bare `stale`: this defect was invisible precisely because the digest agreed, and a report with nothing further to say is what sent the field report looking at the generator. And the accumulators behind these reports were untyped `never[]`, which is what made the new field unrepresentable — typing three of them dropped the strict baseline from 548 to 504 (agents.ts 17 to 2, ci.ts 16 to 2), so those arrays had been suppressing real null checking, not just this field.

@@ -380,7 +380,11 @@ workfile claude check [--json]
 registration, the slash commands, the skill and the session hooks — as managed
 blocks a later resync updates without touching anything around them. `check`
 reports which of them are stale and exits `1` when any is, which is what makes
-it usable in CI.
+it usable in CI. Each stale file is reported with the comparison that failed —
+`style`, `body`, `digest` or `trailing-newline` — because one of them is
+otherwise invisible: the digest is taken over trimmed bytes, so a file that
+lost its final newline agrees with its own digest and is stale over a byte no
+hash covers.
 
 `workfile claude` with no subcommand runs `check`, because reporting is the
 safe default for a word that otherwise writes files.
