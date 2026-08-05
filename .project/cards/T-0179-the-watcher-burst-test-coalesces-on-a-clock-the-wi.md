@@ -1,7 +1,7 @@
 ---
 id: T-0179
 title: The watcher burst test coalesces on a clock the Windows node 24 runner misses
-status: review
+status: done
 type: bug
 priority: medium
 area: infra
@@ -70,6 +70,7 @@ writes land close together.
 
 - 2026-08-05 14:32Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 14:46Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -90,3 +91,4 @@ Also checked that the cache assertion has teeth: with both `storage.cache` and `
 **The pair runs in 1.56 s against the old test's 8.1 s**, and the ~8.1 s floor every configuration shared was this test's own sleeps. 317 tests pass; the strict baseline improves 504 → 498.
 
 Runtime evidence on Windows node 24 is still pending, which is the whole point of the card, so this stays in `review` until CI reports.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

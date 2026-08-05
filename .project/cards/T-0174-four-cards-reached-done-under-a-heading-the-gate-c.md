@@ -1,7 +1,7 @@
 ---
 id: T-0174
 title: Four cards reached done under a heading the gate could not read
-status: review
+status: done
 type: task
 priority: medium
 area: core
@@ -51,6 +51,7 @@ visible rather than be silenced.
 
 - 2026-08-05 11:57Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 12:03Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -63,3 +64,4 @@ Two criteria were genuinely unmet as written, and now have the tests they asked 
 The heading question settles as: they keep `## Acceptance`. T-0167 taught the reader that heading, and the proof is that doctor found these four at all. Moving them would be churn for uniformity, and the canonical form is not more correct now that the reader knows both.
 
 T-0027 #2 was an alternative rather than a requirement, which the format cannot express. Recorded as [[LRN-0020]], because the next card written that way will not be noticed either.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

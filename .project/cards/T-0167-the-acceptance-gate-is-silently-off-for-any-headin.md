@@ -1,7 +1,7 @@
 ---
 id: T-0167
 title: The acceptance gate is silently off for any heading the parser does not know
-status: review
+status: done
 type: bug
 priority: critical
 area: core
@@ -114,7 +114,9 @@ original report. This card is what is left when they land.
 - 2026-08-05 10:42Z illodev@local#2cddaf94 · renamed file to T-0167-the-acceptance-gate-is-silently-off-for-any-headin.md
 - 2026-08-05 10:46Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 10:55Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
 - 2026-08-05 10:55Z illodev@local#2cddaf94 — Decision on the two open calls, both taken with the owner before code moved: a checklist under no recognised heading is a doctor WARNING, not an error, because a card may legitimately keep a list that was never a criterion and failing doctor on a correct body costs more than the false positive; and `done` REFUSES with CARD_ACCEPTANCE_UNREADABLE, with force as the escape, symmetric with the CARD_ACCEPTANCE_UNMET gate that already says 'Check them, or pass force'. Recorded in CHG-0114.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

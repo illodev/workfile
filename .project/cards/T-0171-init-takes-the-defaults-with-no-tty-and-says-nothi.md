@@ -1,7 +1,7 @@
 ---
 id: T-0171
 title: init takes the defaults with no TTY and says nothing
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -48,6 +48,7 @@ means "do not ask", so the notice should not appear when it is passed.
 
 - 2026-08-05 14:59Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 15:15Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -74,3 +75,4 @@ The field is on both the `--dry-run` output and the applied `--json` output, bec
 The notice names what was applied rather than only that something was. The reported case was a tester who wanted the `claude` adapter, got `agents-md`, and repaired `project.config.mjs` by hand — the line that would have saved that is `agent adapters: agents-md`, not a general warning.
 
 Covered by `init says the defaults were applied when there was nobody to ask` in `cli.test.ts`. A spawned process has no TTY on either stream, so the test is in the state under test without simulating anything. Verified non-vacuous twice against the built `dist`: with the notice call removed the test fails on `No terminal attached`, and with the condition forced true it fails on `--yes is an answer, so there is nothing to report`.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

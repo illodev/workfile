@@ -1,7 +1,7 @@
 ---
 id: T-0170
 title: .mcp.json runs the published version while the hooks run the local one
-status: review
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -58,6 +58,7 @@ used the global binary. That is the one decision this card carries.
 
 - 2026-08-05 12:15Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 12:24Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -66,3 +67,4 @@ used the global binary. That is the one decision this card carries.
 Verified on this repository, which was in the reported state: `node_modules/@illodev/workfile` is a link to `packages/workfile`, and `.mcp.json` was fetching the published copy — the repository that develops the tool talking to a different build of it. `claude install` rewrote it. The mismatch report was driven on a scratch workspace pinned to 0.5.2 against this 0.6.0 binary, which is the field report's exact scenario.
 
 Two things this uncovered, both filed rather than folded in. [[T-0177]]: `claude check` reports the two JSON artifacts by existence alone, so the correct content now depends on the workspace and nothing compares it — the ledger already records which keys are ours, so it is knowable. [[T-0178]]: the hooks have no portable form at all, so in the npx-only workspace the two artifacts still cannot agree — the server starts and the hooks name a file that is not there. That one carries a latency question, since `PreToolUse` runs before tool calls and its whole design rests on not paying to resolve a package.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

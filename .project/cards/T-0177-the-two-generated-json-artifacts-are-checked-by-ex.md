@@ -1,7 +1,7 @@
 ---
 id: T-0177
 title: The two generated JSON artifacts are checked by existence, not by content
-status: review
+status: done
 type: bug
 priority: medium
 area: mcp
@@ -46,6 +46,7 @@ record says exactly which values are ours to compare.
 
 - 2026-08-05 15:17Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 15:36Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -76,3 +77,4 @@ stale  .claude/settings.json  (hooks.SessionStart, hooks.PreToolUse, hooks.PostT
 ```
 
 Vacuity checked against the built `dist`: making `driftedPaths` return nothing fails the test, and making it compare whole top-level keys fails it on the neighbouring server — which is the assertion that would otherwise have been free.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

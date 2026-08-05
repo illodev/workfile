@@ -1,7 +1,7 @@
 ---
 id: T-0166
 title: The SSE test's 2000ms ceiling fails a loaded Windows runner
-status: review
+status: done
 type: bug
 priority: medium
 area: infra
@@ -83,8 +83,10 @@ The wait window is twice the budget rather than a fixed 3000ms, so criterion #3 
 `t.diagnostic` now reports the latency on every run, pass or fail. That is the part that matters beyond this card. The harvest was expensive for a reason nothing in the repository stated: node 22 defaults to the TAP reporter off a TTY and node 23+ defaults to spec, so the same suite reports durations in two shapes across the matrix, and the first parser silently found only half the jobs. One diagnostic line is greppable from any of them.
 
 Filed [[T-0179]] for the other failure this card recorded: the burst test's floor is identical everywhere at ~8.1s, and only Windows node 24 has slack above it — up to 5.2s. It fails because the writes spread past the 250ms quiet period, not because the coalescer misgroups, and widening a budget cannot fix it since the number under pressure is the quiet period itself. [[LRN-0021]] records the measurement method.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.
 
 ## Activity
 
 - 2026-08-05 12:38Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 13:00Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done

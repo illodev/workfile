@@ -24,6 +24,7 @@ import {
     claudeSkillFile,
     createCard,
     GLOBAL_HOOK_RUNTIME,
+    hookRuntimeReachable,
     LOCAL_CLI_RUNTIME,
     listMcpTools,
     loadCards,
@@ -839,6 +840,61 @@ test("the portable hook runtime is the script the budget was measured on", async
     // The relative form names the same script through node_modules.
     assert.ok(NPM_HOOK_RUNTIME.endsWith(bin));
     await access(resolve(packageRoot, bin));
+});
+
+/**
+ * The half of reachability that only Windows can answer.
+ *
+ * Its sibling above sets `PATH` to the empty string and asserts `unreachable`,
+ * which every platform reaches the same way: the loop over directories does
+ * nothing, so on Windows `PATHEXT` is split and then never used. The positive
+ * path — a bin found on `PATH` under an extension npm chose — was covered by
+ * code and by nothing else, and T-0178 shipped saying so.
+ *
+ * npm does not install `workfile-hooks`; it installs `workfile-hooks.cmd` (and
+ * `.ps1`, and an extensionless shim for shells that want one). A lookup that
+ * tests the bare name finds nothing on Windows and reports a working install
+ * as broken, which is the failure this could not otherwise have caught.
+ */
+test("the hook runtime is found under the extension the platform installs it with", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workfile-path-"));
+    const before = process.env.PATH;
+    try {
+        // Named the way the platform's installer names it, and nothing else in
+        // the directory — so finding it means the lookup understood the name.
+        const installed =
+            process.platform === "win32"
+                ? `${GLOBAL_HOOK_RUNTIME}.cmd`
+                : GLOBAL_HOOK_RUNTIME;
+        await writeFile(join(directory, installed), "", { mode: 0o755 });
+        process.env.PATH = directory;
+
+        const found = await hookRuntimeReachable(directory, GLOBAL_HOOK_RUNTIME);
+        assert.equal(
+            found.ok,
+            true,
+            `${installed} is on PATH and was not found: ${found.reason}`
+        );
+        assert.equal(found.reason, null);
+
+        // And the extension is load-bearing, not decoration: the bare name on
+        // Windows is exactly what npm does not write.
+        if (process.platform === "win32") {
+            const bare = await mkdtemp(join(tmpdir(), "workfile-path-bare-"));
+            await writeFile(join(bare, GLOBAL_HOOK_RUNTIME), "");
+            process.env.PATH = bare;
+            const missed = await hookRuntimeReachable(bare, GLOBAL_HOOK_RUNTIME);
+            assert.equal(
+                missed.ok,
+                false,
+                "an extensionless file is not executable on Windows and must not count"
+            );
+            await rm(bare, { recursive: true, force: true });
+        }
+    } finally {
+        process.env.PATH = before;
+        await rm(directory, { recursive: true, force: true });
+    }
 });
 
 test("a generated file that lost its last byte can be given it back", async () => {

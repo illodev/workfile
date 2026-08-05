@@ -1,7 +1,7 @@
 ---
 id: T-0173
 title: init describes a workspace slightly different from the one it creates
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -59,6 +59,7 @@ unstated for something presented as the project's board.
 
 - 2026-08-05 14:59Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 15:15Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
@@ -80,3 +81,4 @@ The test compares the plan against the filesystem after applying it, not against
 **`AGENTS.md` and `CLAUDE.md` stay identical, deliberately** — [[ADR-0013]]. An adapter file whose content depends on another file being read is not an adapter: what a tool loads, and whether it follows a reference to a sibling path, is a fact about that tool and its version. A pointer that is not followed fails silently, with the agent believing it holds the repository's instructions. The economy on offer was 688 bytes.
 
 The two observations the card recorded without claiming — hooks exiting 0 in silence, the UI dying with its session — are untouched and still unclaimed.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

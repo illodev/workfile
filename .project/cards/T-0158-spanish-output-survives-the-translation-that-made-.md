@@ -1,7 +1,7 @@
 ---
 id: T-0158
 title: Spanish output survives the translation that made records English
-status: review
+status: done
 type: chore
 priority: low
 area: core
@@ -68,14 +68,17 @@ leaving one surface half-translated. They go the same way as the rest.
 - [x] SPEC invariant 4 and its summary block agree with what the code does
 - [x] `getting-started.md` no longer teaches a flag that does not work
 - [x] A config that still declares `language` loads and runs unchanged
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] `pnpm run check` green, doctor 0/0
 
 ## Notes
 
 - 2026-08-05 10:41Z illodev@local#2cddaf94 — The owner decided on 2026-08-05: option 1, remove Spanish outright. Recorded as ADR-0012, so this card's first acceptance criterion is met and the code can move. The trigger was DOC-0005, an external field report whose headline finding was a Spanish acceptance heading silently disabling the done gate. Worth reading before this lands: removing Spanish does not fix that. T-0167 measures the same silence against 'Definition of done' and 'Success criteria'.
 - 2026-08-05 11:05Z illodev@local#2cddaf94 — Implemented as option 1. Removed: 15 isEs branches in agents.ts, the config key's effect, the --language flag and the interactive prompt. Kept inert on both the loader and ProjectConfigInput, so a plain config and a typed one both keep compiling and loading — verified against a workspace whose project.config.mjs still declares language: "es". Two tests were asserting nothing and said so once one copy of the protocol was left: claude-surface's /Estados de Work|Work statuses/ only ever matched its Spanish side, since the English heading is 'Work states', and agents.test tampered with a file by replacing 'Reglas críticas', a no-op against English text. Both now assert the English strings. Criterion 5 stays open: pnpm run check is green (308 + 7 tests, ratchet held at 549) and doctor has 0 errors, but it is not 0/0 — the four done-unchecked warnings belong to T-0174 and close with it, not with this card.
+- 2026-08-05 17:19Z illodev@local#2cddaf94 — Criterion 5 verified on the merge commit: 328 tests + 7 search-local green across ubuntu, macos and windows on node 22 and 24, strict ratchet held at 494. The doctor reports 0 errors and 1 warning, and the warning is T-0162's deliberate done-unchecked from a later card, not anything this one left behind.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.
 
 ## Activity
 
 - 2026-08-05 10:57Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 11:05Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done

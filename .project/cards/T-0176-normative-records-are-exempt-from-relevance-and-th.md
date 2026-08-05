@@ -1,7 +1,7 @@
 ---
 id: T-0176
 title: Normative records are exempt from relevance, and that does not scale
-status: review
+status: done
 type: task
 priority: low
 area: core
@@ -55,7 +55,9 @@ What would resolve it, roughly in order of appeal:
 
 - 2026-08-05 15:44Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 16:00Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
 - 2026-08-05 16:00Z illodev@local#2cddaf94 — Route taken and recorded in ADR-0014: a normative record past the cap degrades to a title under **Also in force**, it is not cut. The three rejected routes and why are in the ADR — the per-collection floor loses to ranking (an unranked record already sorts to the tail on Infinity, so the cap reaches exactly the ones that merely qualified), scoping does not reach decisions that bind everything, and supersede discipline is the real fix but out of reach from code. Measured on the card's own number: 50 accepted ADRs, `--limit 20` → 20 full summaries and 31 digested, markdown 12,130 chars against ~30,300 for the same records in full. Test asserts all 50 IDs are either summarised or named, every digested ID appears in the markdown, and the digest block costs under a quarter of what those records cost in full — calibrated against the un-digested half rather than a constant, because my first attempt used a 60,000-char ceiling that full summaries also passed, and the second was tautological (`records.length * (markdown.length / records.length)`). Vacuity: an empty digest fails naming 31 ADRs; rendering summaries instead of titles fails at 'the digest costs 17003 against 16444 for the same records in full'.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

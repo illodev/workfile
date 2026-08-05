@@ -1,7 +1,7 @@
 ---
 id: T-0180
 title: workspace.paths.sources resolves a directory nothing creates or reads
-status: review
+status: done
 type: chore
 priority: low
 area: core
@@ -35,7 +35,9 @@ Low because nothing is broken by it. Recorded because the next person to read
 
 - 2026-08-05 15:44Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 16:00Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
 - 2026-08-05 15:59Z illodev@local#2cddaf94 — Half the premise was wrong, and it changed the fix. `.project/sources` is not a directory nothing creates: `migrate legacy` files everything it cannot classify into `sources/legacy-planning/`, and SPEC §15 defines it as where long-form raw inputs live. What had no readers was `workspace.paths.sources` — the writer rebuilt the path out of `protocolRoot` instead, as did the state file out of `paths.migrations`. Both now read the resolved entries. No behaviour changed and no test was added for it: `protocolRoot` IS `storage.root`, so both spellings are the same string, and an assertion against that would pass whichever one shipped. Verified by patching the built dist back to the old form and watching the suite stay green. What is testable is criterion 2, and it was not covered: the plan-vs-tree walk from T-0173 compares counts and paths, so a directory present in both stays invisible to it. `init creates the optional directory something points at, and not the other one` asserts `specs` exists and `sources` does not; re-adding `sources` to the init list fails it on that message.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.

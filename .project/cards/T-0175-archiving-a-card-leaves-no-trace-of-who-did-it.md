@@ -1,7 +1,7 @@
 ---
 id: T-0175
 title: Archiving a card leaves no trace of who did it
-status: review
+status: done
 type: task
 priority: low
 area: core
@@ -52,7 +52,9 @@ the file move is itself visible in git.
 
 - 2026-08-05 15:44Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 16:00Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 17:20Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
 - 2026-08-05 16:00Z illodev@local#2cddaf94 — Decided in ADR-0015: archiving is attributed. The deciding argument was not the missing actor but the asymmetry — `transitionCard` writes `unarchived` on the reasoning that the move is the milestone even though the status reads the same on both sides, and going in is the same move. The counter-argument that git records the rename is the one that had to be answered: the trail exists so who-and-when is answerable without reading git across a rename, and archiving is the one event that always renames. `archiveCard` takes `{ actor, expectedRevision, now }` and appends an `archived` milestone; CLI resolves `--actor || defaultActor()` (added to the flag table, which the flag-table test caught), both HTTP routes pass `body.actor ?? resolveActor().actor`, MCP gains `actor: ACTOR` and `actorFor`. The already-archived early return is untouched, so idempotence still writes nothing. Covered inside the existing trail test: `session-b · archived` is the last line after filing, a second archive leaves the count at 1, and the closing assertion is that the two lines are exactly `archived` and `unarchived` with no `done → done` anywhere. Vacuity: forcing `redundant: true` in the built dist fails on 'archiving names who did it'.
+- 2026-08-05 17:20Z illodev@local#2cddaf94 — Runtime evidence: merged to main in PR #22 (fea0cff..bda003c) and verified by the full CI matrix on the merge commit — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql, all green. 328 tests + 7 search-local, strict ratchet held at 494.
