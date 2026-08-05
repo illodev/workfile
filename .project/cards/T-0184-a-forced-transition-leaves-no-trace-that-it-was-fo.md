@@ -1,7 +1,7 @@
 ---
 id: T-0184
 title: A forced transition leaves no trace that it was forced
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -11,6 +11,11 @@ effort: S
 created: 2026-08-05
 updated: 2026-08-05
 scope: [packages/workfile/src/modules/cards]
+verified:
+  at: "2026-08-05T23:49:51.386Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:c14686f1e42f880793d1a4258ca54998409b5f95c5d7d3e6780525af88c7b6a4"
 ---
 
 `transitionCard` appends one milestone per move and its text is
@@ -41,8 +46,10 @@ a forced skip carries the reason the caller already has to supply for
 - 2026-08-05 17:16Z illodev@local#2cddaf94 — Data point from forcing one, on T-0162 (2026-08-05): the trail line reads 'review → done' and says nothing about the force, exactly as this card describes. But the state is not entirely silent — 'doctor' reports done-unchecked as a standing warning naming the criterion, for as long as the card stays done with it unproven. So the gap is narrower than 'no trace': what is missing is the trace at the moment of the decision, in the append-only record a reader reconstructs history from. The doctor answers 'is this true now', which is a different question and disappears the moment somebody ticks the box. Noted from outside the card and without claiming it.
 - 2026-08-05 18:07Z illodev@local#bf4c5f67 — Implemented on feat/t-0184-forced-transitions-leave-a-trace. The gate now returns what force waived instead of returning early, so the trail can name it; requireForceReason demands a reason only when something was actually waived, which keeps card reap working. Two things turned up while wiring the surfaces: releaseCard never destructured the reason project_card_release has advertised as recorded since it was written, and the flat HTTP PATCH shape sent force into the field sanitizer, so CARD_FIELD_NOT_PATCHABLE was the answer to a forced patch. Both fixed here. Evidence: 332 tests pass, including a new door-by-door test and a CLI-level one in actor.test.ts; doctor 0 errors; strict ratchet held. Left in review because CI runs Windows and has not seen it.
 - 2026-08-05 18:47Z illodev@local#bf4c5f67 — CI is green on PR #27 across Windows, macOS and Ubuntu on Node 22 and 24: 336 tests pass, doctor reports 0 errors and 0 warnings. That is the cross-platform evidence the card was held in review for. Its changelog fragment moved to CHG-0133 — this branch and T-0190's both minted CHG-0130 before either merged, which is now filed as T-0199.
+- 2026-08-05 23:49Z illodev@local#bf4c5f67 — local verification: Scratch workspace through dist/bin/workfile.js: forcing a card past an unmet criterion wrote the trail entry 'review -> done (forced past 1 unproven criterion: <reason>)' and verified.method: forced. Refused without a reason (CARD_FORCE_REASON_REQUIRED) and refused when a method was also passed (CARD_VERIFICATION_METHOD_CONFLICT). An unforced move left 'doing -> review' unchanged.
 
 ## Activity
 
 - 2026-08-05 17:50Z illodev@local#bf4c5f67 · claimed
 - 2026-08-05 18:07Z illodev@local#bf4c5f67 · doing → review
+- 2026-08-05 23:49Z illodev@local#bf4c5f67 · review → done

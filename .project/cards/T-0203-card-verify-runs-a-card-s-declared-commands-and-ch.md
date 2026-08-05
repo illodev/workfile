@@ -1,7 +1,7 @@
 ---
 id: T-0203
 title: card verify runs a card's declared commands and checks what they proved
-status: review
+status: done
 type: feature
 priority: high
 area: core
@@ -13,6 +13,11 @@ scope: [packages/workfile/src/modules/cards]
 origin: [ADR-0016]
 created: 2026-08-05
 updated: 2026-08-05
+verified:
+  at: "2026-08-05T23:50:03.791Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:100abe8d2cb3d9937f6e16a602ac5e245a8133ee1104f940e321a402ca9f136c"
 ---
 
 Split out of T-0185, which built the binding: a criterion can name the command
@@ -59,7 +64,9 @@ Decisions to make while implementing, not after:
 ## Notes
 
 - 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end: card verify ran the declared entry and reported 'PASSED proof (0.0s) node -e process.exit(0) — checked #1', then the card read 1 of 2 met. It checked exactly the criterion bound to that entry and left the other alone, which is the guarantee setCardAcceptance's runner argument exists for. Before the run, card ac --check on the same criterion was refused with CARD_ACCEPTANCE_MACHINE_OWNED naming the command that owns it.
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 — local verification: Scratch workspace: card verify ran the declared 'node -e' entry, checked exactly the one criterion bound to it and reported per-entry JSON with the acceptance state. A hand check of that same criterion was refused with CARD_ACCEPTANCE_MACHINE_OWNED naming the entry, and a command outside the allowlist was refused before it ran.
 
 ## Activity
 
 - 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 · review → done

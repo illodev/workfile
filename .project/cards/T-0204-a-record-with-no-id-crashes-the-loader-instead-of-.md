@@ -1,7 +1,7 @@
 ---
 id: T-0204
 title: A record with no id crashes the loader instead of being reported unreadable
-status: review
+status: done
 type: bug
 priority: high
 area: core
@@ -11,6 +11,11 @@ scope: [packages/workfile/src/modules]
 origin: [T-0199]
 created: 2026-08-05
 updated: 2026-08-05
+verified:
+  at: "2026-08-05T23:50:03.950Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:c839a80cfc3211956a5ddf3fd657d5c7cf4d58d0141bee15db0f06f9625aa29f"
 ---
 
 Found while building a corpus for T-0199's missing-id refusal. A changelog
@@ -39,7 +44,9 @@ not.
 ## Notes
 
 - 2026-08-05 23:08Z illodev@local#bf4c5f67 — Finished the quarter the agent could not reach: cards had the same crash and src/modules/cards is another agent's scope, so loadCardDirectory now refuses a card with no id — or an empty one — where the same catch already routes every other malformed card to unreadable. Two tests added covering both shapes, and the whole loader answers instead of dying: doctor returns a report rather than a stack trace. Docs was already fine and is untouched, as the card guessed.
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 — local verification: Scratch workspace carrying a record with no id in all four modules: doctor reported unreadable-card, unreadable-changelog-record and unreadable-memory-record as errors naming each path (docs caught its own earlier, on doc-missing-required), exited without a stack trace, and the rest of every module still loaded.
 
 ## Activity
 
 - 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 · review → done

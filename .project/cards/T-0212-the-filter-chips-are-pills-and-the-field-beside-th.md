@@ -1,7 +1,7 @@
 ---
 id: T-0212
 title: The filter chips are pills and the field beside them is not
-status: review
+status: done
 type: bug
 priority: low
 area: ui
@@ -11,6 +11,11 @@ scope: [packages/workfile/ui/src/components]
 origin: [T-0194]
 created: 2026-08-05
 updated: 2026-08-05
+verified:
+  at: "2026-08-05T23:50:18.838Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:359c3c291c7f311ed13aad940d9907efc5d33893445a1b5f63b943aeb328fcdf"
 ---
 
 Reported by the owner. Measured: the search field computes `border-radius: 8px`
@@ -37,7 +42,9 @@ is the shape that keeps the next control from picking its own.
 ## Notes
 
 - 2026-08-05 23:27Z illodev@local#bf4c5f67 — Fixed. The chips carried an explicit rounded-full next to a field at 8px. Rather than pick a third number, the override is gone: the chips now take the button primitive's own rounded-md, which resolves to --radius-md, which is exactly what the field uses. Measured in explorer, flow, triage and memory: field 8px, chip 8px in all four.
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 — local verification: Built UI, computed styles read with Playwright: border-top-left-radius is 8px on the search field and on every chip beside it, in all nine views that carry a filter bar.
 
 ## Activity
 
 - 2026-08-05 23:27Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 · review → done

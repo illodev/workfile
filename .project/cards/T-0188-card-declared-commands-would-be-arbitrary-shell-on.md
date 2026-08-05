@@ -1,7 +1,7 @@
 ---
 id: T-0188
 title: Card-declared commands would be arbitrary shell on the CI runner
-status: review
+status: done
 type: audit
 priority: high
 area: infra
@@ -12,6 +12,11 @@ created: 2026-08-05
 updated: 2026-08-05
 origin: [ADR-0016]
 related: [LRN-0025]
+verified:
+  at: "2026-08-05T23:50:03.612Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:200eb62af1e8efb79a4f60a1acde6d53ac2d341f6a1b59df014b075f7c192872"
 ---
 
 Blocks the `ci` method. A card is a Markdown file; in a repository that takes
@@ -65,7 +70,9 @@ answer may differ per target.
 
 - 2026-08-05 19:46Z illodev@local#bf4c5f67 — Reframed against LRN-0025: the runner already executes repository-supplied code from a fork's head via loadWorkspace's import() of project.config.mjs, so the allowlist is not the fork boundary and must not be argued as one. Two criteria added — doctor has to check the allowlist on read, because a card from a fork arrives as a file in a diff and never calls createCard; and the matcher has to be stated against a shell-free execution model rather than against a character blacklist.
 - 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end through the real binary against a scratch workspace declaring commands [[node, -e]] and methods {*: [ci, manual], docs: [manual]}. A command outside the allowlist is refused on write with CARD_VERIFY_COMMAND_NOT_ALLOWED naming both what was asked and what is declared. And the criterion that matters: a card written straight into .project/cards, which never calls a mutation, is caught by doctor at severity error — ok: false, errors: 1 — which is what turns a pull request red. The audit is LRN-0028 and it turned up a second channel nobody had recorded: runDoctor builds an integration registry from the same config module and calls each declared healthCheck. Filed as T-0213.
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 — local verification: Scratch workspace declaring commands: [[node, -e]]: patching a verify entry that ran curl was refused with CARD_VERIFY_COMMAND_NOT_ALLOWED naming the declared prefix. The same command written straight into the file made doctor report verify-command-not-allowed at error severity (ok: false, errors: 1), which is the path a card that arrives as a file takes.
 
 ## Activity
 
 - 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 · review → done

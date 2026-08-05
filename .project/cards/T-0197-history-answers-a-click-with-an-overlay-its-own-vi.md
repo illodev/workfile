@@ -1,7 +1,7 @@
 ---
 id: T-0197
 title: History answers a click with an overlay its own view could hold
-status: review
+status: done
 type: bug
 priority: medium
 area: ui
@@ -9,6 +9,11 @@ effort: M
 created: 2026-08-05
 updated: 2026-08-05
 related: [T-0192]
+verified:
+  at: "2026-08-05T23:50:18.503Z"
+  method: local
+  commit: 434317ee8b3ab53824bc319fcf210df6ce36c2ac
+  digest: "sha256:9f2037e6e25c1b859beba31da665ef26c5b85d448da979457e825b824d05350c"
 ---
 
 Clicking a fragment in the history view opens the inspector drawer over it. This
@@ -39,7 +44,9 @@ deliberately rather than drifting into.
 - 2026-08-05 22:40Z illodev@local#bf4c5f67 — Correcting my previous note: this WAS reported. It is item six of the owner's triage list — 'En vista history cuando se pulsa un fragmento salta el drawer de inspector' — filed directly below the docs one that became T-0192. I had concluded from the filing commit's paragraph structure that I derived it myself, which was an inference the record could not support and which was wrong. ADR-0017 therefore decides against what was reported rather than against something I proposed, and that decision is open rather than settled.
 - 2026-08-05 22:45Z illodev@local#bf4c5f67 — Fixed, not decided. I opened the view and it settled itself: history is a two-column layout and always was — fragments left, a right-hand pane showing the derived changelog until a fragment is selected. Clicking one rendered it in the pane AND opened the drawer over that pane with the same fragment in it, so the text appeared twice and the copy underneath was cut off mid-word. ADR-0017 claimed changing this meant giving history a second pane; the second pane already existed. ADR-0018 supersedes it with a rule that can be checked instead of argued: a view owns the drawer when it already renders the selection. One line in VIEW_OWNS_DRAWER, a regression test, and verified in the browser at 1440 and 1280 — drawer box null, zero open overlays, fragment readable full width.
 - 2026-08-05 22:47Z illodev@local#bf4c5f67 — Refiled as a bug. It was reported as one, in a list headed Bugs y mejoras, immediately below the docs report that I did file as a bug and that got fixed the same day. I typed it idea and priority low on my own reading — that a fragment is short, that the behaviour was current with a comment explaining it — and that reclassification is what later licensed an ADR arguing against fixing it. The reporter does not have to defend the label.
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 — local verification: Built UI at 1440x900: clicking a history record sets ?view=history&record=REL-0019 with no sheet content and no open dialog in the DOM, and the fragment list is still on screen beside the reader. Screenshot reviewed.
 
 ## Activity
 
 - 2026-08-05 22:45Z illodev@local#bf4c5f67 · backlog → review
+- 2026-08-05 23:50Z illodev@local#bf4c5f67 · review → done
