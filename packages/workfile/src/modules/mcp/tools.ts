@@ -30,6 +30,7 @@ import {
     CARD_STATUSES,
     CARD_TYPES
 } from "../../config/defaults.js";
+import { REQUESTABLE_VERIFICATION_METHODS } from "../cards/verification.js";
 import { dateBoundary } from "../../core/inputs.js";
 import { runDoctor } from "../health/doctor.js";
 import {
@@ -123,6 +124,29 @@ const ACTOR = text(
 );
 
 const BODY = text("Markdown body, written below the frontmatter.");
+
+/**
+ * How a close was proved, for the three tools that can reach `done`.
+ *
+ * `forced` is absent on purpose: it is derived from what the acceptance gate
+ * waived, never asked for, and a schema offering it would invite a client to
+ * assert a bypass that did not happen. `inputSchema` is built from a closed
+ * object, so a property read but not declared here is unreachable through a
+ * validating client — which is why these three are declared beside the code
+ * that reads them rather than left implicit.
+ */
+const VERIFICATION_METHOD = choice(
+    REQUESTABLE_VERIFICATION_METHODS,
+    "How done was proved, when this call closes the card. local: a command ran on your machine, self-reported. ci: a run anyone can open, and the run URL is required. manual: a person judged something no command expresses, and the evidence in prose is required. Omit for local. Refused when the call does not move the card into done. A project may accept only some of these per area, including for the omitted local; project_workspace reports which under cards.verification.methods."
+);
+
+const VERIFICATION_RUN = text(
+    "URL of the run that proved it. Required by method ci — a witness nobody can open is not a witness."
+);
+
+const VERIFICATION_EVIDENCE = text(
+    "What was checked, in prose. Required by method manual, and written as one line under the card's ## Notes."
+);
 
 const LIMIT_DEFAULT = 50;
 
@@ -393,7 +417,7 @@ const TOOL_DEFINITIONS = [
         name: "project_workspace",
         title: "Read project workspace",
         description:
-            "Return the effective Workfile workspace, schema, enabled modules and mutation mode. Read this first when a vocabulary is project-declared: it reports the areas, axes, document kinds, changelog types and memory collections this project accepts.",
+            "Return the effective Workfile workspace, schema, enabled modules and mutation mode. Read this first when a vocabulary is project-declared: it reports the areas, axes, document kinds, changelog types and memory collections this project accepts, and under cards.verification which verification methods each area accepts at done.",
         inputSchema: schema({}),
         outputSchema: output(
             {
@@ -408,7 +432,7 @@ const TOOL_DEFINITIONS = [
                     type: "object",
                     additionalProperties: true,
                     description:
-                        "Effective vocabularies and paths per module: cards (statuses, types, priorities, efforts, areas, axes), docs, memory, changelog, agents, ci, mcp and search."
+                        "Effective vocabularies and paths per module: cards (statuses, types, priorities, efforts, areas, axes, verification), docs, memory, changelog, agents, ci, mcp and search. cards.verification.methods maps an area — or * for the rest — to the methods it accepts at done; empty means the project accepts any."
                 },
                 readOnly: flag(
                     "Whether this server refuses mutations, from --read-only or mcp.allowMutations."
@@ -541,6 +565,10 @@ const TOOL_DEFINITIONS = [
             checkPaths: flag(
                 "Also verify that paths referenced by records exist on disk. Set false to skip the filesystem walk on a large repository.",
                 { default: true }
+            ),
+            checkGit: flag(
+                "Also verify that the commit each done card was verified at is still an ancestor of HEAD. Runs git only when some card carries one. Set false where spawning a process is not available.",
+                { default: true }
             )
         }),
         outputSchema: output(
@@ -571,6 +599,7 @@ const TOOL_DEFINITIONS = [
         async execute(args, context) {
             return runDoctor(context.workspace, {
                 checkPaths: args.checkPaths !== false,
+                checkGit: args.checkGit !== false,
                 integrationRegistry: context.integrationRegistry
             });
         }
@@ -931,6 +960,9 @@ const TOOL_DEFINITIONS = [
                     default: false
                 }),
                 reason: text("Why another actor's claim is being released. Recorded on the card."),
+                method: VERIFICATION_METHOD,
+                run: VERIFICATION_RUN,
+                evidence: VERIFICATION_EVIDENCE,
                 expectedRevision: EXPECTED_REVISION
             },
             ["id"]
@@ -946,6 +978,9 @@ const TOOL_DEFINITIONS = [
                     status: optionalString(args.status),
                     force: args.force === true,
                     reason: optionalString(args.reason),
+                    method: optionalString(args.method),
+                    run: optionalString(args.run),
+                    evidence: optionalString(args.evidence),
                     expectedRevision: optionalString(args.expectedRevision)
                 }
             );
@@ -1042,6 +1077,9 @@ const TOOL_DEFINITIONS = [
                 scope: strings(
                     "Repository paths to claim when moving to doing. Ignored by the other statuses."
                 ),
+                method: VERIFICATION_METHOD,
+                run: VERIFICATION_RUN,
+                evidence: VERIFICATION_EVIDENCE,
                 expectedRevision: EXPECTED_REVISION
             },
             ["id", "status"]
@@ -1058,6 +1096,9 @@ const TOOL_DEFINITIONS = [
                 {
                     actor: actorFor(context, args.actor),
                     scope: stringList(args.scope, "scope"),
+                    method: optionalString(args.method),
+                    run: optionalString(args.run),
+                    evidence: optionalString(args.evidence),
                     expectedRevision: optionalString(args.expectedRevision)
                 }
             );
@@ -1080,6 +1121,9 @@ const TOOL_DEFINITIONS = [
                     description:
                         "Frontmatter fields to overwrite, e.g. { priority: \"high\", tags: [\"mcp\"] }. Only the keys present are touched. Use project_card_transition for status and project_card_write for the body; declared axes go under an axes key."
                 },
+                method: VERIFICATION_METHOD,
+                run: VERIFICATION_RUN,
+                evidence: VERIFICATION_EVIDENCE,
                 expectedRevision: EXPECTED_REVISION
             },
             ["id", "changes"]
@@ -1096,7 +1140,10 @@ const TOOL_DEFINITIONS = [
                 {
                     expectedRevision: optionalString(args.expectedRevision),
                     actor: actorFor(context, args.actor),
-                    force: args.force === true
+                    force: args.force === true,
+                    method: optionalString(args.method),
+                    run: optionalString(args.run),
+                    evidence: optionalString(args.evidence)
                 }
             );
             invalidate(context);

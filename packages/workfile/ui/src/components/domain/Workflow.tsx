@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { FilterBar } from "../FilterBar";
 import { api } from "../../api";
 import { recordStatusColor } from "../../theme";
 import type { GraphRecord } from "../../types";
@@ -88,7 +89,7 @@ function Toggle({
             aria-pressed={on}
             onClick={onClick}
             className={cn(
-                "rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                "shrink-0 rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap transition-colors",
                 on
                     ? "border-ring bg-accent text-foreground"
                     : "border-border text-muted-foreground hover:bg-accent/50",
@@ -345,8 +346,40 @@ export function WorkflowView({
 
     return (
         <div className="flex h-full min-h-0 flex-col">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-2">
-                <div className="flex flex-wrap items-center gap-1">
+            {/* Thirteen toggles and two separators. They wrapped into three
+                stacked rows on a phone until this view got the strip the rest
+                of the filter bars have had. Fit stays pinned outside it,
+                because recovering a graph you have panned into nowhere should
+                not start with a swipe — and the count goes below `sm`, the
+                same bargain the shell's header makes with the breadcrumb.
+                Pinned, it left the strip 181 of a 390-point viewport; hidden,
+                the strip gets 305. */}
+            <FilterBar
+                gutter="3"
+                className="shrink-0 border-b py-2"
+                after={
+                    <>
+                        <span className="hidden text-[11px] whitespace-nowrap text-muted-foreground sm:inline">
+                            {graph.records.length} nodes · {graph.links.length}{" "}
+                            edges
+                        </span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 px-2"
+                            onClick={() => {
+                                moved.current = false;
+                                fit();
+                            }}
+                        >
+                            <Crosshair aria-hidden="true" className="size-3" />
+                            Fit
+                        </Button>
+                    </>
+                }
+            >
+                <div className="flex shrink-0 items-center gap-1">
                     {KINDS.map((kind) => (
                         <Toggle
                             key={kind.id}
@@ -357,8 +390,11 @@ export function WorkflowView({
                         </Toggle>
                     ))}
                 </div>
-                <span className="h-4 w-px bg-border" aria-hidden="true" />
-                <div className="flex flex-wrap items-center gap-1">
+                <span
+                    className="h-4 w-px shrink-0 bg-border"
+                    aria-hidden="true"
+                />
+                <div className="flex shrink-0 items-center gap-1">
                     {RELATIONS.map((relation) => (
                         <Toggle
                             key={relation.id}
@@ -372,32 +408,17 @@ export function WorkflowView({
                         </Toggle>
                     ))}
                 </div>
-                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                <span
+                    className="h-4 w-px shrink-0 bg-border"
+                    aria-hidden="true"
+                />
                 <Toggle
                     on={hideIsolated}
                     onClick={() => setHideIsolated(!hideIsolated)}
                 >
                     hide isolated
                 </Toggle>
-                <div className="ml-auto flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground">
-                        {graph.records.length} nodes · {graph.links.length} edges
-                    </span>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1 px-2 text-xs"
-                        onClick={() => {
-                            moved.current = false;
-                            fit();
-                        }}
-                    >
-                        <Crosshair aria-hidden="true" className="size-3" />
-                        Fit
-                    </Button>
-                </div>
-            </div>
+            </FilterBar>
             <div className="relative min-h-0 flex-1 overflow-hidden">
                 {!records ? (
                     <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -429,7 +450,7 @@ export function WorkflowView({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2 text-xs"
+                                    className="px-2"
                                     onClick={() => setHideIsolated(false)}
                                 >
                                     Show unconnected records

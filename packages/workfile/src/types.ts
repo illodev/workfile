@@ -52,6 +52,27 @@ export interface ProjectCardsConfig {
      */
     axes: Record<string, string[]>;
     tags: string[];
+    /**
+     * What this project will let a card's `verify` block run, and what it will
+     * accept as proof at `done`.
+     *
+     * `commands` is a list of argument-vector prefixes, empty by default: a
+     * project that declares nothing can run nothing. `methods` maps an area —
+     * or `*`, which answers for every area the map does not name, including
+     * ones added after the policy was written — to the methods it accepts.
+     *
+     * Under `cards` rather than `ci` because `ci.enabled: false` is a legal
+     * config, and a control a module toggle can switch off is a control that
+     * fails open.
+     */
+    verification: ProjectVerificationConfig;
+}
+
+export interface ProjectVerificationConfig {
+    commands: string[][];
+    /** How long one declared command may run before it is cut off. */
+    timeoutSeconds: number;
+    methods: Record<string, VerificationMethod[]>;
 }
 
 export type DocumentLayout = "flat" | "kind";
@@ -198,6 +219,8 @@ export interface EffectiveProjectSchema {
         areas: string[];
         /** Project-declared classification axes, name → vocabulary. */
         axes: Record<string, string[]>;
+        /** What a card may run, and what counts as proof at `done`. */
+        verification: ProjectVerificationConfig;
     };
     docs: {
         kinds: string[];
@@ -304,6 +327,48 @@ export interface CardRecord extends BaseProjectRecord {
     tags?: string[];
     claimed_by?: string;
     claimed_at?: string;
+    /**
+     * Commands that prove this card's criteria, per ADR-0016.
+     *
+     * `run` is an argument vector rather than a shell line, and that is what
+     * makes the project's allowlist mean anything: the array the matcher
+     * compares is the one the operating system receives, with no shell parse in
+     * between, so a prefix match is element-wise equality rather than a
+     * prediction about what a shell would do with the rest of the line.
+     *
+     * `criteria` holds digests of the criterion text each command proves. A
+     * criterion named here is machine-owned and `card ac --check` refuses it.
+     */
+    verify?: CardVerifyEntry[];
+    /** Written by the gate when the card reaches `done`, cleared when it leaves. */
+    verified?: CardVerification;
+}
+
+export interface CardVerifyEntry {
+    id: string;
+    run: string[];
+    criteria?: string[];
+}
+
+/**
+ * How a card was shown to be done.
+ *
+ * The tiers carry more weight than the digest does. `local` ran on the author's
+ * machine and stays self-reported, `ci` has a witness, `manual` is legitimate
+ * for a criterion no command expresses but must be labelled rather than left
+ * indistinguishable from a green test, and `forced` is a gate that was waived.
+ */
+export type VerificationMethod = "local" | "ci" | "manual" | "forced";
+
+export interface CardVerification {
+    at: string;
+    method: VerificationMethod;
+    /** Absent when the workspace is not a git repository. */
+    commit?: string;
+    /** The run that witnessed it — a CI run URL, for `method: ci`. */
+    run?: string;
+    /** Over the criteria region and the `verify` block, and nothing else. */
+    digest?: string;
 }
 
 export interface DocumentRecord extends BaseProjectRecord {
@@ -465,6 +530,12 @@ export interface CardMutationOptions extends RevisionOptions {
     now?: string | Date;
     force?: boolean;
     reason?: string;
+    /** How this close was proved; recorded in `verified` when the card reaches `done`. */
+    method?: VerificationMethod;
+    /** The witness for it — a CI run URL. */
+    run?: string;
+    /** Prose a `manual` close is refused without: what was checked, and how. */
+    evidence?: string;
 }
 
 export interface RecordMutationResult<RecordType extends ProjectRecord> {

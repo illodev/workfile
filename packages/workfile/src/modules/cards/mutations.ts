@@ -10,6 +10,8 @@ import {
     unreadableCriteria
 } from "./acceptance.js";
 import { claimBoardChanged, updateClaimBoard } from "./claims.js";
+import { criteriaDigest, resolveVerification } from "./verification.js";
+import { headCommit } from "./git.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import {
     ConflictError,
@@ -44,7 +46,8 @@ import {
     expandAxes,
     sanitizeCardChanges,
     scopesOverlap,
-    validateCardCandidate
+    validateCardCandidate,
+    verificationRefusal
 } from "./validation.js";
 
 function nowTimestamp(now) {
@@ -148,6 +151,103 @@ function normalizeListValues(values) {
     return normalized;
 }
 
+/**
+ * The `verified` block, written by the one function every door goes through.
+ *
+ * `mutateCard` already knows the card as it is on disk and the card it is about
+ * to become, so it can decide for itself whether this write is a move into
+ * `done` or out of it. That is the whole "one gate, four doors" answer again:
+ * the three status writers contribute what the acceptance gate waived and what
+ * the caller asked for, and nothing else — `claimCard`, `archiveCard`,
+ * `patchCardBody`, `setCardAcceptance`, `appendCardNote`, `bulkPatchCards` and
+ * `healMisplacedTrailEntries` all reach the correct behaviour for free.
+ *
+ * A close on a card that is already `done` writes nothing, which is the same
+ * rule `appendMilestone` follows: a command that moved nothing records nothing.
+ * It also keeps a re-run of `transition ID done` from quietly replacing a `ci`
+ * verification with a `local` one.
+ *
+ * **Ordering is the proof the digest survives the write that creates it.** Every
+ * body write happens first — the trail entry `transformContent` appended, then
+ * the optional evidence note — and only then is the digest taken, from the body
+ * that is about to be on disk. The one write that follows is
+ * `patchFrontmatter`, which copies the body byte for byte and splices its edits
+ * bottom-up against the original line numbers, so it can reach neither the
+ * criteria region nor the `verify` entry. Proven by a test rather than by this
+ * comment: see `test/verification.test.ts`.
+ */
+function applyVerification(content, id, current, candidate, verification) {
+    const closing = candidate.status === "done" && current.status !== "done";
+    const intent = resolveVerification({
+        id,
+        closing,
+        // Read through a callback because the guard that fills it runs after
+        // the door built this object, under the lock, on the card as it is.
+        waived: verification?.waived?.() ?? null,
+        method: verification?.method,
+        run: verification?.run,
+        evidence: verification?.evidence,
+        actor: verification?.actor,
+        commit: verification?.commit ?? null,
+        at: nowTimestamp(verification?.now)
+    });
+    if (!intent) {
+        // The block is state, not history. A card sitting in `review` with
+        // `verified.at` still on it asserts a verification that no longer
+        // holds, and the trail already records that the card was closed once
+        // and by whom.
+        const leaving = current.status === "done" && candidate.status !== "done";
+        return leaving && current.verified
+            ? patchFrontmatter(
+                  content,
+                  { verified: null },
+                  { listKeys: CARD_LIST_KEYS, touchUpdated: false }
+              )
+            : content;
+    }
+    const staged = intent.note ? appendNote(content, intent.note) : content;
+    const parsed = requireFrontmatter(staged, { listKeys: CARD_LIST_KEYS });
+    return patchFrontmatter(
+        staged,
+        {
+            verified: {
+                ...intent.fields,
+                digest: criteriaDigest({
+                    // The same reading `diagnoseCards` takes off a loaded card,
+                    // which is what makes the two comparable at all.
+                    body: parsed.body.trim(),
+                    verify: parsed.metadata.verify
+                })
+            }
+        },
+        { listKeys: CARD_LIST_KEYS, touchUpdated: false }
+    );
+}
+
+/**
+ * HEAD, resolved before the card lock is taken.
+ *
+ * `mutateCard`'s whole body is the lock callback, so probing git from inside it
+ * would hold a card's write lock across a subprocess — and `bulkPatchCards`
+ * would do that once per card, serially, for up to five thousand of them. The
+ * doors know before the lock whether the write they are about to make could
+ * close the card, which is enough to hoist the probe out of it. Over-resolving
+ * for a card that turns out to be closed already costs one process and nothing
+ * else.
+ *
+ * `supplied` is how a caller that has already answered passes it on.
+ * `bulkPatchCards` resolves HEAD once for the whole operation, which is also
+ * the honest reading of what happened: one command closed those cards, at one
+ * commit. It is deliberately not cached any wider than that — a server that
+ * closes two cards ten minutes apart must not write the first one's commit onto
+ * the second.
+ */
+async function commitForClose(workspace, wanted, supplied) {
+    if (supplied !== undefined) return supplied;
+    if (wanted !== "done") return null;
+    return headCommit(workspace.root);
+}
+
 async function mutateCard(
     workspace,
     id,
@@ -158,7 +258,8 @@ async function mutateCard(
         moveToArchived,
         guard,
         snapshot,
-        bodyOnly = false
+        bodyOnly = false,
+        verification
     }: any = {}
 ) {
     ensureWritable(workspace);
@@ -234,6 +335,10 @@ async function mutateCard(
                 listKeys: CARD_LIST_KEYS
             });
             if (transformContent) next = transformContent(next, current, candidate);
+            // Last, because the digest has to be taken from the body that will
+            // be on disk — see `applyVerification`. Still before the write, so
+            // every refusal it raises leaves the file exactly as it was.
+            next = applyVerification(next, id, current, candidate, verification);
             await writeFileAtomic(sourcePath, next);
 
             let archived = current.archived;
@@ -402,8 +507,7 @@ function trailEnabled(workspace) {
  * inferred: a redundant claim rewrites `claimed_at`, so the candidate differs
  * from the current card even though no protocol event occurred.
  */
-// `now` is optional because `releaseCard` alone takes no clock override.
-function appendMilestone(workspace, content, { actor, text, redundant, now = undefined }) {
+function appendMilestone(workspace, content, { actor, text, redundant, now }) {
     if (!trailEnabled(workspace) || redundant) return content;
     return appendActivityLine(content, activityEntry(actor, text, now));
 }
@@ -488,6 +592,61 @@ function assertAcceptanceMet(id, current, status, force) {
             id,
             unreadable: unreadable.map((item) => ({ text: item.text }))
         }
+    );
+}
+
+/**
+ * `done` is proved the way the project says its work is proved.
+ *
+ * The sibling of `assertAcceptanceMet`, answering what that one cannot. A
+ * checked box says somebody asserted the criterion; the method says what stood
+ * behind the assertion, and until a project can state which methods it accepts,
+ * "verified in an environment where it runs" is a convention every new agent
+ * has to be told rather than a rule the protocol holds.
+ *
+ * Two exemptions, and both are the same argument. A project that declares
+ * nothing has no opinion, so this returns `null` for every card — byte for byte
+ * the behaviour of every workspace written before `cards.verification.methods`
+ * existed. And a close that already waived a gate records `forced`, which no
+ * policy can name and none is asked about: `--force` has answered for that
+ * close, on the trail, with a reason.
+ *
+ * What is deliberately *not* an exemption is a caller who names no method. A
+ * bare close resolves to `local`, and `local` is judged like any other —
+ * otherwise `{ core: ["ci"] }` would be escapable by typing less, which is the
+ * opposite of a gate. It is worth stating because the permissive reading was
+ * available and reads as harmless.
+ *
+ * `area` is passed rather than read off `current` because a patch can move a
+ * card and close it in one write. The area the card *lands in* is the one that
+ * answers: it is where the `verified` block will sit and where anyone auditing
+ * the close will look for the rule it was held to.
+ *
+ * Returns what `force` waived, as a phrase for the trail, or `null` on a clean
+ * pass — the same contract the other two gates keep, so all three compose into
+ * one `gates` array and one demanded reason. The phrase names the area rather
+ * than the method because the method is about to be recorded as `forced`
+ * anyway: what the reader of a trail line needs is which rule was set aside.
+ */
+function assertVerificationAccepted(
+    workspace,
+    id,
+    current,
+    area,
+    status,
+    method,
+    force
+) {
+    if (status !== "done" || current.status === "done") return null;
+    const accepted = verificationRefusal(workspace, area, method || "local");
+    if (!accepted) return null;
+    if (force) return `${area}'s verification policy`;
+    throw new ConflictError(
+        "CARD_VERIFICATION_METHOD_REFUSED",
+        `${id} would be verified by ${method || "local"}, and ${area} accepts ` +
+            `${accepted.join(", ")}. Prove it that way, or force the close ` +
+            `with a reason and no method — the record then says forced.`,
+        { id, area, method: method || "local", accepted }
     );
 }
 
@@ -670,7 +829,19 @@ export async function patchCard(
     workspace,
     id,
     changes,
-    { actor, force = false, reason, now, guard, transformContent, ...options }: any = {}
+    {
+        actor,
+        force = false,
+        reason,
+        now,
+        guard,
+        transformContent,
+        method,
+        run,
+        evidence,
+        commit,
+        ...options
+    }: any = {}
 ) {
     const wanted = changes?.status;
     // Filled by the guard, which `mutateCard` runs under the lock before it
@@ -681,8 +852,22 @@ export async function patchCard(
     // saying both would leave the reader guessing which applied to which.
     let forcedMove = "";
     let forcedClaim = "";
+    // The same closure, read by `applyVerification` for the same reason: only
+    // the guard knows what the acceptance gate let through, and it knows it
+    // under the lock.
+    let waived: string | null = null;
+    const head = await commitForClose(workspace, wanted, commit);
     return mutateCard(workspace, id, changes, {
         ...options,
+        verification: {
+            method,
+            run,
+            evidence,
+            actor,
+            now,
+            commit: head,
+            waived: () => waived
+        },
         guard: async (current, cards) => {
             if (guard) await guard(current, cards);
             // Only the fields the other two doors already defend. A patch that
@@ -697,12 +882,30 @@ export async function patchCard(
                 wanted && wanted !== current.status
                     ? assertAcceptanceMet(id, current, wanted, force)
                     : null;
+            // Asked only when nothing has been waived yet. A close that walked
+            // past the acceptance gate is about to record `forced`, and no
+            // policy names `forced` — putting it in front of one would be
+            // asking a second time about a bypass already on the trail.
+            const policy = acceptance
+                ? null
+                : assertVerificationAccepted(
+                      workspace,
+                      id,
+                      current,
+                      // The area the card lands in: this door can move it and
+                      // close it in the same write.
+                      changes?.area || current.area,
+                      wanted,
+                      method,
+                      force
+                  );
+            waived = acceptance || policy;
             const why = requireForceReason(
                 id,
-                [claim, acceptance].filter(Boolean) as string[],
+                [claim, acceptance, policy].filter(Boolean) as string[],
                 reason
             );
-            forcedMove = forcedBy([acceptance], why);
+            forcedMove = forcedBy([acceptance, policy], why);
             forcedClaim = forcedBy([claim], why);
         },
         transformContent: (content, current, candidate) => {
@@ -737,10 +940,29 @@ function claimIsStale(card, leaseHours, now) {
     return now.getTime() - timestamp >= leaseHours * 3_600_000;
 }
 
+/**
+ * `method`, `run` and `evidence` are accepted here only so they can be refused.
+ *
+ * `transitionCard` hands a move to `doing` straight to this function, so a
+ * `card transition ID doing --method ci` that stopped at that signature would
+ * have its flags evaporate with a zero exit code. They are forwarded instead,
+ * and `applyVerification` answers `CARD_VERIFICATION_NOT_APPLICABLE` — claiming
+ * a card is never a close.
+ */
 export async function claimCard(
     workspace,
     id,
-    { actor, scope, force = false, reason, expectedRevision, now }: any = {}
+    {
+        actor,
+        scope,
+        force = false,
+        reason,
+        expectedRevision,
+        now,
+        method,
+        run,
+        evidence
+    }: any = {}
 ) {
     if (!actor || !String(actor).trim()) {
         throw new ValidationError("CARD_CLAIM_ACTOR_REQUIRED", "actor is required.");
@@ -777,6 +999,15 @@ export async function claimCard(
             // The listing is already in hand; `mutateCard` re-reads the whole
             // directory when it is not passed one, which doubled every claim.
             snapshot: loaded,
+            verification: {
+                method,
+                run,
+                evidence,
+                actor,
+                now,
+                commit: null,
+                waived: () => null
+            },
             guard: (current) => {
                 const claimedByOther =
                     current.claimed_by && current.claimed_by !== actor;
@@ -844,9 +1075,25 @@ export async function claimCard(
 export async function releaseCard(
     workspace,
     id,
-    { actor, status, force = false, reason, expectedRevision }: any = {}
+    {
+        actor,
+        status,
+        force = false,
+        reason,
+        expectedRevision,
+        // Alone among the four writers this had no clock override, which was
+        // survivable while the only thing it stamped was a trail line nobody
+        // asserts on. `--status done` writes `verified.at`, so the release door
+        // has to be testable against a pinned clock like the other three.
+        now,
+        method,
+        run,
+        evidence,
+        commit
+    }: any = {}
 ) {
     let forced = "";
+    let waived: string | null = null;
     const loaded = await loadCards(workspace);
     // Existence first, so a missing card reports CARD_NOT_FOUND instead of a
     // complaint about a status it does not have.
@@ -857,6 +1104,7 @@ export async function releaseCard(
             "A released card cannot remain doing."
         );
     }
+    const head = await commitForClose(workspace, status, commit);
     return mutateCard(
         workspace,
         id,
@@ -874,6 +1122,15 @@ export async function releaseCard(
         {
             expectedRevision,
             snapshot: loaded,
+            verification: {
+                method,
+                run,
+                evidence,
+                actor,
+                now,
+                commit: head,
+                waived: () => waived
+            },
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
                     actor: actor || current.claimed_by,
@@ -882,7 +1139,8 @@ export async function releaseCard(
                     // succeeded and the card is exactly as it was.
                     redundant:
                         !current.claimed_by &&
-                        releasedStatus(current, status) === current.status
+                        releasedStatus(current, status) === current.status,
+                    now
                 }),
             guard: (current) => {
                 // `release --status done` is a way to reach done, so it is a
@@ -893,11 +1151,27 @@ export async function releaseCard(
                     status && status !== current.status
                         ? assertAcceptanceMet(id, current, status, force)
                         : null;
+                // See `patchCard`: only asked when the close has not already
+                // been forced past something.
+                const policy = acceptance
+                    ? null
+                    : assertVerificationAccepted(
+                          workspace,
+                          id,
+                          current,
+                          current.area,
+                          status,
+                          method,
+                          force
+                      );
+                waived = acceptance || policy;
                 const claim = assertClaimOwnership(id, current, actor, force);
                 // One line, so both markers share it. `card reap` reaches here
                 // with `force` and no actor, which waives nothing and therefore
                 // owes no reason.
-                const gates = [acceptance, claim].filter(Boolean) as string[];
+                const gates = [acceptance, policy, claim].filter(
+                    Boolean
+                ) as string[];
                 forced = forcedBy(gates, requireForceReason(id, gates, reason));
             }
         }
@@ -908,14 +1182,29 @@ export async function transitionCard(
     workspace,
     id,
     status,
-    { actor, scope, force = false, reason, expectedRevision, now }: any = {}
+    {
+        actor,
+        scope,
+        force = false,
+        reason,
+        expectedRevision,
+        now,
+        method,
+        run,
+        evidence,
+        commit
+    }: any = {}
 ) {
     if (status === "doing") {
         return claimCard(workspace, id, {
             actor,
             scope,
             expectedRevision,
-            now
+            now,
+            // Forwarded so they are refused rather than dropped; see claimCard.
+            method,
+            run,
+            evidence
         });
     }
     const loaded = await loadCards(workspace);
@@ -924,6 +1213,8 @@ export async function transitionCard(
         ? false
         : undefined;
     let forced = "";
+    let waived: string | null = null;
+    const head = await commitForClose(workspace, status, commit);
     return mutateCard(
         workspace,
         id,
@@ -936,6 +1227,15 @@ export async function transitionCard(
             expectedRevision,
             moveToArchived,
             snapshot: loaded,
+            verification: {
+                method,
+                run,
+                evidence,
+                actor,
+                now,
+                commit: head,
+                waived: () => waived
+            },
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
                     actor,
@@ -965,8 +1265,24 @@ export async function transitionCard(
                 // criteria did not anticipate. Documented, and now recorded:
                 // what it waived goes on the same line as the move it allowed.
                 const acceptance = assertAcceptanceMet(id, current, status, force);
+                // See `patchCard`: only asked when the close has not already
+                // been forced past something.
+                const policy = acceptance
+                    ? null
+                    : assertVerificationAccepted(
+                          workspace,
+                          id,
+                          current,
+                          current.area,
+                          status,
+                          method,
+                          force
+                      );
+                waived = acceptance || policy;
                 const claim = assertClaimOwnership(id, current, actor, force);
-                const gates = [acceptance, claim].filter(Boolean) as string[];
+                const gates = [acceptance, policy, claim].filter(
+                    Boolean
+                ) as string[];
                 forced = forcedBy(gates, requireForceReason(id, gates, reason));
             }
         }
@@ -1063,20 +1379,35 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
  * Runs through the same lock and revision check as every other mutation, and
  * that is what makes positional indices safe: a concurrent reorder changes the
  * revision, so a stale address is refused rather than applied to the wrong line.
- */
-/**
- * Checks or unchecks criteria.
  *
  * `runner` is the id of the `verify` entry reporting its own result, and is
  * what makes a bound criterion machine-owned: without it the caller is a human
  * or an agent and a bound index is refused; with it the caller may write the
  * criteria bound to that entry and no others. Only `runCardVerification` passes
  * it, which is the whole of the guarantee.
+ *
+ * A run also leaves a trail line, which a hand-written `card ac` does not. The
+ * asymmetry is the point: when a person checks a box the actor is whoever typed
+ * the command and the diff shows their hand, but a box that changed because a
+ * subprocess exited has no author at all in the record — which is the untraced
+ * state change T-0184 exists to prevent. `outcome` is the phrase the runner
+ * supplies (`pnpm test passed`), because only it knows what the command did;
+ * what moved is added here, because only this knows that. The line lands in the
+ * same write as the change it describes, so no reader can see one without the
+ * other.
  */
 export async function setCardAcceptance(
     workspace,
     id,
-    { check = [], uncheck = [], expectedRevision, runner = null }: any = {}
+    {
+        check = [],
+        uncheck = [],
+        expectedRevision,
+        runner = null,
+        outcome = null,
+        actor = null,
+        now
+    }: any = {}
 ) {
     if (!check.length && !uncheck.length) {
         throw new ValidationError(
@@ -1125,7 +1456,19 @@ export async function setCardAcceptance(
                 throw error;
             }
             changed = applied.changed;
-            return `${content.slice(0, parsed.prefixLength)}${applied.body}`;
+            const written = `${content.slice(0, parsed.prefixLength)}${applied.body}`;
+            return appendMilestone(workspace, written, {
+                actor,
+                text: `verify ${runner}: ${outcome}, ${describeChanges(applied.changed)}`,
+                // A run that found the boxes already saying what it proves has
+                // changed nothing, and the trail records protocol events rather
+                // than command invocations — the same rule a repeated
+                // `transition` follows. `runner` guards the other half: a
+                // hand-written `card ac` has no entry to name and writes no
+                // line, which is what it has always done.
+                redundant: !runner || !applied.changed.length,
+                now
+            });
         }
     });
     return {
@@ -1133,6 +1476,22 @@ export async function setCardAcceptance(
         changed,
         acceptance: parseAcceptance(result.card?.body || "")
     };
+}
+
+/** `checked #1, #3` — what a run moved, for the trail line above. */
+function describeChanges(changed): string {
+    const numbered = (state: boolean) =>
+        changed
+            .filter((item) => item.checked === state)
+            .map((item) => `#${item.index}`);
+    const checked = numbered(true);
+    const unchecked = numbered(false);
+    return [
+        checked.length && `checked ${checked.join(", ")}`,
+        unchecked.length && `unchecked ${unchecked.join(", ")}`
+    ]
+        .filter(Boolean)
+        .join("; ");
 }
 
 /**
@@ -1272,7 +1631,7 @@ export async function bulkPatchCards(
     workspace,
     ids,
     changes,
-    { expectedRevisions = {} }: any = {}
+    { expectedRevisions = {}, method, run, evidence }: any = {}
 ) {
     const unique = [...new Set<string>(ids || [])];
     if (!unique.length) {
@@ -1287,13 +1646,22 @@ export async function bulkPatchCards(
     // One listing for the whole operation, kept current as cards are written so
     // later items validate against the earlier ones.
     const snapshot = await loadCards(workspace);
+    // And one HEAD, resolved before any lock is taken. Per card this would be
+    // five thousand sequential subprocesses; shared it is one, and it is the
+    // truthful reading besides — a single command closed these cards, at a
+    // single commit.
+    const commit = await commitForClose(workspace, changes?.status, undefined);
     const results = [];
     const records = [];
     for (const id of unique) {
         try {
             const result = await patchCard(workspace, id, changes, {
                 expectedRevision: expectedRevisions[id],
-                snapshot
+                snapshot,
+                commit,
+                method,
+                run,
+                evidence
             });
             const index = snapshot.cards.findIndex((card) => card.id === id);
             if (index !== -1) snapshot.cards[index] = result.card;

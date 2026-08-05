@@ -1,11 +1,14 @@
 import {
     AGENT_TARGET_IDS,
+    ARGV_CONTROL_CHARACTER_RE,
     AXIS_NAME_RE,
     CARD_RESERVED_KEYS,
     CI_TARGET_IDS,
     DOC_LAYOUTS,
     MEMORY_DEFINITIONS,
-    SCHEMA_VERSION
+    REQUESTABLE_VERIFICATION_METHODS,
+    SCHEMA_VERSION,
+    VERIFY_TIMEOUT_SECONDS_MAXIMUM
 } from "./defaults.js";
 import { ConfigError } from "../core/errors.js";
 import type { ProjectConfig } from "../types.js";
@@ -109,6 +112,195 @@ function validateCardAxes(issues: ConfigIssue[], axes) {
     }
 }
 
+/**
+ * `cards.verification.commands`: the argv prefixes a card's `verify[].run` may
+ * start with.
+ *
+ * An entry is an argv array, never a shell string, and the matcher that reads
+ * it compares elements. So the shapes refused here are the ones that would make
+ * that comparison mean something other than it says:
+ *
+ *  - an empty array is a prefix of every command, so declaring one would allow
+ *    everything while reading as though it allowed one thing;
+ *  - a control character cannot survive the frontmatter round trip a card's own
+ *    argv has to survive, so an entry holding one could never be matched by a
+ *    command read back off disk;
+ *  - an empty element is dropped by the codec on read, so the declared prefix
+ *    and the stored prefix would differ by one position.
+ *
+ * Nothing else is refused. `;`, `|`, `*` and spaces are ordinary bytes inside
+ * one argument when the command is spawned without a shell, so a blacklist of
+ * them would close no hole and would cost every glob a real test invocation
+ * carries.
+ */
+function validateVerificationCommands(issues: ConfigIssue[], commands) {
+    if (commands === undefined) return;
+    if (!Array.isArray(commands)) {
+        issues.push(
+            issue(
+                "CONFIG_CARDS_VERIFICATION_INVALID",
+                "cards.verification.commands",
+                "cards.verification.commands must be an array of argv arrays"
+            )
+        );
+        return;
+    }
+    commands.forEach((command, index) => {
+        const path = `cards.verification.commands[${index}]`;
+        if (!Array.isArray(command) || command.length === 0) {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_VERIFY_COMMAND_INVALID",
+                    path,
+                    `${path} must be a non-empty array of argv strings; an empty one would be a prefix of every command`
+                )
+            );
+            return;
+        }
+        if (
+            command.some(
+                (part) =>
+                    typeof part !== "string" ||
+                    part === "" ||
+                    ARGV_CONTROL_CHARACTER_RE.test(part)
+            )
+        ) {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_VERIFY_COMMAND_INVALID",
+                    path,
+                    `${path} values must be non-empty strings holding no control characters`
+                )
+            );
+        }
+    });
+    const duplicates = duplicateValues(
+        commands
+            .filter((command) => Array.isArray(command))
+            .map((command) => JSON.stringify(command))
+    );
+    if (duplicates.length) {
+        issues.push(
+            issue(
+                "CONFIG_LIST_VALUE_DUPLICATE",
+                "cards.verification.commands",
+                `Duplicate cards.verification.commands values: ${duplicates.join(", ")}`
+            )
+        );
+    }
+}
+
+/**
+ * `cards.verification.methods`: which methods each area accepts at `done`.
+ *
+ * Shape and vocabulary only. Whether an area named here is one the project
+ * still declares is deliberately *not* checked, and that is the decision worth
+ * recording: a config that refuses to load takes `doctor`, `card list` and the
+ * UI down with it, so making this an error would mean that deleting an area
+ * from `cards.areas` bricks the workspace until somebody finds the second place
+ * that named it. It is `doctor`'s to report — `verification-policy-area-unknown`
+ * — beside the identical case `search.provider` has answered for since it
+ * existed. The rule holds symmetrically for an area added later, which is what
+ * `*` is for.
+ *
+ * An empty list is refused for the same reason an empty axis vocabulary is: it
+ * reads as "unrestricted" and would mean "impossible". Say `*` if what you want
+ * is a rule for everything.
+ */
+function validateVerificationMethods(issues: ConfigIssue[], methods) {
+    if (methods === undefined) return;
+    if (!methods || typeof methods !== "object" || Array.isArray(methods)) {
+        issues.push(
+            issue(
+                "CONFIG_CARDS_VERIFICATION_METHODS_INVALID",
+                "cards.verification.methods",
+                "cards.verification.methods must be an object mapping an area — or `*` — to the methods it accepts"
+            )
+        );
+        return;
+    }
+    for (const [area, accepted] of Object.entries(methods)) {
+        const path = `cards.verification.methods.${area}`;
+        if (!Array.isArray(accepted)) {
+            issues.push(
+                issue("CONFIG_LIST_INVALID", path, `${path} must be an array`)
+            );
+            continue;
+        }
+        validateStringList(issues, accepted, path);
+        const unknown = accepted.filter(
+            (method) =>
+                typeof method === "string" &&
+                !REQUESTABLE_VERIFICATION_METHODS.includes(method as never)
+        );
+        if (unknown.length) {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_VERIFICATION_METHOD_INVALID",
+                    path,
+                    `${path} names ${unknown.join(", ")}. Accepted: ` +
+                        `${REQUESTABLE_VERIFICATION_METHODS.join(", ")}.` +
+                        (unknown.includes("forced")
+                            ? " `forced` is not declarable: it is what the record says when force walked a gate past something, so a policy naming it would accept being forced as proof."
+                            : "")
+                )
+            );
+        }
+    }
+}
+
+/**
+ * `cards.verification.timeoutSeconds`: how long one declared command may run.
+ *
+ * Bounded on both sides, and both bounds say the same thing: a command that
+ * runs unattended has to end. Zero, a negative and a fraction of a second are
+ * refused because they would fire before any real command could exit, so every
+ * entry would report `timed-out` and the project would read the gate as broken
+ * rather than as configured; anything past the ceiling is `Infinity` written in
+ * digits, which is the state the default exists to prevent.
+ */
+function validateVerificationTimeout(issues: ConfigIssue[], seconds) {
+    if (seconds === undefined) return;
+    const path = "cards.verification.timeoutSeconds";
+    if (
+        typeof seconds !== "number" ||
+        !Number.isInteger(seconds) ||
+        seconds < 1 ||
+        seconds > VERIFY_TIMEOUT_SECONDS_MAXIMUM
+    ) {
+        issues.push(
+            issue(
+                "CONFIG_CARDS_VERIFY_TIMEOUT_INVALID",
+                path,
+                `${path} must be a whole number of seconds between 1 and ` +
+                    `${VERIFY_TIMEOUT_SECONDS_MAXIMUM}; got ${JSON.stringify(seconds)}`
+            )
+        );
+    }
+}
+
+/** Every half of `cards.verification`, which is one key holding three policies. */
+function validateCardVerification(issues: ConfigIssue[], verification) {
+    if (verification === undefined) return;
+    if (
+        !verification ||
+        typeof verification !== "object" ||
+        Array.isArray(verification)
+    ) {
+        issues.push(
+            issue(
+                "CONFIG_CARDS_VERIFICATION_INVALID",
+                "cards.verification",
+                "cards.verification must be an object holding `commands`, `methods`, `timeoutSeconds`, or any of them"
+            )
+        );
+        return;
+    }
+    validateVerificationCommands(issues, verification.commands);
+    validateVerificationTimeout(issues, verification.timeoutSeconds);
+    validateVerificationMethods(issues, verification.methods);
+}
+
 function validatePrefix(issues: ConfigIssue[], value, path, code) {
     if (!/^[A-Z][A-Z0-9]{0,7}$/.test(String(value || ""))) {
         issues.push(
@@ -177,6 +369,7 @@ export function validateProjectConfig(config: any) {
             }
         }
         validateCardAxes(issues, config.cards.axes);
+        validateCardVerification(issues, config.cards.verification);
         validatePrefix(
             issues,
             config.cards.idPrefix,

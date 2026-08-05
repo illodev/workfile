@@ -72,11 +72,102 @@ export const CARD_RESERVED_KEYS = Object.freeze([
     "title",
     "type",
     "updated",
+    "verified",
     "verify"
 ] as const);
 
 /** What an axis name may look like: a plain, greppable frontmatter key. */
 export const AXIS_NAME_RE = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * The only bytes an argv element may not hold, on either side of the command
+ * allowlist.
+ *
+ * This is a round-trip rule, not a shell-safety one. A command is spawned as an
+ * argument vector with no shell, so `;`, `|`, `*` and spaces are inert bytes
+ * inside one argument and are refused nowhere. Control characters are different
+ * in kind: frontmatter is line-oriented, so a newline inside an element would
+ * split the record on the next write and read back as something the author
+ * never wrote, and a NUL truncates in every consumer that hands the vector to
+ * the operating system. An element that cannot survive being written and read
+ * again cannot be matched against a declared prefix either, which is the whole
+ * mechanism.
+ *
+ * It lives here rather than beside the card module because config validation
+ * runs before any module loads, the same reason `AXIS_NAME_RE` does.
+ */
+// eslint-disable-next-line no-control-regex
+export const ARGV_CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f]/;
+
+/**
+ * How long a card-declared command may run before `card verify` gives up on it.
+ *
+ * There has to be a number. A command that never exits otherwise holds the
+ * command that spawned it forever, and the caller most likely to meet that is
+ * an unattended CI job, which has no keyboard to interrupt it with.
+ *
+ * Ten minutes because the commands worth declaring are test suites, and a test
+ * suite that legitimately takes longer than ten minutes is a project fact
+ * rather than a default — which is what `cards.verification.timeoutSeconds` is
+ * for. Erring long is deliberate: a timeout that fires on a slow-but-working
+ * suite reports a failure that is not one, and a false red is how a gate stops
+ * being read.
+ */
+export const VERIFY_TIMEOUT_SECONDS_DEFAULT = 600;
+
+/**
+ * The longest timeout a project may declare.
+ *
+ * Twelve hours is past every honest test suite and short of "never", which is
+ * the value this bound exists to keep out of the config: a workspace that
+ * declares no timeout at all is the state the default above exists to prevent,
+ * and `timeoutSeconds: 0` must not be a way back to it.
+ */
+export const VERIFY_TIMEOUT_SECONDS_MAXIMUM = 12 * 60 * 60;
+
+/**
+ * Every method a `verified` block may record.
+ *
+ * Here rather than beside the code that writes one, for the reason above:
+ * `cards.verification.methods` is a project's policy over this vocabulary, and
+ * config validation has to be able to refuse `["cy"]` before any module loads.
+ * `modules/cards/verification.ts` re-exports both lists, so the module that
+ * owns the meaning still owns the name every caller reaches for.
+ */
+export const VERIFICATION_METHODS = Object.freeze([
+    "local",
+    "ci",
+    "manual",
+    "forced"
+] as const);
+
+/**
+ * The methods a caller may ask for and a project may declare, which is the
+ * vocabulary above minus `forced`.
+ *
+ * `forced` is derived from what the acceptance gate waived and is never an
+ * input. Accepting it would create two places to disagree about whether a close
+ * was forced — the frontmatter and the trail line T-0184 already writes — and
+ * the record would have no way to say which one was right. A project cannot
+ * declare it either, for a stronger reason: a policy naming `forced` would be
+ * saying that walking past a gate is an accepted way to prove work.
+ */
+export const REQUESTABLE_VERIFICATION_METHODS = Object.freeze([
+    "local",
+    "ci",
+    "manual"
+] as const);
+
+/**
+ * The key in `cards.verification.methods` that answers for every area the map
+ * does not name.
+ *
+ * Without it a project with eight areas states the same rule eight times, and —
+ * worse — the ninth area somebody adds next month escapes the policy in
+ * silence. `*` rather than a word, because an area may legally be called
+ * `default`.
+ */
+export const VERIFICATION_POLICY_DEFAULT_AREA = "*";
 
 export const DOC_KINDS = Object.freeze([
     "architecture",
@@ -188,6 +279,30 @@ export const DEFAULT_CONFIG = Object.freeze({
         // in the schema — see ADR-0008. `{ context: ["treasury", "billing"] }`
         // makes `context:` a validated frontmatter key on every card.
         axes: {},
+        // What a card's `verify[].run` is allowed to be, as argv prefixes:
+        // `[["pnpm", "test"]]` permits `pnpm test` and anything that starts
+        // with it. Empty, so a project that declares nothing can run nothing —
+        // an allowlist that defaulted to something would be a policy nobody
+        // chose. Under `cards` rather than `ci` because it bounds what a card
+        // may say, which is true whether or not the `ci` module is enabled;
+        // `ci.enabled: false` is a legal config and a control a module toggle
+        // can switch off is a fail-open.
+        verification: {
+            commands: [],
+            // How long one of those commands may run before `card verify`
+            // stops waiting and reports it as timed out. See the constant for
+            // why it is ten minutes and why it is declarable.
+            timeoutSeconds: VERIFY_TIMEOUT_SECONDS_DEFAULT,
+            // Which verification methods each area accepts at `done`, as
+            // `{ core: ["ci"], "*": ["ci", "manual"] }`. Empty, and empty is
+            // load-bearing: a project that declares nothing accepts every
+            // method, which is what every workspace written before this key
+            // existed already did. The default cannot be the whole vocabulary
+            // instead, because "declares nothing" and "declares all three"
+            // would then be indistinguishable and neither could be reported as
+            // "this project has no opinion".
+            methods: {}
+        },
         tags: []
     },
     docs: {

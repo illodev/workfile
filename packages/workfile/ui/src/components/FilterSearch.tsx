@@ -6,7 +6,6 @@ import {
     InputGroupButton,
     InputGroupInput
 } from "@/components/ui/input-group";
-import { cn } from "@/lib/utils";
 
 /** Which corpus a field searches — see `PLACEHOLDER`. */
 export type FilterSearchScope = "cards" | "records";
@@ -54,12 +53,15 @@ export function FilterSearch({
     onChange: (value: string) => void;
 }) {
     return (
-        <InputGroup className={cn("h-8", className)}>
+        // The same rung the chips beside it take. It used to be one rung
+        // taller, which is a 4px step in the middle of a row of controls that
+        // are all one filter — and a row that steps reads as two rows.
+        <InputGroup size="sm" className={className}>
             <InputGroupAddon>
                 <Search aria-hidden="true" />
             </InputGroupAddon>
             <InputGroupInput
-                className="h-8 [&::-webkit-search-cancel-button]:appearance-none"
+                className="[&::-webkit-search-cancel-button]:appearance-none"
                 type="search"
                 value={value}
                 aria-label={label}

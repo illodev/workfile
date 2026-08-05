@@ -1,7 +1,7 @@
 ---
 id: T-0188
 title: Card-declared commands would be arbitrary shell on the CI runner
-status: backlog
+status: review
 type: audit
 priority: high
 area: infra
@@ -54,13 +54,18 @@ answer may differ per target.
 
 ## Acceptance criteria
 
-- [ ] `verify[].run` is refused on write unless it matches a prefix the project declares.
-- [ ] The allowlist is empty by default: a project that declares nothing can run nothing.
-- [ ] `doctor` reports a card carrying a command the project does not permit, so a card that arrived as a file rather than through the protocol is caught too.
-- [ ] The matcher is stated against a shell-free execution model, and rejects what that model cannot make safe.
-- [ ] The three generated CI targets are each reviewed for what a card-declared command can reach, and the finding is recorded.
-- [ ] A card carrying a disallowed command is refused with a named error, proven by a test.
+- [x] `verify[].run` is refused on write unless it matches a prefix the project declares.
+- [x] The allowlist is empty by default: a project that declares nothing can run nothing.
+- [x] `doctor` reports a card carrying a command the project does not permit, so a card that arrived as a file rather than through the protocol is caught too.
+- [x] The matcher is stated against a shell-free execution model, and rejects what that model cannot make safe.
+- [x] The three generated CI targets are each reviewed for what a card-declared command can reach, and the finding is recorded.
+- [x] A card carrying a disallowed command is refused with a named error, proven by a test.
 
 ## Notes
 
 - 2026-08-05 19:46Z illodev@local#bf4c5f67 — Reframed against LRN-0025: the runner already executes repository-supplied code from a fork's head via loadWorkspace's import() of project.config.mjs, so the allowlist is not the fork boundary and must not be argued as one. Two criteria added — doctor has to check the allowlist on read, because a card from a fork arrives as a file in a diff and never calls createCard; and the matcher has to be stated against a shell-free execution model rather than against a character blacklist.
+- 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end through the real binary against a scratch workspace declaring commands [[node, -e]] and methods {*: [ci, manual], docs: [manual]}. A command outside the allowlist is refused on write with CARD_VERIFY_COMMAND_NOT_ALLOWED naming both what was asked and what is declared. And the criterion that matters: a card written straight into .project/cards, which never calls a mutation, is caught by doctor at severity error — ok: false, errors: 1 — which is what turns a pull request red. The audit is LRN-0028 and it turned up a second channel nobody had recorded: runDoctor builds an integration registry from the same config module and calls each declared healthCheck. Filed as T-0213.
+
+## Activity
+
+- 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review

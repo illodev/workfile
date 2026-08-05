@@ -1,7 +1,7 @@
 ---
 id: T-0203
 title: card verify runs a card's declared commands and checks what they proved
-status: backlog
+status: review
 type: feature
 priority: high
 area: core
@@ -50,8 +50,16 @@ Decisions to make while implementing, not after:
 
 ## Acceptance criteria
 
-- [ ] `card verify ID` runs the declared commands and reports pass or fail per entry, with `--json`.
-- [ ] A passing entry checks exactly the criteria bound to it, and no others, proven by a test.
-- [ ] A command the project's allowlist does not permit is refused before it runs.
-- [ ] A run that changes a criterion's state leaves a trail entry naming the entry that changed it.
-- [ ] The behaviour is documented in the CLI reference, including what it does not do.
+- [x] `card verify ID` runs the declared commands and reports pass or fail per entry, with `--json`.
+- [x] A passing entry checks exactly the criteria bound to it, and no others, proven by a test.
+- [x] A command the project's allowlist does not permit is refused before it runs.
+- [x] A run that changes a criterion's state leaves a trail entry naming the entry that changed it.
+- [x] The behaviour is documented in the CLI reference, including what it does not do.
+
+## Notes
+
+- 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end: card verify ran the declared entry and reported 'PASSED proof (0.0s) node -e process.exit(0) — checked #1', then the card read 1 of 2 met. It checked exactly the criterion bound to that entry and left the other alone, which is the guarantee setCardAcceptance's runner argument exists for. Before the run, card ac --check on the same criterion was refused with CARD_ACCEPTANCE_MACHINE_OWNED naming the command that owns it.
+
+## Activity
+
+- 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review

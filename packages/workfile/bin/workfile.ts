@@ -78,6 +78,7 @@ import {
     acceptanceSummary,
     parseAcceptance,
     resolveActor,
+    runCardVerification,
     setCardAcceptance,
     unreadableCriteria,
     ValidationError,
@@ -146,11 +147,14 @@ const USAGE: Record<string, string[]> = {
         "workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]",
         "workfile card release ID [--actor ACTOR] [--status next] [--force --reason TEXT]",
         "workfile card transition ID STATUS [--actor ACTOR] [--force --reason TEXT]",
+        "workfile card transition ID done [--method local|ci|manual] [--run URL] [--evidence TEXT]",
+        "workfile card release ID --status done [--method ci --run URL]   # same on `card patch`",
         "workfile card archive ID",
         "workfile card reopen ID [--status backlog] [--actor ACTOR]",
         "workfile card reap [--dry-run] [--older-than HOURS] [--json]",
         "workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]",
         "workfile card ac ID [--check N] [--uncheck N]   # repeatable; no flags lists them",
+        "workfile card verify ID [--only ENTRY,ENTRY] [--actor ACTOR]   # run the card's declared commands",
         "workfile card write ID [--body-file FILE]   # or pipe the body on stdin",
         "workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]",
         "workfile card renumber --duplicates [--actor ACTOR]   # heal after a merge"
@@ -362,19 +366,25 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "card patch": [
         "--actor",
         "--axis",
+        "--evidence",
         "--expected-revision",
         "--force",
         "--json-input",
-        "--reason"
+        "--method",
+        "--reason",
+        "--run"
     ],
     "card reap": [
         "--older-than"
     ],
     "card release": [
         "--actor",
+        "--evidence",
         "--expected-revision",
         "--force",
+        "--method",
         "--reason",
+        "--run",
         "--status"
     ],
     "card renumber": [
@@ -390,10 +400,17 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "card show": [],
     "card transition": [
         "--actor",
+        "--evidence",
         "--expected-revision",
         "--force",
+        "--method",
         "--reason",
+        "--run",
         "--scope"
+    ],
+    "card verify": [
+        "--actor",
+        "--only"
     ],
     "card write": [
         "--body-file",
@@ -915,7 +932,10 @@ function subcommand() {
  * show` looked the record `undefined` up and reported it as not found. A
  * caller who forgot the argument was told the argument does not exist.
  */
-function requireId(word, action, id) {
+// Annotated because callers pass the result on: a subcommand that has just
+// established it has an ID should not hand the next function a `string |
+// undefined` that the guard already ruled out.
+function requireId(word, action, id): string {
     if (id) return id;
     throw new ValidationError(
         "CLI_ARGUMENT_REQUIRED",
@@ -1269,6 +1289,40 @@ async function initCommand(root) {
     }
 }
 
+/**
+ * One line of `card verify`, in the shape a reader scans down a column.
+ *
+ * The verdict first because it is what the eye is looking for, then what the
+ * command did, then what the card now says. That last clause is where the care
+ * goes: there are three different reasons an entry writes nothing, and a line
+ * that said "wrote nothing" for all of them would leave the reader unable to
+ * tell a report that agrees with the card from one that could not decide.
+ */
+function describeVerifyEntry(entry) {
+    const wrote = [
+        entry.checked.length && `checked ${entry.checked.map((n) => `#${n}`).join(", ")}`,
+        entry.unchecked.length &&
+            `unchecked ${entry.unchecked.map((n) => `#${n}`).join(", ")}`,
+        entry.writeError && `write refused: ${entry.writeError.code}`
+    ].filter(Boolean);
+    const quiet = !entry.criteria.length
+        ? "binds no criteria"
+        : entry.outcome === "passed" || entry.outcome === "failed"
+          ? "criteria already agree"
+          : "no verdict, so nothing written";
+    const why =
+        entry.outcome === "failed"
+            ? `exit ${entry.code ?? "none"}`
+            : entry.reason || null;
+    return [
+        entry.outcome.toUpperCase().padEnd(9),
+        entry.id,
+        `(${(entry.durationMs / 1000).toFixed(1)}s${why ? `, ${why}` : ""})`,
+        entry.run.join(" "),
+        `— ${wrote.length ? wrote.join("; ") : quiet}`
+    ].join(" ");
+}
+
 async function cardCommand(workspace, action) {
     const id = positional(4);
     if (action === "list") {
@@ -1448,6 +1502,45 @@ async function cardCommand(workspace, action) {
         }
         return;
     }
+    if (action === "verify") {
+        const report = await runCardVerification(
+            workspace,
+            requireId("card", action, id),
+            {
+                only: listOption("--only") || null,
+                actor: option("--actor") || defaultActor()
+            }
+        );
+        // Non-zero on anything that did not pass, including a run whose
+        // commands were green and whose write was refused: the caller asked for
+        // the card to record what they proved, and it does not.
+        process.exitCode = report.ok ? 0 : 1;
+        if (has("--json")) return print(report);
+        const passed = report.entries.filter((entry) => entry.outcome === "passed");
+        console.log(
+            `${id} — ${passed.length} of ${report.entries.length} ` +
+                `${report.entries.length === 1 ? "entry" : "entries"} passed`
+        );
+        for (const entry of report.entries) {
+            console.log(`  ${describeVerifyEntry(entry)}`);
+        }
+        // The output of anything that did not pass, because the next thing the
+        // reader does is go looking for it, and a report that made them re-run
+        // the command by hand to see why would be a report worth less than the
+        // command.
+        for (const entry of report.entries) {
+            if (entry.outcome === "passed") continue;
+            const lines = `${entry.stdout}${entry.stderr}`.split("\n").filter(Boolean);
+            if (!lines.length) continue;
+            const shown = Math.min(lines.length, 20);
+            console.log(
+                `\n${entry.id} — last ${shown} ${shown === 1 ? "line" : "lines"}:`
+            );
+            for (const line of lines.slice(-20)) console.log(`    ${line}`);
+        }
+        console.log(`${id} — ${acceptanceSummary(report.acceptance)} met`);
+        return;
+    }
     if (action === "note") {
         const result = await appendCardNote(workspace, id, {
             text: option("--text"),
@@ -1532,7 +1625,14 @@ async function cardCommand(workspace, action) {
             expectedRevision: option("--expected-revision") || undefined,
             actor: option("--actor") || defaultActor(),
             force: has("--force"),
-            reason: option("--reason")
+            reason: option("--reason"),
+            // Read on every status-bearing door, not only on `transition`:
+            // `card patch ID --json-input -` with `{"status":"done"}` is a
+            // close, and a close that could not say how it was proved would
+            // send an agent back to the door that can.
+            method: option("--method"),
+            run: option("--run"),
+            evidence: option("--evidence")
         });
         return print(has("--json") ? result.card : `${id} updated`);
     }
@@ -1561,6 +1661,9 @@ async function cardCommand(workspace, action) {
             status: option("--status"),
             force: has("--force"),
             reason: option("--reason"),
+            method: option("--method"),
+            run: option("--run"),
+            evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} released to ${result.card.status}`);
@@ -1584,6 +1687,13 @@ async function cardCommand(workspace, action) {
             // Demanded only when `--force` waives a gate, so the flag stays
             // usable on the calls that trip nothing.
             reason: option("--reason"),
+            // How `done` was proved. Absent, a close is `local` — the
+            // self-reported tier, which is exactly what a bare `transition ID
+            // done` has always been asserting. Supplied on a move that is not a
+            // close, it is refused rather than dropped.
+            method: option("--method"),
+            run: option("--run"),
+            evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);

@@ -74,6 +74,11 @@ export async function runDoctor(workspace, options: any = {}) {
                 workspace,
                 now: options.now || new Date(),
                 checkPaths: options.checkPaths !== false,
+                // Whether ancestry may be answered by spawning git. Nothing
+                // runs unless a live done card carries a commit, so the flag is
+                // for the caller who wants the guarantee rather than the
+                // saving — a sandbox with no process spawning, say.
+                checkGit: options.checkGit !== false,
                 // Built here because this is the only layer that holds every
                 // kind at once: `origin` resolves against decisions and
                 // learnings as readily as against cards.
@@ -128,6 +133,31 @@ export async function runDoctor(workspace, options: any = {}) {
                     .list()
                     .map((integration) => integration.id)
             }
+        });
+    }
+    // A verification policy naming an area the project no longer declares.
+    //
+    // Here rather than in config validation, and that is the decision: a
+    // rejected config takes `doctor`, `card list` and the UI down with it, so
+    // making this an error would mean that deleting an area from `cards.areas`
+    // bricks the workspace until somebody finds the second place that named it.
+    // The finding is real either way — the policy silently applies to nothing —
+    // but it belongs on a list you work through, beside `search-provider-
+    // unresolved`, which answers the same shape of question about the same kind
+    // of dangling name.
+    const declaredAreas = new Set(workspace.config.cards.areas || []);
+    const orphanedPolicy = Object.keys(
+        workspace.config.cards.verification?.methods || {}
+    ).filter((area) => area !== "*" && !declaredAreas.has(area));
+    if (workspace.config.cards.enabled && orphanedPolicy.length) {
+        issues.push({
+            severity: "warning",
+            code: "verification-policy-area-unknown",
+            message:
+                `cards.verification.methods names ${orphanedPolicy.join(", ")}, ` +
+                `which cards.areas does not declare, so the policy applies to no ` +
+                `card. Declared areas: ${[...declaredAreas].join(", ")}.`,
+            details: { areas: orphanedPolicy, declared: [...declaredAreas] }
         });
     }
     for (const duplicate of duplicates) {

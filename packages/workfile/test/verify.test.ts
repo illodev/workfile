@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 
 import { createTestWorkspace } from "./support/workspace.ts";
@@ -15,11 +17,40 @@ import {
     createCard,
     diagnoseCards,
     loadCards,
+    loadWorkspace,
     patchCardBody,
     patchCard,
     setCardAcceptance,
     transitionCard
 } from "../dist/src/index.js";
+
+/**
+ * The golden fixture plus a declared command allowlist.
+ *
+ * The fixture declares none, which is the default and is what
+ * `verify-allowlist.test.ts` exercises. Every test here is about the binding
+ * rather than the allowlist, so each one has to say which commands its cards
+ * are allowed to name — that is the whole content of "empty by default".
+ */
+async function workspaceAllowing(commands: string[][]) {
+    const { root, cleanup } = await createTestWorkspace();
+    await writeFile(
+        join(root, "project.config.mjs"),
+        `export default ${JSON.stringify(
+            {
+                schemaVersion: 2,
+                name: "Golden workspace",
+                cards: {
+                    areas: ["api", "web", "infra", "docs"],
+                    verification: { commands }
+                }
+            },
+            null,
+            4
+        )};\n`
+    );
+    return { root, cleanup, workspace: await loadWorkspace({ root }) };
+}
 
 const BODY = [
     "## Acceptance criteria",
@@ -63,7 +94,7 @@ test("a binding survives a reorder and breaks on an edit", () => {
     const verify = [
         {
             id: "gate-test",
-            run: "pnpm test acceptance",
+            run: ["pnpm", "test", "acceptance"],
             criteria: [criterionDigest("A forced move names the gate it walked past.")]
         }
     ];
@@ -99,7 +130,7 @@ test("a bound criterion refuses a hand-written check", () => {
     const owners = criterionOwners(parseAcceptance(BODY), [
         {
             id: "gate-test",
-            run: "pnpm test acceptance",
+            run: ["pnpm", "test", "acceptance"],
             criteria: [criterionDigest("The gate refuses done while a criterion is unproven.")]
         }
     ]);
@@ -123,12 +154,12 @@ test("a run may check the criteria it proves and no others", () => {
     const owners = criterionOwners(parseAcceptance(BODY), [
         {
             id: "gate-test",
-            run: "pnpm test acceptance",
+            run: ["pnpm", "test", "acceptance"],
             criteria: [criterionDigest("The gate refuses done while a criterion is unproven.")]
         },
         {
             id: "docs",
-            run: "pnpm test documentation",
+            run: ["pnpm", "test", "documentation"],
             criteria: [criterionDigest("The docs say what the flag does.")]
         }
     ]);
@@ -159,7 +190,7 @@ test("a run may check the criteria it proves and no others", () => {
 });
 
 test("a verify block is refused at write time when the runner could not act on it", async () => {
-    const { workspace, cleanup } = await createTestWorkspace();
+    const { workspace, cleanup } = await workspaceAllowing([["pnpm", "test"], ["x"], ["y"]]);
     try {
         const body = [
             "## Acceptance criteria",
@@ -173,7 +204,7 @@ test("a verify block is refused at write time when the runner could not act on i
             type: "task",
             area: "api",
             body,
-            verify: [{ id: "gate", run: "pnpm test acceptance", criteria: [good] }]
+            verify: [{ id: "gate", run: ["pnpm", "test", "acceptance"], criteria: [good] }]
         });
 
         // The block survives a round trip through the file, which is the whole
@@ -181,18 +212,34 @@ test("a verify block is refused at write time when the runner could not act on i
         const { cards } = await loadCards(workspace);
         const saved = cards.find((card: any) => card.id === created.id);
         assert.deepEqual(saved.verify, [
-            { id: "gate", run: "pnpm test acceptance", criteria: [good] }
+            { id: "gate", run: ["pnpm", "test", "acceptance"], criteria: [good] }
         ]);
 
         const refusals: Array<[string, unknown]> = [
-            ["CARD_VERIFY_KEY_UNKNOWN", [{ id: "gate", run: "x", stage: "unit" }]],
-            ["CARD_VERIFY_ID_INVALID", [{ id: "Gate Test", run: "x" }]],
-            ["CARD_VERIFY_ID_DUPLICATE", [{ id: "gate", run: "x" }, { id: "gate", run: "y" }]],
-            ["CARD_VERIFY_RUN_REQUIRED", [{ id: "gate", run: "   " }]],
-            ["CARD_VERIFY_DIGEST_INVALID", [{ id: "gate", run: "x", criteria: ["sha256:nope"] }]],
+            ["CARD_VERIFY_KEY_UNKNOWN", [{ id: "gate", run: ["x"], stage: "unit" }]],
+            ["CARD_VERIFY_ID_INVALID", [{ id: "Gate Test", run: ["x"] }]],
+            [
+                "CARD_VERIFY_ID_DUPLICATE",
+                [{ id: "gate", run: ["x"] }, { id: "gate", run: ["y"] }]
+            ],
+            ["CARD_VERIFY_RUN_REQUIRED", [{ id: "gate", run: [] }]],
+            // A shell string is the shape ADR-0016 drew and the one the runner
+            // cannot take: nothing here parses it, so it is refused rather than
+            // guessed at.
+            ["CARD_VERIFY_RUN_INVALID", [{ id: "gate", run: "pnpm test" }]],
+            [
+                "CARD_VERIFY_DIGEST_INVALID",
+                [{ id: "gate", run: ["x"], criteria: ["sha256:nope"] }]
+            ],
             [
                 "CARD_VERIFY_CRITERION_UNKNOWN",
-                [{ id: "gate", run: "x", criteria: [criterionDigest("Something nobody wrote.")] }]
+                [
+                    {
+                        id: "gate",
+                        run: ["x"],
+                        criteria: [criterionDigest("Something nobody wrote.")]
+                    }
+                ]
             ]
         ];
         for (const [code, verify] of refusals) {
@@ -211,7 +258,7 @@ test("a verify block is refused at write time when the runner could not act on i
 });
 
 test("card ac refuses a criterion a command owns", async () => {
-    const { workspace, cleanup } = await createTestWorkspace();
+    const { workspace, cleanup } = await workspaceAllowing([["pnpm", "test"]]);
     try {
         const body = [
             "## Acceptance criteria",
@@ -228,7 +275,7 @@ test("card ac refuses a criterion a command owns", async () => {
             verify: [
                 {
                     id: "gate",
-                    run: "pnpm test acceptance",
+                    run: ["pnpm", "test", "acceptance"],
                     criteria: [
                         criterionDigest("The gate refuses done while a criterion is unproven.")
                     ]
@@ -267,7 +314,7 @@ test("card ac refuses a criterion a command owns", async () => {
 });
 
 test("doctor reports a binding whose criterion was reworded", async () => {
-    const { workspace, cleanup } = await createTestWorkspace();
+    const { workspace, cleanup } = await workspaceAllowing([["pnpm", "test"]]);
     try {
         const criterion = "The gate refuses done while a criterion is unproven.";
         const created = await createCard(workspace, {
@@ -276,7 +323,7 @@ test("doctor reports a binding whose criterion was reworded", async () => {
             area: "api",
             body: ["## Acceptance criteria", "", `- [ ] ${criterion}`, ""].join("\n"),
             verify: [
-                { id: "gate", run: "pnpm test acceptance", criteria: [criterionDigest(criterion)] }
+                { id: "gate", run: ["pnpm", "test", "acceptance"], criteria: [criterionDigest(criterion)] }
             ]
         });
         const diagnose = async () => {

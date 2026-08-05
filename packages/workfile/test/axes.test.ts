@@ -132,7 +132,12 @@ test("every field a card owns is reserved against being declared an axis", () =>
         "archived",
         "body",
         "file",
-        "revision"
+        "revision",
+        // Stored, but written only by the protocol and deliberately absent from
+        // `CARD_PATCHABLE_FIELDS` — so nothing above derives it, and a missing
+        // reservation would let a project declare `axes: { verified: [...] }`
+        // on top of the field that says how `done` was proved.
+        "verified"
     ]);
     const reserved: readonly string[] = CARD_RESERVED_KEYS;
     const missing = [...owned].filter((key) => !reserved.includes(key));

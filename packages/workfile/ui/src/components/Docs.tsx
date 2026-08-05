@@ -41,6 +41,7 @@ import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
 import { BodyEditor } from "./BodyEditor";
+import { FilterBar, FilterToggle } from "./FilterBar";
 import { FilterSearch } from "./FilterSearch";
 import { documentOutline, MarkdownBody, type OutlineEntry } from "./Markdown";
 import { OutlineRail } from "./OutlineRail";
@@ -341,7 +342,7 @@ export function DocPanel({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="ml-auto h-7 gap-1 px-2 text-xs"
+                    className="ml-auto px-2"
                     onClick={() => onOpen(id)}
                 >
                     <ExternalLink aria-hidden="true" className="size-3" />
@@ -657,32 +658,25 @@ export function DocsView({
                     active ? "hidden" : "flex"
                 )}
             >
-                <div className="flex flex-col gap-2 pb-2.5">
-                    <FilterSearch
-                        scope="records"
-                        value={search}
-                        label="Search documentation"
-                        onChange={onSearchChange}
+                <FilterBar
+                    className="pb-2.5"
+                    before={
+                        <FilterSearch
+                            scope="records"
+                            value={search}
+                            label="Search documentation"
+                            onChange={onSearchChange}
+                        />
+                    }
+                >
+                    <FilterToggle
+                        label="managed"
+                        on={managedOnly}
+                        onLabel="only"
+                        offLabel="all"
+                        onChange={setManagedOnly}
                     />
-                    <div className="flex gap-1.5">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            aria-pressed={managedOnly}
-                            className={cn(
-                                "h-7 gap-1.5 px-2.5 text-xs",
-                                managedOnly && "border-ring bg-accent"
-                            )}
-                            onClick={() => setManagedOnly(!managedOnly)}
-                        >
-                            managed
-                            <span className="font-normal text-muted-foreground">
-                                {managedOnly ? "only" : "all"}
-                            </span>
-                        </Button>
-                    </div>
-                </div>
+                </FilterBar>
                 <div
                     aria-busy={loading || undefined}
                     className="min-h-0 flex-1 overflow-y-auto"
