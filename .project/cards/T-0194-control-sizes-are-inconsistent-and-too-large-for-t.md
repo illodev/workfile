@@ -2,7 +2,7 @@
 id: T-0194
 title: Control sizes are inconsistent and too large for the density the app targets
 status: backlog
-type: task
+type: bug
 priority: medium
 area: ui
 effort: M
@@ -32,3 +32,7 @@ sits crooked. Worth fixing in the primitives rather than per view.
 - [ ] An input and a button of the same declared size have the same height, in every toolbar that mixes them.
 - [ ] The Triage header fits a narrow viewport without overflow or clipping.
 - [ ] The change is reviewed in the running app across the affected views, not only in the diff.
+
+## Notes
+
+- 2026-08-05 22:47Z illodev@local#bf4c5f67 — Retyped bug. It bundles two reported defects — the Triage header not responding well at narrow widths, and the memory search input sitting taller than the buttons beside it — with one preference, smaller buttons across the app. Filing the bundle as a task let the preference set the type, which buried the two defects inside it. The preference is the cheapest fix for both, so the bundling stands; the label was wrong.

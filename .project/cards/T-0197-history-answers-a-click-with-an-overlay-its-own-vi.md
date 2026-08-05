@@ -2,8 +2,8 @@
 id: T-0197
 title: History answers a click with an overlay its own view could hold
 status: review
-type: idea
-priority: low
+type: bug
+priority: medium
 area: ui
 effort: M
 created: 2026-08-05
@@ -38,6 +38,7 @@ deliberately rather than drifting into.
 - 2026-08-05 20:51Z illodev@local#bf4c5f67 — Criterion 2 is conditional on history owning a reader, and the decision is that it does not, so there is nothing to verify. Left unchecked rather than ticked: a checked box on this card should mean something was proven, and nothing was. It and criterion 3 both wait on the navigation.ts comment.
 - 2026-08-05 22:40Z illodev@local#bf4c5f67 — Correcting my previous note: this WAS reported. It is item six of the owner's triage list — 'En vista history cuando se pulsa un fragmento salta el drawer de inspector' — filed directly below the docs one that became T-0192. I had concluded from the filing commit's paragraph structure that I derived it myself, which was an inference the record could not support and which was wrong. ADR-0017 therefore decides against what was reported rather than against something I proposed, and that decision is open rather than settled.
 - 2026-08-05 22:45Z illodev@local#bf4c5f67 — Fixed, not decided. I opened the view and it settled itself: history is a two-column layout and always was — fragments left, a right-hand pane showing the derived changelog until a fragment is selected. Clicking one rendered it in the pane AND opened the drawer over that pane with the same fragment in it, so the text appeared twice and the copy underneath was cut off mid-word. ADR-0017 claimed changing this meant giving history a second pane; the second pane already existed. ADR-0018 supersedes it with a rule that can be checked instead of argued: a view owns the drawer when it already renders the selection. One line in VIEW_OWNS_DRAWER, a regression test, and verified in the browser at 1440 and 1280 — drawer box null, zero open overlays, fragment readable full width.
+- 2026-08-05 22:47Z illodev@local#bf4c5f67 — Refiled as a bug. It was reported as one, in a list headed Bugs y mejoras, immediately below the docs report that I did file as a bug and that got fixed the same day. I typed it idea and priority low on my own reading — that a fragment is short, that the behaviour was current with a comment explaining it — and that reclassification is what later licensed an ADR arguing against fixing it. The reporter does not have to defend the label.
 
 ## Activity
 
