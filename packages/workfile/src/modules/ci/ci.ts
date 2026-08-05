@@ -95,6 +95,16 @@ function targetBody(workspace, id) {
     );
 }
 
+/**
+ * The files `syncCiTemplates` writes, named without a workspace, so `init` can
+ * count them before the workspace exists. See `agentArtifactPaths`.
+ */
+export function ciArtifactPaths(root, config, selectedTargets?) {
+    return (selectedTargets || config.ci.targets)
+        .filter((id) => CI_TARGETS[id])
+        .map((id) => resolve(root, CI_TARGETS[id].path));
+}
+
 export function renderCiFiles(workspace, options: any = {}) {
     const targets = options.targets || workspace.config.ci.targets;
     return targets.map((id) => {

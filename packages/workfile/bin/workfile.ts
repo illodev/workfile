@@ -1162,8 +1162,13 @@ async function askInitOptions(root) {
         ci: listOption("--ci") || detected.ci,
         addScripts: !has("--no-scripts")
     };
-    if (has("--yes") || !process.stdin.isTTY || !process.stdout.isTTY) {
-        return defaults;
+    // `--yes` is an answer; no terminal is a circumstance. Both skip the
+    // questions, only the second one needs saying — and an agent running `init`
+    // on someone's behalf is always in the second, which is a supported way to
+    // start rather than an edge case.
+    if (has("--yes")) return { options: defaults, prompted: false, reason: "yes" };
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        return { options: defaults, prompted: false, reason: "no-tty" };
     }
     const prompt = createInterface({ input: process.stdin, output: process.stdout });
     try {
@@ -1189,14 +1194,38 @@ async function askInitOptions(root) {
         if (!confirmed) {
             throw new ValidationError("INIT_CANCELLED", "Initialization cancelled.");
         }
-        return chosen;
+        return { options: chosen, prompted: true, reason: null };
     } finally {
         prompt.close();
     }
 }
 
+/**
+ * Says that the defaults were applied rather than answered.
+ *
+ * Applying them is the right behaviour — they are detected, not invented — but
+ * the output was indistinguishable from a run where someone chose them. A
+ * tester wanting the `claude` adapter got `agents-md` and had to repair
+ * `project.config.mjs` by hand, having been told nothing.
+ *
+ * On stderr because it is a notice about the run, not part of its result: a
+ * caller parsing `--json` off stdout is unaffected, and gets the same fact as
+ * the `interactive` field.
+ */
+function noticeDefaultsApplied(plan) {
+    console.error(
+        `No terminal attached, so ${INVOKED_AS} init applied what it detected instead of asking:\n` +
+            `  name: ${plan.config.name}\n` +
+            `  areas: ${plan.config.cards.areas.join(", ")}\n` +
+            `  agent adapters: ${plan.config.agents.targets.join(", ") || "none"}\n` +
+            `  CI templates: ${plan.config.ci.targets.join(", ") || "none"}\n` +
+            `Pass --yes to accept them without this notice, --agents/--areas/--name to set them, ` +
+            `or run from a terminal to be asked.`
+    );
+}
+
 async function initCommand(root) {
-    const options = await askInitOptions(root);
+    const { options, prompted, reason } = await askInitOptions(root);
     for (const target of options.agents) {
         if (!AGENT_TARGETS[target]) {
             throw new ValidationError("AGENT_TARGET_UNSUPPORTED", `Unsupported agent target: ${target}`);
@@ -1208,17 +1237,24 @@ async function initCommand(root) {
         }
     }
     const plan = await planInitialization(root, options);
+    const interactive = {
+        prompted,
+        reason,
+        silenceWith: reason === "no-tty" ? "--yes" : null
+    };
+    if (reason === "no-tty") noticeDefaultsApplied(plan);
     if (has("--dry-run")) {
         return print({
             root: plan.root,
             detected: plan.detected,
+            interactive,
             summary: plan.summary,
             conflicts: plan.conflicts,
             actions: plan.actions.map(({ content, ...action }: any) => action)
         });
     }
     const applied = await applyInitialization(plan, { force: has("--force") });
-    if (has("--json")) return print({ plan: plan.summary, applied });
+    if (has("--json")) return print({ plan: plan.summary, interactive, applied });
     console.log(`Initialized Workfile at ${root}`);
     console.log(`Areas: ${plan.config.cards.areas.join(", ")}`);
     console.log(`Agent adapters: ${plan.config.agents.targets.join(", ") || "none"}`);

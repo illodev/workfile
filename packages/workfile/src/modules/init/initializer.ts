@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { mkdir, readdir } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 import { defineProject } from "../../config/define-project.js";
 import { ConflictError, ValidationError } from "../../core/errors.js";
 import { writeFileAtomic } from "../../core/filesystem.js";
 import { loadWorkspace } from "../../workspace/load-workspace.js";
-import { syncAgentInstructions } from "../agents/index.js";
-import { syncCiTemplates } from "../ci/index.js";
+import { agentArtifactPaths, syncAgentInstructions } from "../agents/index.js";
+import { ciArtifactPaths, syncCiTemplates } from "../ci/index.js";
 import { exists } from "../../core/fs-utils.js";
 import { detectPackageManager } from "../../core/package-manager.js";
 import { SCHEMA_VERSION } from "../../config/defaults.js";
@@ -175,6 +175,34 @@ function fileAction(path, content, status, kind) {
     return { type: "file", path, content, status, kind };
 }
 
+/**
+ * Every directory `init` will make, not only the ones it names.
+ *
+ * `mkdir(recursive)` creates the parents too, and writing a managed file
+ * creates the directory it lives in — `.github/workflows` for the CI template,
+ * `.cursor/rules` for that adapter. A plan listing only the leaves of its own
+ * list promised 14 directories for a run that made 19, and 21 once a CI target
+ * was selected. `--dry-run` is the one command whose entire purpose is to be
+ * accurate before anything is written.
+ *
+ * The walk stops at the root rather than counting it: `init` runs inside a
+ * directory that already exists, and the plan describes the workspace it puts
+ * there.
+ */
+function withParents(root, paths) {
+    const all = new Set<string>();
+    for (const path of paths) {
+        let current = path;
+        while (current !== root && current.startsWith(root)) {
+            all.add(current);
+            const parent = dirname(current);
+            if (parent === current) break;
+            current = parent;
+        }
+    }
+    return [...all].sort();
+}
+
 export async function planInitialization(rootInput, options: any = {}) {
     const detected = await inspectRepository(rootInput);
     const root = detected.root;
@@ -192,7 +220,15 @@ export async function planInitialization(rootInput, options: any = {}) {
         ci: { targets: options.ci || detected.ci }
     });
     const protocolRoot = join(root, config.storage.root);
-    const dirs = [
+    // The managed surfaces, written by `syncAgentInstructions` and
+    // `syncCiTemplates` once the workspace loads. Named here so the plan can
+    // count them and so their directories — `.github/workflows`,
+    // `.cursor/rules` — are counted with everything else.
+    const generated = [
+        ...agentArtifactPaths(root, config),
+        ...ciArtifactPaths(root, config)
+    ];
+    const dirs = withParents(root, [
         join(protocolRoot, "cards", "archive"),
         join(protocolRoot, "assets"),
         join(protocolRoot, "docs"),
@@ -202,11 +238,27 @@ export async function planInitialization(rootInput, options: any = {}) {
             join(protocolRoot, "memory", collection)
         ),
         join(protocolRoot, "agents", "workflows"),
-        join(protocolRoot, "sources"),
+        // `specs`, not `sources`. The generated config indexes
+        // `.project/specs/**/*.md` and nothing names `.project/sources`, so
+        // creating the second and not the first left the one directory a
+        // document was configured to live in missing, and an empty one nobody
+        // was pointed at present. Both are optional under the spec; this is
+        // the one the workspace it ships with refers to.
+        join(protocolRoot, "specs"),
         join(protocolRoot, "migrations"),
-        join(protocolRoot, ".cache")
-    ];
-    const actions = dirs.map((path) => ({ type: "directory", path, status: "create" }));
+        join(protocolRoot, ".cache"),
+        ...generated.map((path) => dirname(path))
+    ]);
+    const actions: any[] = [];
+    for (const path of dirs) {
+        // A re-run over an existing workspace creates fewer of them, and the
+        // plan is about this run rather than about a clean checkout.
+        actions.push({
+            type: "directory",
+            path,
+            status: (await exists(path)) ? "exists" : "create"
+        });
+    }
 
     const configPath = join(root, "project.config.mjs");
     const configExists = await exists(configPath);
@@ -273,6 +325,17 @@ export async function planInitialization(rootInput, options: any = {}) {
             )
         );
     }
+    // Planned here so the dry run names them, left to the sync so a managed
+    // block still has exactly one writer.
+    for (const path of generated) {
+        actions.push({
+            type: "generated",
+            path,
+            status: (await exists(path)) ? "update" : "create",
+            kind: "managed"
+        });
+    }
+
     return {
         root,
         detected,
@@ -280,8 +343,12 @@ export async function planInitialization(rootInput, options: any = {}) {
         actions,
         conflicts: actions.filter((action) => action.status === "conflict").map((action) => action.path),
         summary: {
-            directories: dirs.length,
-            files: actions.filter((action) => action.type === "file").length,
+            directories: actions.filter(
+                (action) => action.type === "directory" && action.status === "create"
+            ).length,
+            files: actions.filter(
+                (action) => action.type !== "directory" && action.status !== "unchanged"
+            ).length,
             agents: config.agents.targets,
             ci: config.ci.targets
         }
@@ -303,6 +370,9 @@ export async function applyInitialization(plan, options: any = {}) {
             results.push({ path: action.path, status: "ready", type: "directory" });
             continue;
         }
+        // Planned above so the dry run can name them, written by the syncs
+        // below: a managed block has one writer.
+        if (action.type === "generated") continue;
         if (action.status === "unchanged") {
             results.push({ path: action.path, status: "unchanged", type: "file" });
             continue;
@@ -315,7 +385,16 @@ export async function applyInitialization(plan, options: any = {}) {
         });
     }
     if (options.dryRun) {
-        return { root: plan.root, dryRun: true, files: results, agents: null, ci: null };
+        return {
+            root: plan.root,
+            dryRun: true,
+            files: results,
+            generated: plan.actions
+                .filter((action) => action.type === "generated")
+                .map((action) => action.path),
+            agents: null,
+            ci: null
+        };
     }
     const workspace = await loadWorkspace({ root: plan.root });
     const agents = await syncAgentInstructions(workspace, {

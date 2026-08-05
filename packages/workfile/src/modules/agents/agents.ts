@@ -197,6 +197,28 @@ Critical rules:
     return body;
 }
 
+/**
+ * The files `syncAgentInstructions` writes, named without a workspace.
+ *
+ * `init` plans before the workspace exists, so it cannot call
+ * `renderAgentFiles` to find out what it is about to create — and a dry run
+ * that omits them describes three files for a run that writes nine. Both
+ * compose their paths from the same config keys and the same target table, so
+ * the plan and the run cannot disagree about which files there are.
+ */
+export function agentArtifactPaths(root, config, selectedTargets?) {
+    const targets = selectedTargets || config.agents.targets;
+    return [
+        resolve(root, config.agents.canonicalInstructions),
+        ...WORKFLOW_FILES.map(([file]) =>
+            resolve(root, config.agents.workflowsPath, file)
+        ),
+        ...targets
+            .filter((id) => AGENT_TARGETS[id])
+            .map((id) => resolve(root, AGENT_TARGETS[id].path))
+    ];
+}
+
 function targetEntries(workspace, selectedTargets) {
     const targets = selectedTargets || workspace.config.agents.targets;
     return targets.map((id) => {
