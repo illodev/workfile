@@ -36,7 +36,7 @@
     "test/config.test.ts": 8,
     "test/demo-parity.test.ts": 5,
     "test/docs.test.ts": 13,
-    "test/events.test.ts": 13,
+    "test/events.test.ts": 7,
     "test/fixtures/legacy-v1/board/ui/src/api.ts": 1,
     "test/fixtures/legacy-v1/board/ui/src/query.ts": 4,
     "test/glob.test.ts": 1,

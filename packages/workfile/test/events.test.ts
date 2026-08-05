@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, sep } from "node:path";
 
 import { buildBenchWorkspace } from "../scripts/bench-workspace.ts";
 import {
@@ -10,6 +10,7 @@ import {
     loadWorkspace,
     startProjectServer
 } from "../dist/src/index.js";
+import { stubWatch } from "./support/watch-stub.ts";
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -110,35 +111,166 @@ async function watcherReady(url, limit = 10000) {
     return null;
 }
 
-// One non-recursive watch per directory, not a single recursive one: on a large
-// workspace the recursive call blocks the event loop for the better part of a
-// second doing a synchronous readdir, while placing individual watches over the
-// same tree costs single-digit milliseconds.
-test("the watcher covers the corpus, coalesces bursts and ignores the cache", async (t) => {
+/** What the watcher hands to `onChange`. */
+type Batch = { type: string; count: number; paths: string[] };
+
+/** Waits for the quiet period to expire and the batch to be reported. */
+async function flushed(batches: Batch[], limit = 5000) {
+    for (let waited = 0; waited < limit && !batches.length; waited += 10) {
+        await sleep(10);
+    }
+    // Longer than the quiet period, so a split that should not have happened
+    // has time to show itself as a second batch rather than as nothing at all.
+    await sleep(250);
+}
+
+/** Waits until every path has been reported, or the budget runs out. */
+async function allReported(
+    reported: Set<string>,
+    paths: string[],
+    limit = 20000
+) {
+    for (
+        let waited = 0;
+        waited < limit && paths.some((path) => !reported.has(path));
+        waited += 25
+    ) {
+        await sleep(25);
+    }
+}
+
+/**
+ * Grouping, proven where it can be proven.
+ *
+ * The events are placed rather than written, so the assertions describe the
+ * coalescer and nothing else, and the quiet period stays the one the product
+ * ships — `startProjectServer` overrides none of these options.
+ *
+ * [[T-0179]]: the version of this that wrote forty files and asserted one batch
+ * was timing the operating system while claiming to test the grouping. It was
+ * widened from 250 ms to a full second on that reading and failed again at a
+ * second, because the gaps it was fighting reach 4.8 s on a loaded Windows
+ * runner and no width is enough. The loop below never yields, so no timer can
+ * fire between two events however loaded the machine is: the burst is a burst
+ * by construction rather than by luck.
+ */
+test("a burst is one batch, and one past the threshold says resynchronize", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-coalesce-"));
+    try {
+        await buildBenchWorkspace(root, "S");
+        const workspace = await loadWorkspace({ root });
+        const batches: Batch[] = [];
+        const stub = stubWatch();
+        const watcher = createWorkspaceWatcher(workspace, {
+            onChange: (change) => batches.push(change),
+            resetThreshold: 25,
+            watch: stub.watch
+        });
+
+        const started = await watcher.start();
+        assert.equal(started.mode, "watch", "the stub must let the watcher arm");
+        try {
+            // The cache holds locks that churn on every write, the persisted
+            // index and agent activity. Watching it is a feedback loop, not a
+            // source of events — and the proof is that the sweep placed no
+            // handle inside it. The one path below the cache that is watched is
+            // the probe's own directory, closed as soon as it answers.
+            //
+            // Two independent excludes reach it: the watcher's own
+            // `storage.cache` and the `.project/.cache/**` in `docs.exclude`.
+            // Removing either alone changes nothing, which is why this asserts
+            // the outcome rather than the list.
+            assert.deepEqual(
+                stub.calls.filter(
+                    (path) =>
+                        path.includes(`${sep}.cache`) &&
+                        !path.endsWith(`${sep}watch`)
+                ),
+                [],
+                "the cache is excluded"
+            );
+
+            stub.deliver(".project/cards", "T-9001-one.md");
+            stub.deliver(".project/cards", "T-9002-two.md");
+            await flushed(batches);
+            assert.equal(
+                batches.length,
+                1,
+                "two events inside one quiet period are one batch"
+            );
+            assert.equal(batches[0].type, "changed");
+            assert.deepEqual(batches[0].paths, [
+                ".project/cards/T-9001-one.md",
+                ".project/cards/T-9002-two.md"
+            ]);
+
+            // The temporary file `writeFileAtomic` creates alongside its target
+            // must never surface: every protocol write makes one. Delivered
+            // beside a real card, so the batch that proves it was dropped is a
+            // batch that actually arrived.
+            batches.length = 0;
+            stub.deliver(".project/cards", ".abc123.tmp");
+            stub.deliver(".project/cards", "T-9003-three.md");
+            await flushed(batches);
+            assert.deepEqual(
+                batches.map((batch) => batch.paths),
+                [[".project/cards/T-9003-three.md"]],
+                "atomic-write temporaries are noise"
+            );
+
+            // Past the threshold a batch says "resynchronize" rather than
+            // listing a thousand paths: a `git checkout` touching the corpus is
+            // not something a consumer should try to apply record by record.
+            batches.length = 0;
+            for (let index = 0; index < 40; index += 1) {
+                stub.deliver(
+                    ".project/cards",
+                    `T-95${String(index).padStart(2, "0")}-burst.md`
+                );
+            }
+            await flushed(batches);
+            assert.equal(batches.length, 1, "a burst coalesces into one batch");
+            assert.equal(batches[0].type, "reset");
+            assert.equal(batches[0].count, 40);
+            assert.deepEqual(batches[0].paths, [], "a reset carries no list");
+        } finally {
+            watcher.close();
+        }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * Delivery, which is the one part of this a stand-in cannot answer for.
+ *
+ * One non-recursive watch per directory, not a single recursive one: on a large
+ * workspace the recursive call blocks the event loop for the better part of a
+ * second doing a synchronous readdir, while placing individual watches over the
+ * same tree costs single-digit milliseconds.
+ *
+ * Nothing here asserts a batch count. Whether forty writes arrive as one batch
+ * or three is a fact about the runner's clock, and the grouping is settled
+ * above with events this test places itself. What is asserted is the contract
+ * the platform is actually responsible for: every write is reported, and no
+ * noise ever is. So the two failures can no longer wear each other's name — if
+ * this test fails the watcher lost a write, if the one above fails the
+ * coalescer misgrouped.
+ */
+test("the watcher covers the corpus and reports no noise", async (t) => {
     const root = await mkdtemp(join(tmpdir(), "workfile-watch-"));
     try {
         await buildBenchWorkspace(root, "S");
         const workspace = await loadWorkspace({ root });
-        const batches = [];
-        // Windows runners deliver a burst's events with gaps that were
-        // observed to exceed 850 ms — a 250 ms quiet period still split one
-        // burst into two batches there. Splitting a batch now requires a
-        // full second of silence: coalescing is the behavior under test,
-        // not the latency budget, so the windows are wide on purpose.
+        const batches: Batch[] = [];
+        /** Every path reported over the whole test, so a straggler is seen. */
+        const reported = new Set<string>();
         const watcher = createWorkspaceWatcher(workspace, {
-            onChange: (change) => batches.push(change),
-            resetThreshold: 25,
-            debounceMs: 1000,
-            maxDebounceMs: 10000
-        });
-        const nextBatch = async (limit = 10000) => {
-            for (let waited = 0; waited < limit && !batches.length; waited += 50) {
-                await sleep(50);
+            onChange: (change) => {
+                batches.push(change);
+                for (const path of change.paths) reported.add(path);
             }
-            // The quiet period plus slack, so a straggler event that would
-            // have opened a second batch has had its chance to arrive.
-            await sleep(1600);
-        };
+        });
 
         const started = await watcher.start();
         if (started.mode !== "watch") {
@@ -150,45 +282,61 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
         assert.ok(started.watchedDirectories > 0);
 
         try {
-            await writeFile(
-                join(root, ".project/cards/T-9001-one.md"),
-                card("T-9001")
-            );
-            await nextBatch();
-            assert.equal(batches.length, 1, "one write, one batch");
+            const one = ".project/cards/T-9001-one.md";
+            await writeFile(join(root, one), card("T-9001"));
+            await allReported(reported, [one]);
+            assert.ok(reported.has(one), "a write into the corpus is reported");
             assert.equal(batches[0].type, "changed");
-            assert.deepEqual(batches[0].paths, [
-                ".project/cards/T-9001-one.md"
-            ]);
 
-            // The temporary file `writeFileAtomic` creates alongside its target
-            // must never surface: every protocol write makes one.
-            batches.length = 0;
+            // The atomic-write temporary and the cache are written before a
+            // real card in the same directory: once that card is reported,
+            // whatever the platform had to say about the other two has already
+            // been said. Waiting a fixed interval instead would pass while the
+            // events were merely still in flight.
+            const two = ".project/cards/T-9002-two.md";
             await writeFile(join(root, ".project/cards/.abc123.tmp"), "x");
-            await sleep(1400);
-            assert.deepEqual(batches, [], "atomic-write temporaries are noise");
-
-            // Neither may the cache, which holds locks that churn on every
-            // write, the persisted index, and agent activity. Watching it is a
-            // feedback loop, not a source of events.
             await writeFile(join(root, ".project/.cache/scratch.md"), "x");
-            await sleep(1400);
-            assert.deepEqual(batches, [], "the cache is excluded");
+            await writeFile(join(root, two), card("T-9002"));
+            await allReported(reported, [two]);
+            assert.ok(reported.has(two), "a write after noise is still reported");
 
-            // A burst reports once, and past a threshold says "resynchronize"
-            // rather than listing a thousand paths.
+            // A burst. How it is grouped is the runner's business; that all
+            // forty arrive is the watcher's.
             batches.length = 0;
+            const burst: string[] = [];
+            const stamps: number[] = [];
             for (let index = 0; index < 40; index += 1) {
-                await writeFile(
-                    join(root, `.project/cards/T-95${String(index).padStart(2, "0")}-burst.md`),
-                    card(`T-95${String(index).padStart(2, "0")}`)
-                );
+                const id = `T-95${String(index).padStart(2, "0")}`;
+                const path = `.project/cards/${id}-burst.md`;
+                burst.push(path);
+                await writeFile(join(root, path), card(id));
+                stamps.push(Date.now());
             }
-            await nextBatch(15000);
-            assert.equal(batches.length, 1, "a burst coalesces into one batch");
-            assert.equal(batches[0].type, "reset");
-            assert.ok(batches[0].count >= 40);
-            assert.deepEqual(batches[0].paths, [], "a reset carries no list");
+            await allReported(reported, burst);
+            const widest = Math.max(
+                ...stamps.slice(1).map((at, index) => at - stamps[index])
+            );
+            const missing = burst.filter((path) => !reported.has(path));
+            assert.deepEqual(
+                missing,
+                [],
+                `the watcher never reported ${missing.length} of 40 writes; the widest gap between two of them was ${widest}ms`
+            );
+            t.diagnostic(
+                `burst on ${process.platform} node ${process.versions.node}: 40 writes, widest gap ${widest}ms, ${batches.length} batch(es)`
+            );
+
+            // Asserted last, so a slow platform has had the whole burst to
+            // contradict it.
+            assert.deepEqual(
+                [...reported].filter(
+                    (path) =>
+                        path.startsWith(".project/.cache/") ||
+                        basename(path).startsWith(".")
+                ),
+                [],
+                "atomic-write temporaries and the cache are not events"
+            );
 
             // Reported, not asserted. Both counters stay at zero on Linux —
             // measured, not assumed: deleting a watched directory reports
