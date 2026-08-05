@@ -25,13 +25,6 @@
             "card": "T-0190",
             "reason": "Not a false positive. `/(a+)+$/` — six characters, inside the 256-character pattern cap and the imsu flag subset — takes 57s against a 32-character body and does not finish against the 20,000-character one the search path allows. Open because the fix needs a design decision the card lays out, not because it is noise.",
             "measured": "2026-08-05"
-        },
-        {
-            "rule": "js/xss-through-dom",
-            "path": "packages/workfile/ui/src/components/Markdown.tsx",
-            "card": "T-0162",
-            "reason": "The flow is real and the sink is guarded. Read from the SARIF rather than guessed: BodyEditor event.target.value -> draft -> Inspector savedBody -> bodyValue -> Markdown source -> href. That body is saved to the repository and rendered for whoever opens the record next, so the writer is any agent with write access, not only the person typing. ui/src/safe-url.ts refuses every scheme outside https, http and mailto plus protocol-relative targets, covered by test/record-body-safety.test.ts. CodeQL does not recognise the allowlist as a sanitizer, so the alert persists on a path that is closed.",
-            "measured": "2026-08-05"
         }
     ]
 }

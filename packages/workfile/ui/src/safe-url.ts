@@ -12,6 +12,21 @@
  * Its own module rather than a helper inside `Markdown.tsx` so that a test can
  * reach it: the UI has a typecheck and no test runner, and the node suite
  * already imports `ui/src/timeline.ts` directly.
+ *
+ * **CodeQL flags the `href` this guards and does not recognise this as the
+ * sanitizer.** `js/xss-through-dom`, dismissed on 2026-08-05 as a false
+ * positive, and it will come back at a new line number whenever the file is
+ * edited around it — an alert number belongs to an instance. The flow it
+ * reports is real and worth knowing, because it is the reason this file
+ * exists; read out of the analysis SARIF rather than guessed at:
+ *
+ *     BodyEditor  event.target.value   → draft
+ *       → Inspector  savedBody → bodyValue
+ *       → Markdown  source → href
+ *
+ * The typing is yours; the body is then saved to the repository and rendered
+ * for whoever opens that record next. Deleting the guard below reopens that
+ * path, and the analyser will not tell you, because it never saw it close.
  */
 
 /** Schemes that may appear in rendered record text. */
