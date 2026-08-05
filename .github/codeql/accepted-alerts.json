@@ -1,30 +1,22 @@
 {
     "$comment": [
         "Alerts that stay open on purpose, in the shape the strict and doctor",
-        "baselines already use: a committed list a check compares against, so",
-        "debt is visible in the diff and only an unaccounted alert breaks the",
-        "build.",
+        "baselines already use: a committed list a check compares against, so debt",
+        "is visible in the diff and only an unaccounted alert breaks the build.",
         "",
-        "Only for alerts that are real and not yet fixed. An alert that is a",
-        "false positive belongs in GitHub's own dismissal, with its reason,",
-        "where it stops being open at all — three were dismissed that way on",
-        "2026-08-05 after being measured linear. This file is the other case:",
-        "known, real, and waiting on a decision.",
+        "Empty, and that is the resting state rather than a gap. Every alert this",
+        "repository has had is fixed or dismissed with a stated reason, so the",
+        "daily job now fails on anything at all \u2014 which is the tightest the ratchet",
+        "goes and the only setting under which a new alert is unambiguous.",
         "",
-        "Keyed by rule and path rather than by alert number, because a number",
-        "belongs to an instance and changes when the line moves — which is how",
-        "the same acceptance.ts pattern arrived as a `new` alert on PR #22",
-        "after the file was edited around it.",
+        "Only for alerts that are real and not yet fixed. A false positive belongs",
+        "in GitHub's own dismissal, with its reason, where it stops being open.",
+        "The one entry this file ever held was the regex-injection pair in",
+        "search.ts, real until T-0190 bounded it in a worker.",
         "",
-        "An entry is a promise that somebody measured it and opened a card."
+        "Key by rule and path, never by alert number: a number belongs to an",
+        "instance and moves with the line, which is how the same acceptance.ts",
+        "pattern arrived as a `new` alert on PR #22 after an edit around it."
     ],
-    "accepted": [
-        {
-            "rule": "js/regex-injection",
-            "path": "packages/workfile/src/modules/search/search.ts",
-            "card": "T-0190",
-            "reason": "Not a false positive. `/(a+)+$/` — six characters, inside the 256-character pattern cap and the imsu flag subset — takes 57s against a 32-character body and does not finish against the 20,000-character one the search path allows. Open because the fix needs a design decision the card lays out, not because it is noise.",
-            "measured": "2026-08-05"
-        }
-    ]
+    "accepted": []
 }

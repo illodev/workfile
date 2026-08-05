@@ -1,7 +1,7 @@
 ---
 id: T-0190
 title: A regex search query can hang the process, and the caps do not stop it
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -45,7 +45,9 @@ No obvious cheap fix, which is the other reason this is a card:
 
 - 2026-08-05 17:42Z illodev@local#2cddaf94 · claimed
 - 2026-08-05 18:03Z illodev@local#2cddaf94 · doing → review
+- 2026-08-05 18:11Z illodev@local#2cddaf94 · review → done
 
 ## Notes
 
 - 2026-08-05 17:55Z illodev@local#2cddaf94 — Route chosen by Álvaro after pricing the three that survived: worker thread with a deadline. RE2 and recheck were both out before the question was asked — this package has zero runtime dependencies (only @types/node), and a native or WASM dep would break a property it holds deliberately everywhere else. Measured on 250 records / 508KB: 5.4ms in-process against 53ms through a worker, so ~50ms of startup and structured clone, paid only by a /pattern/flags query. The deadline is 2000ms, roughly 370x the work a real query does. Everything touching the compiled expression moved into the worker, counts and excerpt line both, because a matcher that can hang hangs wherever it is used — leaving matchedLine in the parent would have kept the hole open on exactly the records that matched. End to end on a workspace with a 400-character run of 'a': SEARCH_REGEX_TIMEOUT in 2.189s where before it did not return. Priority lowered to medium: Álvaro runs the UI on loopback only, so the remote-DoS reading does not apply to his use — the fix protects anyone who binds wider regardless.
+- 2026-08-05 18:11Z illodev@local#2cddaf94 — Runtime evidence: merged in PR #25 (ff3d32e) with the full CI matrix green — ubuntu, macos and windows on node 22 and 24, plus smoke, doctor and codeql. The smoke job is the one that matters most here: it packs the real tarball, installs it in a clean consumer and runs a regex search there, so the worker resolving out of an installed tree with import.meta.url is proven from the artifact rather than from a checkout. Re-verified against the build of main itself, on a workspace holding a 400-character run of 'a': SEARCH_REGEX_TIMEOUT, where before the pattern did not return.
