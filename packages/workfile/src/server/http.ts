@@ -485,16 +485,47 @@ function legacyCardRoute(pathname) {
     );
 }
 
+/**
+ * The legacy patch route, which is the one the interface actually uses.
+ *
+ * Every mutation the UI makes arrives here — `api.http.ts` calls `/api/tasks`,
+ * never the v2 routes — and this function resolved an actor for exactly one of
+ * them. A drag from `backlog` to `next` fell through to `patchCard` with the
+ * options the route passed, which were `{ expectedRevision }`, and
+ * `activityEntry` wrote `${actor || "unknown"}`. The board's whole argument is
+ * that it is shared and versioned, and the surface humans use left no author.
+ *
+ * `"ui-local"` was worse than anonymous. It was written into `claimed_by`, and
+ * no session resolves to it: claiming a card from the board locked its own
+ * author out of it, with `card release` answering
+ * `CARD_CLAIM_OWNER_MISMATCH: T-0003 is claimed by ui-local` and the edit guard
+ * asking about every write. That is the failure T-0079 fixed for a hand-typed
+ * `--actor`, arrived at through the interface instead.
+ *
+ * The actor resolves from the server's own environment, which is the person who
+ * started it. For a local board that is the right answer and the same one the
+ * CLI reaches; a multi-user deployment would have to carry identity per request,
+ * and nothing here pretends otherwise.
+ */
 async function compatibilityPatch(workspace, id, changes, options: any = {}) {
     const current = await getUniqueCard(workspace, id);
-    if (changes.status === "doing") {
+    // Lifted out of `changes` because `actor` is not a card field: this route
+    // passes the request body straight through, and `patchCard` refuses it as
+    // an undeclared one. Lifting it is what lets a caller name an actor at all.
+    const { actor: supplied, ...rest } = changes || {};
+    const actor = supplied ?? options.actor ?? resolveActor().actor;
+    if (rest.status === "doing") {
         return transitionCard(workspace, id, "doing", {
-            actor: changes.claimed_by || current.claimed_by || "ui-local",
-            scope: changes.scope,
+            // Not `current.claimed_by`: attributing the move to whoever already
+            // holds the card names the wrong person and walks the ownership
+            // guard past a takeover it exists to catch. If someone else holds
+            // it, this now fails the way the CLI fails. See T-0117.
+            actor: rest.claimed_by || actor,
+            scope: rest.scope,
             expectedRevision: options.expectedRevision
         });
     }
-    const normalized = { ...changes };
+    const normalized = { ...rest };
     if (
         normalized.status &&
         normalized.status !== "doing" &&
@@ -503,7 +534,7 @@ async function compatibilityPatch(workspace, id, changes, options: any = {}) {
         normalized.claimed_by = null;
         normalized.claimed_at = null;
     }
-    return patchCard(workspace, id, normalized, options);
+    return patchCard(workspace, id, normalized, { ...options, actor });
 }
 
 async function serveUi(response, uiDir, path) {
@@ -1561,6 +1592,7 @@ export function createProjectServer(
                             id,
                             body.changes || {},
                             {
+                                actor: body.actor,
                                 expectedRevision: body.expectedRevisions?.[id]
                             }
                         );

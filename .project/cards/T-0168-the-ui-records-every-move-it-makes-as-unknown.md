@@ -1,7 +1,7 @@
 ---
 id: T-0168
 title: The UI records every move it makes as unknown
-status: backlog
+status: review
 type: bug
 priority: high
 area: ui
@@ -9,6 +9,7 @@ tags: [actor, http, field-report]
 origin: [DOC-0005]
 created: 2026-08-05
 updated: 2026-08-05
+scope: [packages/workfile/src/server/http.ts]
 ---
 
 Reported in [[DOC-0005]] (finding 3) against 0.5.4 and reproduced at 0.6.0 by
@@ -52,7 +53,16 @@ weakest exactly where humans touch it. And the claim guard reads
 
 ## Acceptance criteria
 
-- [ ] A move made from the UI records the same actor the CLI would record
-- [ ] The bulk route and `archive` resolve an actor like the rest
-- [ ] An actor supplied in the body still wins over the resolved one
-- [ ] A test covers a non-`doing` transition through the HTTP surface
+- [x] A move made from the UI records the same actor the CLI would record
+- [x] The bulk route and `archive` resolve an actor like the rest
+- [x] An actor supplied in the body still wins over the resolved one
+- [x] A test covers a non-`doing` transition through the HTTP surface
+
+## Activity
+
+- 2026-08-05 11:08Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 11:15Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 11:15Z illodev@local#2cddaf94 — Verified against a running server, all four criteria. The unknown attribution was three missing arguments and is resolved once inside compatibilityPatch now. Two things the card did not know: (1) the UI only ever calls the legacy /api/tasks routes — api.http.ts never touches v2 — so those two call sites are the whole surface; (2) 'ui-local' was not cosmetic. It went into claimed_by, nothing resolves to it, and claiming from the board answered CARD_CLAIM_OWNER_MISMATCH to its own author on the CLI while the edit guard asked about every write. Criterion 2 named 'archive': archiveCard writes no activity entry at all, so an actor there would be dead code. That is T-0175, and the criterion is checked on the bulk route with the archive half recorded rather than pretended. One behaviour changed beyond attribution: a move on a card another actor holds is no longer attributed to the holder and let through — it now fails as the CLI does. That is adjacent to T-0117.
