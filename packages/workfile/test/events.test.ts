@@ -208,7 +208,35 @@ test("the watcher covers the corpus, coalesces bursts and ignores the cache", as
     }
 });
 
-test("the SSE channel reports writes made outside the server", async () => {
+/**
+ * The delivery budget, measured rather than guessed.
+ *
+ * 239 samples of this test across 40 commits and six runner configurations,
+ * harvested from CI logs under T-0166:
+ *
+ *   macos            p50  284   p90  350   max  544
+ *   ubuntu           p50  380   p90  422   max  481
+ *   windows node 22  p50  435   p90  714   max 1208
+ *   windows node 24  p50  595   p90 1105   max 1632
+ *
+ * 2000 ms is about four times the worst ever seen on macOS and Linux, and 1.2
+ * times the worst on Windows — which is why it fired once at 2243 ms, on a
+ * commit whose diff was scripts, media and Markdown. That observation ranks
+ * above all 79 Windows samples: contention on one occasion, not a regression
+ * in delivery.
+ *
+ * Windows gets its own number for a measured reason rather than a folk one,
+ * and Node 24 is where the tail lives — slower than Node 22 on 62% of the
+ * commits both ran, by a median of 90 ms and a worst case of 1219 ms.
+ *
+ * Loose enough to mean something when it fires: a budget that trips on
+ * contention teaches everyone to re-run until green, and T-0109 already wrote
+ * down what that costs. It still catches the regression it exists for, because
+ * a watcher that falls back to polling delivers in seconds, not in one.
+ */
+const DELIVERY_BUDGET_MS = process.platform === "win32" ? 4000 : 2000;
+
+test("the SSE channel reports writes made outside the server", async (t) => {
     const root = await mkdtemp(join(tmpdir(), "workfile-sse-"));
     await buildBenchWorkspace(root, "S");
     const workspace = await loadWorkspace({ root });
@@ -263,7 +291,11 @@ test("the SSE channel reports writes made outside the server", async () => {
         const seen = (type) =>
             stream.frames.some((frame) => frame.type === type);
         let arrivedAt = 0;
-        const deadline = started + 3000;
+        // Twice the budget, so an event that is late is still observed as
+        // late. A loop that gave up at the budget would report every late
+        // delivery as a lost one, and those two have nothing in common.
+        const window = DELIVERY_BUDGET_MS * 2;
+        const deadline = started + window;
         while (Date.now() < deadline) {
             if (!arrivedAt && seen("records.changed")) arrivedAt = Date.now();
             if (arrivedAt && seen("activity.changed")) break;
@@ -285,16 +317,23 @@ test("the SSE channel reports writes made outside the server", async () => {
             1,
             arrivedAt
                 ? `one write, one records.changed; got ${changes.length}`
-                : `no records.changed in 3000ms — the event never arrived rather than arriving late (watcher: ${watching.mode}, ${watching.directories} directories; frames seen: ${stream.frames.map((frame) => frame.type).join(", ") || "none"}; stream: ${stream.failure ? `died with ${stream.failure}` : "open"})`
+                : `no records.changed in ${window}ms — the event never arrived rather than arriving late (watcher: ${watching.mode}, ${watching.directories} directories; frames seen: ${stream.frames.map((frame) => frame.type).join(", ") || "none"}; stream: ${stream.failure ? `died with ${stream.failure}` : "open"})`
         );
         const [event] = changes;
         assert.deepEqual(event.data.paths, [
             ".project/cards/T-9100-external.md"
         ]);
         assert.ok(event.data.epoch > 0, "the index was invalidated");
+        // Emitted on every run, pass or fail, so the next person setting this
+        // number greps one line instead of parsing two reporter formats out of
+        // six job logs. Node 22 defaults to TAP off a TTY and Node 23+ to spec,
+        // which is what made the first measurement of this budget expensive.
+        t.diagnostic(
+            `SSE delivery: ${elapsed}ms on ${process.platform} node ${process.versions.node} (budget ${DELIVERY_BUDGET_MS}ms)`
+        );
         assert.ok(
-            elapsed < 2000,
-            `the event took ${elapsed}ms; this is meant to feel immediate`
+            elapsed < DELIVERY_BUDGET_MS,
+            `the event took ${elapsed}ms against a ${DELIVERY_BUDGET_MS}ms budget on ${process.platform}; this is meant to feel immediate`
         );
 
         // The event is an invalidation, not the record: the client fetches what
