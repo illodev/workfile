@@ -7,10 +7,10 @@ priority: low
 area: core
 effort: M
 scope: [packages/workfile/src/modules/agents/agents.ts, packages/workfile/src/config/defaults.ts, packages/workfile/src/types.ts, packages/workfile/src/modules/init/initializer.ts, packages/workfile/bin/workfile.ts, packages/workfile/docs]
-related: [CONV-0001, T-0061]
+related: [CONV-0001, T-0061, ADR-0012, T-0167]
 origin: [T-0154]
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-05
 ---
 
 `config.language` was never a decision anybody took. It shipped in the first
@@ -64,8 +64,12 @@ leaving one surface half-translated. They go the same way as the rest.
 
 ## Acceptance criteria
 
-- [ ] The decision between the three options is recorded as an ADR before code moves
+- [x] The decision between the three options is recorded as an ADR before code moves
 - [ ] SPEC invariant 4 and its summary block agree with what the code does
 - [ ] `getting-started.md` no longer teaches a flag that does not work
 - [ ] A config that still declares `language` loads and runs unchanged
 - [ ] `pnpm run check` green, doctor 0/0
+
+## Notes
+
+- 2026-08-05 10:41Z illodev@local#2cddaf94 — The owner decided on 2026-08-05: option 1, remove Spanish outright. Recorded as ADR-0012, so this card's first acceptance criterion is met and the code can move. The trigger was DOC-0005, an external field report whose headline finding was a Spanish acceptance heading silently disabling the done gate. Worth reading before this lands: removing Spanish does not fix that. T-0167 measures the same silence against 'Definition of done' and 'Success criteria'.
