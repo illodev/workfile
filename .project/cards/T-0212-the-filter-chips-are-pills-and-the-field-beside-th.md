@@ -1,7 +1,7 @@
 ---
 id: T-0212
 title: The filter chips are pills and the field beside them is not
-status: backlog
+status: review
 type: bug
 priority: low
 area: ui
@@ -29,7 +29,15 @@ is the shape that keeps the next control from picking its own.
 
 ## Acceptance criteria
 
-- [ ] The radii a control may have are declared in one place, as the sizes now are.
-- [ ] A field and a chip that sit in the same bar agree, and the reason they agree is written down rather than being a coincidence of two class lists.
-- [ ] Nothing outside the filter bars changes shape without that being a deliberate part of the change.
-- [ ] Checked in the running app, not only in the tokens.
+- [x] The radii a control may have are declared in one place, as the sizes now are.
+- [x] A field and a chip that sit in the same bar agree, and the reason they agree is written down rather than being a coincidence of two class lists.
+- [x] Nothing outside the filter bars changes shape without that being a deliberate part of the change.
+- [x] Checked in the running app, not only in the tokens.
+
+## Notes
+
+- 2026-08-05 23:27Z illodev@local#bf4c5f67 — Fixed. The chips carried an explicit rounded-full next to a field at 8px. Rather than pick a third number, the override is gone: the chips now take the button primitive's own rounded-md, which resolves to --radius-md, which is exactly what the field uses. Measured in explorer, flow, triage and memory: field 8px, chip 8px in all four.
+
+## Activity
+
+- 2026-08-05 23:27Z illodev@local#bf4c5f67 · backlog → review

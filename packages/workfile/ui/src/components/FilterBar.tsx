@@ -130,6 +130,11 @@ export interface FilterOption {
  * Mouse pointers keep the primitive's behaviour: pressing, dragging onto an
  * item and releasing is a real way to use a menu, and only touch needs the
  * press to stay available for something else.
+ *
+ * It declares no radius. These were pills next to a field that is not one, in
+ * the same bar; taking the override away leaves the button's own `rounded-md`,
+ * which is the value the field already uses, rather than putting a third number
+ * in the file beside the two that disagreed.
  */
 export function FilterChip({
     label,
@@ -161,7 +166,7 @@ export function FilterChip({
                     size="sm"
                     aria-label={label}
                     className={cn(
-                        "shrink-0 rounded-full",
+                        "shrink-0",
                         allLabel !== null && value && "border-ring bg-accent"
                     )}
                     onPointerDown={(event) => {
@@ -242,7 +247,7 @@ export function FilterToggle({
             size="sm"
             aria-pressed={on}
             className={cn(
-                "shrink-0 rounded-full",
+                "shrink-0",
                 on && "border-ring bg-accent"
             )}
             onClick={() => onChange(!on)}

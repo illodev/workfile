@@ -1369,51 +1369,49 @@ function App() {
                             to wrap into two and three stacked rows that ate the
                             view's height. From `sm` up the title and the strip
                             share one line again, the strip pushed right. */}
+                        {/* Title on its own line above the rule, then the
+                            field, then the chips — memory's shape, and now
+                            every view's. The three used to share one inline
+                            row, which left the most capable filter in the
+                            application as a short box crushed against the
+                            heading. */}
+                        <div className="flex min-h-10 shrink-0 items-center gap-2 border-b px-3 py-1.5">
+                            <span className="text-sm font-medium">
+                                {VIEW_TITLE[view]}
+                            </span>
+                            {viewMeta ? (
+                                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                                    {viewMeta}
+                                </span>
+                            ) : null}
+                        </div>
+                        {isWorkView ? (
                         <FilterBar
-                            inline
                             gutter="3"
-                            className="min-h-10 shrink-0 border-b py-1.5"
+                            className="shrink-0 py-2"
                             before={
-                                <>
-                                    <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
-                                        <span className="text-sm font-medium">
-                                            {VIEW_TITLE[view]}
-                                        </span>
-                                        {viewMeta ? (
-                                            <span className="truncate font-mono text-[11px] text-muted-foreground">
-                                                {viewMeta}
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                    {/* `filters.search` has had a token
-                                        grammar, a `/pattern/flags` form and a
-                                        deferred pass behind it for as long as
-                                        the URL has carried `q`, and nothing was
-                                        ever bound to it: the most capable
-                                        filter in the app could only be reached
-                                        by typing an address. It sits outside
-                                        the scrolling chip strip because a field
-                                        you have to scroll to is a field you do
-                                        not find. */}
-                                    {isWorkView ? (
-                                        <FilterSearch
-                                            scope="cards"
-                                            value={filters.search}
-                                            label="Search cards"
-                                            className="sm:w-[240px] sm:shrink-0"
-                                            onChange={(search) =>
-                                                setFilters((current) => ({
-                                                    ...current,
-                                                    search
-                                                }))
-                                            }
-                                        />
-                                    ) : null}
-                                </>
+                                /* `filters.search` has had a token grammar, a
+                                   `/pattern/flags` form and a deferred pass
+                                   behind it for as long as the URL has carried
+                                   `q`, and nothing was ever bound to it: the
+                                   most capable filter in the app could only be
+                                   reached by typing an address. It sits above
+                                   the scrolling chip strip because a field you
+                                   have to scroll to is a field you do not
+                                   find. */
+                                <FilterSearch
+                                    scope="cards"
+                                    value={filters.search}
+                                    label="Search cards"
+                                    onChange={(search) =>
+                                        setFilters((current) => ({
+                                            ...current,
+                                            search
+                                        }))
+                                    }
+                                />
                             }
                         >
-                            {isWorkView ? (
-                                <>
                                     <FilterChip
                                         label="status"
                                         value={filters.status}
@@ -1510,15 +1508,14 @@ function App() {
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="shrink-0 rounded-full text-muted-foreground"
+                                            className="shrink-0 text-muted-foreground"
                                             onClick={resetFilters}
                                         >
                                             reset
                                         </Button>
                                     ) : null}
-                                </>
-                            ) : null}
                         </FilterBar>
+                        ) : null}
 
                         {error ? (
                             <Alert

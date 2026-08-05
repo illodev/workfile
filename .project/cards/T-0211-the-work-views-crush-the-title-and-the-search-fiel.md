@@ -1,7 +1,7 @@
 ---
 id: T-0211
 title: The work views crush the title and the search field onto one line
-status: backlog
+status: review
 type: bug
 priority: medium
 area: ui
@@ -36,8 +36,16 @@ render at the end of theirs.
 
 ## Acceptance criteria
 
-- [ ] Explorer, flow, triage, epics, timeline and workflow use memory's shape: title, rule, full-width field, chips below.
-- [ ] The field is the full width of the bar in every view that has one.
-- [ ] The layout is decided once in `FilterBar`, not per call site.
-- [ ] Nothing that sat in the chip row loses its place — the counts and the reset control still have one.
-- [ ] Checked in the running app at a narrow width as well as a wide one.
+- [x] Explorer, flow, triage, epics, timeline and workflow use memory's shape: title, rule, full-width field, chips below.
+- [x] The field is the full width of the bar in every view that has one.
+- [x] The layout is decided once in `FilterBar`, not per call site.
+- [x] Nothing that sat in the chip row loses its place — the counts and the reset control still have one.
+- [x] Checked in the running app at a narrow width as well as a wide one.
+
+## Notes
+
+- 2026-08-05 23:27Z illodev@local#bf4c5f67 — Fixed rather than left in the backlog, which is where it should never have gone. The shell's bar was one inline row holding the title, the field and the chips; it is now a title row with the rule under it and a second bar below carrying the field across the full width with the chips beneath. Measured after: the field is 1176px wide in explorer, flow and triage where it was 240, and memory is unchanged at 1172 because memory was already the shape being copied.
+
+## Activity
+
+- 2026-08-05 23:27Z illodev@local#bf4c5f67 · backlog → review
