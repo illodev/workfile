@@ -21,10 +21,36 @@ function dayNumber(date) {
     return Number.isFinite(timestamp) ? timestamp / 86_400_000 : null;
 }
 
+/**
+ * The link target is bounded, and that bound is the whole point.
+ *
+ * `([^)]+)` scanned to the end of the document on every `](` that had no
+ * closing paren after it, so a body made of `[](` repeated cost one full scan
+ * per repetition. Measured on this machine: 16.6ms at 2,000 repetitions,
+ * 3.3s at 32,000 and **43.6s at 128,000** — quadratic, on a document body,
+ * which the doctor reads for every document in the workspace. A record body is
+ * repository text an agent writes, so the input is not hostile in the usual
+ * sense; it is just text nobody thought to bound.
+ *
+ * Both halves are bounded, and the first attempt here bounded only the second
+ * — which the analyser then reported again, correctly, against a different
+ * input. `[` repeated is the label's version of the same shape: `[^\]]*` runs
+ * to the end of the body looking for a `]` that never comes, once per `[`.
+ * 837ms at 32,000 characters, where the whole scan is 59ms once the label is
+ * capped too. Fixing one half of a quadratic leaves a quadratic.
+ *
+ * Every bound is true of a Markdown link independently of the performance
+ * argument: neither half spans lines, a label is not a paragraph, and a target
+ * is not longer than any path a filesystem will hold. The cost is that a link
+ * past those sizes stops being checked. Nothing local can be that long — POSIX
+ * caps a path at 4096 and a component at 255 — and the only targets that reach
+ * it are `data:` URIs, which the scheme test below skips anyway.
+ */
+const LINK = /\[[^\]\n]{0,512}\]\(([^)\n]{1,1024})\)/g;
+
 function localMarkdownPaths(document) {
     const paths = [];
-    const pattern = /\[[^\]]*\]\(([^)]+)\)/g;
-    for (const match of String(document.body || "").matchAll(pattern)) {
+    for (const match of String(document.body || "").matchAll(LINK)) {
         let target = match[1].trim().replace(/^<|>$/g, "");
         if (
             !target ||

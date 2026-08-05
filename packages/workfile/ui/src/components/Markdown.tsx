@@ -1,6 +1,7 @@
 import { Fragment, memo, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { safeUrl } from "@/safe-url";
 
 /**
  * The record-body renderer, extracted from the old Drawer so every surface
@@ -107,8 +108,8 @@ function InlineMarkdown({
                     // Repository-relative or served assets only: an arbitrary
                     // remote URL in a record body would leak a page view to
                     // whoever wrote it.
-                    const src = image[2].trim();
-                    if (!/^(https?:)?\/\//.test(src)) {
+                    const src = safeUrl(image[2]);
+                    if (src && !/^(https?:)?\/\//.test(src)) {
                         return (
                             <img
                                 key={key}
@@ -149,17 +150,23 @@ function InlineMarkdown({
                 }
 
                 const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-                if (link)
+                if (link) {
+                    const href = safeUrl(link[2]);
+                    // A refused scheme renders as its own text. Dropping the
+                    // link is right; dropping the words a human wrote is not,
+                    // and silently rendering nothing would hide the attempt.
+                    if (!href) return <Fragment key={key}>{link[1]}</Fragment>;
                     return (
                         <a
                             key={key}
-                            href={link[2]}
+                            href={href}
                             target="_blank"
                             rel="noreferrer"
                         >
                             {link[1]}
                         </a>
                     );
+                }
                 return <Fragment key={key}>{part}</Fragment>;
             })}
         </>

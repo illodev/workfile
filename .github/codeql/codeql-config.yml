@@ -1,0 +1,14 @@
+name: "workfile"
+
+# Fixtures are inputs, not code. `test/fixtures/legacy-v1/` is a snapshot of the
+# pre-workfile board this package migrates *away* from — it is checked in so the
+# migration has something to read, is never imported and never runs, and its one
+# alert (`js/stack-trace-exposure`) is a faithful record of how that old server
+# behaved. Analysing it reports the bug we keep on purpose.
+#
+# The demo bundle is generated output; the analysis belongs on its source.
+paths-ignore:
+    - packages/workfile/test/fixtures
+    - packages/workfile/dist
+    - packages/workfile/ui/dist
+    - apps/demo/public

@@ -1,12 +1,12 @@
 ---
 id: T-0162
 title: Twelve CodeQL alerts sit open on main and nothing fails because of them
-status: backlog
+status: review
 type: task
 priority: medium
 area: core
 effort: M
-scope: [packages/workfile/src/modules/cards/acceptance.ts, packages/workfile/src/modules/docs, packages/workfile/src/modules/records/index.ts, packages/workfile/src/modules/search/search.ts, packages/workfile/ui/src/components/Markdown.tsx]
+scope: [packages/workfile/src, packages/workfile/ui, .github/workflows]
 origin: [T-0157]
 created: 2026-08-05
 updated: 2026-08-05
@@ -65,6 +65,16 @@ over a whole body — which is the reason to check rather than assume.
 ## Acceptance criteria
 
 - [ ] Every open alert is either fixed or dismissed with a stated reason
-- [ ] The two in `Markdown.tsx` are assessed against what the UI actually renders
-- [ ] A new alert on merged code reaches somebody without a PR comment
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] The two in `Markdown.tsx` are assessed against what the UI actually renders
+- [x] A new alert on merged code reaches somebody without a PR comment
+- [x] `pnpm run check` green, doctor 0/0
+
+## Activity
+
+- 2026-08-05 16:20Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 16:41Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 16:41Z illodev@local#2cddaf94 — Criterion 1 is deliberately left unchecked, and the reason matters more than the box: alerts #19 and #20 (js/regex-injection in search.ts) are neither fixed nor dismissed. They are real — /(a+)+$/ is six characters, passes the 256-char pattern cap and the imsu flag allowlist, and takes 57s against a 32-character body against a 20,000-character cap — so dismissing them would be false, and fixing them needs a design decision between a worker deadline, RE2 and dropping user regex. They are accepted in .github/codeql/accepted-alerts.json with the measurement and tracked as T-0190. Checking the box because the spirit is met is what T-0174 exists to catch.
+- 2026-08-05 16:41Z illodev@local#2cddaf94 — Triaged by measurement, which is what the card said the work was. js/polynomial-redos at 16x input: acceptance.ts ITEM 1x, records/index.ts QUERY_TOKEN 1x, docs/validation.ts link scan 217x, docs/docs.ts trailing slash 230x. The two quadratic ones were worse than reading suggested — 43.6s on a 128KB document body, in the scan the doctor runs for every document. Both bounded now: the link target excludes newlines and caps at 1024 (longer than any POSIX path, and data: URIs are skipped by the scheme test anyway), and the trailing-slash strip is a slice loop. The two in Markdown.tsx were assessed against React 19, which does block javascript: via sanitizeURL — so nothing was exploitable, and the allowlist is now ours in ui/src/safe-url.ts rather than a dependency's minor version. Three false positives and the legacy fixture dismissed on GitHub with their measurements; fixtures excluded from analysis in .github/codeql/codeql-config.yml. Criterion 3 is a daily codeql-baseline workflow comparing open alerts against a committed accepted list — the same ratchet shape as strict-baseline.json and doctor-baseline.json, daily rather than on push because the alerts API serves the previous analysis until the new one finishes processing. 328 tests, ratchet 494, doctor 0/0.

@@ -1,0 +1,68 @@
+name: CodeQL baseline
+
+# An alert on a pull request is commented on inline and gets looked at within a
+# minute. An alert on code that is already merged has no such messenger, so
+# twelve of them sat open on `main` for a week and the `codeql` job passed on
+# every single run — it uploads results, it does not read them (T-0162).
+#
+# This reads them. Daily rather than on push: the alerts API serves the previous
+# analysis until the new one finishes processing, so a check that races the
+# upload reports the state it was called to replace. A day is the honest
+# latency, and it is bounded — which "nothing ever looks" was not.
+on:
+    schedule:
+        - cron: "17 6 * * *"
+    workflow_dispatch:
+# Deliberately not on `pull_request`. The first version of this ran on changes
+# to the accepted list, on the theory that the PR editing the list should be
+# the one to check it — and it failed on its own first run, correctly. The
+# alerts API answers for `main`, so a pull request that *fixes* three alerts
+# sees them still open and reports the state it exists to change. There is no
+# query that would help: the alerts a merge will close do not close until the
+# merge is analysed. Daily is the honest cadence for a question only `main` can
+# answer.
+
+jobs:
+    baseline:
+        runs-on: ubuntu-latest
+        permissions:
+            security-events: read
+            contents: read
+        steps:
+            - uses: actions/checkout@v7
+            - name: Every open alert is accounted for
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open&per_page=100" \
+                      --jq '[.[] | {rule: .rule.id, path: .most_recent_instance.location.path, severity: .rule.security_severity_level, number: .number}]' \
+                      > open.json
+
+                  jq -r '.accepted[] | "\(.rule)\t\(.path)"' .github/codeql/accepted-alerts.json | sort -u > accepted.tsv
+                  jq -r '.[] | "\(.rule)\t\(.path)"' open.json | sort -u > open.tsv
+
+                  {
+                      echo "## CodeQL alerts open on \`main\`"
+                      echo
+                      echo "| severity | rule | path |"
+                      echo "|---|---|---|"
+                      jq -r '.[] | "| \(.severity) | \(.rule) | \(.path) |"' open.json
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+                  # Unaccepted: open but not in the committed list.
+                  if comm -23 open.tsv accepted.tsv | grep -q .; then
+                      echo "::error::CodeQL alerts are open that the accepted list does not cover"
+                      comm -23 open.tsv accepted.tsv
+                      exit 1
+                  fi
+
+                  # Stale: accepted but no longer open. Not a failure — the debt
+                  # went away, which is the direction this is supposed to move —
+                  # but the entry has to go, or the list stops meaning anything.
+                  if comm -13 open.tsv accepted.tsv | grep -q .; then
+                      echo "::warning::accepted entries no longer match an open alert; remove them"
+                      comm -13 open.tsv accepted.tsv
+                  fi
+
+                  echo "every open alert is accounted for"
