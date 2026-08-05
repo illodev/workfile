@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+    cp,
+    mkdir,
+    mkdtemp,
+    readFile,
+    readdir,
+    rm,
+    symlink,
+    writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -1909,5 +1918,81 @@ test("--verbose names the workspace a command resolved, without spoiling --json"
         }
     } finally {
         await rm(workspace, { recursive: true, force: true });
+    }
+});
+
+/**
+ * End to end because the repair is a CLI verb, and because the shape it repairs
+ * cannot be produced by the CLI any more — which is the point of the fix. The
+ * damaged body is written to disk directly, exactly as the four cards in this
+ * repository carried it before `doctor --fix` existed.
+ */
+test("doctor reports and repairs a trail written outside its section", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-trail-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const cards = join(root, ".project", "cards");
+        const named = async () => {
+            const found = (await readdir(cards)).find((name) =>
+                name.startsWith("T-0001")
+            );
+            assert.ok(found, "the fixture lost its card");
+            return join(cards, found);
+        };
+        const file = await named();
+        const original = await readFile(file, "utf8");
+        // Written with the file's own line ending: the fixture arrives CRLF on
+        // Windows, and a hard-coded `\n---\n` matched nothing there, so the
+        // test injected no damage and then asserted the damage was reported.
+        const eol = original.includes("\r\n") ? "\r\n" : "\n";
+        await writeFile(
+            file,
+            original.replace(
+                /\r?\n---\r?\n/,
+                [
+                    "",
+                    "---",
+                    "",
+                    "The trail lives in `## Activity`.",
+                    "- 2026-08-02 16:56Z alice · claimed",
+                    "- 2026-08-02 17:07Z alice · doing → done",
+                    ""
+                ].join(eol)
+            )
+        );
+
+        const reported = JSON.parse(
+            (await outcome(["doctor", "--root", root, "--json"])).stdout
+        ).issues.filter((issue) => issue.code === "misplaced-trail");
+        assert.equal(reported.length, 1);
+        assert.equal(reported[0].severity, "warning");
+        assert.match(reported[0].message, /2 trail entries/);
+
+        const fixed = await outcome(["doctor", "--root", root, "--fix"]);
+        assert.match(fixed.stdout, /moved: T-0001 2 trail entries/);
+
+        // Re-resolved: `--fix` also reslugs, and the fixture's filename does
+        // not match its title, so the repair lands under a new name.
+        const repaired = await readFile(await named(), "utf8");
+        assert.match(
+            repaired,
+            /## Activity\r?\n\r?\n- 2026-08-02 16:56Z alice · claimed/
+        );
+        assert.match(repaired, /^The trail lives in `## Activity`\.\r?$/m);
+        // The repair rewrites the whole body, so it is also where a file would
+        // acquire a second kind of line ending if the writers disagreed.
+        assert.equal(
+            /\r\n/.test(repaired) && /[^\r]\n/.test(repaired),
+            false,
+            "the repaired card has mixed line endings"
+        );
+        assert.deepEqual(
+            JSON.parse(
+                (await outcome(["doctor", "--root", root, "--json"])).stdout
+            ).issues.filter((issue) => issue.code === "misplaced-trail"),
+            []
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
     }
 });

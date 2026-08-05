@@ -962,13 +962,21 @@ const TOOL_DEFINITIONS = [
             {
                 id: identifier("Card whose body is being replaced."),
                 body: text(
-                    "The complete new Markdown body. This overwrites, so read the card first unless you intend to discard what is there."
+                    "The complete new Markdown body. This overwrites, so read the card first unless you intend to discard what is there. The content of ## Activity and ## Notes is append-only and comes from the stored card; anything you send under those headings is reported back in `ignored`."
                 ),
                 expectedRevision: EXPECTED_REVISION
             },
             ["id", "body"]
         ),
-        outputSchema: RECORD_RESULT,
+        outputSchema: output(
+            {
+                record: RECORD_FULL,
+                ignored: strings(
+                    "Protocol headings whose content was not taken from the sent body. Empty when the write applied in full."
+                )
+            },
+            ["record"]
+        ),
         annotations: annotations({}),
         async execute(args, context) {
             const result = await patchCardBody(
@@ -980,7 +988,9 @@ const TOOL_DEFINITIONS = [
                 }
             );
             invalidate(context);
-            return recordResult(recordFromCard(context.workspace, result.card));
+            return recordResult(recordFromCard(context.workspace, result.card), {
+                ignored: result.ignored
+            });
         }
     }),
     tool({

@@ -21,6 +21,8 @@
  * rather than silently applied to the wrong line.
  */
 
+import { fencedLines } from "./body.js";
+
 /** The heading that opens the region. Matched case-insensitively. */
 const HEADING = /^(#{1,6})\s+acceptance\s+criteria\b.*$/im;
 
@@ -51,16 +53,26 @@ export interface AcceptanceReading {
  * `### Notes on criterion 2` nested inside it stays inside. A card with no
  * section reads as `present: false` with no items — distinct from a card that
  * declares the section and leaves it empty, which is a different mistake.
+ *
+ * Fenced blocks are not the region and cannot open it. A card quoting an
+ * example body — which is what a card *about* card bodies contains — read its
+ * criteria out of the quote: T-0157 reported "0 of 1 met" against a criterion
+ * printed inside a code fence, while its five real ones went uncounted. That
+ * reading gates `done`, and `card ac --check` would have edited the quote.
  */
 export function parseAcceptance(body = ""): AcceptanceReading {
     const lines = String(body).split(/\r?\n/);
-    const headingIndex = lines.findIndex((line) => HEADING.test(line));
+    const fenced = fencedLines(lines);
+    const headingIndex = lines.findIndex(
+        (line, at) => !fenced[at] && HEADING.test(line)
+    );
     if (headingIndex === -1) return { present: false, items: [], unchecked: [] };
 
     const openedAt = (lines[headingIndex].match(/^(#{1,6})/) || [])[1]?.length ?? 2;
     const items: AcceptanceItem[] = [];
 
     for (let line = headingIndex + 1; line < lines.length; line += 1) {
+        if (fenced[line]) continue;
         const heading = lines[line].match(/^(#{1,6})\s+\S/);
         if (heading && heading[1].length <= openedAt) break;
         const match = lines[line].match(ITEM);

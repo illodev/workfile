@@ -321,3 +321,37 @@ test("the gate holds over HTTP and over MCP, not only in process", async () => {
         );
     }, { prefix: "workfile-ac-wire-" });
 });
+
+// A card about card bodies quotes one, and the quote had criteria in it. That
+// is how T-0157 came to report "0 of 1 met" against a criterion inside a code
+// fence while its five real ones went uncounted — and `parseAcceptance` is
+// what `assertAcceptanceMet` gates `done` on.
+test("criteria inside a fenced block are a quote, not the card's own", () => {
+    const body = [
+        "## Reproduced",
+        "",
+        "```text",
+        "## Acceptance criteria",
+        "",
+        "- [ ] quoted criterion",
+        "```",
+        "",
+        "## Acceptance criteria",
+        "",
+        "- [ ] the real one",
+        "- [x] the other real one"
+    ].join("\n");
+
+    const reading = parseAcceptance(body);
+    assert.equal(reading.items.length, 2);
+    assert.deepEqual(
+        reading.items.map((item) => item.text),
+        ["the real one", "the other real one"]
+    );
+    assert.equal(reading.unchecked.length, 1);
+
+    // And a write addresses the real list, leaving the quote byte for byte.
+    const applied = applyAcceptance(body, { check: [1] });
+    assert.match(applied.body, /- \[x\] the real one/);
+    assert.match(applied.body, /- \[ \] quoted criterion/);
+});

@@ -28,6 +28,7 @@ import {
     createRelease,
     graduateLearning,
     healDuplicateCardIds,
+    healMisplacedTrailEntries,
     inspectRepository,
     loadCards,
     readAgentSessions,
@@ -1444,7 +1445,20 @@ async function cardCommand(workspace, action) {
             body,
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} body written`);
+        // Naming what did not land is the point of ADR-0011: the failure this
+        // replaces was a success message over a half-applied write.
+        return print(
+            has("--json")
+                ? {
+                      ...result.card,
+                      ...(result.ignored.length ? { ignored: result.ignored } : {})
+                  }
+                : `${id} body written${
+                      result.ignored.length
+                          ? `\nkept the stored copy of ${result.ignored.join(", ")} — those sections are append-only`
+                          : ""
+                  }`
+        );
     }
     if (action === "patch") {
         const axes = axisOptions("--axis");
@@ -2298,6 +2312,9 @@ async function main() {
                   renameSkipped: Awaited<
                       ReturnType<typeof reslugStaleCardFiles>
                   >["skipped"];
+                  trails: Awaited<
+                      ReturnType<typeof healMisplacedTrailEntries>
+                  >["moved"];
               })
             | null = null;
         if (has("--fix")) {
@@ -2307,13 +2324,17 @@ async function main() {
             // fresh ID keeps the old title slug, and this is what brings the
             // whole filename back in step.
             const renamed = await reslugStaleCardFiles(workspace, { actor });
+            // Last, because both repairs above rewrite whole files and this one
+            // reads the body it finds afterwards.
+            const trails = await healMisplacedTrailEntries(workspace, { actor });
             // Kept as two shapes rather than one merged list: an ID collision
             // skipped for living outside the cards tree and a rename skipped
             // for a name clash are different problems with different repairs.
             fixed = {
                 ...healed,
                 renamed: renamed.moves,
-                renameSkipped: renamed.skipped
+                renameSkipped: renamed.skipped,
+                trails: trails.moved
             };
             if (!has("--json")) {
                 for (const move of healed.moves) {
@@ -2321,6 +2342,13 @@ async function main() {
                 }
                 for (const move of renamed.moves) {
                     console.log(`renamed: ${move.from} → ${move.to}`);
+                }
+                for (const repair of trails.moved) {
+                    console.log(
+                        `moved: ${repair.id} ${repair.entries} trail ${
+                            repair.entries === 1 ? "entry" : "entries"
+                        } into \`## Activity\``
+                    );
                 }
             }
         }

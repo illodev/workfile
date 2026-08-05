@@ -1,13 +1,14 @@
 ---
 id: T-0157
 title: card write silently drops everything below a protocol heading
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 created: 2026-08-04
 updated: 2026-08-04
 origin: [T-0155]
+scope: [packages/workfile/src/modules/cards/mutations.ts]
 ---
 
 `patchCardBody` protects `## Activity` and `## Notes` from being replaced —
@@ -89,6 +90,25 @@ Something should stop being silent; which thing is the design question.
 Whatever wins, a doctor rule for existing cards in this shape is worth having;
 it is invisible until somebody tries to edit one.
 
+## Decided
+
+[[ADR-0011]] takes option 2. A body write carries over the *content* of the
+protocol sections and nothing else, so everything below them belongs to the
+caller again; a caller that edits inside them is ignored there and told so, in
+`ignored`, on all three surfaces.
+
+Two things were found while building it, both worse than what this card
+describes. The heading search read `## Activity` and `## Notes` out of fenced
+blocks *and* out of inline code — so the trail of four cards in this repository
+had been written into their prose, T-0108's entire four-entry trail among them,
+because the cards written about the trail are the ones that name it in a
+sentence. And the same search is what `card note` and the trail itself use, so
+the damage was being written by the protocol rather than merely tolerated by
+it.
+
+The reading is now a line scan that tracks fence state, shared by every writer,
+and `doctor --fix` moves stray entries back where they belong.
+
 ## Discovered by
 
 Authoring [[T-0155]] with a `## Notes` section above its acceptance criteria,
@@ -100,8 +120,14 @@ stored. There is no CLI path back from that state.
 
 ## Acceptance criteria
 
-- [ ] The chosen option is recorded as a decision before it is built
-- [ ] A body write either applies fully or fails naming what it could not write
-- [ ] The repro above passes under the new behaviour
-- [ ] A card already in this shape is reachable — repaired or reported
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] The chosen option is recorded as a decision before it is built
+- [x] A body write either applies fully or fails naming what it could not write
+- [x] The repro above passes under the new behaviour
+- [x] A card already in this shape is reachable — repaired or reported
+- [x] `pnpm run check` green, doctor 0/0
+
+## Activity
+
+- 2026-08-04 23:13Z illodev@local#cfe281b4 · claimed
+- 2026-08-04 23:35Z illodev@local#cfe281b4 · moved 1 trail entry into the trail
+- 2026-08-04 23:40Z illodev@local#cfe281b4 · doing → review

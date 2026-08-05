@@ -5,6 +5,7 @@ import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
 import { parseAcceptance } from "./acceptance.js";
+import { misplacedTrailEntries } from "./body.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { cardFileName } from "./slug.js";
 import { declaredAxes } from "./validation.js";
@@ -442,6 +443,23 @@ export async function diagnoseCards({
                     )
                 );
             }
+        }
+        // Written by the protocol, in the wrong place, by the protocol. A
+        // warning rather than an error because nothing downstream computes on
+        // the trail — but it is unreadable where it landed, and invisible to
+        // the reader who would otherwise notice, so it has to be said.
+        const stray = misplacedTrailEntries(card.body);
+        if (stray.length) {
+            issues.push(
+                issue(
+                    "warning",
+                    "misplaced-trail",
+                    card,
+                    `${stray.length} trail ${
+                        stray.length === 1 ? "entry is" : "entries are"
+                    } outside \`## Activity\`. Run \`workfile doctor --fix\`.`
+                )
+            );
         }
         const hierarchy = hierarchyDepth(card, byId);
         if (hierarchy.cycle) {
