@@ -5,6 +5,7 @@ import { diagnoseCards } from "../cards/index.js";
 import { checkCiTemplates } from "../ci/index.js";
 import { createIntegrationRegistry } from "../integrations/registry.js";
 import { buildProjectIndex } from "../records/public.js";
+import { classifyDuplicates, duplicateIssueMessage } from "./duplicates.js";
 import { exists } from "../../core/fs-utils.js";
 import { lockIsStale } from "../../core/locks.js";
 import { readdir } from "node:fs/promises";
@@ -96,7 +97,21 @@ export async function runDoctor(workspace, options: any = {}) {
         createIntegrationRegistry(workspace.integrations || []);
     reports.push(...(await integrationRegistry.healthReports(workspace, index)));
 
-    const issues = reports.flatMap((report) => report.issues);
+    // Every module holding records reports a duplicate ID of its own, and none
+    // of them can name a repair: a module sees one kind, and whether a
+    // collision can be healed depends on what the other kinds are carrying.
+    // This is the only layer that holds all of them, so it answers for
+    // duplicate identity — once, rather than leaving a second line standing
+    // beside it that names nothing to run.
+    const duplicates = classifyDuplicates(index);
+    const claimed = new Set(duplicates.map((duplicate) => duplicate.id));
+    const issues = reports
+        .flatMap((report) => report.issues)
+        .filter(
+            (issue) =>
+                issue.code !== "duplicate-record-id" ||
+                !claimed.has(String(issue.id || ""))
+        );
     if (
         workspace.config.search.provider &&
         !integrationRegistry.semanticSearchProvider(
@@ -115,14 +130,21 @@ export async function runDoctor(workspace, options: any = {}) {
             }
         });
     }
-    for (const duplicate of index.duplicates) {
+    for (const duplicate of duplicates) {
         issues.push({
             severity: "error",
             code: "duplicate-record-id",
             id: duplicate.id,
+            // Code-unit smallest, so the issue keeps one identity across
+            // clones — `issueIdentity` hashes the file into the baseline key.
             file: duplicate.paths[0],
-            message: `${duplicate.id} is used by multiple project records. Run \`workfile doctor --fix\` or \`workfile card renumber --duplicates\` to heal card collisions.`,
-            details: { paths: duplicate.paths }
+            message: duplicateIssueMessage(duplicate),
+            details: {
+                paths: duplicate.paths,
+                kind: duplicate.kind,
+                healable: duplicate.healable,
+                reason: duplicate.reason
+            }
         });
     }
     for (const stale of await findStaleLocks(workspace)) {

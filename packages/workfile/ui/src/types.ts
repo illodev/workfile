@@ -356,6 +356,14 @@ export interface ClaimEntry {
     };
 }
 
+/**
+ * The verdict `claimState()` ships for a claim, derived from the interface's
+ * own type so the two cannot drift. The lease that turns a hold `stale` is
+ * `cards.claimLeaseHours`, applied on the server; the interface renders the
+ * state it is given and never re-derives it from an age.
+ */
+export type ClaimState = ClaimEntry["claim"]["state"];
+
 export interface ActivitySnapshot {
     generatedAt: string;
     sessions: Array<{

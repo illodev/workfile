@@ -28,6 +28,7 @@ import {
     createRelease,
     graduateLearning,
     healDuplicateCardIds,
+    healDuplicateRecordIds,
     healMisplacedTrailEntries,
     inspectRepository,
     loadCards,
@@ -125,6 +126,7 @@ const USAGE: Record<string, string[]> = {
     schema: ["workfile schema [--root PATH] [--json]"],
     doctor: [
         "workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]",
+        "workfile doctor --fix   # heal duplicate IDs of any kind, stale filenames and misplaced trail entries",
         "workfile doctor --new   # only what appeared since the baseline; exits 1 on anything new",
         "workfile doctor --accept-baseline   # record the current state as known"
     ],
@@ -1459,15 +1461,17 @@ async function cardCommand(workspace, action) {
         const actor = option("--actor") || defaultActor();
         if (has("--duplicates")) {
             const result = await healDuplicateCardIds(workspace, { actor });
-            return print(
-                has("--json")
-                    ? result
-                    : result.moves.length
-                      ? result.moves
-                            .map((move) => `${move.from} → ${move.to} (${move.file})`)
-                            .join("\n")
-                      : "no duplicate card IDs"
+            if (has("--json")) return print(result);
+            const lines = result.moves.map(
+                (move) => `${move.from} → ${move.to} (${move.file})`
             );
+            // A collision this sweep does not own is still a collision, and it
+            // was reported only in `--json` before — a caller reading the text
+            // was told there was nothing to do.
+            for (const skip of result.skipped) {
+                lines.push(`skipped: ${skip.id} — ${skip.reasonText}`);
+            }
+            return print(lines.length ? lines.join("\n") : "no duplicate card IDs");
         }
         const result = await renumberCard(workspace, id, {
             to: option("--to"),
@@ -2375,7 +2379,7 @@ async function main() {
             await clearIndexCache(workspace);
         }
         let fixed:
-            | (Awaited<ReturnType<typeof healDuplicateCardIds>> & {
+            | (Awaited<ReturnType<typeof healDuplicateRecordIds>> & {
                   renamed: Awaited<
                       ReturnType<typeof reslugStaleCardFiles>
                   >["moves"];
@@ -2389,7 +2393,7 @@ async function main() {
             | null = null;
         if (has("--fix")) {
             const actor = option("--actor") || defaultActor();
-            const healed = await healDuplicateCardIds(workspace, { actor });
+            const healed = await healDuplicateRecordIds(workspace, { actor });
             // Renaming runs after the ID repair: a card that just moved to a
             // fresh ID keeps the old title slug, and this is what brings the
             // whole filename back in step.
@@ -2398,8 +2402,8 @@ async function main() {
             // reads the body it finds afterwards.
             const trails = await healMisplacedTrailEntries(workspace, { actor });
             // Kept as two shapes rather than one merged list: an ID collision
-            // skipped for living outside the cards tree and a rename skipped
-            // for a name clash are different problems with different repairs.
+            // nothing can heal and a rename skipped for a name clash are
+            // different problems with different repairs.
             fixed = {
                 ...healed,
                 renamed: renamed.moves,
@@ -2408,7 +2412,15 @@ async function main() {
             };
             if (!has("--json")) {
                 for (const move of healed.moves) {
-                    console.log(`fixed: ${move.from} → ${move.to} (${move.file})`);
+                    console.log(
+                        `fixed: ${move.kind} ${move.from} → ${move.to} (${move.file})`
+                    );
+                }
+                // A collision `--fix` refused is still an error in the report
+                // below, and the run still exits 1. Printing the reason is what
+                // keeps that from reading as a repair that silently did nothing.
+                for (const skip of healed.skipped) {
+                    console.log(`cannot fix: ${skip.id} — ${skip.reasonText}`);
                 }
                 for (const move of renamed.moves) {
                     console.log(`renamed: ${move.from} → ${move.to}`);

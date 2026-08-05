@@ -49,6 +49,7 @@ import type {
     ReleaseRecord,
     RuntimeSchema
 } from "../types";
+import { FilterSearch } from "./FilterSearch";
 import { MarkdownBody } from "./Markdown";
 
 type ChangelogSchema = RuntimeSchema["changelog"];
@@ -799,16 +800,21 @@ export function HistoryView({
     onSelect,
     onOpenRecord,
     schema,
-    areas
+    areas,
+    search,
+    onSearchChange
 }: {
     selectedId: string | null;
     onSelect: (id: string) => void;
     onOpenRecord: (id: string) => void;
     schema: ChangelogSchema;
     areas: string[];
+    // Owned by the shell, shared with docs and memory, and serialised to the
+    // address bar: the local state this replaced died on every reload.
+    search: string;
+    onSearchChange: (value: string) => void;
 }) {
     const [records, setRecords] = useState<HistoryRecord[]>([]);
-    const [query, setQuery] = useState("");
     const [state, setState] = useState("");
     const [visibility, setVisibility] = useState("");
     const [loading, setLoading] = useState(true);
@@ -834,7 +840,7 @@ export function HistoryView({
         const run = async () => {
             setLoading(true);
             try {
-                const response = await api.changelog(query.trim(), {
+                const response = await api.changelog(search.trim(), {
                     state: state || undefined,
                     visibility: visibility || undefined
                 });
@@ -847,12 +853,12 @@ export function HistoryView({
                 if (!cancelled) setLoading(false);
             }
         };
-        const timer = window.setTimeout(() => void run(), query ? 180 : 0);
+        const timer = window.setTimeout(() => void run(), search ? 180 : 0);
         return () => {
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [query, state, visibility, reloadKey]);
+    }, [search, state, visibility, reloadKey]);
 
     // The derived changelog is the pane's resting state, so it stays warm.
     useEffect(() => {
@@ -1015,27 +1021,27 @@ export function HistoryView({
                         </Alert>
                     ) : null}
 
-                    <div className="flex items-center gap-1.5">
-                        <Input
-                            type="search"
-                            aria-label="Search history"
-                            placeholder="Search fragments and releases…"
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            className="h-7 flex-1 px-2.5 text-xs md:text-xs"
+                    <div className="flex flex-col gap-2">
+                        <FilterSearch
+                            scope="records"
+                            value={search}
+                            label="Search history"
+                            onChange={onSearchChange}
                         />
-                        <FilterChip
-                            label="state"
-                            value={state}
-                            options={["unreleased", "released"]}
-                            onChange={setState}
-                        />
-                        <FilterChip
-                            label="visibility"
-                            value={visibility}
-                            options={schema.visibilities}
-                            onChange={setVisibility}
-                        />
+                        <div className="flex items-center gap-1.5">
+                            <FilterChip
+                                label="state"
+                                value={state}
+                                options={["unreleased", "released"]}
+                                onChange={setState}
+                            />
+                            <FilterChip
+                                label="visibility"
+                                value={visibility}
+                                options={schema.visibilities}
+                                onChange={setVisibility}
+                            />
+                        </div>
                     </div>
                 </div>
 

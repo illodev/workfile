@@ -21,6 +21,8 @@
  * rather than silently applied to the wrong line.
  */
 
+import { createHash } from "node:crypto";
+
 import { fencedLines, isProtocolSection } from "./body.js";
 
 /**
@@ -188,6 +190,102 @@ export function acceptanceSummary(reading: AcceptanceReading): string {
     return `${checked} of ${reading.items.length}`;
 }
 
+/**
+ * A criterion's text, reduced to what a binding should survive.
+ *
+ * Trim and collapse whitespace runs, and nothing else. Reflowing a paragraph or
+ * re-indenting a list must not break a binding, and neither is a change to what
+ * the criterion says. Case and punctuation are left alone precisely because
+ * they are: "the gate refuses done" and "the gate refuses done?" are different
+ * claims, and a binding that survived the difference would be asserting
+ * something nobody proved.
+ */
+export function normalizeCriterion(text: string): string {
+    return String(text).trim().replace(/\s+/g, " ");
+}
+
+/** `sha256:` and 64 lowercase hex digits — the form `verify[].criteria` holds. */
+export const CRITERION_DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+/**
+ * The binding between a criterion and the command that proves it.
+ *
+ * A hash of the text rather than an index, per ADR-0016. Indices are positional
+ * — the comment at the top of this file explains why that is safe for a write —
+ * but a binding has to survive the interval between proving criterion 2 and
+ * reaching `done`, which no lock covers. Hashing the text makes a reorder
+ * harmless and makes an edit break the binding, which is wanted both ways: the
+ * criterion that was proved is not the criterion that now stands.
+ */
+export function criterionDigest(text: string): string {
+    return `sha256:${createHash("sha256")
+        .update(normalizeCriterion(text), "utf8")
+        .digest("hex")}`;
+}
+
+export interface VerifyEntry {
+    id: string;
+    run: string;
+    criteria?: string[];
+}
+
+/** The `verify` entries of a card, or an empty list when it declares none. */
+export function verifyEntries(verify: unknown): VerifyEntry[] {
+    return Array.isArray(verify)
+        ? (verify.filter(
+              (entry) => entry && typeof entry === "object" && !Array.isArray(entry)
+          ) as VerifyEntry[])
+        : [];
+}
+
+/**
+ * Which criteria are machine-owned, by index, and by what.
+ *
+ * A bound criterion is one `card ac --check` must refuse — that refusal is the
+ * whole point of the binding, since it is what moves the criterion from
+ * something an agent asserts to something a command decided.
+ */
+export function criterionOwners(
+    reading: AcceptanceReading,
+    verify: unknown
+): Map<number, VerifyEntry> {
+    const owners = new Map<number, VerifyEntry>();
+    const entries = verifyEntries(verify);
+    if (!entries.length) return owners;
+    const byDigest = new Map(
+        reading.items.map((item) => [criterionDigest(item.text), item])
+    );
+    for (const entry of entries) {
+        for (const digest of entry.criteria || []) {
+            const item = byDigest.get(digest);
+            if (item) owners.set(item.index, entry);
+        }
+    }
+    return owners;
+}
+
+/**
+ * Bindings that point at text no criterion carries any more.
+ *
+ * Reported rather than repaired. A digest stops matching for two reasons that
+ * look identical from here — the criterion was reworded, or it was replaced by
+ * a different claim — and only the author knows which. Silently rebinding would
+ * make the second case invisible, which is the case the digest exists for.
+ */
+export function staleBindings(
+    reading: AcceptanceReading,
+    verify: unknown
+): Array<{ entry: string; digest: string }> {
+    const known = new Set(reading.items.map((item) => criterionDigest(item.text)));
+    const stale: Array<{ entry: string; digest: string }> = [];
+    for (const entry of verifyEntries(verify)) {
+        for (const digest of entry.criteria || []) {
+            if (!known.has(digest)) stale.push({ entry: entry.id, digest });
+        }
+    }
+    return stale;
+}
+
 export class AcceptanceIndexError extends Error {
     code = "CARD_ACCEPTANCE_INDEX_UNKNOWN";
     constructor(
@@ -198,6 +296,42 @@ export class AcceptanceIndexError extends Error {
             available
                 ? `No acceptance criterion ${index}; the card has ${available}.`
                 : `The card declares no acceptance criteria to address.`
+        );
+    }
+}
+
+/** A hand-written check on a criterion a command owns. */
+export class AcceptanceBoundError extends Error {
+    code = "CARD_ACCEPTANCE_MACHINE_OWNED";
+    constructor(
+        public index: number,
+        public entry: string,
+        public run: string
+    ) {
+        super(
+            `Criterion ${index} is proved by \`${run}\` (verify entry ${entry}), ` +
+                `so only that run may check it. Run \`workfile card verify\` instead.`
+        );
+    }
+}
+
+/**
+ * A run reporting on a criterion it does not prove.
+ *
+ * The mirror of the rule above, and it has to exist for that rule to mean
+ * anything: a runner allowed to check whatever it liked would be the same hole
+ * one rung further in, reached by declaring a `verify` entry instead of by
+ * typing `card ac --check`.
+ */
+export class AcceptanceUnboundError extends Error {
+    code = "CARD_ACCEPTANCE_NOT_BOUND";
+    constructor(
+        public index: number,
+        public entry: string
+    ) {
+        super(
+            `Verify entry ${entry} does not prove criterion ${index}, so it cannot ` +
+                `check it. Bind the criterion to the entry first.`
         );
     }
 }
@@ -213,10 +347,26 @@ export class AcceptanceIndexError extends Error {
  *
  * An unknown index throws rather than being ignored. Silently dropping an
  * instruction is the failure mode an agent cannot detect.
+ *
+ * `owners` makes a bound criterion machine-owned. Without `runner`, the caller
+ * is whoever typed the command, and a bound index is refused. With it, the
+ * caller is one `verify` entry reporting its own result, and it may write the
+ * criteria bound to it and no others — a run that could check a criterion it
+ * does not prove would be the same hole one rung further in.
  */
 export function applyAcceptance(
     body = "",
-    { check = [], uncheck = [] }: { check?: number[]; uncheck?: number[] } = {}
+    {
+        check = [],
+        uncheck = [],
+        owners,
+        runner = null
+    }: {
+        check?: number[];
+        uncheck?: number[];
+        owners?: Map<number, VerifyEntry>;
+        runner?: string | null;
+    } = {}
 ): { body: string; changed: AcceptanceItem[] } {
     const wanted = new Map<number, boolean>();
     // Applied in argument order, so `--check 1 --uncheck 1` ends unchecked and
@@ -230,6 +380,12 @@ export function applyAcceptance(
     for (const index of wanted.keys()) {
         if (!byIndex.has(index)) {
             throw new AcceptanceIndexError(index, reading.items.length);
+        }
+        const owner = owners?.get(index);
+        if (runner) {
+            if (owner?.id !== runner) throw new AcceptanceUnboundError(index, runner);
+        } else if (owner) {
+            throw new AcceptanceBoundError(index, owner.id, owner.run);
         }
     }
 

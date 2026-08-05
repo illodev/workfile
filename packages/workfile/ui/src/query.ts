@@ -34,6 +34,7 @@ const VIEWS: View[] = [
 export function readUrlState(): {
     view: View;
     selectedId: string | null;
+    recordSearch: string;
     filters: Filters;
 } {
     const params = new URLSearchParams(location.search);
@@ -44,6 +45,18 @@ export function readUrlState(): {
         // the address bar stops round-tripping.
         view: view && VIEWS.includes(view) ? view : "overview",
         selectedId: params.get("record") || params.get("card"),
+        /**
+         * Free text for docs, history and memory, which is not `q`.
+         *
+         * `q` is card-shaped: `filterTasks` below reads it, deliberately
+         * without prose, and the work strip's reset chip clears it. The record
+         * collections search on the server, over the body, through a grammar
+         * the browser-side filter does not implement. One parameter for both
+         * would mean a phrase typed in Memory silently narrowing the Explorer
+         * table by a different rule. Kept beside `filters` rather than inside
+         * it for the same reason.
+         */
+        recordSearch: params.get("find") || "",
         filters: {
             search: params.get("q") || "",
             status: STATUSES.includes(params.get("status") as never)
@@ -71,16 +84,24 @@ export function readUrlState(): {
  * browser's Back button; typing in a filter should not bury the previous page
  * under one entry per keystroke. Everything used to be `replaceState`, so the
  * history never grew and Back left the application entirely.
+ *
+ * `find` rides the options bag rather than a fifth positional argument: the
+ * three- and four-argument calls are the whole of how the rest of the app
+ * writes a URL, and a new parameter in front of the bag would rewrite them
+ * all to say nothing new.
  */
 export function writeUrlState(
     view: View,
     filters: Filters,
     selectedId: string | null,
-    { push = false }: { push?: boolean } = {}
+    { push = false, find = "" }: { push?: boolean; find?: string } = {}
 ) {
     const params = new URLSearchParams();
     if (view !== "overview") params.set("view", view);
     if (filters.search) params.set("q", filters.search);
+    // Omitted when empty, so a URL without a record search is the URL it
+    // always was.
+    if (find) params.set("find", find);
     if (filters.status) params.set("status", filters.status);
     if (filters.area) params.set("area", filters.area);
     if (filters.type) params.set("type", filters.type);

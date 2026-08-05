@@ -14,8 +14,8 @@ import {
     DEFAULT_LIST_KEYS,
     parseFrontmatter,
     patchFrontmatter,
-    requireFrontmatter,
-    serializeValue
+    renderFrontmatterEntry,
+    requireFrontmatter
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
@@ -81,8 +81,8 @@ function definitionFor(workspace, collection) {
 }
 
 function renderRecord(metadata, body = "") {
-    const lines = Object.entries(metadata).map(
-        ([key, value]) => `${key}: ${serializeValue(key, value, MEMORY_LIST_KEYS)}`
+    const lines = Object.entries(metadata).flatMap(([key, value]) =>
+        renderFrontmatterEntry(key, value, { listKeys: MEMORY_LIST_KEYS })
     );
     return `---\n${lines.join("\n")}\n---\n\n${String(body).trim()}\n`;
 }

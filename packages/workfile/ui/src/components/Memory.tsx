@@ -6,8 +6,7 @@ import {
     GraduationCap,
     Pencil,
     Plus,
-    Replace,
-    Search
+    Replace
 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,11 +29,6 @@ import {
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-    InputGroup,
-    InputGroupAddon,
-    InputGroupInput
-} from "@/components/ui/input-group";
 import { Item } from "@/components/ui/item";
 import {
     NativeSelect,
@@ -54,6 +48,7 @@ import type {
     RecordLink,
     RuntimeSchema
 } from "../types";
+import { FilterSearch } from "./FilterSearch";
 import { MarkdownBody } from "./Markdown";
 
 /**
@@ -1273,15 +1268,20 @@ export function MemoryView({
     selectedId,
     onSelect,
     onOpenRecord,
-    schema
+    schema,
+    search,
+    onSearchChange
 }: {
     selectedId: string | null;
     onSelect: (id: string) => void;
     onOpenRecord: (id: string) => void;
     schema: RuntimeSchema["memory"];
+    // Owned by the shell, shared with docs and history, and serialised to the
+    // address bar: the local state this replaced died on every reload.
+    search: string;
+    onSearchChange: (value: string) => void;
 }) {
     const [records, setRecords] = useState<MemoryRecord[]>([]);
-    const [query, setQuery] = useState("");
     const [collection, setCollection] = useState("");
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(true);
@@ -1307,7 +1307,7 @@ export function MemoryView({
         const load = async () => {
             setLoading(true);
             try {
-                const response = await api.memory(query.trim(), {
+                const response = await api.memory(search.trim(), {
                     collection: collection || undefined,
                     status: status || undefined
                 });
@@ -1321,9 +1321,9 @@ export function MemoryView({
                 setLoading(false);
             }
         };
-        const timer = window.setTimeout(() => void load(), query ? 180 : 0);
+        const timer = window.setTimeout(() => void load(), search ? 180 : 0);
         return () => window.clearTimeout(timer);
-    }, [query, collection, status, reloadKey]);
+    }, [search, collection, status, reloadKey]);
 
     const sorted = useMemo(
         () =>
@@ -1377,52 +1377,53 @@ export function MemoryView({
 
     return (
         <>
-            {/* Wraps rather than compressing: the row used to squeeze the
-                search field to about 40px and clip the record count against the
-                edge. The count goes last so it drops to its own line first. */}
-            <div className="flex flex-wrap items-center gap-2 px-3.5 pt-3.5">
-                <InputGroup className="w-full min-w-[180px] sm:w-[260px]">
-                    <InputGroupAddon>
-                        <Search aria-hidden="true" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                        type="search"
-                        aria-label="Search workfile memory"
-                        placeholder="Search decisions, incidents, learnings…"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
+            {/* The field owns its own line, in every view that has one. It
+                used to share the row with the chips and the record count,
+                which squeezed it to about 40px and clipped the count against
+                the edge; a field that cannot be shortened by a sibling cannot
+                come back from that. */}
+            <div className="flex flex-col gap-2 px-3.5 pt-3.5">
+                <FilterSearch
+                    scope="records"
+                    value={search}
+                    label="Search workfile memory"
+                    onChange={onSearchChange}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                    <FilterChip
+                        label="collection"
+                        value={collection}
+                        options={schema.collections.map((item) => ({
+                            value: item.id
+                        }))}
+                        onChange={(next) => {
+                            setCollection(next);
+                            setStatus("");
+                        }}
                     />
-                </InputGroup>
-                <FilterChip
-                    label="collection"
-                    value={collection}
-                    options={schema.collections.map((item) => ({
-                        value: item.id
-                    }))}
-                    onChange={(next) => {
-                        setCollection(next);
-                        setStatus("");
-                    }}
-                />
-                <FilterChip
-                    label="status"
-                    value={status}
-                    options={statuses.map((value) => ({
-                        value,
-                        color: recordStatusColor(value)
-                    }))}
-                    onChange={setStatus}
-                />
-                <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                    {loading ? (
-                        <>
-                            <Spinner aria-hidden="true" className="size-3" />
-                            loading…
-                        </>
-                    ) : (
-                        plural(records.length, "record")
-                    )}
-                </span>
+                    <FilterChip
+                        label="status"
+                        value={status}
+                        options={statuses.map((value) => ({
+                            value,
+                            color: recordStatusColor(value)
+                        }))}
+                        onChange={setStatus}
+                    />
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                        {loading ? (
+                            <>
+                                <Spinner
+                                    aria-hidden="true"
+                                    className="size-3"
+                                />
+                                loading…
+                            </>
+                        ) : (
+                            plural(records.length, "record")
+                        )}
+                    </span>
+                </div>
             </div>
             {error ? (
                 <Alert

@@ -1,7 +1,7 @@
 ---
 id: T-0199
 title: Only cards heal a duplicate id, and every branch adds a changelog fragment
-status: backlog
+status: review
 type: bug
 priority: high
 area: core
@@ -56,10 +56,18 @@ something already cut into a release would rewrite shipped history.
 
 ## Acceptance criteria
 
-- [ ] A duplicate changelog id heals through the CLI, with no file deleted by hand.
-- [ ] The survivor is chosen deterministically, so two clones repairing the same collision converge on the same result.
-- [ ] A released fragment never moves; the unreleased side of the collision does.
-- [ ] References to the moved id inside the protocol root are rewritten, or reported when the collision makes them ambiguous.
-- [ ] Doctor names a command that can repair the collision it just reported, for every record kind it reports one on.
-- [ ] Memory and docs collisions are either healed the same way or refused with the reason they are not.
-- [ ] A test covers a changelog collision end to end: two fragments carrying one id in, a clean doctor out.
+- [x] A duplicate changelog id heals through the CLI, with no file deleted by hand.
+- [x] The survivor is chosen deterministically, so two clones repairing the same collision converge on the same result.
+- [x] A released fragment never moves; the unreleased side of the collision does.
+- [x] References to the moved id inside the protocol root are rewritten, or reported when the collision makes them ambiguous.
+- [x] Doctor names a command that can repair the collision it just reported, for every record kind it reports one on.
+- [x] Memory and docs collisions are either healed the same way or refused with the reason they are not.
+- [x] A test covers a changelog collision end to end: two fragments carrying one id in, a clean doctor out.
+
+## Notes
+
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 — Verified: 10 tests in test/duplicates.test.ts plus a CLI test that heals the real shape through the real binary — two CHG fragments carrying one id in, doctor exits 1 and reports it, doctor --fix moves the newer one, and a second doctor run exits clean. That last part is the point: the bug was never in the library alone, it was that doctor printed a remedy the CLI could not perform. Docs and memory heal too, and five cases are refused with their own sentence and no command named. SPEC 18.3 now carries the repair contract, which the agent flagged as owed and outside its paths.
+
+## Activity
+
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · backlog → review

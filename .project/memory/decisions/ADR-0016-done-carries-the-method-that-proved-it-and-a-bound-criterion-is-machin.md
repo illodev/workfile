@@ -4,6 +4,7 @@ title: done carries the method that proved it, and a bound criterion is machine-
 status: proposed
 created: 2026-08-05
 updated: 2026-08-05
+related: [T-0200, LRN-0025, T-0184]
 ---
 ## Context
 
@@ -111,3 +112,36 @@ targets from one template (`ci.ts`), so a stage DSL would have to be lowered
 into all three — in exchange for expressing something the CI configuration
 already expresses better. The card says what must be true; the CI config says
 how to run things.
+
+## Amendments
+
+**2026-08-05 — the two YAML blocks above were not writable.** Both examples in
+the Decision section are drawn in a shape the frontmatter codec classified as
+opaque: they parsed back as raw indented text, the first write to either threw a
+bare `Error` — no code, so it escaped the surfaces as an internal failure — and
+the create path wrote `verify: "[object Object]"`. SPEC §10.4 forbade nested
+objects outright, so the design of record was not implementable by the codec it
+was designed for. T-0200 moved that boundary: nesting now goes exactly one level,
+in the two shapes drawn here and no others. Nothing in this decision changes. It
+turned out to have a prerequisite nobody had noticed.
+
+**2026-08-05 — the Context is stale on `--force`.** "The trail entry a transition
+writes is `${current.status} → ${wanted}` and nothing else" was true when this
+was written and is not any more: T-0184 shipped, and a forced move now names the
+gate it waived and carries the reason on the same line. The argument the
+paragraph makes still stands, because that marker is prose on the trail rather
+than a field anything can count over closed cards. `method: forced` is still the
+point, and must agree with what T-0184 already writes instead of duplicating it.
+
+**2026-08-05 — the allowlist is not the boundary the Consequences imply.** "This
+decision is not implementable without an allowlist of permitted command prefixes
+in project config" reads as though the allowlist stood between a fork's pull
+request and the runner. LRN-0025 records that it does not, and did not before
+this decision either: the generated workflow triggers on `pull_request`, and
+`loadWorkspace` imports `project.config.mjs` out of the checkout, so every
+command that loads a workspace — `doctor` included, the one command the generated
+workflow exists to run — has been executing repository-supplied code from a
+fork's head all along. The allowlist is still worth building, for reviewability
+and for the maintainer who runs `card verify` on a branch they only meant to
+read. What bounds the damage is the job rather than the card: no secrets, no
+write token, and no evidence written back from a fork's head.

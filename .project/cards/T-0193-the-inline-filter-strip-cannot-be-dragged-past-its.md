@@ -33,3 +33,7 @@ should be one component, not a class list copied per view.
 - [ ] A tap on a select still opens it.
 - [ ] Workflow's kind and relation filters use the same scrollable strip.
 - [ ] The strip is one shared component and the duplicated class lists are gone.
+
+## Notes
+
+- 2026-08-05 19:48Z illodev@local#bf4c5f67 — T-0195 landed a shared FilterSearch in the shell's filter strip, immediately after the view title and outside the horizontally-scrolling chip strip, and restructured the filter bars in Docs, History and Memory. The chip container's className was left byte-identical on purpose to keep this card's conflict small. Settle container ownership before starting: this card and T-0195 disagree about what the shared thing is — a scrollable chip strip, or a search row above the chips.

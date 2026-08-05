@@ -71,7 +71,8 @@ export const CARD_RESERVED_KEYS = Object.freeze([
     "tags",
     "title",
     "type",
-    "updated"
+    "updated",
+    "verify"
 ] as const);
 
 /** What an axis name may look like: a plain, greppable frontmatter key. */

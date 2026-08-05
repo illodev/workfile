@@ -1,7 +1,7 @@
 ---
 id: T-0185
 title: A criterion can bind to a command, and only the runner may check it
-status: backlog
+status: review
 type: feature
 priority: high
 area: core
@@ -11,31 +11,55 @@ effort: M
 created: 2026-08-05
 updated: 2026-08-05
 origin: [ADR-0016]
+depends: [T-0200]
+related: [LRN-0025]
+scope: [packages/workfile/src/modules/cards]
 ---
 
-Per ADR-0016. Frontmatter carries a `verify` list — `id`, `run`, and the
-criteria each command proves — and `workfile card verify ID` runs them and
-checks what passed.
+Per ADR-0016. Frontmatter carries a `verify` list — `id`, `run`, and the criteria
+each command proves — and a criterion bound to one becomes machine-owned:
+`card ac --check` refuses it and names the command that owns it. That refusal is
+the whole point of the card. It is what moves a criterion from something an agent
+asserts to something a command decided.
 
 The binding is a hash of the criterion's normalised text, **not its index**.
 `acceptance.ts` is explicit that indices are positional and that the card lock
-plus `expectedRevision` refuse a concurrent reorder; that protects the write,
-not the interval between proving criterion 2 and reaching `done`. A text hash
-makes a reorder harmless and makes an edit to the criterion break the binding,
-which is wanted in both directions.
+plus `expectedRevision` refuse a concurrent reorder; that protects the write, not
+the interval between proving criterion 2 and reaching `done`. A text hash makes a
+reorder harmless and makes an edit to the criterion break the binding, which is
+wanted in both directions.
 
-Once bound, the criterion is machine-owned: `card ac --check` must refuse it.
-That refusal is the whole point of the card — it is what moves the criterion
-from something an agent asserts to something a command decided.
+Normalisation is trim and collapse internal whitespace, and nothing else. Reflow
+and re-indentation are not changes to what a criterion says; case and punctuation
+are.
 
-Normalisation needs pinning down before implementation: trim, collapse internal
-whitespace, and nothing else. Case and punctuation are meaning in a criterion.
+This card is the binding and its refusal. **`workfile card verify` — the runner
+that executes the commands and writes the results back — moved to T-0203**,
+because a runner that executes card-declared shell is the exact thing T-0188
+exists to bound, and ADR-0016 says outright that the decision "is not
+implementable without an allowlist". Landing the model first is worth doing on
+its own: a bound criterion is refused to a hand-written check whether or not
+anything can yet run it.
+
+Two corrections to what this card assumed. `card ac` has exactly one surface —
+the CLI — so the refusal is one door, not four; there is no HTTP route and no MCP
+tool for acceptance. And `verify` was not writable at all until T-0200: ADR-0016
+draws it as a block sequence of mappings, which the frontmatter codec classified
+as opaque and refused on the first write.
 
 ## Acceptance criteria
 
-- [ ] `verify` entries validate on write; an unknown key or a criterion hash matching nothing is refused with a named error.
-- [ ] `card verify ID` runs the commands and reports pass/fail per entry, with `--json`.
-- [ ] A passing run checks exactly the criteria bound to that entry, and no others.
-- [ ] `card ac --check` refuses a bound criterion and names the command that owns it.
-- [ ] Reordering the criteria list leaves every binding intact, proven by a test.
-- [ ] Editing a bound criterion's text breaks its binding and `doctor` reports it.
+- [x] `verify` entries validate on write; an unknown key, a duplicate id, a missing command or a digest matching no criterion is refused with a named error.
+- [x] The binding is a hash of the criterion's normalised text, and normalisation survives reflow but not a change of wording.
+- [x] Reordering the criteria list leaves every binding intact, proven by a test.
+- [x] `card ac --check` refuses a bound criterion and names the command that owns it.
+- [x] Editing a bound criterion's text breaks its binding and `doctor` reports it.
+
+## Activity
+
+- 2026-08-05 19:52Z illodev@local#bf4c5f67 · claimed
+- 2026-08-05 20:31Z illodev@local#bf4c5f67 · doing → review
+
+## Notes
+
+- 2026-08-05 20:30Z illodev@local#bf4c5f67 — Verified: 7 tests in test/verify.test.ts covering normalisation, the digest, reorder-survives, edit-breaks, the card ac refusal through the real mutation surface, the runner's own bound-only rule, and the doctor rule for a binding whose criterion was reworded. The verify block round-trips through the file, which is what T-0200 had to move the codec boundary for. card verify itself is deliberately absent and is T-0203: it executes card-declared shell, which T-0188 exists to bound.

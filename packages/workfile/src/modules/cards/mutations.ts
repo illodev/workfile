@@ -5,6 +5,7 @@ import { createFileExclusive, writeFileAtomic } from "../../core/filesystem.js";
 import { reserveRecordId } from "../../core/record-ids.js";
 import {
     applyAcceptance,
+    criterionOwners,
     parseAcceptance,
     unreadableCriteria
 } from "./acceptance.js";
@@ -18,8 +19,8 @@ import {
 import {
     parseFrontmatter,
     patchFrontmatter,
-    requireFrontmatter,
-    serializeValue
+    renderFrontmatterEntry,
+    requireFrontmatter
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
@@ -75,8 +76,8 @@ export async function nextCardSequence(workspace) {
 }
 
 function renderCard(metadata, body = "") {
-    const lines = Object.entries(metadata).map(
-        ([key, value]) => `${key}: ${serializeValue(key, value, CARD_LIST_KEYS)}`
+    const lines = Object.entries(metadata).flatMap(([key, value]) =>
+        renderFrontmatterEntry(key, value, { listKeys: CARD_LIST_KEYS })
     );
     return `---\n${lines.join("\n")}\n---\n\n${String(body).trim()}\n`;
 }
@@ -611,10 +612,21 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
         ...(input.due ? { due: input.due } : {}),
         ...(input.claimed_by ? { claimed_by: input.claimed_by } : {}),
         ...(input.claimed_at ? { claimed_at: input.claimed_at } : {}),
+        ...(input.verify?.length ? { verify: input.verify } : {}),
         created: date,
         updated: date
     };
-    validateCardCandidate(workspace, base, loaded.cards, null);
+    // The body rides along for validation only, and deliberately not in `base`,
+    // which becomes the frontmatter. `verify` binds to criteria that live in the
+    // body, so a create carrying both has to be checked against the body it is
+    // creating rather than against the empty one a fresh card would otherwise
+    // present.
+    validateCardCandidate(
+        workspace,
+        { ...base, body: input.body || "" },
+        loaded.cards,
+        null
+    );
 
     return reserveRecordId(
         {
@@ -1052,10 +1064,19 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
  * that is what makes positional indices safe: a concurrent reorder changes the
  * revision, so a stale address is refused rather than applied to the wrong line.
  */
+/**
+ * Checks or unchecks criteria.
+ *
+ * `runner` is the id of the `verify` entry reporting its own result, and is
+ * what makes a bound criterion machine-owned: without it the caller is a human
+ * or an agent and a bound index is refused; with it the caller may write the
+ * criteria bound to that entry and no others. Only `runCardVerification` passes
+ * it, which is the whole of the guarantee.
+ */
 export async function setCardAcceptance(
     workspace,
     id,
-    { check = [], uncheck = [], expectedRevision }: any = {}
+    { check = [], uncheck = [], expectedRevision, runner = null }: any = {}
 ) {
     if (!check.length && !uncheck.length) {
         throw new ValidationError(
@@ -1072,12 +1093,33 @@ export async function setCardAcceptance(
             const body = content.slice(parsed.prefixLength);
             let applied;
             try {
-                applied = applyAcceptance(body, { check, uncheck });
+                applied = applyAcceptance(body, {
+                    check,
+                    uncheck,
+                    // Read from the locked content, not from the listing: the
+                    // whole point of a bound criterion is that this write is
+                    // refused, and reading the bindings from before the lock
+                    // would let a concurrent bind slip past it.
+                    owners: criterionOwners(
+                        parseAcceptance(body),
+                        parsed.metadata.verify
+                    ),
+                    runner
+                });
             } catch (error: any) {
                 if (error?.code === "CARD_ACCEPTANCE_INDEX_UNKNOWN") {
                     throw new ValidationError(error.code, error.message, {
                         index: error.index,
                         available: error.available
+                    });
+                }
+                if (
+                    error?.code === "CARD_ACCEPTANCE_MACHINE_OWNED" ||
+                    error?.code === "CARD_ACCEPTANCE_NOT_BOUND"
+                ) {
+                    throw new ValidationError(error.code, error.message, {
+                        index: error.index,
+                        entry: error.entry
                     });
                 }
                 throw error;

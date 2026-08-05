@@ -4,7 +4,11 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
-import { parseAcceptance, unreadableCriteria } from "./acceptance.js";
+import {
+    parseAcceptance,
+    staleBindings,
+    unreadableCriteria
+} from "./acceptance.js";
 import { misplacedTrailEntries } from "./body.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { cardFileName } from "./slug.js";
@@ -530,6 +534,28 @@ export async function diagnoseCards({
                         `heading the acceptance reader recognises: ` +
                         unreadable.map((item) => item.text).join("; "),
                     { unreadable: unreadable.map(({ text }) => ({ text })) }
+                )
+            );
+        }
+        // A binding names the text it proves, so text that no longer exists
+        // means the criterion was reworded or replaced after the command was
+        // bound to it. Reported rather than repaired: the two look identical
+        // from here and only the author knows which happened. This is the whole
+        // reason the binding is a hash and not an index.
+        const stale = staleBindings(reading, card.verify);
+        if (stale.length) {
+            issues.push(
+                issue(
+                    "warning",
+                    "verify-binding-stale",
+                    card,
+                    `Card has ${stale.length} verify ` +
+                        `${stale.length === 1 ? "binding" : "bindings"} pointing at ` +
+                        `text no criterion carries any more: ` +
+                        stale
+                            .map((binding) => `${binding.entry} → ${binding.digest}`)
+                            .join("; "),
+                    { bindings: stale }
                 )
             );
         }

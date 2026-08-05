@@ -470,11 +470,21 @@ The protocol uses a deliberately restricted YAML-compatible subset:
 - inline scalar lists using `[a, b]`;
 - JSON-compatible double-quoted escaping;
 - simple single-quoted scalars may be read for compatibility;
-- no anchors, aliases, tags, multiline YAML scalars or arbitrary nested objects;
-- complex structures use dedicated JSON files or repeated Markdown sections.
+- block scalars (`|`, `>`) and block sequences may be read, and are written back in the
+  style they were read in;
+- nesting goes exactly one level deep, in one of two shapes — a mapping of scalars and
+  inline lists, or a sequence of such mappings;
+- no anchors, aliases or tags, and no nesting past that one level;
+- deeper structures use dedicated JSON files or repeated Markdown sections.
+
+A key whose value falls outside this subset MUST be preserved verbatim on read and MUST be
+refused on write, with an error naming the key. Writing a value the format cannot represent
+MUST be refused for the same reason: silently serializing it loses what the author wrote.
 
 The parser and serializer MUST be exact inverses for supported values. Repeated saves MUST
-not cause textual drift.
+not cause textual drift. A nested value's list-ness is determined by how it is written —
+`[a, b]` — and not by the name of its key, since key-level list declarations apply only to
+the top level.
 
 ## 11. Module: Work cards
 
@@ -1359,6 +1369,20 @@ The doctor validates at least:
 - orphaned asset directories;
 - generated agent instructions out of sync;
 - uncommitted schema migrations where detectable.
+
+Duplicate identity has a repair contract, because sequential IDs are allocated by scanning
+the local maximum and two clones therefore mint the same one independently. Filenames carry
+a title slug, so both files merge without a conflict and the collision surfaces only in the
+doctor.
+
+- A duplicate is healed by moving the losing record to a free ID in its own sequence. The
+  surviving record keeps the ID and keeps every reference already written to it.
+- The survivor MUST be chosen deterministically, so two clones repairing the same collision
+  converge without coordinating. Comparisons MUST order by code unit rather than by locale.
+- A record that has been published MUST NOT move. A released changelog fragment is frozen
+  when its release is cut, and renumbering it would rewrite history that has shipped.
+- A collision the tool declines to heal MUST be reported with the reason it declined, and
+  MUST NOT name a command that cannot perform the repair.
 
 ### 18.4 Baseline mode
 
