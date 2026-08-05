@@ -370,8 +370,37 @@ test("regex scanning stops at the first 20000 body characters", async () => {
     );
 });
 
-// Regex reuses the result envelope, so callers need no changes: paging pages,
-// `view` projects, `fields` overrides.
+/**
+ * The guard the three caps could not be.
+ *
+ * A pattern cap of 256, an `imsu` flag allowlist and a 20,000-character body
+ * cap all bound the *input*, and none of them bounds backtracking. `/(a+)+$/`
+ * is six characters and passes every one: 232ms against a 24-character body,
+ * 3.7s against 28, 57s against 32 — two more characters is four times the
+ * work, and against the cap it does not finish ([[T-0190]]).
+ *
+ * 400 characters is chosen to be hopeless rather than merely slow. If the
+ * deadline ever stops working this test does not get slower, it stops
+ * terminating, which is the failure mode worth having: a wrong answer here
+ * would be indistinguishable from a fast machine.
+ */
+test("a pattern that cannot finish is stopped rather than waited for", async () => {
+    const records = regexFixtureRecords();
+    records[2].body = `${"a".repeat(400)}!`;
+
+    const started = process.hrtime.bigint();
+    await assert.rejects(
+        () => searchProjectRecordsHybrid(records, "/(a+)+$/", {}),
+        { code: "SEARCH_REGEX_TIMEOUT" }
+    );
+    const ms = Number(process.hrtime.bigint() - started) / 1e6;
+    // The deadline is 2s; anything under 10 proves it was the deadline that
+    // ended this and not the pattern finishing on its own.
+    assert.ok(ms < 10_000, `the scan ran for ${ms.toFixed(0)}ms`);
+});
+
+// The ordinary path still crosses a thread boundary, so the envelope is worth
+// asserting after it: paging pages, `view` projects, `fields` overrides.
 test("regex mode reuses the lexical result envelope", async () => {
     const records = regexFixtureRecords();
     const paged = await searchProjectRecordsHybrid(records, "/needle/i", {

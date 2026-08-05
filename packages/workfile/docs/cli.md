@@ -172,6 +172,13 @@ provider, rank title hits above body hits and match count after that, and
 report `mode: "regex"`. Patterns are capped at 256 characters, bodies scanned
 to their first 20,000; an invalid pattern fails with `SEARCH_REGEX_INVALID`.
 
+Your pattern runs in a worker thread with a two-second deadline, and a pattern
+that exceeds it fails with `SEARCH_REGEX_TIMEOUT`. Those caps bound the input;
+nothing bounds backtracking, and a pattern like `(a+)+$` takes 57 seconds
+against a 32-character body — the thread is the only thing with a stop button
+on it. The ordinary cost is about 50ms of thread startup, paid only by regex
+queries.
+
 ## Work (cards)
 
 ```bash

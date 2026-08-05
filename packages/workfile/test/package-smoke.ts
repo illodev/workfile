@@ -324,6 +324,23 @@ void provider;
     );
     assert.ok(search.total >= 3, "unified search must see packaged records");
 
+    // Regex search runs the user's pattern in a worker, resolved out of the
+    // installed tree with `import.meta.url` — so it is exactly the kind of
+    // thing that works from a checkout and not from a tarball. Nothing in
+    // `pnpm run check` loads the package the way a consumer does (T-0182), so
+    // the assertion belongs here.
+    const regex = JSON.parse(
+        (
+            await run(
+                project,
+                ["search", "/packaged/i", "--root", consumer, "--json"],
+                consumer
+            )
+        ).stdout
+    );
+    assert.equal(regex.mode, "regex", "the /pattern/ form has to reach regex mode");
+    assert.ok(regex.total >= 1, "the packaged worker must return matches");
+
     const doctor = JSON.parse(
         (
             await run(project, ["doctor", "--root", consumer, "--json"], consumer)
