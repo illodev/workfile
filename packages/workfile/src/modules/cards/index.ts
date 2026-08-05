@@ -1,10 +1,20 @@
 export {
+    CRITERION_DIGEST,
     acceptanceSummary,
     applyAcceptance,
+    criterionDigest,
+    criterionOwners,
+    normalizeCriterion,
     parseAcceptance,
-    unreadableCriteria
+    staleBindings,
+    unreadableCriteria,
+    verifyEntries
 } from "./acceptance.js";
-export type { AcceptanceItem, AcceptanceReading } from "./acceptance.js";
+export type {
+    AcceptanceItem,
+    AcceptanceReading,
+    VerifyEntry
+} from "./acceptance.js";
 export {
     CARD_LIST_KEYS,
     CARD_REQUIRED_KEYS,
@@ -53,6 +63,7 @@ export {
 } from "./next.js";
 export {
     CARD_PATCHABLE_FIELDS,
+    CARD_STRUCTURED_FIELDS,
     applyCardChanges,
     axisNames,
     declaredAxes,

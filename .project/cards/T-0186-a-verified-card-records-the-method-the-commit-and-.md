@@ -11,7 +11,7 @@ effort: M
 created: 2026-08-05
 updated: 2026-08-05
 origin: [ADR-0016]
-depends: [T-0185]
+depends: [T-0185, T-0200]
 ---
 
 Per ADR-0016. `done` writes a `verified` block: `at`, `method`, `commit`,

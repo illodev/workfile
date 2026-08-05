@@ -1051,13 +1051,28 @@ const CREATE_FLAG_COVERAGE = {
 };
 
 test("card create reaches every field the mutation accepts", async () => {
-    const { CARD_PATCHABLE_FIELDS } = await import("../dist/src/index.js");
+    const { CARD_PATCHABLE_FIELDS, CARD_STRUCTURED_FIELDS } = await import(
+        "../dist/src/index.js"
+    );
     const covered = Object.keys(CREATE_FLAG_COVERAGE);
+    // A structured field has no flag by design: `verify` is a list of mappings,
+    // and a flag taking JSON on a command line would be the worst possible place
+    // to hand-write the half of a card ADR-0016 says a human should not be
+    // hand-writing at all. It is reachable through `--json-input`, which the
+    // assertion below exercises.
     assert.deepEqual(
-        [...CARD_PATCHABLE_FIELDS].sort(),
+        [...CARD_PATCHABLE_FIELDS]
+            .filter((field: string) => !CARD_STRUCTURED_FIELDS.includes(field))
+            .sort(),
         [...covered, ...CLAIM_MANAGED_FIELDS].sort(),
         "a patchable card field is not reachable from a `card create` flag"
     );
+    for (const field of CARD_STRUCTURED_FIELDS) {
+        assert.ok(
+            CARD_PATCHABLE_FIELDS.includes(field),
+            `${field} is declared structured but is not patchable at all`
+        );
+    }
 
     const root = await mkdtemp(join(tmpdir(), "workfile-cli-create-flags-"));
     try {

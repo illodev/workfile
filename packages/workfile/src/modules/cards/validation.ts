@@ -5,6 +5,24 @@ import {
     CARD_TYPES
 } from "../../config/defaults.js";
 import { ValidationError } from "../../core/errors.js";
+import {
+    CRITERION_DIGEST,
+    parseAcceptance,
+    staleBindings,
+    verifyEntries
+} from "./acceptance.js";
+
+/**
+ * Card fields whose value is a structure rather than a scalar or a list of
+ * them, and which are therefore written through `--json-input` rather than
+ * through a flag of their own.
+ *
+ * `verify` is the whole of it. ADR-0016 puts the commands in frontmatter
+ * precisely because it is the half a human should not be hand-writing, and a
+ * flag that took a JSON string on the command line would be hand-writing it in
+ * the least forgiving place available.
+ */
+export const CARD_STRUCTURED_FIELDS = Object.freeze(["verify"]);
 
 export const CARD_PATCHABLE_FIELDS = Object.freeze([
     "title",
@@ -24,7 +42,8 @@ export const CARD_PATCHABLE_FIELDS = Object.freeze([
     "start",
     "due",
     "related",
-    "origin"
+    "origin",
+    "verify"
 ]);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -135,6 +154,99 @@ export function applyCardChanges(card, changes) {
         }
     }
     return result;
+}
+
+const VERIFY_KEYS = ["id", "run", "criteria"];
+const VERIFY_ID = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * The `verify` block, checked before it can land.
+ *
+ * Refused at write time rather than reported later because every one of these
+ * is a card the runner could not act on: an entry with no `run` proves nothing,
+ * two entries sharing an id make `card verify --only` ambiguous, and a digest
+ * matching no criterion is a binding to text that is not on the card. A card
+ * carrying any of them would read as machine-verifiable and be nothing of the
+ * kind.
+ *
+ * The exception is a criterion edited *after* the binding was written. That
+ * goes through the body, which this never sees, and it is `doctor`'s to report
+ * — the digest exists to make exactly that visible rather than to prevent it.
+ */
+function validateVerify(candidate) {
+    const verify = candidate.verify;
+    if (verify == null || verify === "") return;
+    if (!Array.isArray(verify)) {
+        fail("CARD_VERIFY_INVALID", "verify must be a list of entries.");
+    }
+    if (verifyEntries(verify).length !== verify.length) {
+        fail(
+            "CARD_VERIFY_INVALID",
+            "Each verify entry must be a mapping of id, run and criteria."
+        );
+    }
+    const seen = new Set<string>();
+    for (const entry of verifyEntries(verify)) {
+        const unknown = Object.keys(entry).filter(
+            (key) => !VERIFY_KEYS.includes(key)
+        );
+        if (unknown.length) {
+            fail(
+                "CARD_VERIFY_KEY_UNKNOWN",
+                `Unsupported verify keys: ${unknown.join(", ")}. Allowed: ${VERIFY_KEYS.join(", ")}.`,
+                { keys: unknown }
+            );
+        }
+        if (!VERIFY_ID.test(String(entry.id || ""))) {
+            fail(
+                "CARD_VERIFY_ID_INVALID",
+                `A verify entry needs an id of lowercase letters, digits and hyphens; got: ${entry.id ?? "(none)"}`,
+                { id: entry.id ?? null }
+            );
+        }
+        if (seen.has(entry.id)) {
+            fail(
+                "CARD_VERIFY_ID_DUPLICATE",
+                `Two verify entries share the id ${entry.id}.`,
+                { id: entry.id }
+            );
+        }
+        seen.add(entry.id);
+        if (!String(entry.run || "").trim()) {
+            fail(
+                "CARD_VERIFY_RUN_REQUIRED",
+                `Verify entry ${entry.id} declares no command to run.`,
+                { id: entry.id }
+            );
+        }
+        const criteria = entry.criteria == null ? [] : entry.criteria;
+        if (!Array.isArray(criteria)) {
+            fail(
+                "CARD_VERIFY_CRITERIA_INVALID",
+                `Verify entry ${entry.id} must list its criteria as digests.`,
+                { id: entry.id }
+            );
+        }
+        for (const digest of criteria) {
+            if (!CRITERION_DIGEST.test(String(digest))) {
+                fail(
+                    "CARD_VERIFY_DIGEST_INVALID",
+                    `Verify entry ${entry.id} carries ${digest}, which is not a sha256 criterion digest.`,
+                    { id: entry.id, digest }
+                );
+            }
+        }
+    }
+    const stale = staleBindings(parseAcceptance(candidate.body || ""), verify);
+    if (stale.length) {
+        fail(
+            "CARD_VERIFY_CRITERION_UNKNOWN",
+            `No acceptance criterion on this card hashes to ${stale
+                .map((entry) => entry.digest)
+                .join(", ")}. A binding names the text it proves, so the text has to be there.`,
+            { bindings: stale }
+        );
+    }
 }
 
 function hierarchyDepth(candidate, byId) {
@@ -255,6 +367,7 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
     if (hasActor && candidate.status !== "doing") {
         fail("CARD_CLAIM_STATUS_INVALID", "Claimed cards must have status doing.");
     }
+    validateVerify(candidate);
     return candidate;
 }
 
