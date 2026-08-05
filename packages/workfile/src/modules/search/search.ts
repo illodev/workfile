@@ -1,3 +1,5 @@
+import { Worker } from "node:worker_threads";
+
 import { ValidationError } from "../../core/errors.js";
 import { projectRecord, searchProjectRecords } from "../records/public.js";
 import type {
@@ -46,44 +48,98 @@ function compileRegexQuery({ pattern, flags }) {
     }
 }
 
-function countMatches(matcher, text) {
-    if (!text) return 0;
-    matcher.lastIndex = 0;
-    return [...text.matchAll(matcher)].length;
+/**
+ * How long a user's pattern may run before the thread carrying it is ended.
+ *
+ * The same scan takes 5.4ms in-process over 250 records and 508KB, so this is
+ * roughly 370× the work a real query does. It is a ceiling on the pathological
+ * case, not a budget anything normal approaches — and it is generous on
+ * purpose, because the cost of being wrong is refusing somebody's legitimate
+ * search, while the cost of being slow is two seconds before an error.
+ */
+const REGEX_DEADLINE_MS = 2_000;
+
+/**
+ * Runs the user's expression somewhere it can be stopped.
+ *
+ * V8 has no step budget and no regex timeout, so a pattern that has begun
+ * backtracking cannot be interrupted — the thread is the only unit of work
+ * with a stop button on it. `terminate()` is therefore not an optimisation
+ * here, it is the entire mechanism ([[T-0190]]).
+ *
+ * Spawned per regex query rather than pooled: it costs ~50ms of startup and
+ * structured clone, only a `/pattern/flags` query pays it, and a pool would
+ * have to answer what happens to the pooled thread after a termination — which
+ * is a lifecycle to get wrong in exchange for milliseconds nobody is waiting
+ * on.
+ */
+async function scanWithDeadline(
+    matcher: RegExp,
+    records: { id: string; title: string; body: string }[]
+): Promise<{ titleMatches: number; matchCount: number; line: string | null }[]> {
+    const worker = new Worker(new URL("./regex-scan.js", import.meta.url), {
+        workerData: {
+            source: matcher.source,
+            flags: matcher.flags,
+            excerptLength: REGEX_EXCERPT_LENGTH,
+            records
+        }
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await new Promise((resolve, reject) => {
+            timer = setTimeout(() => {
+                reject(
+                    new ValidationError(
+                        "SEARCH_REGEX_TIMEOUT",
+                        `The pattern did not finish within ${REGEX_DEADLINE_MS}ms. ` +
+                            `Nested quantifiers such as \`(a+)+\` can take longer than ` +
+                            `the age of the universe on ordinary input.`
+                    )
+                );
+            }, REGEX_DEADLINE_MS);
+            worker.once("message", resolve);
+            worker.once("error", reject);
+            // A worker that ends without answering is a failure, not an empty
+            // result — otherwise a crash reads as "nothing matched".
+            worker.once("exit", (code) =>
+                reject(
+                    new ValidationError(
+                        "SEARCH_REGEX_FAILED",
+                        `The pattern scan ended without a result (exit ${code}).`
+                    )
+                )
+            );
+        });
+    } finally {
+        clearTimeout(timer);
+        // Unconditional: on the deadline this is what stops the match, and on
+        // success it reclaims a thread that has nothing left to do.
+        await worker.terminate();
+    }
 }
 
-/** The line containing the first body match, trimmed to excerpt length. */
-function matchedLine(matcher, body) {
-    if (!body) return null;
-    matcher.lastIndex = 0;
-    const match = matcher.exec(body);
-    if (!match) return null;
-    const start = body.lastIndexOf("\n", match.index) + 1;
-    const end = body.indexOf("\n", match.index);
-    const line = body
-        .slice(start, end === -1 ? body.length : end)
-        .replace(/\s+/g, " ")
-        .trim();
-    return line.length > REGEX_EXCERPT_LENGTH
-        ? `${line.slice(0, REGEX_EXCERPT_LENGTH).trimEnd()}…`
-        : line;
-}
-
-function searchRecordsByRegex(
+async function searchRecordsByRegex(
     candidates: ProjectRecord[],
     matcher: RegExp,
     { limit, offset, view, fields }
-): ProjectSearchResult {
+): Promise<ProjectSearchResult> {
+    // Capped before the clone, not after: the cap is what the scan is allowed
+    // to read, and sending the whole body would pay for bytes nobody reads.
+    const scannable = candidates.map((record) => ({
+        id: String(record.id || ""),
+        title: String(record.title || ""),
+        body: String(record.body || "").slice(0, REGEX_BODY_CAP)
+    }));
+    const scanned = await scanWithDeadline(matcher, scannable);
     const ranked = candidates
-        .map((record) => {
-            const body = String(record.body || "").slice(0, REGEX_BODY_CAP);
-            const titleMatches = countMatches(matcher, String(record.title || ""));
-            const matchCount =
-                countMatches(matcher, String(record.id || "")) +
-                titleMatches +
-                countMatches(matcher, body);
-            return { record, body, titleMatches, matchCount };
-        })
+        .map((record, at) => ({
+            record,
+            body: scannable[at].body,
+            titleMatches: scanned[at].titleMatches,
+            matchCount: scanned[at].matchCount,
+            line: scanned[at].line
+        }))
         .filter(({ matchCount }) => matchCount > 0)
         .sort(
             (left, right) =>
@@ -97,17 +153,17 @@ function searchRecordsByRegex(
     return {
         records: ranked
             .slice(offset, offset + limit)
-            .map(({ record, body, matchCount }) => {
+            .map(({ record, matchCount, line }) => {
                 const projected = projectRecord(
                     { ...record, searchScore: matchCount },
                     view,
                     fields
                 );
                 // Where the projection carries an excerpt, show the matched
-                // line instead of the head of the body.
-                if (projected.excerpt !== undefined) {
-                    const line = matchedLine(matcher, body);
-                    if (line) projected.excerpt = line;
+                // line instead of the head of the body. Computed in the worker
+                // alongside the counts, because it runs the same expression.
+                if (projected.excerpt !== undefined && line) {
+                    projected.excerpt = line;
                 }
                 return projected;
             }),
