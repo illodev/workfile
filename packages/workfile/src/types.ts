@@ -134,7 +134,6 @@ export interface ProjectUiConfig {
 export interface ProjectConfig {
     schemaVersion: 2;
     name: string;
-    language: string;
     storage: ProjectStorageConfig;
     cards: ProjectCardsConfig;
     docs: ProjectDocsConfig;
@@ -153,7 +152,16 @@ export type DeepPartial<T> = T extends readonly (infer Item)[]
       ? { [Key in keyof T]?: DeepPartial<T[Key]> }
       : T;
 
-export type ProjectConfigInput = DeepPartial<ProjectConfig>;
+export type ProjectConfigInput = DeepPartial<ProjectConfig> & {
+    /**
+     * @deprecated Read by nothing since ADR-0012, which removed the localized
+     * protocol surface. It stays on the input type because `init` wrote it into
+     * every `project.config.mjs` it generated before 0.6.x, and a typed config
+     * that still declares it must keep compiling — the same reason the loader
+     * accepts it. Setting it has no effect.
+     */
+    language?: string;
+};
 
 export interface ProjectWorkspacePaths {
     root: string;

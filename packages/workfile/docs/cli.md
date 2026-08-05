@@ -83,7 +83,7 @@ rather than arriving undocumented.
 ## Workspace
 
 ```bash
-workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
+workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]
 workfile version                # the installed package version, one line
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]

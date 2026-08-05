@@ -22,6 +22,9 @@ import {
 const config: ProjectConfig = defineProject({
     schemaVersion: 2,
     name: "Typed consumer",
+    // Inert since ADR-0012 and kept compiling on purpose: every config `init`
+    // generated before 0.6.x declares it, and a typed consumer must not have to
+    // edit their config to upgrade. This line is the assertion.
     language: "es",
     cards: {
         areas: ["api", "web"]

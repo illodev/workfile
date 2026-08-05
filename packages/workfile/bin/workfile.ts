@@ -120,7 +120,7 @@ function spoken(line: string): string {
 // documented in exactly one place.
 const USAGE: Record<string, string[]> = {
     init: [
-        "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]"
+        "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]"
     ],
     schema: ["workfile schema [--root PATH] [--json]"],
     doctor: [
@@ -506,7 +506,6 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--ci",
         "--docs",
         "--force",
-        "--language",
         "--name",
         "--no-scripts",
         "--yes"
@@ -1157,7 +1156,6 @@ async function askInitOptions(root) {
     const detected = await inspectRepository(root);
     const defaults = {
         name: option("--name") || detected.name,
-        language: option("--language") || "en",
         areas: listOption("--areas") || detected.areas,
         docs: listOption("--docs") || detected.docs,
         agents: listOption("--agents") || detected.agents,
@@ -1179,7 +1177,6 @@ async function askInitOptions(root) {
         };
         const chosen = {
             name: await answer("Project name", defaults.name),
-            language: await answer("Content language", defaults.language),
             areas: await list("Card areas", defaults.areas),
             docs: await list("Documentation sources", defaults.docs),
             agents: await list("Agent adapters", defaults.agents),

@@ -54,7 +54,7 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
 
         await writeFile(
             join(root, "AGENTS.md"),
-            agents.replace("Reglas críticas", "Reglas alteradas")
+            agents.replace("Critical rules", "Altered rules")
         );
         const stale = await checkAgentInstructions(workspace, {
             targets: ["agents-md", "cursor"]
@@ -73,8 +73,8 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
         });
         const restored = await readFile(join(root, "AGENTS.md"), "utf8");
         assert.match(restored, /# Team notes/);
-        assert.match(restored, /Reglas críticas/);
-        assert.doesNotMatch(restored, /Reglas alteradas/);
+        assert.match(restored, /Critical rules/);
+        assert.doesNotMatch(restored, /Altered rules/);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -118,12 +118,13 @@ test("agent context stays bounded and includes related durable knowledge", async
         assert.ok(context.records.some((record) => record.id === convention.id));
         assert.match(context.markdown, /T-0001 — Example task/);
         assert.match(context.markdown, /API operating guide/);
-        // Asserted on `provenance` rather than on the rendered line, because
-        // this fixture declares `language: "es"` and the markdown renders
-        // `**Ha generado**`. The structure is the contract; the wording is
-        // localized, and pinning it here would make the bundle the one place a
-        // language change breaks a test.
+        // Asserted on `provenance` as well as on the line, because the
+        // structure is the contract and the wording is not. It used to be the
+        // only assertion available: the fixture declared `language: "es"` and
+        // the bundle rendered `**Ha generado**` until ADR-0012 removed the
+        // localized surface.
         assert.deepEqual(context.provenance, { origin: [], spawned: [spawned.id] });
+        assert.match(context.markdown, /\*\*Spawned\*\*: /);
         assert.match(context.markdown, new RegExp(`: ${spawned.id}$`, "m"));
 
         const child = await buildAgentContext(workspace, {
@@ -148,9 +149,8 @@ test("agent context stays bounded and includes related durable knowledge", async
  * with `CARD_CLAIM_OWNER_MISMATCH`. See claude-surface.test.ts, "the guard is
  * silent for the session that holds the claim", for the behaviour itself.
  *
- * Both languages, because the protocol exists twice and the fixture renders
- * one. Fixing only the branch a test happens to exercise is how the English
- * copy would have kept teaching it.
+ * This ran twice, once per language, because the protocol existed twice and a
+ * fix to one copy left the other teaching it. ADR-0012 removed the second copy.
  *
  * Every file the sync writes, because AGENTS.md is a fourteen-line pointer and
  * the text an agent reads is `.project/agents/protocol.md` and the workflows.
@@ -160,18 +160,15 @@ test("no generated instruction teaches an actor the guard will not recognize", a
     await cp(fixture, root, { recursive: true });
     const workspace = await loadWorkspace({ root });
     try {
-        for (const language of ["es", "en"]) {
-            workspace.config.language = language;
-            const synced = await syncAgentInstructions(workspace, {
-                targets: ["agents-md"]
-            });
-            for (const file of synced.files) {
-                assert.doesNotMatch(
-                    await readFile(join(root, file.path), "utf8"),
-                    /card claim[^\n`]*--actor/,
-                    `${file.path} teaches a hand-invented actor in ${language}`
-                );
-            }
+        const synced = await syncAgentInstructions(workspace, {
+            targets: ["agents-md"]
+        });
+        for (const file of synced.files) {
+            assert.doesNotMatch(
+                await readFile(join(root, file.path), "utf8"),
+                /card claim[^\n`]*--actor/,
+                `${file.path} teaches a hand-invented actor`
+            );
         }
     } finally {
         await rm(root, { recursive: true, force: true });

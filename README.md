@@ -174,7 +174,6 @@ annotation keeps editor typing without a runtime import:
 export default {
     schemaVersion: 2,
     name: "My project",
-    language: "es",
     cards: {
         areas: ["api", "web", "infra", "docs"]
     },
@@ -356,7 +355,7 @@ environments and CI providers. A dry run exposes the exact filesystem plan.
 
 ```bash
 pnpm dlx @illodev/workfile init
-pnpm dlx @illodev/workfile init --yes --language es \
+pnpm dlx @illodev/workfile init --yes \
   --agents agents-md,claude,cursor,copilot --ci github
 workfile init --dry-run --json
 ```

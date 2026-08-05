@@ -44,7 +44,6 @@ test("initializer detects a monorepo and creates a portable workspace", async ()
         await writeFile(join(root, "README.md"), "# Portable\n");
 
         const plan = await planInitialization(root, {
-            language: "es",
             agents: ["agents-md", "cursor"],
             ci: ["github"]
         });
@@ -79,7 +78,7 @@ test("initializer detects a monorepo and creates a portable workspace", async ()
         assert.equal((await checkAgentInstructions(workspace)).ok, true);
         assert.equal((await checkCiTemplates(workspace)).ok, true);
 
-        const repeated = await planInitialization(root, { language: "es" });
+        const repeated = await planInitialization(root, {});
         assert.ok(repeated.conflicts.includes(join(root, "project.config.mjs")));
         await assert.rejects(
             () => applyInitialization(repeated),

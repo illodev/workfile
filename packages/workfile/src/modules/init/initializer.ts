@@ -130,7 +130,6 @@ export function renderProjectConfig(config) {
     return `export default {
     schemaVersion: ${config.schemaVersion},
     name: ${JSON.stringify(config.name)},
-    language: ${JSON.stringify(config.language)},
     cards: {
         areas: ${js(config.cards.areas, 8)}
     },
@@ -185,7 +184,6 @@ export async function planInitialization(rootInput, options: any = {}) {
         // anyone runs.
         schemaVersion: SCHEMA_VERSION,
         name: options.name || detected.name,
-        language: options.language || "en",
         cards: { areas: options.areas?.length ? options.areas : detected.areas },
         docs: { sources: options.docs?.length ? options.docs : detected.docs },
         agents: {

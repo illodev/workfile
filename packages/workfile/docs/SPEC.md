@@ -250,7 +250,6 @@ import { defineProject } from "@illodev/workfile";
 export default defineProject({
     schemaVersion: 2,
     name: "Example project",
-    language: "es",
 
     storage: {
         root: ".project",
@@ -2180,9 +2179,11 @@ amendment and, when they affect canonical files, an explicit schema compatibilit
    configurable to support compatibility and specialized repositories.
 3. **Package scope** — the initial package is `@illodev/workfile`. The package is internally
    modular but ships as one release unit through the v2 MVP.
-4. **Canonical language** — normative specifications, field names, enum values, diagnostics
-   codes and machine contracts are English. UI labels, generated instructions and record
-   bodies may be localized through project configuration.
+4. **Canonical language** — the whole protocol surface is English: normative
+   specifications, field names, enum values, diagnostic codes, machine contracts, UI
+   labels, generated instructions and record bodies. Localization was offered through
+   `config.language` until 0.6.x and removed in ADR-0012; the key is accepted and
+   ignored so existing configurations keep loading.
 5. **Card statuses** — the existing eight statuses are fixed protocol semantics in schema v2.
    Projects may hide statuses from selected views but may not remove or redefine them.
 6. **Managed Docs UI** — indexed and managed documents are read-only in the MVP UI. Managed
@@ -2228,8 +2229,7 @@ CLI:                 project
 Schema:              2
 Root:                .project/
 Config:              project.config.mjs
-Canonical language:  English
-UI locale:           project-configurable
+Canonical language:  English, with no localized surface
 Index:               in-memory first; disposable SQLite for MVP
 Migration:           compatibility paths first
 Instructions:        .project/agents/protocol.md is canonical

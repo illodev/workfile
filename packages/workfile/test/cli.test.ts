@@ -421,8 +421,6 @@ test("CLI initializer and legacy migration support non-interactive automation", 
                     "--root",
                     root,
                     "--yes",
-                    "--language",
-                    "es",
                     "--agents",
                     "agents-md",
                     "--json"
@@ -1140,6 +1138,10 @@ test("doctor --severity filters the headline and the rule grouping too", async (
         // whose source is not in the repository).
         await writeFile(
             join(root, "project.config.mjs"),
+            // `language` is still declared on purpose: ADR-0012 removed the
+            // feature and kept the key inert, and a workspace written before
+            // 0.6.x has it on disk. If it ever stops loading, this is the test
+            // that says so.
             `export default {
     schemaVersion: 2,
     name: "Golden workspace",

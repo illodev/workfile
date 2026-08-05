@@ -583,8 +583,11 @@ test("the skill embeds the protocol without nesting its markers", async () => {
         assert.match(skill, /kind=claude-skill/);
         assert.equal(skill.includes("canonical-agent-protocol"), false);
 
-        // The protocol's own text still made it across.
-        assert.match(skill, /Estados de Work|Work statuses/);
+        // The protocol's own text still made it across. The alternation this
+        // replaced only ever matched on its Spanish side — the English heading
+        // is "Work states", not "Work statuses" — so it asserted nothing once
+        // ADR-0012 left one copy of the protocol.
+        assert.match(skill, /## Work states/);
 
         // And the check settles, which is the whole point.
         const after = await checkClaudeSurface(workspace);
