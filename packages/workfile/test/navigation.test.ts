@@ -159,3 +159,27 @@ test("every view a URL can name is a view the app has", async () => {
         );
     }
 });
+
+// History renders its selection in a right-hand pane, and the drawer used to
+// open over that pane with the same fragment in it — the reader got the text
+// twice and could read neither, because the pane underneath was cut off
+// mid-word. The map was reasoned about rather than looked at.
+test("a view that already renders the selection is not covered by the drawer", () => {
+    for (const [view, collection] of [
+        ["docs", "docs"],
+        ["history", "changelog"]
+    ] as Array<[View, string]>) {
+        assert.equal(
+            drawerCovers(view, collection),
+            false,
+            `${view} renders ${collection} itself`
+        );
+    }
+
+    // And still covers what those views cannot render. A card linked from
+    // inside a fragment body has nowhere else to go.
+    assert.equal(drawerCovers("history", "cards"), true);
+    assert.equal(drawerCovers("history", "memory"), true);
+    assert.equal(drawerCovers("docs", "changelog"), true);
+    assert.equal(drawerCovers("explorer", "changelog"), true);
+});

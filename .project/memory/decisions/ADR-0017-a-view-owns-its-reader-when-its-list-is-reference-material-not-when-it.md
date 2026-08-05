@@ -1,11 +1,12 @@
 ---
 id: ADR-0017
 title: A view owns its reader when its list is reference material, not when it is a queue
-status: accepted
+status: superseded
 related: [T-0197, T-0192]
 tags: [ui]
 created: 2026-08-05
 updated: 2026-08-05
+superseded_by: [ADR-0018]
 ---
 
 ## Context
