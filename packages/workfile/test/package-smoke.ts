@@ -216,8 +216,6 @@ void provider;
             "--root",
             consumer,
             "--yes",
-            "--language",
-            "es",
             "--areas",
             "general",
             "--agents",
