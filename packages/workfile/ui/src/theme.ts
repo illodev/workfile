@@ -71,14 +71,6 @@ const CARD_STATUS: Record<string, true> = {
     discarded: true
 };
 
-/** `.project/<collection>` a record id belongs to, for the breadcrumb. */
-export function recordCollection(id: string): string {
-    if (id.startsWith("T-")) return "cards";
-    if (id.startsWith("DOC-") || id.startsWith("PATH-")) return "docs";
-    if (id.startsWith("CHG-") || id.startsWith("REL-")) return "changelog";
-    return "memory";
-}
-
 /** "4 min", "2 h", "3 d" — precision nobody needs is precision nobody reads. */
 export function since(hours: number | null | undefined): string {
     if (hours == null) return "";

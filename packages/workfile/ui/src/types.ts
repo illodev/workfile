@@ -219,6 +219,9 @@ export interface GraphRecord {
     title: string;
     status?: string;
     area?: string;
+    /** Cards only, and only when set — the graph projection omits empties. */
+    priority?: string;
+    milestone?: string;
     archived?: boolean;
     edges: GraphEdge[];
 }

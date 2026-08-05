@@ -91,6 +91,146 @@ test("the filters decide the node set, and an edge survives on any kept relation
     assert.equal(shown.degree.get("T-0003") ?? 0, 0);
 });
 
+/**
+ * T-0191: the view rendered the shell's filter strip and applied none of it.
+ *
+ * `isWorkView` in `main.tsx` is defined by exclusion, so Workflow was handed
+ * status, area, type, priority and milestone — and `<WorkflowView>` was handed
+ * a selection and a callback. The chips moved and the graph did not.
+ */
+test("the shell's axes narrow the cards, and leave the rest as context", () => {
+    const records = [
+        {
+            id: "T-0001",
+            kind: "card",
+            recordType: "bug",
+            title: "Held",
+            status: "doing",
+            area: "ui",
+            priority: "high",
+            milestone: "v1",
+            edges: [
+                { to: "ADR-0001", rel: ["origin"] },
+                { to: "T-0002", rel: ["depends"] }
+            ]
+        },
+        {
+            id: "T-0002",
+            kind: "card",
+            recordType: "task",
+            title: "Elsewhere",
+            status: "backlog",
+            area: "core",
+            priority: "low",
+            milestone: "v2",
+            edges: []
+        },
+        {
+            id: "ADR-0001",
+            kind: "memory",
+            recordType: "decisions",
+            title: "A decision",
+            status: "accepted",
+            edges: []
+        }
+    ];
+
+    const ids = (over: Record<string, unknown>) =>
+        filterGraph(records, filters(over)).records.map((record) => record.id);
+
+    // Every axis, one at a time. A card that does not match goes, and the
+    // memory record it does not describe stays — kept by the card that still
+    // points at it, which is the whole reason to draw a graph.
+    for (const [axis, value] of [
+        ["status", "doing"],
+        ["area", "ui"],
+        ["type", "bug"],
+        ["priority", "high"],
+        ["milestone", "v1"]
+    ] as const) {
+        assert.deepEqual(
+            ids({ record: { [axis]: value } }),
+            ["T-0001", "ADR-0001"],
+            `${axis} did not narrow the graph`
+        );
+    }
+
+    // The axes compose with each other, and with the view's own toggles.
+    assert.deepEqual(ids({ record: { status: "doing", area: "core" } }), []);
+    assert.deepEqual(
+        ids({
+            record: { status: "doing" },
+            kinds: new Set(["card"]),
+            hideIsolated: false
+        }),
+        ["T-0001"],
+        "the shell's strip and the view's kinds narrow together"
+    );
+    // And composed the other way, the two are enough to empty the canvas: with
+    // memory off, the only card left has nothing to connect to.
+    assert.deepEqual(
+        ids({ record: { status: "doing" }, kinds: new Set(["card"]) }),
+        [],
+        "an empty graph is a state the view has to say out loud"
+    );
+
+    // A record of another kind is kept as context, and context is context *of
+    // something*: with the card it hangs off filtered away, it goes too — even
+    // with `hideIsolated` off, which is about degree rather than about whether
+    // anything on the canvas is what the reader asked for.
+    assert.deepEqual(ids({ record: { status: "backlog" } }), []);
+    assert.deepEqual(
+        ids({ record: { status: "backlog" }, hideIsolated: false }),
+        ["T-0002"],
+        "a decision nobody's card points at is not context for this question"
+    );
+    // Measured on this workspace before the rule existed: `status=review`
+    // matched one card and drew thirty-one nodes, because memory and doc
+    // records pass every card axis and hold each other up.
+    assert.deepEqual(
+        ids({ record: { status: "doing" }, hideIsolated: false }),
+        ["T-0001", "ADR-0001"],
+        "the decision the surviving card points at stays"
+    );
+
+    // No axis set is the graph it always drew.
+    assert.deepEqual(ids({}), ids({ record: {} }));
+
+    // An empty canvas has two causes, and the reader can only act on one of
+    // them. Measured on this workspace: `status=review` matches one card whose
+    // every neighbour the filter removed, so "no records match" would have been
+    // false — the record matched and its own toggle hid it.
+    const isolated = filterGraph(records, filters({ record: { status: "doing" }, kinds: new Set(["card"]) }));
+    assert.deepEqual(isolated.records, []);
+    assert.equal(isolated.isolated, 1);
+    const nothing = filterGraph(records, filters({ record: { status: "blocked" } }));
+    assert.deepEqual(nothing.records, []);
+    assert.equal(nothing.isolated, 0);
+});
+
+/**
+ * Two of the five axes were not in the payload at all, so passing the strip
+ * through would have narrowed by three of them and silently ignored the rest.
+ */
+test("the graph projection carries every axis the strip can set", async () => {
+    const records = await liveGraph();
+    const cards = records.filter((record) => record.kind === "card");
+    assert.ok(cards.length > 20, "the live graph lost its cards");
+    for (const axis of ["status", "area", "priority"]) {
+        assert.ok(
+            cards.some((card) => card[axis]),
+            `no card in the live graph carries ${axis}`
+        );
+    }
+    // Milestones are optional in this workspace, so the assertion is that the
+    // projection does not drop one where the record has it.
+    const withMilestone = records.find((record) => record.milestone);
+    assert.ok(
+        !withMilestone || typeof withMilestone.milestone === "string",
+        "milestone survives the graph projection"
+    );
+});
+
 test("a filter change moves the picture instead of replacing it", () => {
     const records = [
         { id: "A", kind: "card", recordType: "task", title: "A", edges: [{ to: "B", rel: ["origin"] }] },

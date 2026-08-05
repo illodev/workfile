@@ -142,8 +142,8 @@ const USAGE: Record<string, string[]> = {
         "workfile card patch ID --json-input FILE [--expected-revision REV]",
         "workfile card patch ID --axis context=billing   # repeatable; empty value clears the axis",
         "workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]",
-        "workfile card release ID [--actor ACTOR] [--status next]",
-        "workfile card transition ID STATUS [--actor ACTOR]",
+        "workfile card release ID [--actor ACTOR] [--status next] [--force --reason TEXT]",
+        "workfile card transition ID STATUS [--actor ACTOR] [--force --reason TEXT]",
         "workfile card archive ID",
         "workfile card reopen ID [--status backlog] [--actor ACTOR]",
         "workfile card reap [--dry-run] [--older-than HOURS] [--json]",
@@ -362,7 +362,8 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--axis",
         "--expected-revision",
         "--force",
-        "--json-input"
+        "--json-input",
+        "--reason"
     ],
     "card reap": [
         "--older-than"
@@ -371,6 +372,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--actor",
         "--expected-revision",
         "--force",
+        "--reason",
         "--status"
     ],
     "card renumber": [
@@ -388,6 +390,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--actor",
         "--expected-revision",
         "--force",
+        "--reason",
         "--scope"
     ],
     "card write": [
@@ -1524,7 +1527,8 @@ async function cardCommand(workspace, action) {
         const result = await patchCard(workspace, id, changes, {
             expectedRevision: option("--expected-revision") || undefined,
             actor: option("--actor") || defaultActor(),
-            force: has("--force")
+            force: has("--force"),
+            reason: option("--reason")
         });
         return print(has("--json") ? result.card : `${id} updated`);
     }
@@ -1552,6 +1556,7 @@ async function cardCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             status: option("--status"),
             force: has("--force"),
+            reason: option("--reason"),
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} released to ${result.card.status}`);
@@ -1572,6 +1577,9 @@ async function cardCommand(workspace, action) {
             // anyone whose claim is held under a different name — including the
             // plugin's own `/done`, which transitions without an actor.
             force: has("--force"),
+            // Demanded only when `--force` waives a gate, so the flag stays
+            // usable on the calls that trip nothing.
+            reason: option("--reason"),
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);

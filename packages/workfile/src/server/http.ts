@@ -249,6 +249,18 @@ function expectedRevision(request, body: any = {}) {
     return cleanRevision(request.headers["if-match"]) || body.expectedRevision;
 }
 
+/**
+ * The keys a flat PATCH body carries *about* the write rather than *as* it.
+ *
+ * The route accepts two shapes — `{changes: {...}, force: true}` and the flat
+ * `{status: "done"}` — and only `expectedRevision` was ever lifted out of the
+ * second. Everything else went to `sanitizeCardChanges`, which refuses an
+ * undeclared field, so the flat shape answered `CARD_FIELD_NOT_PATCHABLE:
+ * Unsupported card fields: force` to the one caller that had reason to send it.
+ * `reason` would have joined it, which is how this list came to exist.
+ */
+const PATCH_ENVELOPE = ["expectedRevision", "actor", "force", "reason"];
+
 function integerQuery(value, { fallback, min = 0, max = Number.MAX_SAFE_INTEGER }) {
     if (value == null || value === "") return fallback;
     const parsed = Number(value);
@@ -1448,13 +1460,14 @@ export function createProjectServer(
                         body.changes ||
                         Object.fromEntries(
                             Object.entries(body).filter(
-                                ([key]) => key !== "expectedRevision"
+                                ([key]) => !PATCH_ENVELOPE.includes(key)
                             )
                         );
                     const result = await patchCard(workspace, id, changes, {
                         expectedRevision: expectedRevision(request, body),
                         actor: body.actor ?? resolveActor().actor,
-                        force: body.force === true
+                        force: body.force === true,
+                        reason: body.reason
                     });
                     indexStore.invalidate();
                     return sendJson(
@@ -1496,6 +1509,7 @@ export function createProjectServer(
                             scope: body.scope,
                             now: body.now,
                             force: body.force === true,
+                            reason: body.reason,
                             expectedRevision: expectedRevision(request, body)
                         }
                     );

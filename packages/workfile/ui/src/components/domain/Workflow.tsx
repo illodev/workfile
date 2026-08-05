@@ -18,6 +18,7 @@ import {
     reconcile,
     RELATIONS,
     panTo,
+    type RecordFilters,
     step,
     type GraphLink,
     zoomAt,
@@ -101,11 +102,18 @@ function Toggle({
 
 export function WorkflowView({
     selectedId,
-    onSelect
+    onSelect,
+    filters
 }: {
     selectedId: string | null;
     /** Sets the app-wide selection, which is what opens the shared drawer. */
     onSelect: (id: string | null) => void;
+    /**
+     * The shell's filter strip, which this view renders and used to ignore.
+     * Composed with the view's own relation and kind toggles rather than
+     * replacing them: one says which records, the other which edges.
+     */
+    filters: RecordFilters;
 }) {
     const [records, setRecords] = useState<GraphRecord[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -177,8 +185,22 @@ export function WorkflowView({
 
     const graph = useMemo(
         () =>
-            filterGraph(records ?? [], { relations, kinds, hideIsolated }),
-        [records, kinds, relations, hideIsolated]
+            filterGraph(records ?? [], {
+                relations,
+                kinds,
+                hideIsolated,
+                record: filters
+            }),
+        [records, kinds, relations, hideIsolated, filters]
+    );
+
+    /** The shell's axes that are actually set, for the empty state to name. */
+    const narrowed = useMemo(
+        () =>
+            Object.entries(filters)
+                .filter(([, value]) => value)
+                .map(([axis, value]) => `${axis} ${value}`),
+        [filters]
     );
 
     // Sync the simulation's node set with the filter, keeping the positions of
@@ -384,6 +406,45 @@ export function WorkflowView({
                             className="size-4 animate-spin"
                         />
                         Reading the graph…
+                    </div>
+                ) : null}
+                {/* A canvas drawing nothing looks the same as a canvas that
+                    failed, and the reader cannot tell which of the two filter
+                    sets emptied it — the shell's strip above or the toggles
+                    beside it. So say so, and say which. */}
+                {records?.length && !graph.records.length ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-6 text-center text-sm text-muted-foreground">
+                        {graph.isolated ? (
+                            <>
+                                <span>
+                                    {graph.isolated}{" "}
+                                    {graph.isolated === 1
+                                        ? "record matches"
+                                        : "records match"}
+                                    , and{" "}
+                                    {graph.isolated === 1 ? "it is" : "none is"}{" "}
+                                    connected to anything else here.
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setHideIsolated(false)}
+                                >
+                                    Show unconnected records
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <span>No records match these filters.</span>
+                                <span className="text-xs">
+                                    {narrowed.length
+                                        ? `${narrowed.join(", ")} above, and ${kinds.size} of ${KINDS.length} kinds here.`
+                                        : `${kinds.size} of ${KINDS.length} kinds and ${relations.size} of ${RELATIONS.length} relationships.`}
+                                </span>
+                            </>
+                        )}
                     </div>
                 ) : null}
                 <svg

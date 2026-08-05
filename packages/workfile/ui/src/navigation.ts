@@ -62,3 +62,64 @@ export function viewForRecord(
     if (id.startsWith("CHG-") || id.startsWith("REL-")) return "history";
     return "memory";
 }
+
+/**
+ * `.project/<collection>` a record id belongs to, or `null` when it is not a
+ * record id at all.
+ *
+ * The default branch answers `memory`, which is right for LRN, ADR, INC, CONV
+ * and CTX and stays right for a project that configures its own memory
+ * prefixes. It was also the answer for the empty string, and that is a trap
+ * rather than a fallback: `Docs` cleared its selection with `onSelect("")`, so
+ * *leaving* a document classified the non-selection as a memory record — not
+ * the collection the docs view owns — and the inspector opened, empty, over the
+ * list the reader had just gone back to.
+ *
+ * The shape test is the fix, and it leaves the fallback doing its job: a record
+ * id is a prefix and a number, and anything that is not one is not a record.
+ *
+ * Here rather than in `theme.ts`, which opens by saying it names colours and
+ * nothing else. This is the same prefix table `viewForRecord` reads, one line
+ * above, answering the neighbouring question.
+ */
+export function recordCollection(id: string): string | null {
+    if (!/^[A-Z][A-Z0-9]*-\d/.test(id)) return null;
+    if (id.startsWith("T-")) return "cards";
+    if (id.startsWith("DOC-") || id.startsWith("PATH-")) return "docs";
+    if (id.startsWith("CHG-") || id.startsWith("REL-")) return "changelog";
+    return "memory";
+}
+
+/**
+ * Views that draw their own panel for a collection, and keep it.
+ *
+ * The shared drawer stands down for these rather than opening over them.
+ * Memory's lanes carry graduate and supersede, and Docs carries an outline and
+ * freshness — editing bound to state those views own. Hoisting that is worth
+ * doing and is not this change; what this map buys is that everywhere *else*
+ * already goes through one drawer.
+ */
+export const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
+    // Docs alone, and not because it owns a drawer — it owns a *reader*. The
+    // list sits beside the document rather than over it, which is the right
+    // shape for the one view whose job is reading something long, and an
+    // overlay on top of it would cover the list it was opened from.
+    docs: "docs"
+};
+
+/**
+ * Whether the shared drawer should cover this view for this selection.
+ *
+ * A rule, rather than the expression it was: `VIEW_OWNS_DRAWER[view] !==
+ * recordCollection(selectedId)` is true for an id that names no collection as
+ * readily as for one that names another view's, so the docs view answered its
+ * own "All documents" button by opening an empty inspector over the list.
+ *
+ * The collection comes in rather than the id, so this module keeps importing
+ * nothing but types — which is what lets the bundler and the strict ratchet
+ * compile it under their disagreeing module resolutions.
+ */
+export function drawerCovers(view: View, collection: string | null): boolean {
+    if (!collection) return false;
+    return VIEW_OWNS_DRAWER[view] !== collection;
+}

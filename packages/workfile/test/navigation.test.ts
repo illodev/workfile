@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { CARD_VIEWS, viewForRecord } from "../ui/src/navigation.ts";
+import {
+    CARD_VIEWS,
+    drawerCovers,
+    recordCollection,
+    viewForRecord
+} from "../ui/src/navigation.ts";
 import type { View } from "../ui/src/types.ts";
 
 /**
@@ -53,6 +58,54 @@ test("a card is recognised by the caller's corpus before its prefix", () => {
         "memory",
         "without the corpus there is nothing to go on but the prefix"
     );
+});
+
+/**
+ * T-0192: leaving a document opened an empty inspector over the list.
+ *
+ * `Docs` said "no document" with `onSelect("")`, `recordCollection("")` fell
+ * through its prefix tests to the default `memory`, and `"docs" !== "memory"`
+ * is true — so the control whose whole job is going back to the list covered
+ * the list with a drawer holding nothing.
+ */
+test("an id that names no collection is a selection of nothing", () => {
+    assert.equal(recordCollection("T-0042"), "cards");
+    assert.equal(recordCollection("DOC-0002"), "docs");
+    assert.equal(recordCollection("PATH-0001"), "docs");
+    assert.equal(recordCollection("CHG-0110"), "changelog");
+    assert.equal(recordCollection("REL-0017"), "changelog");
+    // Memory keeps the fallback, so a project that configures its own memory
+    // prefixes still lands somewhere that lists them.
+    assert.equal(recordCollection("ADR-0016"), "memory");
+    assert.equal(recordCollection("PLAYBOOK-0003"), "memory");
+
+    for (const absent of ["", " ", "docs", "all", "T-", "-0042"]) {
+        assert.equal(
+            recordCollection(absent),
+            null,
+            `"${absent}" is not a record id and must not name a collection`
+        );
+    }
+});
+
+test("the drawer stands down for the view that owns the reader, and for nothing", () => {
+    // The rule it is there for: docs owns its own reader, so the overlay does
+    // not open over it — but every other collection still opens there.
+    assert.equal(drawerCovers("docs", "docs"), false);
+    assert.equal(drawerCovers("docs", "cards"), true);
+    assert.equal(drawerCovers("explorer", "docs"), true);
+    assert.equal(drawerCovers("explorer", "cards"), true);
+
+    // And going back to the list from a document: no collection, no drawer.
+    // This read `VIEW_OWNS_DRAWER[view] !== recordCollection(id)`, which is
+    // true for a null as readily as for another view's collection.
+    for (const view of ["docs", "explorer", "memory", "history"] as View[]) {
+        assert.equal(
+            drawerCovers(view, null),
+            false,
+            `${view} opened an empty drawer over itself`
+        );
+    }
 });
 
 test("Workflow keeps the reader on the canvas", () => {

@@ -268,7 +268,8 @@ test("reopening into doing carries an actor, on every surface", async () => {
         const park = () =>
             transitionCard(workspace, card.id, "done", {
                 actor: "parker",
-                force: true
+                force: true,
+                reason: "Parked by a test that is about reopening"
             });
 
         await park();

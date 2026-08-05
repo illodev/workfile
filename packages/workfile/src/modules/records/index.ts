@@ -901,6 +901,14 @@ export function projectRecord(record, view = "full", fields = null) {
             title: record.title,
             ...(record.status ? { status: record.status } : {}),
             ...(record.area ? { area: record.area } : {}),
+            // The two card axes the shell's filter strip offers that a node
+            // could not answer for. Workflow renders that strip and could not
+            // apply it, and two of its five axes were missing from the payload
+            // rather than merely unused ([[T-0191]]). Present on cards alone,
+            // and omitted when absent, so the graph projection stays the small
+            // one its comment above promises.
+            ...(record.priority ? { priority: record.priority } : {}),
+            ...(record.milestone ? { milestone: record.milestone } : {}),
             ...(record.archived ? { archived: true } : {}),
             edges: (record.outgoing || [])
                 .filter((link) => link.exists)

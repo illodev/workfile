@@ -428,12 +428,24 @@ function releasedStatus(current, status) {
  * on the path a human takes and not on any of the paths an agent takes. It is a
  * function now because a guarantee with four entrances needs one gate, not the
  * discipline to remember it four times.
+ *
+ * Returns what `force` waived, as a phrase for the trail, or `null` when the
+ * card passed on its own. `force` used to return early from the first line, so
+ * the gate could not tell the caller *what* it had let through — and neither
+ * could the record. A `force` that waives nothing returns `null` like any other
+ * clean pass: the marker has to mean a gate was actually skipped, or it becomes
+ * a line that says nothing, which is what `appendMilestone` exists to prevent.
  */
 function assertAcceptanceMet(id, current, status, force) {
-    if (status !== "done" || force) return;
+    if (status !== "done") return null;
     const reading = parseAcceptance(current.body);
     const pending = reading.unchecked;
     if (pending.length) {
+        if (force) {
+            return `${pending.length} unproven ${
+                pending.length === 1 ? "criterion" : "criteria"
+            }`;
+        }
         throw new ConflictError(
             "CARD_ACCEPTANCE_UNMET",
             `${id} has ${pending.length} unproven acceptance criteria: ` +
@@ -457,7 +469,12 @@ function assertAcceptanceMet(id, current, status, force) {
     // proves nothing because there is nothing to prove and a card whose
     // criteria it could not read.
     const unreadable = unreadableCriteria(reading);
-    if (!unreadable.length) return;
+    if (!unreadable.length) return null;
+    if (force) {
+        return `${unreadable.length} unreadable checklist ${
+            unreadable.length === 1 ? "item" : "items"
+        }`;
+    }
     throw new ConflictError(
         "CARD_ACCEPTANCE_UNREADABLE",
         `${id} has ${unreadable.length} unchecked checklist ` +
@@ -493,14 +510,63 @@ function assertAcceptanceMet(id, current, status, force) {
  * a reason it writes into the card. This is the floor the other three share.
  */
 function assertClaimOwnership(id, current, actor, force) {
-    if (!current.claimed_by || !actor || current.claimed_by === actor || force) {
-        return;
+    if (!current.claimed_by || !actor || current.claimed_by === actor) {
+        return null;
     }
+    if (force) return `${current.claimed_by}'s claim`;
     throw new ConflictError(
         "CARD_CLAIM_OWNER_MISMATCH",
         `${id} is claimed by ${current.claimed_by}. Pass force with a reason to take it over.`,
         { id, claimedBy: current.claimed_by }
     );
+}
+
+/** `a`, `a and b`, `a, b and c` — the gates a write forced past, as prose. */
+function listGates(gates: string[]): string {
+    if (gates.length <= 1) return gates[0] || "";
+    return `${gates.slice(0, -1).join(", ")} and ${gates[gates.length - 1]}`;
+}
+
+/**
+ * The reason a forced write has to give, collapsed onto one line.
+ *
+ * Demanded only when `force` actually waived something, which is what keeps
+ * `card reap` — `releaseCard(id, { force: true })` on a card whose gates it
+ * never trips — working without inventing a reason for a bypass that did not
+ * happen. `claimCard` has demanded the same thing since it first let one actor
+ * take another's claim; this is that rule reaching the other three doors.
+ *
+ * The trail is one line per event, so a reason with newlines in it would append
+ * a line the reader sees and `TRAIL_ENTRY` does not — the shape `doctor --fix`
+ * then treats as a stray entry. Split-and-join rather than a trimming regex, on
+ * text that arrives over HTTP and MCP.
+ */
+function requireForceReason(id: string, gates: string[], reason): string {
+    if (!gates.length) return "";
+    const given = String(reason || "").trim().split(/\s+/).join(" ");
+    if (!given) {
+        throw new ValidationError(
+            "CARD_FORCE_REASON_REQUIRED",
+            `Forcing ${id} past ${listGates(gates)} needs a reason. It is what ` +
+                `the card's trail carries in place of the gate.`
+        );
+    }
+    return given;
+}
+
+/**
+ * What a forced milestone says beyond the move itself.
+ *
+ * The whole of T-0184. `force` reached `assertAcceptanceMet`, skipped it, and
+ * was never written down — so `review → done` was the same line whether the
+ * criteria were proven or waived, and every count anyone would take over closed
+ * cards counted them alike. Empty when nothing was waived, which is what keeps
+ * an ordinary transition's entry identical to the byte.
+ */
+function forcedBy(gates: Array<string | null>, reason: string): string {
+    const waived = gates.filter(Boolean) as string[];
+    if (!waived.length) return "";
+    return ` (forced past ${listGates(waived)}: ${reason})`;
 }
 
 /** The frontmatter a patch must hold a claim to touch. */
@@ -592,9 +658,17 @@ export async function patchCard(
     workspace,
     id,
     changes,
-    { actor, force = false, now, guard, transformContent, ...options }: any = {}
+    { actor, force = false, reason, now, guard, transformContent, ...options }: any = {}
 ) {
     const wanted = changes?.status;
+    // Filled by the guard, which `mutateCard` runs under the lock before it
+    // calls `transformContent` — so the trail is written from what the gates
+    // actually waived on the card as it was, not from what the caller asked for.
+    // Each marker lands on the milestone it belongs to: a patch that takes a
+    // claim over and closes the card forced two different things, and one line
+    // saying both would leave the reader guessing which applied to which.
+    let forcedMove = "";
+    let forcedClaim = "";
     return mutateCard(workspace, id, changes, {
         ...options,
         guard: async (current, cards) => {
@@ -603,15 +677,21 @@ export async function patchCard(
             // sets a priority on somebody else's card was never refused by
             // `transition` or `release` either, and refusing it here would be
             // a new rule rather than the missing half of an old one.
-            if (
-                changes &&
-                CLAIM_GUARDED_FIELDS.some((field) => field in changes)
-            ) {
-                assertClaimOwnership(id, current, actor, force);
-            }
-            if (wanted && wanted !== current.status) {
-                assertAcceptanceMet(id, current, wanted, force);
-            }
+            const claim =
+                changes && CLAIM_GUARDED_FIELDS.some((field) => field in changes)
+                    ? assertClaimOwnership(id, current, actor, force)
+                    : null;
+            const acceptance =
+                wanted && wanted !== current.status
+                    ? assertAcceptanceMet(id, current, wanted, force)
+                    : null;
+            const why = requireForceReason(
+                id,
+                [claim, acceptance].filter(Boolean) as string[],
+                reason
+            );
+            forcedMove = forcedBy([acceptance], why);
+            forcedClaim = forcedBy([claim], why);
         },
         transformContent: (content, current, candidate) => {
             const next = transformContent
@@ -619,7 +699,7 @@ export async function patchCard(
                 : content;
             const moved = appendMilestone(workspace, next, {
                 actor,
-                text: `${current.status} → ${wanted}`,
+                text: `${current.status} → ${wanted}${forcedMove}`,
                 redundant: !wanted || wanted === current.status,
                 now
             });
@@ -628,7 +708,7 @@ export async function patchCard(
             // depended on which command you used rather than on what happened.
             return appendMilestone(workspace, moved, {
                 actor,
-                text: candidate.claimed_by ? "claimed" : "released",
+                text: `${candidate.claimed_by ? "claimed" : "released"}${forcedClaim}`,
                 redundant:
                     (candidate.claimed_by || null) ===
                     (current.claimed_by || null),
@@ -740,11 +820,21 @@ export async function claimCard(
     return { ...result, warnings };
 }
 
+/**
+ * `reason` was accepted here in name only.
+ *
+ * `project_card_release` has declared it since the tool was written — "Why
+ * another actor's claim is being released. Recorded on the card." — and passed
+ * it on every forced call. This signature never destructured it, so the one
+ * surface that promised to record it dropped it, and a release that took
+ * somebody else's claim left the same line as one that let go of your own.
+ */
 export async function releaseCard(
     workspace,
     id,
-    { actor, status, force = false, expectedRevision }: any = {}
+    { actor, status, force = false, reason, expectedRevision }: any = {}
 ) {
+    let forced = "";
     const loaded = await loadCards(workspace);
     // Existence first, so a missing card reports CARD_NOT_FOUND instead of a
     // complaint about a status it does not have.
@@ -775,7 +865,7 @@ export async function releaseCard(
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
                     actor: actor || current.claimed_by,
-                    text: "released",
+                    text: `released${forced}`,
                     // No claim to drop and nowhere to move: the command
                     // succeeded and the card is exactly as it was.
                     redundant:
@@ -787,10 +877,16 @@ export async function releaseCard(
                 // way to reach the gate. Only when it actually moves the card
                 // there: a card that is already done stays releasable, or a
                 // forced close would leave its own claim stuck.
-                if (status && status !== current.status) {
-                    assertAcceptanceMet(id, current, status, force);
-                }
-                assertClaimOwnership(id, current, actor, force);
+                const acceptance =
+                    status && status !== current.status
+                        ? assertAcceptanceMet(id, current, status, force)
+                        : null;
+                const claim = assertClaimOwnership(id, current, actor, force);
+                // One line, so both markers share it. `card reap` reaches here
+                // with `force` and no actor, which waives nothing and therefore
+                // owes no reason.
+                const gates = [acceptance, claim].filter(Boolean) as string[];
+                forced = forcedBy(gates, requireForceReason(id, gates, reason));
             }
         }
     );
@@ -800,7 +896,7 @@ export async function transitionCard(
     workspace,
     id,
     status,
-    { actor, scope, force = false, expectedRevision, now }: any = {}
+    { actor, scope, force = false, reason, expectedRevision, now }: any = {}
 ) {
     if (status === "doing") {
         return claimCard(workspace, id, {
@@ -815,6 +911,7 @@ export async function transitionCard(
     const moveToArchived = snapshot.archived && !["done", "discarded"].includes(status)
         ? false
         : undefined;
+    let forced = "";
     return mutateCard(
         workspace,
         id,
@@ -838,7 +935,7 @@ export async function transitionCard(
                     text:
                         moveToArchived === false && current.status === status
                             ? "unarchived"
-                            : `${current.status} → ${status}`,
+                            : `${current.status} → ${status}${forced}`,
                     // The status is the milestone, except when the card is
                     // also coming back out of the archive: that moves it even
                     // though the status reads the same on both sides.
@@ -853,9 +950,12 @@ export async function transitionCard(
             // required — which made the guard on release decorative.
             guard: (current) => {
                 // `--force` is the documented way past it, for the cases the
-                // criteria did not anticipate.
-                assertAcceptanceMet(id, current, status, force);
-                assertClaimOwnership(id, current, actor, force);
+                // criteria did not anticipate. Documented, and now recorded:
+                // what it waived goes on the same line as the move it allowed.
+                const acceptance = assertAcceptanceMet(id, current, status, force);
+                const claim = assertClaimOwnership(id, current, actor, force);
+                const gates = [acceptance, claim].filter(Boolean) as string[];
+                forced = forcedBy(gates, requireForceReason(id, gates, reason));
             }
         }
     );

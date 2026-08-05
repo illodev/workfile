@@ -384,7 +384,11 @@ export function DocsView({
     onOpenCard
 }: {
     selectedId: string | null;
-    onSelect: (id: string) => void;
+    // `null` is "no document", which the back control needs to be able to say.
+    // It said `""` instead, and an empty string is a selection of something
+    // unnameable rather than the absence of one — enough to leave the shell's
+    // inspector open over the list this control exists to go back to.
+    onSelect: (id: string | null) => void;
     onOpenCard: (id: string) => void;
 }) {
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
@@ -757,7 +761,7 @@ export function DocsView({
                             variant="ghost"
                             size="sm"
                             className="-ml-2 mb-2 lg:hidden"
-                            onClick={() => onSelect("")}
+                            onClick={() => onSelect(null)}
                         >
                             <ChevronLeft aria-hidden="true" />
                             All documents

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { api } from "../api";
-import { recordCollection } from "../theme";
+import { recordCollection } from "../navigation";
 import type { SearchHit, SearchMode } from "../types";
 
 /**
@@ -312,9 +312,11 @@ export function CommandPalette({
                                         {entry.id ? (
                                             <Badge
                                                 variant="outline"
-                                                title={recordCollection(
-                                                    entry.id
-                                                )}
+                                                title={
+                                                    recordCollection(
+                                                        entry.id
+                                                    ) ?? undefined
+                                                }
                                                 className="w-[78px] shrink-0 justify-start rounded-sm px-1.5 font-mono text-[11.5px] font-normal text-muted-foreground"
                                             >
                                                 {entry.id}

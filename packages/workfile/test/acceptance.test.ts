@@ -9,6 +9,7 @@ import { createTestWorkspace, withServer } from "./support/workspace.ts";
 
 import {
     applyAcceptance,
+    claimCard,
     createCard,
     createMcpProtocolServer,
     loadCards,
@@ -145,11 +146,27 @@ test("done refuses while criteria are unproven, and force still gets through", a
         // And the escape hatch, because some criteria do not survive contact.
         const second = await createCard(workspace, { title: "Forced", area: "api" });
         await patchCardBody(workspace, second.id, { body: BODY });
+        await assert.rejects(
+            () =>
+                transitionCard(workspace, second.id, "done", {
+                    actor: "tester",
+                    force: true
+                }),
+            (error: any) => {
+                assert.equal(error.code, "CARD_FORCE_REASON_REQUIRED");
+                return true;
+            }
+        );
         const forced = await transitionCard(workspace, second.id, "done", {
             actor: "tester",
-            force: true
+            force: true,
+            reason: "The last two need hardware this repository does not have"
         });
         assert.equal(forced.card.status, "done");
+        assert.match(
+            forced.card.body,
+            /· backlog → done \(forced past 3 unproven criteria: The last two need hardware this repository does not have\)/
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -237,12 +254,17 @@ test("every door to done passes the same gate, and leaves the same trail", async
             workspace,
             forced,
             { status: "done" },
-            { force: true, actor: "tester", now: "2026-08-01T10:00:00.000Z" }
+            {
+                force: true,
+                actor: "tester",
+                reason: "Shipped and observed; the checklist is stale",
+                now: "2026-08-01T10:00:00.000Z"
+            }
         );
         assert.equal(result.card.status, "done");
         assert.match(
             result.card.body,
-            /- 2026-08-01 10:00Z tester · backlog → done/
+            /- 2026-08-01 10:00Z tester · backlog → done \(forced past 3 unproven criteria: Shipped and observed; the checklist is stale\)/
         );
 
         // A patch that does not touch the status is not a transition and must
@@ -268,6 +290,264 @@ test("every door to done passes the same gate, and leaves the same trail", async
     } finally {
         await cleanup();
     }
+});
+
+/**
+ * T-0184: a forced move used to leave the same line as a proven one.
+ *
+ * `force` reached the gate, skipped it and was never written down, so
+ * `review → done` meant either "the criteria were proven" or "somebody decided
+ * they did not apply" and the record could not say which. Every count anyone
+ * would take over closed cards — per actor, per area, and the per-model one
+ * ADR-0016 wants — counted both alike.
+ */
+test("a forced move says so, names the gate, and carries the reason", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-forced-"
+    });
+    try {
+        const unproven = async (title) => {
+            const { id } = await createCard(workspace, { title, area: "api" });
+            await patchCardBody(workspace, id, { body: BODY });
+            return id;
+        };
+        const lastEntry = (body) =>
+            body
+                .split("\n")
+                .filter((line) => / · /.test(line))
+                .at(-1);
+
+        // Door one: transition. The unforced line first, kept as the baseline
+        // the forced ones must not have changed.
+        const proven = await unproven("Proven");
+        await setCardAcceptance(workspace, proven, { check: [1, 3, 4] });
+        const clean = await transitionCard(workspace, proven, "done", {
+            actor: "tester",
+            now: "2026-08-01T10:00:00.000Z"
+        });
+        assert.equal(
+            lastEntry(clean.card.body),
+            "- 2026-08-01 10:00Z tester · backlog → done",
+            "an ordinary transition's entry is what it always was"
+        );
+
+        // Passing `force` where no gate refuses waives nothing, so it records
+        // nothing and owes no reason. This is the shape `card reap` uses.
+        const idle = await unproven("Forced past nothing");
+        const moved = await transitionCard(workspace, idle, "review", {
+            actor: "tester",
+            force: true,
+            now: "2026-08-01T10:00:00.000Z"
+        });
+        assert.equal(
+            lastEntry(moved.card.body),
+            "- 2026-08-01 10:00Z tester · backlog → review",
+            "a marker has to mean a gate was skipped, or it means nothing"
+        );
+
+        const forcedMove = await transitionCard(workspace, idle, "done", {
+            actor: "tester",
+            force: true,
+            reason: "Two of these need a device the CI runner does not have",
+            now: "2026-08-01T11:00:00.000Z"
+        });
+        assert.equal(
+            lastEntry(forcedMove.card.body),
+            "- 2026-08-01 11:00Z tester · review → done (forced past 3 unproven " +
+                "criteria: Two of these need a device the CI runner does not have)"
+        );
+
+        // Door two: patch, taking another actor's claim over at the same time.
+        // Two gates, two milestones, and each says what was forced about it.
+        const patched = await unproven("Patched over a claim");
+        await claimCard(workspace, patched, { actor: "someone-else" });
+        const forcedPatch = await patchCard(
+            workspace,
+            patched,
+            { status: "done", claimed_by: null, claimed_at: null },
+            {
+                actor: "tester",
+                force: true,
+                reason: "They went offline mid-review",
+                now: "2026-08-01T12:00:00.000Z"
+            }
+        );
+        const lines = forcedPatch.card.body
+            .split("\n")
+            .filter((line) => / · /.test(line));
+        assert.deepEqual(lines.slice(-2), [
+            "- 2026-08-01 12:00Z tester · doing → done (forced past 3 unproven " +
+                "criteria: They went offline mid-review)",
+            "- 2026-08-01 12:00Z tester · released (forced past someone-else's " +
+                "claim: They went offline mid-review)"
+        ]);
+
+        // Door three: `release --status done`, where one line carries both.
+        const released = await unproven("Released to done");
+        await claimCard(workspace, released, { actor: "someone-else" });
+        const forcedRelease = await releaseCard(workspace, released, {
+            status: "done",
+            actor: "tester",
+            force: true,
+            reason: "Closing out an abandoned branch"
+        });
+        assert.match(
+            lastEntry(forcedRelease.card.body),
+            /· released \(forced past 3 unproven criteria and someone-else's claim: Closing out an abandoned branch\)/
+        );
+
+        // The reason is demanded by the gate, not by the surface — so no door
+        // can reach a forced close without one.
+        const silent = await unproven("Forced in silence");
+        for (const attempt of [
+            () =>
+                transitionCard(workspace, silent, "done", {
+                    actor: "tester",
+                    force: true
+                }),
+            () =>
+                patchCard(
+                    workspace,
+                    silent,
+                    { status: "done" },
+                    { actor: "tester", force: true }
+                ),
+            () =>
+                releaseCard(workspace, silent, {
+                    status: "done",
+                    actor: "tester",
+                    force: true
+                })
+        ]) {
+            await assert.rejects(attempt, (error: any) => {
+                assert.equal(error.code, "CARD_FORCE_REASON_REQUIRED");
+                return true;
+            });
+        }
+
+        // A reason written across several lines is still one trail entry: the
+        // trail is line-oriented, and a second line is one `doctor --fix` reads
+        // as a stray entry.
+        const wrapped = await unproven("Reason over two lines");
+        const written = await transitionCard(workspace, wrapped, "done", {
+            actor: "tester",
+            force: true,
+            reason: "  The demo box\n   has no camera  ",
+            now: "2026-08-01T13:00:00.000Z"
+        });
+        assert.equal(
+            lastEntry(written.card.body),
+            "- 2026-08-01 13:00Z tester · backlog → done (forced past 3 " +
+                "unproven criteria: The demo box has no camera)"
+        );
+        assert.equal(
+            written.card.body.split("\n").filter((line) => / · /.test(line)).length,
+            1
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+test("a forced close records its reason over HTTP and over MCP too", async () => {
+    await withServer(async ({ workspace, url }) => {
+        const unproven = async (title) => {
+            const { id } = await createCard(workspace, { title, area: "api" });
+            await patchCardBody(workspace, id, { body: BODY });
+            return id;
+        };
+
+        // The HTTP transition route. Refused without a reason, recorded with
+        // one — the same rule the CLI meets, because both call one gate.
+        const overWire = await unproven("Closed over HTTP");
+        const refused = await fetch(`${url}/api/v2/cards/${overWire}/transition`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ status: "done", force: true })
+        });
+        assert.equal(refused.status, 400);
+        assert.match(
+            JSON.stringify(await refused.json()),
+            /CARD_FORCE_REASON_REQUIRED/
+        );
+
+        const accepted = await fetch(`${url}/api/v2/cards/${overWire}/transition`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                status: "done",
+                force: true,
+                actor: "tester",
+                reason: "Verified on the staging box by hand"
+            })
+        });
+        assert.equal(accepted.status, 200);
+        const { cards: afterHttp } = await loadCards(workspace);
+        assert.match(
+            afterHttp.find((entry) => entry.id === overWire).body,
+            /· backlog → done \(forced past 3 unproven criteria: Verified on the staging box by hand\)/
+        );
+
+        // The flat PATCH shape carries `force` and `reason` about the write
+        // rather than as fields of it, which the route used to hand straight to
+        // the field sanitizer.
+        const patched = await unproven("Patched over HTTP");
+        const response = await fetch(`${url}/api/v2/cards/${patched}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                status: "done",
+                force: true,
+                actor: "tester",
+                reason: "Superseded by the rewrite"
+            })
+        });
+        assert.equal(response.status, 200);
+        const { cards: afterPatch } = await loadCards(workspace);
+        assert.match(
+            afterPatch.find((entry) => entry.id === patched).body,
+            /· backlog → done \(forced past 3 unproven criteria: Superseded by the rewrite\)/
+        );
+
+        // And MCP, whose release tool has advertised `reason` — "Recorded on
+        // the card" — since it was written, and passed it to a signature that
+        // did not take it.
+        const server = createMcpProtocolServer(workspace, { version: "0.0.0" });
+        await server.handle({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
+                capabilities: {},
+                clientInfo: { name: "test-client", version: "1.0.0" }
+            }
+        });
+        await server.handle({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+        const held = await unproven("Released over MCP");
+        await claimCard(workspace, held, { actor: "someone-else" });
+        const called = await server.handle({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+                name: "project_card_release",
+                arguments: {
+                    id: held,
+                    actor: "tester",
+                    force: true,
+                    reason: "Their session ended without releasing it"
+                }
+            }
+        });
+        assert.ok("result" in called, JSON.stringify(called));
+        const { cards: afterMcp } = await loadCards(workspace);
+        assert.match(
+            afterMcp.find((entry) => entry.id === held).body,
+            /· released \(forced past someone-else's claim: Their session ended without releasing it\)/
+        );
+    }, { prefix: "workfile-forced-wire-" });
 });
 
 test("the gate holds over HTTP and over MCP, not only in process", async () => {
@@ -463,14 +743,20 @@ test("done refuses a card whose criteria it cannot read, and force gets through"
             (error: any) => error.code === "CARD_ACCEPTANCE_UNMET"
         );
 
-        // And the escape hatch, for a checklist that was never a criterion.
+        // And the escape hatch, for a checklist that was never a criterion —
+        // which now has to say so, and says which gate it walked past.
         const second = await createCard(workspace, { title: "Not criteria", area: "api" });
         await patchCardBody(workspace, second.id, { body });
         const forced = await transitionCard(workspace, second.id, "done", {
             actor: "tester",
-            force: true
+            force: true,
+            reason: "That list is a packing list, not criteria"
         });
         assert.equal(forced.card.status, "done");
+        assert.match(
+            forced.card.body,
+            /· backlog → done \(forced past 2 unreadable checklist items: That list is a packing list, not criteria\)/
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }
