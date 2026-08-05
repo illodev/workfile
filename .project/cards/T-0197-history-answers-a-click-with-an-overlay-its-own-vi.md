@@ -28,6 +28,11 @@ deliberately rather than drifting into.
 
 ## Acceptance criteria
 
-- [ ] A decision is recorded on whether history owns its reader or keeps the overlay.
+- [x] A decision is recorded on whether history owns its reader or keeps the overlay.
 - [ ] If it owns one, the list stays visible beside it above the mobile breakpoint.
 - [ ] The reasoning in `VIEW_OWNS_DRAWER` is updated to describe the rule, not just the docs exception.
+
+## Notes
+
+- 2026-08-05 20:50Z illodev@local#bf4c5f67 — Decided and recorded as ADR-0017: history keeps the overlay. The axis is not how long the record is but what the list is for — reference material for the record (docs: outline and document read together) versus a queue you work through one at a time (history, explorer, memory, workflow, search). History is a queue. The complaint the card makes is real and is answered without layout: Inspector already carries a previous/next cursor for cards, and RecordPanel — every other kind — has none, so leaving one fragment to reach the next means dismissing the drawer and finding your place again. Filed as T-0207. Criterion 3, restating the rule in VIEW_OWNS_DRAWER, is still owed; ui/src/navigation.ts is held by another agent right now.
+- 2026-08-05 20:51Z illodev@local#bf4c5f67 — Criterion 2 is conditional on history owning a reader, and the decision is that it does not, so there is nothing to verify. Left unchecked rather than ticked: a checked box on this card should mean something was proven, and nothing was. It and criterion 3 both wait on the navigation.ts comment.
