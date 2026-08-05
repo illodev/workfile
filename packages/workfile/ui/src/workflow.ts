@@ -95,6 +95,61 @@ export interface Filters {
     relations: ReadonlySet<string>;
     kinds: ReadonlySet<string>;
     hideIsolated: boolean;
+    /** The shell's strip, when there is one. See `matchesRecord`. */
+    record?: RecordFilters;
+}
+
+/**
+ * The card axes the shell's filter strip offers, as data.
+ *
+ * `main.tsx` passes its own `Filters` here field by field rather than the whole
+ * object, because the two are different things: the shell's carries `search`,
+ * `showIdeas` and `showClosed`, and none of the three belongs on this canvas.
+ */
+export interface RecordFilters {
+    status?: string;
+    area?: string;
+    type?: string;
+    priority?: string;
+    milestone?: string;
+}
+
+/**
+ * Whether the shell's filter strip leaves a record on the canvas.
+ *
+ * The strip was drawn over this view and applied to nothing: `isWorkView` is
+ * defined by exclusion, so Workflow got status, area, type, priority and
+ * milestone, and `<WorkflowView>` was handed a selection and a callback. The
+ * chips moved, the URL updated, the graph did not ([[T-0191]]).
+ *
+ * **The axes narrow cards, and cards only.** All five are card axes drawn from
+ * the card schema — a document's `recordType` is its kind and a memory
+ * record's is its collection, so comparing either against `type: "bug"` would
+ * be reading one vocabulary with another's dictionary. Records of other kinds
+ * stay as the things cards point at, and the ones left hanging off nothing are
+ * removed by `hideIsolated`, which is what it is for and is on by default.
+ *
+ * `showClosed` is deliberately not honoured. It is list hygiene for a board,
+ * and this view's whole subject is where work came from: most origins are
+ * closed cards, so applying it would empty the graph of the records that
+ * explain the rest. Free text is not honoured either — the shell's `search`
+ * carries a token grammar and a `/regex/` form that this would have to
+ * reimplement to mean the same thing, and the strip here has no text box to
+ * set it from ([[T-0195]]).
+ */
+export function matchesRecord(
+    record: GraphRecord,
+    filters: RecordFilters
+): boolean {
+    if (record.kind !== "card") return true;
+    if (filters.status && record.status !== filters.status) return false;
+    if (filters.area && record.area !== filters.area) return false;
+    if (filters.type && record.recordType !== filters.type) return false;
+    if (filters.priority && record.priority !== filters.priority) return false;
+    if (filters.milestone && record.milestone !== filters.milestone) {
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -108,15 +163,72 @@ export interface Filters {
 export function filterGraph(
     records: readonly GraphRecord[],
     filters: Filters
-): { records: GraphRecord[]; links: GraphLink[]; degree: Map<string, number> } {
-    const visible = records.filter((record) => filters.kinds.has(record.kind));
+): {
+    records: GraphRecord[];
+    links: GraphLink[];
+    degree: Map<string, number>;
+    /**
+     * Records that matched every filter and were then dropped for having no
+     * surviving edge. An empty canvas has two causes and the reader can only
+     * act on one of them: "nothing matched" and "what matched is unconnected"
+     * are answered by different controls.
+     */
+    isolated: number;
+} {
+    const narrowed = Object.values(filters.record ?? {}).some(Boolean);
+    let visible = records.filter(
+        (record) =>
+            filters.kinds.has(record.kind) &&
+            matchesRecord(record, filters.record ?? {})
+    );
+    // A record the strip does not describe is kept as context, and context is
+    // context *of something*. Measured on this workspace: `status=review`
+    // matched one card and drew thirty-one nodes, because the memory and doc
+    // records that pass every card axis hold each other up — `hideIsolated`
+    // counts their degree and finds it non-zero. The reader asked which cards
+    // are in review and got a cloud of decisions about something else.
+    //
+    // So when the strip narrows the cards, a record of another kind earns its
+    // place by touching one that survived.
+    if (narrowed) {
+        const cards = new Set(
+            visible
+                .filter((record) => record.kind === "card")
+                .map((record) => record.id)
+        );
+        const touching = new Set<string>();
+        for (const link of edgesAmong(visible, filters.relations).links) {
+            if (cards.has(link.from)) touching.add(link.to);
+            if (cards.has(link.to)) touching.add(link.from);
+        }
+        visible = visible.filter(
+            (record) => record.kind === "card" || touching.has(record.id)
+        );
+    }
+    const { links, degree } = edgesAmong(visible, filters.relations);
+    const drawn = filters.hideIsolated
+        ? visible.filter((record) => degree.get(record.id))
+        : visible;
+    return {
+        records: drawn,
+        links,
+        degree,
+        isolated: visible.length - drawn.length
+    };
+}
+
+/** The surviving edges over a record set, and the degree they give each node. */
+function edgesAmong(
+    visible: readonly GraphRecord[],
+    relations: ReadonlySet<string>
+): { links: GraphLink[]; degree: Map<string, number> } {
     const ids = new Set(visible.map((record) => record.id));
     const links: GraphLink[] = [];
     const degree = new Map<string, number>();
     for (const record of visible) {
         for (const edge of record.edges) {
             if (!ids.has(edge.to) || edge.to === record.id) continue;
-            const kept = edge.rel.filter((name) => filters.relations.has(name));
+            const kept = edge.rel.filter((name) => relations.has(name));
             if (!kept.length) continue;
             links.push({
                 from: record.id,
@@ -131,13 +243,7 @@ export function filterGraph(
             degree.set(edge.to, (degree.get(edge.to) || 0) + 1);
         }
     }
-    return {
-        records: filters.hideIsolated
-            ? visible.filter((record) => degree.get(record.id))
-            : visible,
-        links,
-        degree
-    };
+    return { links, degree };
 }
 
 /**

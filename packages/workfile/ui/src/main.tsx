@@ -78,8 +78,8 @@ import { RecordDrawer } from "./components/RecordDrawer";
 import { RecordPanel } from "./components/RecordPanel";
 import { NewCardModal } from "./components/NewCard";
 import { CommandPalette } from "./components/CommandPalette";
-import { recordCollection, severityColor, since, statusColor } from "./theme";
-import { viewForRecord } from "./navigation";
+import { severityColor, since, statusColor } from "./theme";
+import { drawerCovers, recordCollection, viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
@@ -298,23 +298,6 @@ interface NavItem {
     label: string;
     icon: typeof Table;
 }
-
-/**
- * Views that draw their own panel for a collection, and keep it.
- *
- * The shared drawer stands down for these rather than opening over them.
- * Memory's lanes carry graduate and supersede, and Docs carries an outline and
- * freshness — editing bound to state those views own. Hoisting that is worth
- * doing and is not this change; what this map buys is that everywhere *else*
- * already goes through one drawer.
- */
-const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
-    // Docs alone, and not because it owns a drawer — it owns a *reader*. The
-    // list sits beside the document rather than over it, which is the right
-    // shape for the one view whose job is reading something long, and an
-    // overlay on top of it would cover the list it was opened from.
-    docs: "docs"
-};
 
 const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -849,6 +832,32 @@ function App() {
     const visibleTasks = useMemo(
         () => filterTasks(tasks, effectiveFilters),
         [effectiveFilters, tasks]
+    );
+    /**
+     * The five card axes, for the one view that filters records rather than
+     * rows.
+     *
+     * Field by field rather than the whole object: `search`, `showIdeas` and
+     * `showClosed` are list hygiene for a board, and a provenance graph that
+     * hid closed cards would drop most of what explains the rest. Memoised on
+     * the scalars so the canvas does not re-run its layout per keystroke in a
+     * search box it does not read.
+     */
+    const graphFilters = useMemo(
+        () => ({
+            status: filters.status,
+            area: filters.area,
+            type: filters.type,
+            priority: filters.priority,
+            milestone: filters.milestone
+        }),
+        [
+            filters.status,
+            filters.area,
+            filters.type,
+            filters.priority,
+            filters.milestone
+        ]
     );
     const timelineMode = useMemo(
         () => datesChoice ?? preferredMode(tasks),
@@ -1642,6 +1651,10 @@ function App() {
                                     <WorkflowView
                                         selectedId={selectedId}
                                         onSelect={selectRecord}
+                                        // The strip is rendered over this view
+                                        // because `isWorkView` is defined by
+                                        // exclusion. It used to stop there.
+                                        filters={graphFilters}
                                     />
                                 ) : view === "history" ? (
                                     <HistoryView
@@ -1808,7 +1821,10 @@ function App() {
                     // view that lists it, so a `[[DOC-0002]]` in a card body
                     // led nowhere — and the graph grew a second drawer to say
                     // what the first would not, which then stacked over it.
-                    VIEW_OWNS_DRAWER[view] !== recordCollection(selectedId)
+                    //
+                    // Any kind there *is*: an id that names no collection is a
+                    // selection of nothing, and the drawer stays shut.
+                    drawerCovers(view, drawerCollection)
                 }
                 expanded={inspectorExpanded}
                 label="inspector"
