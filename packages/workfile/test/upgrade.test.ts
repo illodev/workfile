@@ -7,10 +7,13 @@ import { fileURLToPath } from "node:url";
 
 import {
     checkAgentInstructions,
+    checkCiTemplates,
+    checkClaudeSurface,
     loadWorkspace,
     runUpgrade,
     syncAgentInstructions,
-    syncCiTemplates
+    syncCiTemplates,
+    syncClaudeSurface
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -61,6 +64,78 @@ test("a current-but-stale stamp is exactly what upgrade resyncs", async () => {
 
         const settled = await runUpgrade(workspace);
         assert.equal(surface(settled, "agents").status, "current");
+        assert.deepEqual(settled.orphans, []);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("every owned surface is stamped, not only the first one behind", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-upgrade-all-"));
+    await cp(fixture, root, { recursive: true });
+    // Ownership is what the command reads: the config for agents and CI, and
+    // for the Claude surface the skill being on disk, since installing it is
+    // the opt-in. The fixture owns agents alone — which is why the sibling
+    // test proves the stamp on one surface and this one owns all three.
+    await writeFile(
+        join(root, "project.config.mjs"),
+        `export default {
+    schemaVersion: 2,
+    name: "Every surface",
+    ci: { enabled: true, targets: ["github"] }
+};
+`
+    );
+    const workspace = await loadWorkspace({ root });
+    try {
+        await syncAgentInstructions(workspace);
+        await syncCiTemplates(workspace);
+        await syncClaudeSurface(workspace);
+
+        const owned = async () =>
+            [
+                ...(await checkAgentInstructions(workspace)).files,
+                ...(await checkCiTemplates(workspace)).files,
+                ...(await checkClaudeSurface(workspace)).files
+            ].filter((file) => file.version);
+
+        const stamped = await owned();
+        // Guards every loop below: iterating a filtered array that came back
+        // empty is how a test passes while proving nothing.
+        assert.ok(stamped.length >= 5, `only ${stamped.length} stamped files`);
+
+        for (const file of stamped) {
+            const path = join(root, file.path);
+            const text = await readFile(path, "utf8");
+            await writeFile(
+                path,
+                text.replace(` version=${installed} `, " version=0.0.1 ")
+            );
+        }
+
+        const applied = await runUpgrade(workspace);
+        for (const id of ["agents", "ci", "claude"]) {
+            assert.equal(
+                surface(applied, id).status,
+                "synced",
+                `${id} was left behind`
+            );
+        }
+
+        const after = await owned();
+        assert.equal(after.length, stamped.length);
+        for (const file of after) {
+            assert.equal(
+                file.version,
+                installed,
+                `${file.path} kept an old stamp`
+            );
+        }
+
+        const settled = await runUpgrade(workspace);
+        for (const id of ["agents", "ci", "claude"]) {
+            assert.equal(surface(settled, id).status, "current");
+        }
         assert.deepEqual(settled.orphans, []);
     } finally {
         await rm(root, { recursive: true, force: true });
