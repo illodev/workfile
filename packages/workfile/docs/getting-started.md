@@ -27,7 +27,7 @@ documentation sources, agent environments and CI providers. Every answer can be
 given as a flag for automation, and `--dry-run` prints the exact filesystem plan:
 
 ```bash
-workfile init --yes --language es --agents agents-md,claude --ci github
+workfile init --yes --agents agents-md,claude --ci github
 workfile init --dry-run --json
 ```
 

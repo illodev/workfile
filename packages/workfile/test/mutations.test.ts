@@ -443,12 +443,31 @@ test("the durable trail records moves, not commands", async () => {
         assert.equal(trail(done.card).length, 4);
         assert.match(trail(done.card)[3], /next → backlog$/);
 
-        // Coming out of the archive moves the card even though the status
-        // reads the same on both sides, so the line is written — and it has to
-        // name what happened. `backlog → backlog` would be the very thing this
-        // test exists to keep out.
+        // Going into the archive moves the card even though the status reads
+        // the same on both sides, so the line is written — and it has to name
+        // what happened. `done → done` would be the very thing this test
+        // exists to keep out, and writing nothing at all was the asymmetry
+        // T-0175 closed: the trail recorded the way back out and not the way
+        // in, on the one mutation that takes a card off the board.
         await transitionCard(workspace, id, "done", { actor: "session-a" });
-        await archiveCard(workspace, id);
+        const filed = await archiveCard(workspace, id, { actor: "session-b" });
+        assert.equal(filed.card.archived, true, "the card entered the archive");
+        const filedTrail = trail(filed.card);
+        assert.match(
+            filedTrail[filedTrail.length - 1],
+            /session-b · archived$/,
+            "archiving names who did it"
+        );
+
+        // Idempotent, and the trail says so: the second call returns above the
+        // mutation, so there is no second line claiming a second move.
+        const refiled = await archiveCard(workspace, id, { actor: "session-b" });
+        assert.equal(
+            trail(refiled.card).filter((line) => /· archived$/.test(line)).length,
+            1,
+            "archiving an archived card is not a move"
+        );
+
         await patchCard(workspace, id, { status: "backlog" });
         const restored = await transitionCard(workspace, id, "backlog", {
             actor: "session-a"
@@ -457,9 +476,15 @@ test("the durable trail records moves, not commands", async () => {
         const lines = trail(restored.card);
         assert.match(lines[lines.length - 1], /· unarchived$/);
         assert.equal(
-            lines.filter((line) => /backlog → backlog/.test(line)).length,
+            lines.filter((line) => /backlog → backlog|done → done/.test(line)).length,
             0,
             "no line records a move that did not happen"
+        );
+        // Symmetric either way, which is what the card asked for: both
+        // directions are named, and neither is spelled as a status change.
+        assert.deepEqual(
+            lines.filter((line) => /· (?:un)?archived$/.test(line)).map((line) => line.slice(-9)),
+            [" archived", "narchived"]
         );
     } finally {
         await cleanup();
@@ -847,7 +872,17 @@ test("doctor --fix moves stray trail entries back into the trail", async () => {
                 "",
                 "```text",
                 "- 2026-01-01 00:00Z quoted · claimed",
-                "```"
+                "```",
+                "",
+                "## Notes",
+                "",
+                // A note is not a trail entry, and the one subject that makes
+                // a note quote one is the trail. Told apart by the separator
+                // that follows the actor: `—` here, `·` above. Before this,
+                // the greedy `.+ · ` found the middot inside the quote and
+                // `--fix` moved the evidence out of the section it was
+                // deliberately written into.
+                "- 2026-08-02 17:20Z alice — the line reads `2026-01-01 00:00Z bob · claimed`"
             ].join("\n")
         });
 
@@ -871,6 +906,12 @@ test("doctor --fix moves stray trail entries back into the trail", async () => {
         assert.match(entries[2], /doctor · moved 2 trail entries into the trail$/);
         // The quoted one is an example, not damage, and stays where it is.
         assert.match(after.body, /- 2026-01-01 00:00Z quoted · claimed/);
+        // And so does the note that quotes one inline, which no fence protects.
+        assert.match(
+            after.body,
+            /## Notes\n\n- 2026-08-02 17:20Z alice — the line reads/,
+            "a note that quotes a trail entry is not a trail entry"
+        );
         assert.match(after.body, /^Prose about `## Activity`\.$/m);
 
         // And a second pass has nothing left to do.

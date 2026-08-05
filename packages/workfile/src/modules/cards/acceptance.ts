@@ -21,10 +21,25 @@
  * rather than silently applied to the wrong line.
  */
 
-import { fencedLines } from "./body.js";
+import { fencedLines, isProtocolSection } from "./body.js";
 
-/** The heading that opens the region. Matched case-insensitively. */
-const HEADING = /^(#{1,6})\s+acceptance\s+criteria\b.*$/im;
+/**
+ * The headings that open the region, case-insensitive.
+ *
+ * This was one phrase, `acceptance criteria`, and everything else read as a
+ * card with no criteria at all — which `done` then had nothing to hold. The
+ * heading is prose a human types, so the vocabulary has to cover what humans
+ * actually type: this repository's own T-0026 through T-0029 wrote
+ * `## Acceptance` and were closed with four unproven criteria between them,
+ * and DOC-0005 arrived from outside reporting the same hole in Spanish.
+ *
+ * Widening it is not the fix, though, and must not be mistaken for one. There
+ * is always another phrasing — `Definition of done` today, something else
+ * tomorrow. What closes the hole is `orphans` below: the reader stops claiming
+ * a card has no criteria when its body plainly carries unchecked boxes.
+ */
+const HEADING =
+    /^(#{1,6})\s+(?:acceptance(?:\s+criteria)?|definition\s+of\s+done|(?:success|exit)\s+criteria)\b.*$/i;
 
 /** A checklist item: `- [ ] text`, `* [x] text`, any indentation. */
 const ITEM = /^(\s*)([-*])(\s+)\[([ xX])\](\s+)(.*)$/;
@@ -44,6 +59,20 @@ export interface AcceptanceReading {
     items: AcceptanceItem[];
     /** Unchecked items, the ones that make `done` a lie. */
     unchecked: AcceptanceItem[];
+    /**
+     * Checklist items the region does not cover, in order of appearance.
+     *
+     * These are not criteria and are deliberately not addressable — `card ac
+     * --check` will not touch them, because the reader does not know that they
+     * are criteria. They exist so that `present: false` can be reported as
+     * "no heading I recognised" rather than as "no criteria", which is a claim
+     * about the card that the reader is not entitled to make.
+     *
+     * Only meaningful when `present` is false. A card that declares its
+     * criteria properly and also keeps a checklist somewhere else is doing
+     * nothing wrong, and consumers must not read that list as criteria.
+     */
+    orphans: AcceptanceItem[];
 }
 
 /**
@@ -66,30 +95,91 @@ export function parseAcceptance(body = ""): AcceptanceReading {
     const headingIndex = lines.findIndex(
         (line, at) => !fenced[at] && HEADING.test(line)
     );
-    if (headingIndex === -1) return { present: false, items: [], unchecked: [] };
 
-    const openedAt = (lines[headingIndex].match(/^(#{1,6})/) || [])[1]?.length ?? 2;
     const items: AcceptanceItem[] = [];
+    // Where the region stops, so the orphan pass knows what it must not read
+    // twice. `lines.length` when the section runs to the end of the body.
+    let regionEnd = -1;
 
-    for (let line = headingIndex + 1; line < lines.length; line += 1) {
+    if (headingIndex !== -1) {
+        const openedAt =
+            (lines[headingIndex].match(/^(#{1,6})/) || [])[1]?.length ?? 2;
+        regionEnd = lines.length;
+        for (let line = headingIndex + 1; line < lines.length; line += 1) {
+            if (fenced[line]) continue;
+            const heading = lines[line].match(/^(#{1,6})\s+\S/);
+            if (heading && heading[1].length <= openedAt) {
+                regionEnd = line;
+                break;
+            }
+            const match = lines[line].match(ITEM);
+            if (!match) continue;
+            items.push({
+                index: items.length + 1,
+                text: match[6].trim(),
+                checked: match[4] !== " ",
+                line
+            });
+        }
+    }
+
+    return {
+        present: headingIndex !== -1,
+        items,
+        unchecked: items.filter((item) => !item.checked),
+        orphans: collectOrphans(lines, fenced, headingIndex, regionEnd)
+    };
+}
+
+/**
+ * Checklist items living outside the region.
+ *
+ * `## Activity` and `## Notes` are excluded. They are the sections the tool
+ * writes into, a note is free prose, and a checklist someone pasted into one
+ * is the clearest case of a list that was never a criterion. Everything else
+ * counts: a card that keeps its criteria under a heading nobody agreed on is
+ * exactly what this is for.
+ */
+function collectOrphans(
+    lines: string[],
+    fenced: boolean[],
+    headingIndex: number,
+    regionEnd: number
+): AcceptanceItem[] {
+    const orphans: AcceptanceItem[] = [];
+    let section: string | null = null;
+    for (let line = 0; line < lines.length; line += 1) {
+        if (!fenced[line] && /^##(?!#)\s+\S/.test(lines[line])) {
+            section = lines[line].trim();
+        }
         if (fenced[line]) continue;
-        const heading = lines[line].match(/^(#{1,6})\s+\S/);
-        if (heading && heading[1].length <= openedAt) break;
+        if (headingIndex !== -1 && line >= headingIndex && line < regionEnd) {
+            continue;
+        }
+        if (isProtocolSection(section)) continue;
         const match = lines[line].match(ITEM);
         if (!match) continue;
-        items.push({
-            index: items.length + 1,
+        orphans.push({
+            index: orphans.length + 1,
             text: match[6].trim(),
             checked: match[4] !== " ",
             line
         });
     }
+    return orphans;
+}
 
-    return {
-        present: true,
-        items,
-        unchecked: items.filter((item) => !item.checked)
-    };
+/**
+ * The unchecked items a card is carrying that nothing has agreed to call
+ * criteria — the reading `done` and `doctor` act on.
+ *
+ * Empty whenever the card declares a region of its own, whatever else its body
+ * contains. Checked orphans are excluded because nothing about them is
+ * unproven; the question is only ever what is still open.
+ */
+export function unreadableCriteria(reading: AcceptanceReading): AcceptanceItem[] {
+    if (reading.present) return [];
+    return reading.orphans.filter((item) => !item.checked);
 }
 
 /** Human-facing summary: `2 of 5`. */

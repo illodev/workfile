@@ -16,7 +16,8 @@
   "bin": {
     "workfile": "dist/bin/workfile.js",
     "wf": "dist/bin/workfile.js",
-    "workfile-mcp": "dist/bin/workfile-mcp.js"
+    "workfile-mcp": "dist/bin/workfile-mcp.js",
+    "workfile-hooks": "dist/src/runtime/claude/hooks.mjs"
   },
   "types": "./dist/src/index.d.ts",
   "exports": {

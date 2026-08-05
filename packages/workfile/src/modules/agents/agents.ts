@@ -5,11 +5,16 @@ import { ValidationError } from "../../core/errors.js";
 import { ensureWritable } from "../../core/guards.js";
 import {
     inspectManagedFile,
+    type ManagedFileReport,
     relativeLabel,
     renderManagedBlock,
     syncManagedFile
 } from "../generated/managed-files.js";
-import { buildProjectIndex, findProjectRecord } from "../records/public.js";
+import {
+    buildProjectIndex,
+    findProjectRecord,
+    searchProjectRecords
+} from "../records/public.js";
 import type { ProjectRecord } from "../../types.js";
 
 const PACKAGE_VERSION = JSON.parse(
@@ -52,79 +57,13 @@ const WORKFLOW_FILES = Object.freeze([
     ["record-knowledge.md", "record-knowledge"]
 ]);
 
-function spanish(workspace) {
-    return String(workspace.config.language || "en").toLowerCase().startsWith("es");
-}
 
 function q(value) {
     return `\`${value}\``;
 }
 
 function canonicalBody(workspace) {
-    const isEs = spanish(workspace);
     const areas = workspace.config.cards.areas.map(q).join(", ");
-    if (isEs) {
-        return `# Protocolo operativo del repositorio
-
-Este repositorio usa **Repository Workfile schema v${workspace.schema.schemaVersion}**. Los archivos Markdown del repositorio son la fuente de verdad. La UI, el CLI y cualquier adaptador de agente deben usar los mismos servicios y reglas.
-
-## Antes de trabajar
-
-1. Busca el trabajo y el conocimiento relacionado con \`${workspace.cli} search\`.
-2. Abre la tarjeta y sus relaciones antes de modificar código sustancial.
-3. Reclama la tarjeta antes de tocar su scope: \`${workspace.cli} card claim ID --scope ruta,ruta\`. Tu identidad se resuelve sola; \`${workspace.cli} agents whoami\` la muestra. Usa \`--actor\` solo para reclamar en nombre de otro: un actor inventado a mano no coincide con el que ve el guardarraíl de edición.
-4. Revisa claims activos y solapamientos de scope. No sobrescribas el trabajo de otro actor.
-5. Carga solo el contexto necesario; evita inyectar toda la memoria del proyecto.
-
-## Durante el trabajo
-
-- Mantén la tarjeta actualizada cuando cambie el alcance, el estado o aparezca un bloqueo.
-- Crea tarjetas en la misma sesión para trabajo pendiente accionable descubierto.
-- Registra decisiones, incidentes, convenciones o aprendizajes cuando cambien el comportamiento futuro.
-- Añade un fragmento de changelog para cambios visibles o cuando lo exija la política del proyecto.
-- Usa el CLI o un adaptador oficial para mutaciones; no edites frontmatter manualmente salvo emergencia.
-- No guardes credenciales, tokens ni datos sensibles innecesarios en Cards, Docs, History o Memory.
-
-## Estados de Work
-
-- \`backlog\`: identificado sin compromiso.
-- \`next\`: priorizado para el siguiente lote.
-- \`doing\`: trabajo activo y reclamado.
-- \`review\`: implementación terminada, pendiente de verificación, despliegue o aprobación.
-- \`blocked\`: bloqueado externamente; documenta la causa.
-- \`deferred\`: aplazado deliberadamente; documenta el motivo.
-- \`done\`: verificado en un entorno donde realmente se ejecuta. Un commit o merge no basta.
-- \`discarded\`: no se hará; documenta el motivo.
-
-## Al terminar
-
-1. Ejecuta las pruebas y verificaciones relevantes.
-2. Ejecuta \`${workspace.cli} doctor\`.
-3. Deja la tarjeta en \`review\` si falta verificar o desplegar; usa \`done\` solo con evidencia real.
-4. Libera el claim cuando el trabajo activo se detenga.
-5. Registra conocimiento durable y changelog cuando corresponda.
-
-## Contratos del proyecto
-
-- Áreas válidas: ${areas}.
-- La jerarquía máxima de tarjetas es ${workspace.config.cards.maxHierarchyDepth} niveles por debajo de la raíz.
-- Los claims caducan operativamente tras ${workspace.config.cards.claimLeaseHours} horas, pero no deben ignorarse sin revisar contexto.
-- Instrucciones canónicas: \`${relativeLabel(workspace.root, workspace.paths.agentProtocol)}\`.
-- Workflows: \`${relativeLabel(workspace.root, workspace.paths.agentWorkflows)}/*.md\`.
-
-## Comandos esenciales
-
-\`${workspace.cli} next\`  
-\`${workspace.cli} search "consulta"\`  
-\`${workspace.cli} agents context --card T-0001\`  
-\`${workspace.cli} card show T-0001 --json\`  
-\`${workspace.cli} card claim T-0001 --scope apps/api\`  
-\`${workspace.cli} card transition T-0001 review\`  
-\`${workspace.cli} changelog add --title "Cambio" --type changed --area api\`  
-\`${workspace.cli} memory add decision --title "Decisión" --status accepted\`  
-\`${workspace.cli} doctor\`
-`;
-    }
     return `# Repository operating protocol
 
 This repository uses **Repository Workfile schema v${workspace.schema.schemaVersion}**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -188,18 +127,8 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 }
 
 function workflowBody(workspace, workflow) {
-    const isEs = spanish(workspace);
     const content = {
-        "start-work": isEs
-            ? `# Empezar trabajo
-
-1. Ejecuta \`${workspace.cli} agents context --card <ID>\`.
-2. Lee la tarjeta, documentación, decisiones, convenciones e incidentes relevantes.
-3. Comprueba claims y scopes solapados.
-4. Reclama la tarjeta: \`${workspace.cli} card claim <ID> --scope ruta,ruta\`. No inventes un actor.
-5. Cambia a \`doing\` solo cuando el trabajo empiece realmente.
-6. Confirma criterios de aceptación y plan de verificación antes de editar código.`
-            : `# Start work
+        "start-work": `# Start work
 
 1. Run \`${workspace.cli} agents context --card <ID>\`.
 2. Read the card plus relevant docs, decisions, conventions and incidents.
@@ -207,18 +136,7 @@ function workflowBody(workspace, workflow) {
 4. Claim the card: \`${workspace.cli} card claim <ID> --scope path,path\`. Do not invent an actor.
 5. Move to \`doing\` only when work actually begins.
 6. Confirm acceptance criteria and the verification plan before editing code.`,
-        "finish-work": isEs
-            ? `# Terminar trabajo
-
-1. Ejecuta pruebas, typecheck, lint y verificaciones relevantes.
-2. Actualiza notas y criterios de aceptación con evidencia verificable.
-3. Añade fragmento de changelog si el cambio lo requiere.
-4. Registra decisiones, incidentes o aprendizajes durables.
-5. Ejecuta \`${workspace.cli} doctor\`.
-6. Usa \`review\` si falta despliegue o verificación en ejecución.
-7. Usa \`done\` únicamente cuando el resultado esté verificado en el entorno adecuado.
-8. Libera el claim cuando deje de existir trabajo activo.`
-            : `# Finish work
+        "finish-work": `# Finish work
 
 1. Run relevant tests, typecheck, lint and verification.
 2. Update notes and acceptance criteria with verifiable evidence.
@@ -228,17 +146,7 @@ function workflowBody(workspace, workflow) {
 6. Use \`review\` when deployment or runtime verification is still pending.
 7. Use \`done\` only after verification in the appropriate environment.
 8. Release the claim when active work stops.`,
-        "discovered-work": isEs
-            ? `# Trabajo descubierto
-
-Cuando aparezca trabajo pendiente accionable durante otra tarea:
-
-1. No lo escondas únicamente en comentarios, memoria del agente o un TODO informal.
-2. Crea una tarjeta en la misma sesión con contexto suficiente y referencia a la fuente.
-3. Relaciónala mediante \`parent\`, \`depends\`, \`source\` o menciones de IDs.
-4. Usa \`idea\` solo para propuestas no validadas; usa un tipo de trabajo real cuando ya exista compromiso.
-5. No cambies prioridades del propietario sin autorización explícita.`
-            : `# Discovered work
+        "discovered-work": `# Discovered work
 
 When actionable pending work appears during another task:
 
@@ -247,28 +155,7 @@ When actionable pending work appears during another task:
 3. Relate it through \`parent\`, \`depends\`, \`source\` or record IDs.
 4. Use \`idea\` only for unvalidated proposals; use a committed work type when a decision already exists.
 5. Do not change owner priorities without explicit authorization.`,
-        "record-knowledge": isEs
-            ? `# Registrar conocimiento
-
-Elige primero el registro y después la colección:
-
-- **Nota de tarjeta**: evidencia sobre *esta* tarjeta. Muere con ella.
-- **Memoria**: sobrevive a la tarjeta y cambia cómo se trabajará en el futuro.
-- **Documento**: material de referencia que alguien leerá de principio a fin.
-
-Cuando encajen dos, elige memoria: una nota que nadie volverá a buscar es lo más
-barato de escribir y lo más fácil de perder.
-
-Elige la colección más específica:
-
-- \`learning\`: observación reutilizable aún basada en evidencia acumulable.
-- \`decision\`: elección arquitectónica, de producto u operación con alternativas y consecuencias.
-- \`incident\`: evento operativo con impacto, tiempos y acciones correctivas.
-- \`convention\`: regla durable que humanos y agentes deben seguir.
-- \`context\`: estado útil pero temporal, con expiración o revisión.
-
-Evita duplicados: busca primero. Relaciona tarjetas y documentos. No guardes secretos. Gradúa o supersede registros cuando evolucione el conocimiento.`
-            : `# Record knowledge
+        "record-knowledge": `# Record knowledge
 
 Choose the record first, then the collection:
 
@@ -293,25 +180,9 @@ Avoid duplicates: search first. Link cards and docs. Never store secrets. Gradua
 }
 
 function adapterBody(workspace, target) {
-    const isEs = spanish(workspace);
     const canonical = relativeLabel(workspace.root, workspace.paths.agentProtocol);
-    const header = isEs
-        ? `# Workfile para ${target.title}`
-        : `# Workfile for ${target.title}`;
-    const body = isEs
-        ? `${header}
-
-Antes de realizar cambios sustanciales, lee \`${canonical}\` y el workflow aplicable en \`${relativeLabel(workspace.root, workspace.paths.agentWorkflows)}\`.
-
-Reglas críticas:
-
-- Busca contexto con \`${workspace.cli} search\` o \`${workspace.cli} agents context\`.
-- Reclama las tarjetas antes de modificar su scope.
-- Usa CLI/MCP para mutaciones del protocolo.
-- \`review\` significa pendiente de verificación; \`done\` exige evidencia en ejecución.
-- Crea tarjetas para trabajo pendiente descubierto y registra conocimiento durable.
-- Ejecuta \`${workspace.cli} doctor\` antes de terminar.`
-        : `${header}
+    const header = `# Workfile for ${target.title}`;
+    const body = `${header}
 
 Before substantial changes, read \`${canonical}\` and the relevant workflow under \`${relativeLabel(workspace.root, workspace.paths.agentWorkflows)}\`.
 
@@ -324,6 +195,28 @@ Critical rules:
 - Create cards for discovered pending work and record durable knowledge.
 - Run \`${workspace.cli} doctor\` before finishing.`;
     return body;
+}
+
+/**
+ * The files `syncAgentInstructions` writes, named without a workspace.
+ *
+ * `init` plans before the workspace exists, so it cannot call
+ * `renderAgentFiles` to find out what it is about to create — and a dry run
+ * that omits them describes three files for a run that writes nine. Both
+ * compose their paths from the same config keys and the same target table, so
+ * the plan and the run cannot disagree about which files there are.
+ */
+export function agentArtifactPaths(root, config, selectedTargets?) {
+    const targets = selectedTargets || config.agents.targets;
+    return [
+        resolve(root, config.agents.canonicalInstructions),
+        ...WORKFLOW_FILES.map(([file]) =>
+            resolve(root, config.agents.workflowsPath, file)
+        ),
+        ...targets
+            .filter((id) => AGENT_TARGETS[id])
+            .map((id) => resolve(root, AGENT_TARGETS[id].path))
+    ];
 }
 
 function targetEntries(workspace, selectedTargets) {
@@ -408,7 +301,7 @@ export async function syncAgentInstructions(workspace, options: any = {}) {
 
 export async function checkAgentInstructions(workspace, options: any = {}) {
     const files = renderAgentFiles(workspace, options);
-    const results = [];
+    const results: ManagedFileReport[] = [];
     for (const file of files) {
         results.push(
             await inspectManagedFile({
@@ -434,7 +327,7 @@ export async function checkAgentInstructions(workspace, options: any = {}) {
                     ? `Generated agent instructions are missing: ${item.path}`
                     : item.status === "unmanaged"
                       ? `Generated agent instructions have no managed block: ${item.path}`
-                      : `Generated agent instructions are stale: ${item.path}`,
+                      : `Generated agent instructions are stale: ${item.path}${item.reason ? ` (${item.reason})` : ""}`,
             details: item
         }));
     return {
@@ -484,6 +377,96 @@ function renderRecordSummary(record) {
         .filter(Boolean)
         .join("\n");
     return `## ${record.id} — ${record.title}\n\n${heading ? `${heading}\n\n` : ""}${record.body || record.excerpt || ""}`.trim();
+}
+
+/**
+ * What the card asks its own workspace for.
+ *
+ * Stripped to bare words on the way out: `parseQuery` reads `key:value` as a
+ * filter and a leading `-` as a negation, and card titles carry both. A query
+ * built out of prose has to arrive as prose or it silently becomes a filter
+ * that matches nothing.
+ *
+ * The body is capped. Relevance comes from what the card is about, which the
+ * title, area, tags and opening paragraphs carry; feeding a whole card in
+ * makes every long card match everything.
+ */
+function relevanceQuery(focus) {
+    return [
+        focus.title,
+        focus.area,
+        ...(focus.tags || []),
+        String(focus.body || focus.excerpt || "").slice(0, 600)
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .split(" ")
+        .filter((word) => word.length > 1 && !STOPWORDS.has(word.toLowerCase()))
+        .join(" ")
+        .trim();
+}
+
+/**
+ * Words carried by the query that say nothing about what a card is about.
+ *
+ * The search this ranks with does not remove them, and does not need to: a
+ * human types the terms that matter. A query built from prose types all of
+ * them, and `searchScore` awards a title hit 15 points whether the word is
+ * "locomotion" or "the" — so "The render loop drops frames" and "Locomotion
+ * uses root motion rather than velocity" matched each other on `the`, and
+ * every card was relevant to every record again by a different route.
+ *
+ * English only, which is the whole surface since ADR-0012. The list is
+ * deliberately short: a word that carries no subject, not a word that is
+ * merely common. It is a heuristic and it is worth knowing it is one — two
+ * records about genuinely different subjects that share an unusual ordinary
+ * word will still meet.
+ */
+const STOPWORDS = new Set([
+    "a", "about", "above", "after", "again", "against", "all", "an", "and",
+    "any", "are", "as", "at", "be", "been", "before", "being", "below",
+    "between", "both", "but", "by", "can", "did", "do", "does", "doing",
+    "down", "during", "each", "few", "for", "from", "further", "had", "has",
+    "have", "having", "how", "if", "in", "into", "is", "it", "its", "itself",
+    "just", "more", "most", "no", "nor", "not", "now", "of", "off", "on",
+    "once", "only", "or", "other", "our", "out", "over", "own", "rather",
+    "same", "should", "so", "some", "such", "than", "that", "the", "their",
+    "them", "then", "there", "these", "they", "this", "those", "through",
+    "to", "too", "under", "until", "up", "very", "was", "we", "were", "what",
+    "when", "where", "which", "while", "who", "why", "will", "with", "would",
+    "you", "your"
+]);
+
+/**
+ * Memory ranked against the focus card, by id, best first.
+ *
+ * `scopeMatches` was supposed to be doing this and could not: it returns true
+ * whenever either side declares no scope, `memory add` sets none, and most
+ * cards carry none either — so in an ordinary workspace the filter passed
+ * everything and the only thing between a card and the whole of memory was the
+ * record cap. Two unrelated cards received an identical bundle, which is what
+ * DOC-0005 reported and what `protocol.md` line 12 tells agents not to do.
+ *
+ * Scored by the same search the CLI exposes rather than by a second notion of
+ * relevance invented here: it already tokenizes without diacritics, weights
+ * title over body, and — the part that matters — drops records that score
+ * zero. A relevance rule that only works on annotated records would be the
+ * same no-op with more code, because the annotation is what nobody fills in.
+ */
+function rankMemoryAgainst(index, focus) {
+    const query = relevanceQuery(focus);
+    if (!query) return null;
+    const ranked = searchProjectRecords(index.records, query, {
+        kinds: ["memory"],
+        limit: index.records.length,
+        view: "summary"
+    });
+    // Typed rather than inferred: `map` over a two-element array literal widens
+    // to `(string | number)[]`, and the ranks then stop being numbers.
+    return new Map<string, number>(
+        ranked.records.map((record, at) => [record.id, at] as [string, number])
+    );
 }
 
 export async function buildAgentContext(workspace, options: any = {}) {
@@ -593,43 +576,129 @@ export async function buildAgentContext(workspace, options: any = {}) {
             record.status === "active" &&
             scopeMatches(record.scope, focus?.scope)
     );
-    const prioritized = [];
+    // No focus means no query, and a session-start bundle keeps every record it
+    // qualified for: there is nothing yet for relevance to be relative to.
+    const ranked = focus ? rankMemoryAgainst(index, focus) : null;
+    // Normative records are exempt, informational ones are not, and the line
+    // is whether the record constrains work it does not mention.
+    //
+    // A convention is a rule and a decision is a choice nothing may silently
+    // contradict — both bind a card that shares no vocabulary with them.
+    // CONV-0001, "protocol records are written in English", has nothing in
+    // common with a card about a render loop and governs it completely, and
+    // dropping it is how it became unreachable once already. Learnings,
+    // incidents and context describe a subject instead, and a subject is
+    // exactly what relevance can judge.
+    //
+    // The cost is honest and worth naming: a workspace with many accepted
+    // decisions still gets all of them, bounded only by `--limit`. Ranking
+    // decides which survive that cap, so the order is useful even when the
+    // filter cannot help.
+    const NORMATIVE = ["conventions", "decisions"];
+    const relevant = (record) =>
+        !ranked || NORMATIVE.includes(record.collection) || ranked.has(record.id);
+    // `Infinity` rather than 0 for a record with no rank: without a query
+    // nothing is ranked and the comparator has to be a no-op, and with one an
+    // unranked record was already dropped by `relevant`.
+    const rankOf = (record) => ranked?.get(record.id) ?? Number.POSITIVE_INFINITY;
+    const byRank = (left, right) => rankOf(left) - rankOf(right);
+    // Decisions lead because they are normative and always present; the rest
+    // are ranked in among them by the sort below.
+    const qualified = [...decisions, ...incidents, ...learnings, ...contexts];
+    // Typed rather than inferred: an empty literal is `never[]`, so everything
+    // read back off it — including `cut` below — has no properties at all.
+    const prioritized: ProjectRecord[] = [];
     const seen = new Set();
     for (const record of [
         focus,
         ...direct,
         ...inFlight,
         ...conventions,
-        ...decisions,
-        ...incidents,
-        ...learnings,
-        ...contexts
+        // Ranked across the four collections rather than within each, so a
+        // learning that is plainly about this card outranks a decision that
+        // merely qualified. Direct relations are already above this line and
+        // never compete: a record the card names is in the bundle whatever it
+        // scores.
+        ...qualified.filter(relevant).sort(byRank)
     ]) {
         if (!record || seen.has(record.id)) continue;
         seen.add(record.id);
         prioritized.push(record);
     }
+    // Measured against what actually got in, not against what relevance
+    // rejected: a record the card names explicitly is admitted above this by
+    // `direct`, and counting it as left out reported a record the bundle was
+    // carrying.
+    const dropped = qualified.filter((record) => !seen.has(record.id));
     const maxRecords = Math.max(1, Math.min(50, Number(options.limit || 20)));
     const records = prioritized.slice(0, maxRecords);
-    const isEs = spanish(workspace);
+    const overflow = prioritized.slice(maxRecords);
+    // The exemption above put every accepted decision in the bundle, and the
+    // cap took them straight back out — so the guarantee it was written for
+    // held only while a workspace stayed small enough not to need it. Fifty
+    // accepted ADRs and a `--limit` of twenty means thirty of them are a
+    // number in a footer, which is what the exemption exists to prevent.
+    //
+    // A normative record that does not fit degrades to its title instead of
+    // disappearing. That is the whole trade: a line of about sixty characters
+    // against a summary of several hundred, so the bundle stays inside a
+    // prompt while an agent can still see that ADR-0031 exists and go read it.
+    // It is exactly the right thing for the record this catches, too — an
+    // unranked decision sorts to the tail on `Infinity`, so the ones digested
+    // are the ones that merely qualified, never the ones this card is about.
+    //
+    // Uncapped on purpose. The digest is bounded by the accepted normative
+    // set, and a workspace where that alone will not fit is telling you its
+    // supersede discipline has stopped working — which is the first fix
+    // [[T-0176]] listed and still the real one. Truncating it here would hide
+    // exactly that.
+    const normative = (record) => NORMATIVE.includes(record.collection);
+    const digest = overflow.filter(normative);
+    const cut = overflow.filter((record) => !normative(record));
     const markdown = [
-        `# ${isEs ? "Contexto de agente" : "Agent context"}${focus ? ` — ${focus.id}` : ""}`,
+        `# Agent context${focus ? ` — ${focus.id}` : ""}`,
         "",
-        isEs
-            ? `Contexto mínimo derivado del índice canónico. No sustituye la lectura de los archivos cuando necesites detalle.`
-            : `Minimal context derived from the canonical index. It does not replace reading source files when detail is needed.`,
+        `Minimal context derived from the canonical index. It does not replace reading source files when detail is needed.`,
         "",
         // Two lines, not a section. The bundle is budgeted, and the records
         // themselves follow immediately below — this only has to say which way
         // provenance runs between them.
-        ...(cameFrom.length
-            ? [`${isEs ? "**Surgió de**" : "**Came out of**"}: ${cameFrom.join(", ")}`]
-            : []),
-        ...(spawned.length
-            ? [`${isEs ? "**Ha generado**" : "**Spawned**"}: ${spawned.join(", ")}`]
-            : []),
+        ...(cameFrom.length ? [`**Came out of**: ${cameFrom.join(", ")}`] : []),
+        ...(spawned.length ? [`**Spawned**: ${spawned.join(", ")}`] : []),
         ...(cameFrom.length || spawned.length ? [""] : []),
-        ...records.flatMap((record) => [renderRecordSummary(record), ""])
+        ...records.flatMap((record) => [renderRecordSummary(record), ""]),
+        // Named, not counted. "30 beyond --limit" and "ADR-0031 — the search
+        // index is rebuilt, never patched" are different sentences: only the
+        // second lets an agent notice that a rule it is about to contradict
+        // exists, which is the entire claim the exemption makes.
+        ...(digest.length
+            ? [
+                  `---`,
+                  "",
+                  `**Also in force**, beyond \`--limit ${maxRecords}\` and not repeated above — ` +
+                      `read one with \`${workspace.cli} show ID\` before contradicting it:`,
+                  "",
+                  ...digest.map(
+                      (record) => `- **${record.id}** — ${record.title}`
+                  ),
+                  ""
+              ]
+            : []),
+        // A bundle that silently leaves records out reads exactly like a
+        // workspace that has none, and the agent has no way to tell which it is
+        // looking at. It says so, and says what reaches the rest.
+        ...(dropped.length || cut.length
+            ? [
+                  `---`,
+                  "",
+                  `**Left out**: ${[
+                      dropped.length ? `${dropped.length} below the relevance threshold for this card` : null,
+                      cut.length ? `${cut.length} beyond \`--limit ${maxRecords}\`` : null
+                  ]
+                      .filter(Boolean)
+                      .join(", ")}. \`${workspace.cli} search "query"\` reaches every record; \`--limit\` raises the ceiling.`
+              ]
+            : [])
     ]
         .join("\n")
         .trimEnd();
@@ -639,7 +708,23 @@ export async function buildAgentContext(workspace, options: any = {}) {
         generatedAt: new Date().toISOString(),
         truncated: prioritized.length > records.length,
         totalAvailable: prioritized.length,
+        // Kept separate from `truncated` rather than folded into it. The two
+        // are different questions — "the cap dropped relations" against "this
+        // card is not what these records are about" — and T-0147 is open on
+        // what happens when one field carries two meanings.
+        omitted: {
+            relevance: dropped.map((record) => record.id),
+            limit: cut.map((record) => record.id)
+        },
         records,
+        // Its own field, not a third entry under `omitted`: these are in the
+        // bundle. A consumer that folds them into "left out" reports the one
+        // thing that is not true of them.
+        digest: digest.map((record) => ({
+            id: record.id,
+            title: record.title,
+            collection: record.collection
+        })),
         markdown
     };
 }

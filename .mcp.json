@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "workfile": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "@illodev/workfile",
+        "node_modules/@illodev/workfile/dist/bin/workfile.js",
         "mcp"
       ],
       "env": {}

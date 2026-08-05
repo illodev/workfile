@@ -18,6 +18,7 @@ import {
     createManagedDocument,
     createMemoryRecord,
     loadWorkspace,
+    patchCard,
     syncAgentInstructions
 } from "../dist/src/index.js";
 
@@ -54,7 +55,7 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
 
         await writeFile(
             join(root, "AGENTS.md"),
-            agents.replace("Reglas críticas", "Reglas alteradas")
+            agents.replace("Critical rules", "Altered rules")
         );
         const stale = await checkAgentInstructions(workspace, {
             targets: ["agents-md", "cursor"]
@@ -73,8 +74,38 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
         });
         const restored = await readFile(join(root, "AGENTS.md"), "utf8");
         assert.match(restored, /# Team notes/);
-        assert.match(restored, /Reglas críticas/);
-        assert.doesNotMatch(restored, /Reglas alteradas/);
+        assert.match(restored, /Critical rules/);
+        assert.doesNotMatch(restored, /Altered rules/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("the file's last byte is repaired without touching the prose around it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-tail-"));
+    await cp(fixture, root, { recursive: true });
+    await writeFile(join(root, "AGENTS.md"), "# Team notes\n\nKeep this paragraph.\n");
+    const workspace = await loadWorkspace({ root });
+    try {
+        // A pair-style block, where the merge keeps whatever surrounds it —
+        // the path where the last byte belongs to the author, not to us.
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const healthy = await readFile(join(root, "AGENTS.md"), "utf8");
+        assert.equal(healthy.endsWith("\n"), true);
+
+        await writeFile(join(root, "AGENTS.md"), healthy.replace(/\n+$/, ""));
+        const stale = await checkAgentInstructions(workspace, {
+            targets: ["agents-md"]
+        });
+        assert.equal(stale.ok, false, "the missing byte reported current");
+        const issue = stale.issues.find((entry) => entry.file === "AGENTS.md");
+        assert.ok(issue, "AGENTS.md was not among the issues");
+        assert.equal(issue.details.reason, "trailing-newline");
+
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const repaired = await readFile(join(root, "AGENTS.md"), "utf8");
+        assert.equal(repaired, healthy);
+        assert.match(repaired, /Keep this paragraph\./);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -118,12 +149,13 @@ test("agent context stays bounded and includes related durable knowledge", async
         assert.ok(context.records.some((record) => record.id === convention.id));
         assert.match(context.markdown, /T-0001 — Example task/);
         assert.match(context.markdown, /API operating guide/);
-        // Asserted on `provenance` rather than on the rendered line, because
-        // this fixture declares `language: "es"` and the markdown renders
-        // `**Ha generado**`. The structure is the contract; the wording is
-        // localized, and pinning it here would make the bundle the one place a
-        // language change breaks a test.
+        // Asserted on `provenance` as well as on the line, because the
+        // structure is the contract and the wording is not. It used to be the
+        // only assertion available: the fixture declared `language: "es"` and
+        // the bundle rendered `**Ha generado**` until ADR-0012 removed the
+        // localized surface.
         assert.deepEqual(context.provenance, { origin: [], spawned: [spawned.id] });
+        assert.match(context.markdown, /\*\*Spawned\*\*: /);
         assert.match(context.markdown, new RegExp(`: ${spawned.id}$`, "m"));
 
         const child = await buildAgentContext(workspace, {
@@ -148,9 +180,8 @@ test("agent context stays bounded and includes related durable knowledge", async
  * with `CARD_CLAIM_OWNER_MISMATCH`. See claude-surface.test.ts, "the guard is
  * silent for the session that holds the claim", for the behaviour itself.
  *
- * Both languages, because the protocol exists twice and the fixture renders
- * one. Fixing only the branch a test happens to exercise is how the English
- * copy would have kept teaching it.
+ * This ran twice, once per language, because the protocol existed twice and a
+ * fix to one copy left the other teaching it. ADR-0012 removed the second copy.
  *
  * Every file the sync writes, because AGENTS.md is a fourteen-line pointer and
  * the text an agent reads is `.project/agents/protocol.md` and the workflows.
@@ -160,18 +191,15 @@ test("no generated instruction teaches an actor the guard will not recognize", a
     await cp(fixture, root, { recursive: true });
     const workspace = await loadWorkspace({ root });
     try {
-        for (const language of ["es", "en"]) {
-            workspace.config.language = language;
-            const synced = await syncAgentInstructions(workspace, {
-                targets: ["agents-md"]
-            });
-            for (const file of synced.files) {
-                assert.doesNotMatch(
-                    await readFile(join(root, file.path), "utf8"),
-                    /card claim[^\n`]*--actor/,
-                    `${file.path} teaches a hand-invented actor in ${language}`
-                );
-            }
+        const synced = await syncAgentInstructions(workspace, {
+            targets: ["agents-md"]
+        });
+        for (const file of synced.files) {
+            assert.doesNotMatch(
+                await readFile(join(root, file.path), "utf8"),
+                /card claim[^\n`]*--actor/,
+                `${file.path} teaches a hand-invented actor`
+            );
         }
     } finally {
         await rm(root, { recursive: true, force: true });
@@ -245,6 +273,101 @@ test("a scoped record is filtered against a known scope, never against an absent
     }
 });
 
+/**
+ * The bill for the exemption the sibling test above argues for.
+ *
+ * Normative records skip the relevance filter because a rule binds work that
+ * does not mention it — and then the cap took them out again, so the guarantee
+ * held only while a workspace was small enough not to need it. Fifty accepted
+ * decisions against a `--limit` of twenty left thirty of them as a number in a
+ * footer, which is the state the exemption exists to prevent ([[T-0176]]).
+ *
+ * Fifty is the number the card named and roughly a real project's ADR set. The
+ * budget assertion is what makes this a test rather than a demonstration: the
+ * digest has to be cheap, or it is the flood again in smaller type.
+ */
+test("fifty accepted decisions fit in a bundle, and none of them vanish", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-normative-flood-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        // Typed rather than inferred: an empty literal is `never[]`, so the
+        // `.id` read below has no property to find.
+        const decisions: { id: string }[] = [];
+        for (let index = 0; index < 50; index += 1) {
+            decisions.push(
+                await createMemoryRecord(workspace, "decisions", {
+                    title: `Accepted decision number ${index}`,
+                    status: "accepted",
+                    // Long enough that fifty of them in full is the failure
+                    // this is about, rather than something the cap absorbs.
+                    body: `We decided this, at length. ${"Rationale. ".repeat(40)}`
+                })
+            );
+        }
+        const card = await createCard(workspace, {
+            title: "Rework the API pagination",
+            type: "task",
+            area: "api",
+            body: "Body.\n\n## Acceptance criteria\n\n- [ ] Verifiable check\n"
+        });
+
+        const context = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(
+            context.records.length <= 20,
+            "the cap still holds — the digest is not a way around it"
+        );
+
+        // Criterion: no normative record disappears without the bundle saying
+        // so. Nothing weaker will do here, because "said so" is what an agent
+        // has to be able to act on: every ID is either summarised in full or
+        // named in the digest, and the assertion is over all fifty.
+        const inFull = new Set(context.records.map((record) => record.id));
+        const named = new Set(context.digest.map((entry) => entry.id));
+        const missing = decisions
+            .map((record) => record.id)
+            .filter((id) => !inFull.has(id) && !named.has(id));
+        assert.deepEqual(missing, [], "an accepted decision left the bundle silently");
+        assert.ok(named.size, "with fifty decisions and a cap of twenty, some must be digested");
+        for (const id of named) {
+            assert.ok(
+                context.markdown.includes(id),
+                `${id} is in the digest but not in the markdown an agent reads`
+            );
+        }
+
+        // Criterion: a bundle a prompt can carry. Calibrated against this
+        // workspace rather than a constant, because a constant generous
+        // enough to be safe is generous enough to pass on full summaries —
+        // 31 of them measured 19k against a 60k ceiling, so the ceiling was
+        // asserting nothing. What has to hold is the marginal cost: keeping a
+        // normative record has to cost a line, not an entry.
+        const [summarized, listed] = context.markdown.split("**Also in force**");
+        assert.ok(listed, "the digest has to be in the markdown to be measured");
+        const perSummary = summarized.length / context.records.length;
+        assert.ok(
+            listed.length < (named.size * perSummary) / 4,
+            `the digest costs ${Math.round(listed.length)} against ` +
+                `${Math.round(named.size * perSummary)} for the same records in full`
+        );
+        // And the line has to be a line, in the markdown and not only in the
+        // arithmetic above.
+        const digested = context.markdown
+            .split("\n")
+            .filter((line) => /^- \*\*[A-Z]+-\d+\*\* — /.test(line));
+        assert.equal(digested.length, named.size);
+        assert.ok(
+            digested.every((line) => line.length < 120),
+            "a digest entry is a title, not a summary"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("syncing over nested-era debris sweeps orphan markers", async () => {
     const { mergeManagedBlock, renderManagedBlock, sweepOrphanMarkers } =
         await import("../dist/src/modules/generated/managed-files.js");
@@ -301,6 +424,117 @@ test("syncing over nested-era debris sweeps orphan markers", async () => {
             targets: ["agents-md"]
         });
         assert.equal(verdict.ok, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The bundle every card opens with, and the reason DOC-0005 called this the
+ * finding most worth fixing.
+ *
+ * `scopeMatches` was the filter and could not be one: it returns true whenever
+ * either side declares no scope, `memory add` sets none, and most cards carry
+ * none either — so two unrelated cards received an identical bundle and the
+ * record cap was the only thing bounding it. `protocol.md` line 12 tells agents
+ * to load the smallest relevant context, and the command implementing that rule
+ * was the one breaking it.
+ */
+test("two unrelated cards get different bundles out of unscoped memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-relevance-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        const render = await createCard(workspace, {
+            title: "The render loop drops frames above 60 Hz",
+            type: "bug",
+            area: "api"
+        });
+        const locomotion = await createCard(workspace, {
+            title: "Locomotion model for the player character",
+            type: "task",
+            area: "api"
+        });
+        // Not one of these declares a scope, which is the ordinary case and
+        // the one the old filter could say nothing about.
+        const frames = await createMemoryRecord(workspace, "learnings", {
+            title: "The render loop budget is 16ms per frame",
+            body: "Anything above it drops frames."
+        });
+        const rootMotion = await createMemoryRecord(workspace, "learnings", {
+            title: "Locomotion uses root motion rather than velocity",
+            body: "The player character is driven by the animation."
+        });
+        const atlas = await createMemoryRecord(workspace, "learnings", {
+            title: "Texture atlas packing wastes a third of its space",
+            body: "Unrelated to either card."
+        });
+        const rule = await createMemoryRecord(workspace, "conventions", {
+            title: "Protocol records are written in English",
+            status: "active",
+            body: "Applies to everything and mentions neither subject."
+        });
+
+        const ids = (context) => new Set(context.records.map((record) => record.id));
+        const first = ids(await buildAgentContext(workspace, { cardId: render.id, limit: 20 }));
+        const second = ids(
+            await buildAgentContext(workspace, { cardId: locomotion.id, limit: 20 })
+        );
+
+        assert.ok(first.has(frames.id));
+        assert.ok(!first.has(rootMotion.id));
+        assert.ok(second.has(rootMotion.id));
+        assert.ok(!second.has(frames.id));
+        // Relevant to neither, and in neither bundle.
+        assert.ok(!first.has(atlas.id) && !second.has(atlas.id));
+        // A rule binds work that does not mention it. Both keep it.
+        assert.ok(first.has(rule.id) && second.has(rule.id));
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a record relevance drops is still reachable by naming it, and the bundle says what it left out", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-relevance-escape-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        const card = await createCard(workspace, {
+            title: "The render loop drops frames above 60 Hz",
+            type: "bug",
+            area: "api"
+        });
+        const unrelated = await createMemoryRecord(workspace, "learnings", {
+            title: "The audio bus caps at 32 concurrent voices",
+            body: "Nothing to do with rendering."
+        });
+        const alsoUnrelated = await createMemoryRecord(workspace, "learnings", {
+            title: "Input mapping is rebindable at runtime",
+            body: "Nothing to do with rendering either."
+        });
+
+        const before = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(!before.records.some((record) => record.id === unrelated.id));
+        // Silence is the failure mode this replaces: a bundle that drops
+        // records reads exactly like a workspace that has none.
+        assert.deepEqual(
+            [...before.omitted.relevance].sort(),
+            [unrelated.id, alsoUnrelated.id].sort()
+        );
+        assert.match(before.markdown, /\*\*Left out\*\*: 2 below the relevance threshold/);
+
+        // Naming it is the escape hatch, and it does not go through relevance.
+        await patchCard(workspace, card.id, { related: [unrelated.id] });
+        const after = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(after.records.some((record) => record.id === unrelated.id));
+        // And it stops being counted as left out, having not been.
+        assert.deepEqual(after.omitted.relevance, [alsoUnrelated.id]);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

@@ -65,6 +65,19 @@ anything around them:
 }
 ```
 
+That is the form for a workspace with no local install. Where the package is a
+dependency, `install` registers the copy in `node_modules` instead — the same
+one the hooks already run — so the server and the hooks are the same build. The
+two used to differ: `.mcp.json` fetched whatever npm published today while
+`.claude/settings.json` ran whatever the repository had, and a workspace pinned
+to 0.5.2 spoke to a 0.5.4 server. The two halves disagreeing about what the
+protocol is produces symptoms that look like anything else. Re-running
+`install` follows the dependency in either direction.
+
+`upgrade` reports it when the binary doing the upgrading is not the one the
+workspace will run — the shape `pnpm i -g @illodev/workfile` produces against a
+repository that pins an older release.
+
 It registers the package and the `mcp` subcommand, not the `workfile-mcp` bin.
 That bin exists and parses its own flags — `workfile mcp config` emits it, for
 hosts building a configuration themselves — but `npx` cannot select a named bin

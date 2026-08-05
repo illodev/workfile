@@ -166,7 +166,6 @@ export const MEMORY_DEFINITIONS = Object.freeze({
 
 export const DEFAULT_CONFIG = Object.freeze({
     schemaVersion: SCHEMA_VERSION,
-    language: "en",
     storage: {
         root: ".project",
         cache: ".project/.cache"

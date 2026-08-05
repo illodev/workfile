@@ -83,7 +83,7 @@ rather than arriving undocumented.
 ## Workspace
 
 ```bash
-workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]
+workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]
 workfile version                # the installed package version, one line
 workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
@@ -191,7 +191,7 @@ workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clea
 workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next]
 workfile card transition ID STATUS [--actor ACTOR]
-workfile card archive ID
+workfile card archive ID [--actor ACTOR]
 workfile card reopen ID [--status backlog] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
@@ -362,6 +362,13 @@ workfile agents whoami [--json]
 `CLAUDE.md`, `.cursor/rules/` or `.github/copilot-instructions.md` without touching
 unrelated content. `context` returns a bounded, prioritized context bundle for a card.
 
+Accepted decisions and conventions skip the relevance filter, because a rule
+binds work that does not mention it. Past `--limit` they are not cut: they come
+back under **Also in force** as one titled line each, so a workspace with fifty
+accepted ADRs still hands an agent every ID it must not contradict at a cost of
+a line rather than a summary. Everything else that did not fit is reported as a
+count under **Left out** and reachable through `search`.
+
 `whoami` prints the actor every surface attributes mutations to, and which rung
 produced it. Resolution order: an explicit `--actor`, then `$WORKFILE_ACTOR`, then
 `user@host` — discriminated by a short session prefix when a session id is present,
@@ -380,7 +387,29 @@ workfile claude check [--json]
 registration, the slash commands, the skill and the session hooks — as managed
 blocks a later resync updates without touching anything around them. `check`
 reports which of them are stale and exits `1` when any is, which is what makes
-it usable in CI.
+it usable in CI. Each stale file is reported with the comparison that failed —
+`style`, `body`, `digest` or `trailing-newline` — because one of them is
+otherwise invisible: the digest is taken over trimmed bytes, so a file that
+lost its final newline agrees with its own digest and is stale over a byte no
+hash covers.
+
+`.mcp.json` and `.claude/settings.json` carry no marker to hold a digest,
+because they are merged into files the repository also owns. They are compared
+against the values an install would write, key by key, using the ledger at
+`.project/generated/claude-code.json` that records which of them are this
+tool's — so a hand-edited server registration is reported as
+`mcpServers.workfile`, and a server the repository added beside it is neither
+compared nor touched.
+
+The last line of the report is not a file but the command the hooks name,
+resolved. A workspace with the package installed gets
+`node node_modules/@illodev/workfile/…/hooks.mjs`; one without gets the
+`workfile-hooks` bin, found on `PATH`. Either can be `unreachable`, which is a
+different repair from a stale file: the settings can say exactly what an
+install would write and still name a hook that is not there, and a hook that
+cannot run exits `0` in silence. It is reported as a warning rather than an
+error, because whether a bin is on `PATH` is true on one machine and false on
+another.
 
 `workfile claude` with no subcommand runs `check`, because reporting is the
 safe default for a word that otherwise writes files.

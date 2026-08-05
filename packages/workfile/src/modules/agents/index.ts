@@ -1,5 +1,6 @@
 export {
     AGENT_TARGETS,
+    agentArtifactPaths,
     buildAgentContext,
     checkAgentInstructions,
     renderAgentFiles,

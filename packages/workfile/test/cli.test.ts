@@ -407,6 +407,47 @@ test("CLI synchronizes agent instructions and builds focused context", async () 
     }
 });
 
+/**
+ * `init` without a terminal applies what it detected and used to say nothing,
+ * so its output was indistinguishable from a run where someone chose those
+ * answers. A tester wanting the `claude` adapter got `agents-md` and repaired
+ * `project.config.mjs` by hand.
+ *
+ * A spawned process has no TTY on either stream, which is the state under test
+ * and also the state every agent running `init` on someone's behalf is in.
+ */
+test("init says the defaults were applied when there was nobody to ask", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-tty-"));
+    try {
+        const quiet = await run(["init", "--root", root, "--dry-run", "--yes", "--json"]);
+        assert.equal(
+            quiet.stderr,
+            "",
+            "--yes is an answer, so there is nothing to report"
+        );
+        assert.equal(JSON.parse(quiet.stdout).interactive.reason, "yes");
+
+        const noticed = await run(["init", "--root", root, "--dry-run", "--json"]);
+        const reported = JSON.parse(noticed.stdout);
+        // The same fact as a field, for the caller that is parsing rather than
+        // reading — which, without a terminal, is the likely one.
+        assert.deepEqual(reported.interactive, {
+            prompted: false,
+            reason: "no-tty",
+            silenceWith: "--yes"
+        });
+        assert.match(noticed.stderr, /No terminal attached/);
+        // What was applied, so the reader can tell whether it wanted it...
+        assert.match(noticed.stderr, /agent adapters: agents-md/);
+        // ...and how to stop being asked about it.
+        assert.match(noticed.stderr, /--yes/);
+        // On stderr: a caller reading stdout gets JSON and only JSON.
+        assert.deepEqual(reported.summary.agents, ["agents-md"]);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("CLI initializer and legacy migration support non-interactive automation", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-cli-init-"));
     try {
@@ -421,8 +462,6 @@ test("CLI initializer and legacy migration support non-interactive automation", 
                     "--root",
                     root,
                     "--yes",
-                    "--language",
-                    "es",
                     "--agents",
                     "agents-md",
                     "--json"
@@ -1140,6 +1179,10 @@ test("doctor --severity filters the headline and the rule grouping too", async (
         // whose source is not in the repository).
         await writeFile(
             join(root, "project.config.mjs"),
+            // `language` is still declared on purpose: ADR-0012 removed the
+            // feature and kept the key inert, and a workspace written before
+            // 0.6.x has it on disk. If it ever stops loading, this is the test
+            // that says so.
             `export default {
     schemaVersion: 2,
     name: "Golden workspace",

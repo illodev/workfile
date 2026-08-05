@@ -11,7 +11,8 @@ import {
     diagnoseCards,
     loadCards,
     loadWorkspace,
-    parseCard
+    parseCard,
+    patchCardBody
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -134,6 +135,52 @@ test("exclusive card creation resolves concurrent ID collisions", async () => {
         assert.deepEqual(new Set([first.id, second.id]), new Set(["T-0003", "T-0004"]));
         const content = await readFile(first.path, "utf8");
         assert.match(content, new RegExp(`id: ${first.id}`));
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// The rule that would have caught T-0026 through T-0029 while they were still
+// open. It is a warning rather than an error on purpose: a card is allowed to
+// keep a checklist that was never a criterion, and failing `doctor` on a body
+// that is correct costs more than the false positive does.
+test("doctor reports a checklist no acceptance heading claimed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-unreadable-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+
+        const hidden = await createCard(workspace, { title: "Hidden criteria", area: "api" });
+        await patchCardBody(workspace, hidden.id, {
+            body: "## Acceptancia\n\n- [ ] Nobody can see this one\n- [x] This one is settled"
+        });
+        // Declares its region properly, and keeps a list elsewhere. Nothing is
+        // wrong with it and it must stay quiet.
+        const fine = await createCard(workspace, { title: "Both lists", area: "api" });
+        await patchCardBody(workspace, fine.id, {
+            body: [
+                "## Plan",
+                "",
+                "- [ ] a step, which is not a criterion",
+                "",
+                "## Acceptance criteria",
+                "",
+                "- [ ] the real one"
+            ].join("\n")
+        });
+
+        const loaded = await loadCards(workspace);
+        const report = await diagnoseCards({ ...loaded, workspace, checkPaths: false });
+        const found = report.issues.filter(
+            (entry: any) => entry.code === "acceptance-unreadable"
+        );
+        assert.equal(found.length, 1);
+        assert.equal(found[0].severity, "warning");
+        assert.equal(found[0].id, hidden.id);
+        assert.match(found[0].message, /Nobody can see this one/);
+        // The settled box is not outstanding, so it is not reported.
+        assert.doesNotMatch(found[0].message, /This one is settled/);
+        assert.equal(report.counts.error, 0);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

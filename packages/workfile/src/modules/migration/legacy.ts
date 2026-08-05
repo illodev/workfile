@@ -105,7 +105,13 @@ export async function planLegacyMigration(workspace, options: any = {}) {
             }
         ])
     );
-    const sourceArchiveRoot = join(workspace.paths.protocolRoot, "sources", "legacy-planning");
+    // `paths.sources`, which resolves to exactly what `protocolRoot` + the
+    // literal produced — this changes no path and fixes no bug. It is here so
+    // that grepping `paths.sources` finds its one writer: rebuilt from
+    // `protocolRoot`, the entry read as a directory the package resolves and
+    // then forgets about, and cost a reader ten minutes proving otherwise
+    // ([[T-0180]]).
+    const sourceArchiveRoot = join(workspace.paths.sources, "legacy-planning");
     for (const relativePath of files) {
         const normalized = normalizeRepoPath(relativePath);
         const from = join(sourceRoot, normalized);
@@ -175,7 +181,7 @@ export async function planLegacyMigration(workspace, options: any = {}) {
         actions.push(action);
     }
     const conflicts = actions.filter((action) => action.status === "conflict");
-    const statePath = join(workspace.paths.protocolRoot, "migrations", "legacy-planning.json");
+    const statePath = join(workspace.paths.migrations, "legacy-planning.json");
     return {
         version: 1,
         source: normalizeRepoPath(relative(workspace.root, sourceRoot)),

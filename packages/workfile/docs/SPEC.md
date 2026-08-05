@@ -250,7 +250,6 @@ import { defineProject } from "@illodev/workfile";
 export default defineProject({
     schemaVersion: 2,
     name: "Example project",
-    language: "es",
 
     storage: {
         root: ".project",
@@ -377,7 +376,7 @@ project.config.mjs
 │   ├── conventions/
 │   └── context/
 ├── specs/
-├── sources/
+├── sources/                    # optional raw inputs, created on first use
 ├── agents/
 │   ├── protocol.md
 │   └── workflows/
@@ -534,11 +533,14 @@ The submission endpoint can create duplicate records after a network retry.
 - 2026-07-28 — Claimed after confirming no overlapping active scope.
 ```
 
-`## Activity` is the durable trail: every claim, release, transition and
-renumber appends one line, written by the mutation itself rather than by the
-caller. A command that moved nothing appends nothing, so `transition ID review`
-against a card already in `review` leaves no entry. `## Notes` is the opposite —
-free prose a human or agent writes deliberately.
+`## Activity` is the durable trail: every claim, release, transition, archive
+and renumber appends one line, written by the mutation itself rather than by
+the caller. A command that moved nothing appends nothing, so `transition ID
+review` against a card already in `review` leaves no entry, and archiving an
+archived card leaves none either. Archiving and unarchiving are written as
+`archived` and `unarchived` rather than as a status change, because neither
+moves the status. `## Notes` is the opposite — free prose a human or agent
+writes deliberately.
 
 Set `cards.activityTrail: false` to switch the trail off for a workspace. It
 defaults to `true`, and the only reason to disable it is a repository where the
@@ -2180,9 +2182,11 @@ amendment and, when they affect canonical files, an explicit schema compatibilit
    configurable to support compatibility and specialized repositories.
 3. **Package scope** — the initial package is `@illodev/workfile`. The package is internally
    modular but ships as one release unit through the v2 MVP.
-4. **Canonical language** — normative specifications, field names, enum values, diagnostics
-   codes and machine contracts are English. UI labels, generated instructions and record
-   bodies may be localized through project configuration.
+4. **Canonical language** — the whole protocol surface is English: normative
+   specifications, field names, enum values, diagnostic codes, machine contracts, UI
+   labels, generated instructions and record bodies. Localization was offered through
+   `config.language` until 0.6.x and removed in ADR-0012; the key is accepted and
+   ignored so existing configurations keep loading.
 5. **Card statuses** — the existing eight statuses are fixed protocol semantics in schema v2.
    Projects may hide statuses from selected views but may not remove or redefine them.
 6. **Managed Docs UI** — indexed and managed documents are read-only in the MVP UI. Managed
@@ -2228,8 +2232,7 @@ CLI:                 project
 Schema:              2
 Root:                .project/
 Config:              project.config.mjs
-Canonical language:  English
-UI locale:           project-configurable
+Canonical language:  English, with no localized surface
 Index:               in-memory first; disposable SQLite for MVP
 Migration:           compatibility paths first
 Instructions:        .project/agents/protocol.md is canonical

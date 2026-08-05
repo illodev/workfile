@@ -5,6 +5,7 @@ import { ValidationError } from "../../core/errors.js";
 import { ensureWritable } from "../../core/guards.js";
 import {
     inspectManagedFile,
+    type ManagedFileReport,
     renderManagedBlock,
     syncManagedFile
 } from "../generated/managed-files.js";
@@ -94,6 +95,16 @@ function targetBody(workspace, id) {
     );
 }
 
+/**
+ * The files `syncCiTemplates` writes, named without a workspace, so `init` can
+ * count them before the workspace exists. See `agentArtifactPaths`.
+ */
+export function ciArtifactPaths(root, config, selectedTargets?) {
+    return (selectedTargets || config.ci.targets)
+        .filter((id) => CI_TARGETS[id])
+        .map((id) => resolve(root, CI_TARGETS[id].path));
+}
+
 export function renderCiFiles(workspace, options: any = {}) {
     const targets = options.targets || workspace.config.ci.targets;
     return targets.map((id) => {
@@ -145,7 +156,7 @@ export async function syncCiTemplates(workspace, options: any = {}) {
 
 export async function checkCiTemplates(workspace, options: any = {}) {
     const files = renderCiFiles(workspace, options);
-    const results = [];
+    const results: ManagedFileReport[] = [];
     for (const file of files) {
         results.push(
             await inspectManagedFile({
@@ -171,7 +182,7 @@ export async function checkCiTemplates(workspace, options: any = {}) {
                     ? `Generated CI template is missing: ${item.path}`
                     : item.status === "unmanaged"
                       ? `Generated CI template has no managed block: ${item.path}`
-                      : `Generated CI template is stale: ${item.path}`,
+                      : `Generated CI template is stale: ${item.path}${item.reason ? ` (${item.reason})` : ""}`,
             details: item
         }));
     return {

@@ -194,6 +194,54 @@ test("config-declared integrations reach MCP, HTTP and doctor without wiring", a
     }
 });
 
+test("the guarded import the README teaches loads where the package is absent", async () => {
+    // Verbatim from packages/search-local/README.md, because the criterion is
+    // about the form the README teaches — a paraphrase would test something
+    // else. A bare import resolves from the config file, so the config would
+    // only load with node_modules present, and the generated CI job runs
+    // `npx workfile doctor` on a clean clone. The guard is what makes a
+    // missing package mean lexical search rather than a red pipeline.
+    //
+    // The workspace is a temp directory, so `@illodev/workfile-search-local`
+    // genuinely does not resolve from it: ESM resolves against the importing
+    // module's URL, which never reaches this repository's node_modules.
+    const root = await workspaceWithConfig(`export const integrations = await (async () => {
+    try {
+        const { localSearchIntegration } = await import(
+            "@illodev/workfile-search-local"
+        );
+        return [localSearchIntegration()];
+    } catch {
+        return [];
+    }
+})();
+
+export default {
+    schemaVersion: 2,
+    name: "Guarded workspace",
+    search: { provider: "local-embeddings" }
+};
+`);
+    try {
+        const workspace = await loadWorkspace({ root });
+        assert.deepEqual(workspace.integrations, []);
+
+        // And the workspace stays usable: a provider nothing satisfies is a
+        // doctor issue, not a refusal to load. That is the whole trade the
+        // guard makes.
+        assert.equal(inspectMcpServer(workspace).semanticSearch, false);
+        const report = await runDoctor(workspace);
+        assert.ok(
+            report.issues.some(
+                (issue) => issue.code === "search-provider-unresolved"
+            ),
+            "the unsatisfied provider went unreported"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("a malformed integrations export fails on load, naming the config", async () => {
     const notArray = await workspaceWithConfig(
         `export default { schemaVersion: 2, name: "Bad" };\nexport const integrations = "nope";\n`

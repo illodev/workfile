@@ -78,6 +78,7 @@ import {
     parseAcceptance,
     resolveActor,
     setCardAcceptance,
+    unreadableCriteria,
     ValidationError,
     wholeNumber
 } from "../src/index.js";
@@ -119,7 +120,7 @@ function spoken(line: string): string {
 // documented in exactly one place.
 const USAGE: Record<string, string[]> = {
     init: [
-        "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME] [--language LANG]"
+        "workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]"
     ],
     schema: ["workfile schema [--root PATH] [--json]"],
     doctor: [
@@ -303,6 +304,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--uncheck"
     ],
     "card archive": [
+        "--actor",
         "--expected-revision"
     ],
     "card claim": [
@@ -505,7 +507,6 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--ci",
         "--docs",
         "--force",
-        "--language",
         "--name",
         "--no-scripts",
         "--yes"
@@ -1156,15 +1157,19 @@ async function askInitOptions(root) {
     const detected = await inspectRepository(root);
     const defaults = {
         name: option("--name") || detected.name,
-        language: option("--language") || "en",
         areas: listOption("--areas") || detected.areas,
         docs: listOption("--docs") || detected.docs,
         agents: listOption("--agents") || detected.agents,
         ci: listOption("--ci") || detected.ci,
         addScripts: !has("--no-scripts")
     };
-    if (has("--yes") || !process.stdin.isTTY || !process.stdout.isTTY) {
-        return defaults;
+    // `--yes` is an answer; no terminal is a circumstance. Both skip the
+    // questions, only the second one needs saying — and an agent running `init`
+    // on someone's behalf is always in the second, which is a supported way to
+    // start rather than an edge case.
+    if (has("--yes")) return { options: defaults, prompted: false, reason: "yes" };
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        return { options: defaults, prompted: false, reason: "no-tty" };
     }
     const prompt = createInterface({ input: process.stdin, output: process.stdout });
     try {
@@ -1178,7 +1183,6 @@ async function askInitOptions(root) {
         };
         const chosen = {
             name: await answer("Project name", defaults.name),
-            language: await answer("Content language", defaults.language),
             areas: await list("Card areas", defaults.areas),
             docs: await list("Documentation sources", defaults.docs),
             agents: await list("Agent adapters", defaults.agents),
@@ -1191,14 +1195,38 @@ async function askInitOptions(root) {
         if (!confirmed) {
             throw new ValidationError("INIT_CANCELLED", "Initialization cancelled.");
         }
-        return chosen;
+        return { options: chosen, prompted: true, reason: null };
     } finally {
         prompt.close();
     }
 }
 
+/**
+ * Says that the defaults were applied rather than answered.
+ *
+ * Applying them is the right behaviour — they are detected, not invented — but
+ * the output was indistinguishable from a run where someone chose them. A
+ * tester wanting the `claude` adapter got `agents-md` and had to repair
+ * `project.config.mjs` by hand, having been told nothing.
+ *
+ * On stderr because it is a notice about the run, not part of its result: a
+ * caller parsing `--json` off stdout is unaffected, and gets the same fact as
+ * the `interactive` field.
+ */
+function noticeDefaultsApplied(plan) {
+    console.error(
+        `No terminal attached, so ${INVOKED_AS} init applied what it detected instead of asking:\n` +
+            `  name: ${plan.config.name}\n` +
+            `  areas: ${plan.config.cards.areas.join(", ")}\n` +
+            `  agent adapters: ${plan.config.agents.targets.join(", ") || "none"}\n` +
+            `  CI templates: ${plan.config.ci.targets.join(", ") || "none"}\n` +
+            `Pass --yes to accept them without this notice, --agents/--areas/--name to set them, ` +
+            `or run from a terminal to be asked.`
+    );
+}
+
 async function initCommand(root) {
-    const options = await askInitOptions(root);
+    const { options, prompted, reason } = await askInitOptions(root);
     for (const target of options.agents) {
         if (!AGENT_TARGETS[target]) {
             throw new ValidationError("AGENT_TARGET_UNSUPPORTED", `Unsupported agent target: ${target}`);
@@ -1210,17 +1238,24 @@ async function initCommand(root) {
         }
     }
     const plan = await planInitialization(root, options);
+    const interactive = {
+        prompted,
+        reason,
+        silenceWith: reason === "no-tty" ? "--yes" : null
+    };
+    if (reason === "no-tty") noticeDefaultsApplied(plan);
     if (has("--dry-run")) {
         return print({
             root: plan.root,
             detected: plan.detected,
+            interactive,
             summary: plan.summary,
             conflicts: plan.conflicts,
             actions: plan.actions.map(({ content, ...action }: any) => action)
         });
     }
     const applied = await applyInitialization(plan, { force: has("--force") });
-    if (has("--json")) return print({ plan: plan.summary, applied });
+    if (has("--json")) return print({ plan: plan.summary, interactive, applied });
     console.log(`Initialized Workfile at ${root}`);
     console.log(`Areas: ${plan.config.cards.areas.join(", ")}`);
     console.log(`Agent adapters: ${plan.config.agents.targets.join(", ") || "none"}`);
@@ -1374,7 +1409,21 @@ async function cardCommand(workspace, action) {
             const reading = parseAcceptance(card.body);
             if (has("--json")) return print(reading);
             if (!reading.present) {
-                return console.log(`${id} declares no acceptance criteria`);
+                // Not "declares none": that is a claim about the card, and the
+                // reader has no basis for it when the body is carrying boxes.
+                const unreadable = unreadableCriteria(reading);
+                if (!unreadable.length) {
+                    return console.log(`${id} declares no acceptance criteria`);
+                }
+                console.log(
+                    `${id} — no heading this reader recognises, and ` +
+                        `${unreadable.length} unchecked checklist ` +
+                        `${unreadable.length === 1 ? "item" : "items"} below one it does not:`
+                );
+                for (const item of unreadable) console.log(`    ${item.text}`);
+                return console.log(
+                    `Put them under \`## Acceptance criteria\` to make them checkable.`
+                );
             }
             console.log(`${id} — ${acceptanceSummary(reading)} met`);
             for (const item of reading.items) {
@@ -1528,7 +1577,12 @@ async function cardCommand(workspace, action) {
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);
     }
     if (action === "archive") {
-        const result = await archiveCard(workspace, id, { expectedRevision: option("--expected-revision") || undefined });
+        const result = await archiveCard(workspace, id, {
+            // Resolved, never demanded — the same rung `reopen` uses, so the
+            // way in and the way out of the archive are attributed alike.
+            actor: option("--actor") || defaultActor(),
+            expectedRevision: option("--expected-revision") || undefined
+        });
         return print(has("--json") ? result.card : `${id} archived`);
     }
     if (action === "reopen") {
@@ -2086,8 +2140,16 @@ async function claudeCommand(workspace, action) {
                 `${report.files.filter((f) => f.status !== "current").length} to sync`
         );
         for (const file of report.files) {
-            console.log(`  ${file.status.padEnd(10)} ${file.path}`);
+            const why = file.reason ? `  (${file.reason})` : "";
+            console.log(`  ${file.status.padEnd(10)} ${file.path}${why}`);
         }
+        // The command the hooks name, resolved. A settings file that is exactly
+        // right still describes a hook that cannot run, and those are two
+        // different repairs.
+        console.log(
+            `  ${report.runtime.status.padEnd(10)} ${report.runtime.command}` +
+                `${report.runtime.reason ? `  (${report.runtime.reason})` : ""}`
+        );
         process.exitCode = report.ok ? 0 : 1;
         return;
     }
@@ -2572,6 +2634,11 @@ async function main() {
         for (const orphan of result.orphans) {
             console.log(
                 `  ORPHAN        ${orphan.file}: block ${orphan.kind} (v${orphan.version || "?"}) has no owning target — add "${orphan.target}" to the config or remove the block`
+            );
+        }
+        if (result.binary.mismatched) {
+            console.log(
+                `  MISMATCH      this binary is v${result.binary.running}, node_modules has v${result.binary.local} — the hooks and the MCP server run the local copy, so install v${result.binary.running} there or upgrade with the local binary`
             );
         }
         return;

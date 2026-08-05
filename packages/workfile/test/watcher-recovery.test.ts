@@ -1,61 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EventEmitter } from "node:events";
 import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createWorkspaceWatcher, loadWorkspace } from "../dist/src/index.js";
+import { stubWatch, watched } from "./support/watch-stub.ts";
 
 const fixture = resolve(
     fileURLToPath(new URL("./fixtures/workspace", import.meta.url))
 );
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-
-/**
- * A stand-in for `fs.watch` that answers the probe and hands back every
- * directory handle, so a failure can be delivered on purpose.
- *
- * [[T-0113]] measured that neither branch of the watcher's dropped-signal
- * handling can be reached on Linux — deleting a watched directory reports a
- * named `rename` and never fires `error` — and twenty-six Windows jobs never
- * produced one either. Waiting for a platform to break a handle is not a plan;
- * injecting the primitive is the same technique T-0140 and T-0142 used.
- */
-function stubWatch() {
-    const failOn = new Set<string>();
-    const calls: string[] = [];
-    const handles = new Map<string, any>();
-    const watch = (path: string, _options: any, listener: any) => {
-        calls.push(path);
-        if (failOn.has(path)) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
-        const handle: any = new EventEmitter();
-        handle.close = () => undefined;
-        handles.set(path, handle);
-        // The probe writes a file and waits half a second for a notification;
-        // without one every test here would degrade before it started.
-        if (path.endsWith(`${sep}watch`)) setTimeout(() => listener("change", "probe"), 5);
-        return handle;
-    };
-    return { watch, calls, handles, failOn };
-}
-
-/**
- * The path the watcher actually watched, which is not the path the test built.
- *
- * `start()` resolves the root through `realpath.native` on purpose: macOS
- * answers `/private/var` for a `tmpdir()` that says `/var`, and a Windows
- * runner's TEMP arrives as an 8.3 short name. Composing the path here instead
- * of reading it back passed on Linux and failed on four other jobs.
- */
-function watched(stub: any, relative: string) {
-    const suffix = `${sep}${relative.split("/").join(sep)}`;
-    const match = stub.calls.find((path: string) => path.endsWith(suffix));
-    assert.ok(match, `nothing watched ${relative} in ${stub.calls.join(", ")}`);
-    return match;
-}
 
 async function startWatcher(root: string, stub: any, options: any = {}) {
     const workspace = await loadWorkspace({ root });

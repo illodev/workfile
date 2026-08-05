@@ -6,7 +6,11 @@ import { join, resolve } from "node:path";
 import { connect } from "node:net";
 import { fileURLToPath } from "node:url";
 
-import { loadWorkspace, startProjectServer } from "../dist/src/index.js";
+import {
+    loadWorkspace,
+    resolveActor,
+    startProjectServer
+} from "../dist/src/index.js";
 
 const fixture = resolve(
     fileURLToPath(new URL("./fixtures/workspace", import.meta.url))
@@ -83,24 +87,63 @@ test("v2 HTTP API delivers runtime schema and conflict-aware mutations", async (
     }
 });
 
-test("legacy task API delegates to v2 services", async () => {
+/**
+ * These are the routes the interface uses — `api.http.ts` calls `/api/tasks`
+ * and never the v2 ones — so this is where the board's author is decided.
+ *
+ * It used to be decided as `unknown` for every status but `doing`, and as the
+ * literal `"ui-local"` for that one. The second was the worse half: nothing
+ * resolves to it, so a card claimed from the board answered
+ * `CARD_CLAIM_OWNER_MISMATCH` to its own author on the CLI.
+ */
+test("legacy task API delegates to v2 services, and names who asked", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-legacy-api-"));
     await cp(fixture, root, { recursive: true });
     const workspace = await loadWorkspace({ root });
     const running = await startProjectServer(workspace, { port: 0 });
-    try {
-        const response = await fetch(`${running.url}/api/tasks/T-0001`, {
+    const patch = (id, body) =>
+        fetch(`${running.url}/api/tasks/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "doing" })
+            body: JSON.stringify(body)
         });
-        assert.equal(response.status, 200);
+    const read = async (id) => {
         const tasks = await fetch(`${running.url}/api/tasks`).then((result) =>
             result.json()
         );
-        const card = tasks.tasks.find((item) => item.id === "T-0001");
-        assert.equal(card.status, "doing");
-        assert.equal(card.claimed_by, "ui-local");
+        return tasks.tasks.find((item) => item.id === id);
+    };
+    // The same resolution the CLI performs, rather than a literal: this has to
+    // hold on a Windows runner too, where the environment answers differently.
+    const expected = resolveActor().actor;
+    assert.ok(expected, "the test environment resolves an actor");
+
+    try {
+        // A move that is not `doing` — the drag that wrote `unknown`.
+        assert.equal((await patch("T-0001", { status: "next" })).status, 200);
+        assert.match((await read("T-0001")).body, new RegExp(`${expected} · backlog → next`));
+
+        // The bulk route, which passed no actor either.
+        const bulk = await fetch(`${running.url}/api/tasks/bulk`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: ["T-0001"], changes: { status: "backlog" } })
+        });
+        assert.equal(bulk.status, 200);
+        assert.match((await read("T-0001")).body, new RegExp(`${expected} · next → backlog`));
+
+        // An actor named by the caller still wins over the resolved one.
+        assert.equal(
+            (await patch("T-0001", { status: "next", actor: "someone@else" })).status,
+            200
+        );
+        assert.match((await read("T-0001")).body, /someone@else · backlog → next/);
+
+        // And the claim, which is the one that used to lock its author out.
+        assert.equal((await patch("T-0001", { status: "doing" })).status, 200);
+        const claimed = await read("T-0001");
+        assert.equal(claimed.status, "doing");
+        assert.equal(claimed.claimed_by, expected);
     } finally {
         await running.close();
         await rm(root, { recursive: true, force: true });
