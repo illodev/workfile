@@ -1,7 +1,7 @@
 ---
 id: T-0180
 title: workspace.paths.sources resolves a directory nothing creates or reads
-status: backlog
+status: review
 type: chore
 priority: low
 area: core
@@ -28,5 +28,14 @@ Low because nothing is broken by it. Recorded because the next person to read
 
 ## Acceptance criteria
 
-- [ ] Either `storage.sources` has a documented purpose or it is removed
-- [ ] The spec layout and the workspace paths agree about which directories exist
+- [x] Either `storage.sources` has a documented purpose or it is removed
+- [x] The spec layout and the workspace paths agree about which directories exist
+
+## Activity
+
+- 2026-08-05 15:44Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 16:00Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 15:59Z illodev@local#2cddaf94 — Half the premise was wrong, and it changed the fix. `.project/sources` is not a directory nothing creates: `migrate legacy` files everything it cannot classify into `sources/legacy-planning/`, and SPEC §15 defines it as where long-form raw inputs live. What had no readers was `workspace.paths.sources` — the writer rebuilt the path out of `protocolRoot` instead, as did the state file out of `paths.migrations`. Both now read the resolved entries. No behaviour changed and no test was added for it: `protocolRoot` IS `storage.root`, so both spellings are the same string, and an assertion against that would pass whichever one shipped. Verified by patching the built dist back to the old form and watching the suite stay green. What is testable is criterion 2, and it was not covered: the plan-vs-tree walk from T-0173 compares counts and paths, so a directory present in both stays invisible to it. `init creates the optional directory something points at, and not the other one` asserts `specs` exists and `sources` does not; re-adding `sources` to the init list fails it on that message.

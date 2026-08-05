@@ -1024,7 +1024,32 @@ export async function appendCardNote(
     });
 }
 
-export async function archiveCard(workspace, id, { expectedRevision }: any = {}) {
+/**
+ * Filing a card away is a milestone, and the trail said so in one direction.
+ *
+ * [[T-0168]] listed this among the routes missing an actor and found no
+ * argument to pass one to: the mutation sets `status` to the status it already
+ * had, so no transition line was written and there was nowhere for an actor to
+ * appear. The asymmetry that leaves is the finding, not the missing argument —
+ * `transitionCard` writes `unarchived` when a card comes back out, on the
+ * reasoning that the move is the milestone even though the status reads the
+ * same on both sides, and going in is the same move ([[T-0175]]).
+ *
+ * The counter-argument is that archiving is reversible and the file move shows
+ * up in git. But that is true of every mutation the trail records, and the
+ * trail exists precisely so that "who, and when" is answerable without reading
+ * git across a rename — which is the one shape `git log` needs `--follow` for,
+ * on the one event that always renames.
+ *
+ * Archiving an already-archived card returns above this and writes nothing:
+ * the command is idempotent, and a second line would record a move that did
+ * not happen.
+ */
+export async function archiveCard(
+    workspace,
+    id,
+    { actor, expectedRevision, now }: any = {}
+) {
     const loaded = await loadCards(workspace);
     const snapshot = locateUniqueCard(loaded.cards, id);
     if (snapshot.archived) {
@@ -1052,6 +1077,13 @@ export async function archiveCard(workspace, id, { expectedRevision }: any = {})
             expectedRevision,
             moveToArchived: true,
             snapshot: loaded,
+            transformContent: (content) =>
+                appendMilestone(workspace, content, {
+                    actor,
+                    text: "archived",
+                    redundant: false,
+                    now
+                }),
             // A card that stopped being terminal between the listing and the
             // lock must not be filed away as though it were.
             guard: (current) => {

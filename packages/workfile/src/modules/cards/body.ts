@@ -111,8 +111,22 @@ function trimBlankLines(text: string): string {
     return text.slice(start).trimEnd();
 }
 
-/** What `activityEntry` produces, as a line of the trail. */
-export const TRAIL_ENTRY = /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z .+ · /;
+/**
+ * What `activityEntry` produces, as a line of the trail.
+ *
+ * The actor run excludes both separators, which is the whole difference
+ * between this and a note. `appendCardNote` writes `- STAMP ACTOR — text` and
+ * the trail writes `- STAMP ACTOR · text`, so the two are told apart by which
+ * separator follows the actor — but `.+ · ` is greedy and found a `·`
+ * anywhere on the line, including inside a note that quoted a trail entry.
+ *
+ * That is not a cosmetic misread. `repairMisplacedTrail` moves what this
+ * matches into `## Activity`, so a note recording evidence about the trail —
+ * the one subject that makes a note quote one — was liable to be moved out of
+ * `## Notes` by `doctor --fix`. Fenced quotes were already safe; inline ones
+ * were not ([[T-0181]]).
+ */
+export const TRAIL_ENTRY = /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z [^·—]+ · /;
 
 export const trailStamp = (line: string) =>
     /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2})Z/.exec(line)?.[1] || "";

@@ -1,7 +1,7 @@
 ---
 id: T-0176
 title: Normative records are exempt from relevance, and that does not scale
-status: backlog
+status: review
 type: task
 priority: low
 area: core
@@ -47,6 +47,15 @@ What would resolve it, roughly in order of appeal:
 
 ## Acceptance criteria
 
-- [ ] A workspace with 50 accepted decisions produces a bundle a prompt can carry
-- [ ] No normative record disappears without the bundle saying so
-- [ ] Whichever route is taken is recorded, since T-0172 chose the opposite tradeoff on purpose
+- [x] A workspace with 50 accepted decisions produces a bundle a prompt can carry
+- [x] No normative record disappears without the bundle saying so
+- [x] Whichever route is taken is recorded, since T-0172 chose the opposite tradeoff on purpose
+
+## Activity
+
+- 2026-08-05 15:44Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 16:00Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 16:00Z illodev@local#2cddaf94 — Route taken and recorded in ADR-0014: a normative record past the cap degrades to a title under **Also in force**, it is not cut. The three rejected routes and why are in the ADR — the per-collection floor loses to ranking (an unranked record already sorts to the tail on Infinity, so the cap reaches exactly the ones that merely qualified), scoping does not reach decisions that bind everything, and supersede discipline is the real fix but out of reach from code. Measured on the card's own number: 50 accepted ADRs, `--limit 20` → 20 full summaries and 31 digested, markdown 12,130 chars against ~30,300 for the same records in full. Test asserts all 50 IDs are either summarised or named, every digested ID appears in the markdown, and the digest block costs under a quarter of what those records cost in full — calibrated against the un-digested half rather than a constant, because my first attempt used a 60,000-char ceiling that full summaries also passed, and the second was tautological (`records.length * (markdown.length / records.length)`). Vacuity: an empty digest fails naming 31 ADRs; rendering summaries instead of titles fails at 'the digest costs 17003 against 16444 for the same records in full'.

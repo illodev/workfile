@@ -211,6 +211,36 @@ test("a document dropped where init points is indexed with no further configurat
     }
 });
 
+/**
+ * The other half of the same swap, and the half the walk above cannot see: it
+ * compares the plan against the tree, so a directory in both stays invisible
+ * to it however little anything wants that directory.
+ *
+ * The spec lists `specs/` and `sources/` side by side and says optional ones
+ * need not exist until first use. `specs/` has a first use at init — the
+ * generated config indexes it — and `sources/` does not: its only writer is
+ * `migrate legacy`, which creates what it needs ([[T-0180]]).
+ */
+test("init creates the optional directory something points at, and not the other one", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-init-optional-"));
+    try {
+        const plan = await planInitialization(root, { areas: ["general"] });
+        await applyInitialization(plan);
+
+        assert.ok(
+            await exists(join(root, ".project", "specs")),
+            "the generated config indexes .project/specs, so init has to create it"
+        );
+        assert.equal(
+            await exists(join(root, ".project", "sources")),
+            false,
+            "nothing writes .project/sources until `migrate legacy` does"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("initializer dry runs without writing canonical files", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-init-dry-"));
     try {

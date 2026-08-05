@@ -1510,6 +1510,7 @@ export function createProjectServer(
                 if (method === "POST" && action === "archive") {
                     const body = await readJson(request);
                     const result = await archiveCard(workspace, id, {
+                        actor: body.actor ?? resolveActor().actor,
                         expectedRevision: expectedRevision(request, body)
                     });
                     indexStore.invalidate();
@@ -1639,6 +1640,7 @@ export function createProjectServer(
                 }
                 if (method === "POST" && action === "archive") {
                     await archiveCard(workspace, id, {
+                        actor: resolveActor().actor,
                         expectedRevision: expectedRevision(request)
                     });
                     indexStore.invalidate();

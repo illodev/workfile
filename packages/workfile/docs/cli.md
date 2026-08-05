@@ -191,7 +191,7 @@ workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clea
 workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next]
 workfile card transition ID STATUS [--actor ACTOR]
-workfile card archive ID
+workfile card archive ID [--actor ACTOR]
 workfile card reopen ID [--status backlog] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
@@ -361,6 +361,13 @@ workfile agents whoami [--json]
 `sync` writes compact managed blocks (version + SHA-256 digest) into `AGENTS.md`,
 `CLAUDE.md`, `.cursor/rules/` or `.github/copilot-instructions.md` without touching
 unrelated content. `context` returns a bounded, prioritized context bundle for a card.
+
+Accepted decisions and conventions skip the relevance filter, because a rule
+binds work that does not mention it. Past `--limit` they are not cut: they come
+back under **Also in force** as one titled line each, so a workspace with fifty
+accepted ADRs still hands an agent every ID it must not contradict at a cost of
+a line rather than a summary. Everything else that did not fit is reported as a
+count under **Left out** and reachable through `search`.
 
 `whoami` prints the actor every surface attributes mutations to, and which rung
 produced it. Resolution order: an explicit `--actor`, then `$WORKFILE_ACTOR`, then

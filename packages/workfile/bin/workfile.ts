@@ -304,6 +304,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--uncheck"
     ],
     "card archive": [
+        "--actor",
         "--expected-revision"
     ],
     "card claim": [
@@ -1576,7 +1577,12 @@ async function cardCommand(workspace, action) {
         return print(has("--json") ? result.card : `${id} → ${result.card.status}`);
     }
     if (action === "archive") {
-        const result = await archiveCard(workspace, id, { expectedRevision: option("--expected-revision") || undefined });
+        const result = await archiveCard(workspace, id, {
+            // Resolved, never demanded — the same rung `reopen` uses, so the
+            // way in and the way out of the archive are attributed alike.
+            actor: option("--actor") || defaultActor(),
+            expectedRevision: option("--expected-revision") || undefined
+        });
         return print(has("--json") ? result.card : `${id} archived`);
     }
     if (action === "reopen") {

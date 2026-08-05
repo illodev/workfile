@@ -273,6 +273,101 @@ test("a scoped record is filtered against a known scope, never against an absent
     }
 });
 
+/**
+ * The bill for the exemption the sibling test above argues for.
+ *
+ * Normative records skip the relevance filter because a rule binds work that
+ * does not mention it — and then the cap took them out again, so the guarantee
+ * held only while a workspace was small enough not to need it. Fifty accepted
+ * decisions against a `--limit` of twenty left thirty of them as a number in a
+ * footer, which is the state the exemption exists to prevent ([[T-0176]]).
+ *
+ * Fifty is the number the card named and roughly a real project's ADR set. The
+ * budget assertion is what makes this a test rather than a demonstration: the
+ * digest has to be cheap, or it is the flood again in smaller type.
+ */
+test("fifty accepted decisions fit in a bundle, and none of them vanish", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-normative-flood-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        // Typed rather than inferred: an empty literal is `never[]`, so the
+        // `.id` read below has no property to find.
+        const decisions: { id: string }[] = [];
+        for (let index = 0; index < 50; index += 1) {
+            decisions.push(
+                await createMemoryRecord(workspace, "decisions", {
+                    title: `Accepted decision number ${index}`,
+                    status: "accepted",
+                    // Long enough that fifty of them in full is the failure
+                    // this is about, rather than something the cap absorbs.
+                    body: `We decided this, at length. ${"Rationale. ".repeat(40)}`
+                })
+            );
+        }
+        const card = await createCard(workspace, {
+            title: "Rework the API pagination",
+            type: "task",
+            area: "api",
+            body: "Body.\n\n## Acceptance criteria\n\n- [ ] Verifiable check\n"
+        });
+
+        const context = await buildAgentContext(workspace, {
+            cardId: card.id,
+            limit: 20
+        });
+        assert.ok(
+            context.records.length <= 20,
+            "the cap still holds — the digest is not a way around it"
+        );
+
+        // Criterion: no normative record disappears without the bundle saying
+        // so. Nothing weaker will do here, because "said so" is what an agent
+        // has to be able to act on: every ID is either summarised in full or
+        // named in the digest, and the assertion is over all fifty.
+        const inFull = new Set(context.records.map((record) => record.id));
+        const named = new Set(context.digest.map((entry) => entry.id));
+        const missing = decisions
+            .map((record) => record.id)
+            .filter((id) => !inFull.has(id) && !named.has(id));
+        assert.deepEqual(missing, [], "an accepted decision left the bundle silently");
+        assert.ok(named.size, "with fifty decisions and a cap of twenty, some must be digested");
+        for (const id of named) {
+            assert.ok(
+                context.markdown.includes(id),
+                `${id} is in the digest but not in the markdown an agent reads`
+            );
+        }
+
+        // Criterion: a bundle a prompt can carry. Calibrated against this
+        // workspace rather than a constant, because a constant generous
+        // enough to be safe is generous enough to pass on full summaries —
+        // 31 of them measured 19k against a 60k ceiling, so the ceiling was
+        // asserting nothing. What has to hold is the marginal cost: keeping a
+        // normative record has to cost a line, not an entry.
+        const [summarized, listed] = context.markdown.split("**Also in force**");
+        assert.ok(listed, "the digest has to be in the markdown to be measured");
+        const perSummary = summarized.length / context.records.length;
+        assert.ok(
+            listed.length < (named.size * perSummary) / 4,
+            `the digest costs ${Math.round(listed.length)} against ` +
+                `${Math.round(named.size * perSummary)} for the same records in full`
+        );
+        // And the line has to be a line, in the markdown and not only in the
+        // arithmetic above.
+        const digested = context.markdown
+            .split("\n")
+            .filter((line) => /^- \*\*[A-Z]+-\d+\*\* — /.test(line));
+        assert.equal(digested.length, named.size);
+        assert.ok(
+            digested.every((line) => line.length < 120),
+            "a digest entry is a title, not a summary"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("syncing over nested-era debris sweeps orphan markers", async () => {
     const { mergeManagedBlock, renderManagedBlock, sweepOrphanMarkers } =
         await import("../dist/src/modules/generated/managed-files.js");

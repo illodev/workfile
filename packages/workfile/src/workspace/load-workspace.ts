@@ -67,6 +67,10 @@ function resolvePaths(root: string, config: ProjectConfig) {
             "agents.workflowsPath"
         ),
         migrations: inside(root, `${config.storage.root}/migrations`, "storage.migrations"),
+        // Long-form raw inputs (SPEC §15), and the only writer is `migrate
+        // legacy` filing away what it could not classify. `init` does not
+        // create it: the spec says optional directories need not exist until
+        // first use, and unlike `specs/` no generated config names this one.
         sources: inside(root, `${config.storage.root}/sources`, "storage.sources"),
         // Tracked, not cached. A baseline under `storage.cache` would be
         // per-clone and absent in CI, which is the one place a "nothing new"

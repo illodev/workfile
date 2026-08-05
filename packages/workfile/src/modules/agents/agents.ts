@@ -632,7 +632,29 @@ export async function buildAgentContext(workspace, options: any = {}) {
     const dropped = qualified.filter((record) => !seen.has(record.id));
     const maxRecords = Math.max(1, Math.min(50, Number(options.limit || 20)));
     const records = prioritized.slice(0, maxRecords);
-    const cut = prioritized.slice(maxRecords);
+    const overflow = prioritized.slice(maxRecords);
+    // The exemption above put every accepted decision in the bundle, and the
+    // cap took them straight back out — so the guarantee it was written for
+    // held only while a workspace stayed small enough not to need it. Fifty
+    // accepted ADRs and a `--limit` of twenty means thirty of them are a
+    // number in a footer, which is what the exemption exists to prevent.
+    //
+    // A normative record that does not fit degrades to its title instead of
+    // disappearing. That is the whole trade: a line of about sixty characters
+    // against a summary of several hundred, so the bundle stays inside a
+    // prompt while an agent can still see that ADR-0031 exists and go read it.
+    // It is exactly the right thing for the record this catches, too — an
+    // unranked decision sorts to the tail on `Infinity`, so the ones digested
+    // are the ones that merely qualified, never the ones this card is about.
+    //
+    // Uncapped on purpose. The digest is bounded by the accepted normative
+    // set, and a workspace where that alone will not fit is telling you its
+    // supersede discipline has stopped working — which is the first fix
+    // [[T-0176]] listed and still the real one. Truncating it here would hide
+    // exactly that.
+    const normative = (record) => NORMATIVE.includes(record.collection);
+    const digest = overflow.filter(normative);
+    const cut = overflow.filter((record) => !normative(record));
     const markdown = [
         `# Agent context${focus ? ` — ${focus.id}` : ""}`,
         "",
@@ -645,6 +667,23 @@ export async function buildAgentContext(workspace, options: any = {}) {
         ...(spawned.length ? [`**Spawned**: ${spawned.join(", ")}`] : []),
         ...(cameFrom.length || spawned.length ? [""] : []),
         ...records.flatMap((record) => [renderRecordSummary(record), ""]),
+        // Named, not counted. "30 beyond --limit" and "ADR-0031 — the search
+        // index is rebuilt, never patched" are different sentences: only the
+        // second lets an agent notice that a rule it is about to contradict
+        // exists, which is the entire claim the exemption makes.
+        ...(digest.length
+            ? [
+                  `---`,
+                  "",
+                  `**Also in force**, beyond \`--limit ${maxRecords}\` and not repeated above — ` +
+                      `read one with \`${workspace.cli} show ID\` before contradicting it:`,
+                  "",
+                  ...digest.map(
+                      (record) => `- **${record.id}** — ${record.title}`
+                  ),
+                  ""
+              ]
+            : []),
         // A bundle that silently leaves records out reads exactly like a
         // workspace that has none, and the agent has no way to tell which it is
         // looking at. It says so, and says what reaches the rest.
@@ -678,6 +717,14 @@ export async function buildAgentContext(workspace, options: any = {}) {
             limit: cut.map((record) => record.id)
         },
         records,
+        // Its own field, not a third entry under `omitted`: these are in the
+        // bundle. A consumer that folds them into "left out" reports the one
+        // thing that is not true of them.
+        digest: digest.map((record) => ({
+            id: record.id,
+            title: record.title,
+            collection: record.collection
+        })),
         markdown
     };
 }

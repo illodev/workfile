@@ -1111,6 +1111,7 @@ const TOOL_DEFINITIONS = [
         inputSchema: schema(
             {
                 id: identifier("Card to archive. Must already be done or discarded."),
+                actor: ACTOR,
                 expectedRevision: EXPECTED_REVISION
             },
             ["id"]
@@ -1121,6 +1122,7 @@ const TOOL_DEFINITIONS = [
         async execute(args, context) {
             ensureMutable(context);
             const result = await archiveCard(context.workspace, requiredString(args.id, "id"), {
+                actor: actorFor(context, args.actor),
                 expectedRevision: optionalString(args.expectedRevision)
             });
             invalidate(context);

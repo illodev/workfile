@@ -376,7 +376,7 @@ project.config.mjs
 │   ├── conventions/
 │   └── context/
 ├── specs/
-├── sources/
+├── sources/                    # optional raw inputs, created on first use
 ├── agents/
 │   ├── protocol.md
 │   └── workflows/
@@ -533,11 +533,14 @@ The submission endpoint can create duplicate records after a network retry.
 - 2026-07-28 — Claimed after confirming no overlapping active scope.
 ```
 
-`## Activity` is the durable trail: every claim, release, transition and
-renumber appends one line, written by the mutation itself rather than by the
-caller. A command that moved nothing appends nothing, so `transition ID review`
-against a card already in `review` leaves no entry. `## Notes` is the opposite —
-free prose a human or agent writes deliberately.
+`## Activity` is the durable trail: every claim, release, transition, archive
+and renumber appends one line, written by the mutation itself rather than by
+the caller. A command that moved nothing appends nothing, so `transition ID
+review` against a card already in `review` leaves no entry, and archiving an
+archived card leaves none either. Archiving and unarchiving are written as
+`archived` and `unarchived` rather than as a status change, because neither
+moves the status. `## Notes` is the opposite — free prose a human or agent
+writes deliberately.
 
 Set `cards.activityTrail: false` to switch the trail off for a workspace. It
 defaults to `true`, and the only reason to disable it is a repository where the
