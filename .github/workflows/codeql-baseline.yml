@@ -13,12 +13,14 @@ on:
     schedule:
         - cron: "17 6 * * *"
     workflow_dispatch:
-    # So a change to the accepted list is checked by the pull request that makes
-    # it, against whatever `main` currently has open.
-    pull_request:
-        paths:
-            - .github/codeql/accepted-alerts.json
-            - .github/workflows/codeql-baseline.yml
+# Deliberately not on `pull_request`. The first version of this ran on changes
+# to the accepted list, on the theory that the PR editing the list should be
+# the one to check it — and it failed on its own first run, correctly. The
+# alerts API answers for `main`, so a pull request that *fixes* three alerts
+# sees them still open and reports the state it exists to change. There is no
+# query that would help: the alerts a merge will close do not close until the
+# merge is analysed. Daily is the honest cadence for a question only `main` can
+# answer.
 
 jobs:
     baseline:

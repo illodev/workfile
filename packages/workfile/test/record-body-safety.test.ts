@@ -12,19 +12,20 @@ import { safeUrl } from "../ui/src/safe-url.ts";
  * document API normalises a folder out of it, and the UI renders it. The first
  * two were quadratic and the third handed its schemes to React ([[T-0162]]).
  *
- * The two budgets below are wall-clock, which T-0166 and T-0179 are both open
- * scars about — so the margin is the assertion, not the number, and the two
- * ceilings differ because the margins do. At 64,000 repetitions, measured on
- * this machine before and after:
+ * The budgets below are wall-clock, which T-0166 and T-0179 are both open
+ * scars about — so the margin is the assertion, not the number, and the
+ * ceilings differ because the margins do. Measured on this machine, before and
+ * after, over 192,000-character bodies:
  *
- * | scan   | fixed | in suite | unfixed | ceiling | headroom | detection |
- * |--------|-------|----------|---------|---------|----------|-----------|
- * | link   | 240ms |    444ms |  9663ms |  2000ms |     4.5× |      4.8× |
- * | folder |   3ms |     10ms |  2846ms |   500ms |      50× |      5.7× |
+ * | scan          | fixed | in suite | unfixed | ceiling | headroom | detects |
+ * |---------------|-------|----------|---------|---------|----------|---------|
+ * | link, targets | 245ms |    377ms |  9663ms |  2000ms |     5.3× |    4.8× |
+ * | link, labels  | 356ms |    726ms | 33579ms |  2000ms |     2.8× |   16.8× |
+ * | folder        |   3ms |      6ms |  2846ms |   500ms |      83× |    5.7× |
  *
  * "In suite" is the same measurement under the whole test run rather than
- * alone, and it is the column that matters: the link scan nearly doubles, so
- * the headroom a solo run would have claimed is not the headroom there is.
+ * alone, and it is the column that matters: these roughly double, so the
+ * headroom a solo run would have claimed is not the headroom there is.
  *
  * A shared ceiling would have left the folder case 1.4× above the number it
  * has to exceed — one fast runner away from passing while quadratic. The
@@ -40,11 +41,33 @@ function elapsed(work: () => void): number {
     return Number(process.hrtime.bigint() - started) / 1e6;
 }
 
+/**
+ * Both halves, because the first fix only bounded one.
+ *
+ * `[](` exercises the target: every `](` opens a target the scan looks for a
+ * closing paren for, and there is never one. `[` exercises the label, which
+ * has the identical shape one bracket earlier — and which the first version of
+ * this fix left unbounded, so the analyser reported it again against the input
+ * it had actually named. Fixing one half of a quadratic leaves a quadratic.
+ */
+const SHAPES = [
+    ["unclosed targets", "[]("],
+    ["unclosed labels", "["]
+] as const;
+
 test("a document body of unclosed links does not stall the doctor", async (t) => {
-    // `[](` repeated: every `](` opens a target the scan must look for a
-    // closing paren for, and there is never one. Unbounded, that is one scan
-    // to the end of the body per repetition.
-    const body = "[](".repeat(REPETITIONS);
+    for (const [name, unit] of SHAPES) {
+        await oneShape(t, name, unit);
+    }
+});
+
+async function oneShape(t, name: string, unit: string) {
+    // Repeated to a common *length*, not a common count. `[` is one character
+    // and `[](` is three, so counting repetitions fed the label shape a body a
+    // third the size — and the ceiling that gave it 5× detection on one shape
+    // gave it 1.8× on the other, which is the thin margin this file's header
+    // rejects for the folder case.
+    const body = unit.repeat(Math.round((REPETITIONS * 3) / unit.length));
     const documents = [
         {
             id: "DOC-0001",
@@ -74,9 +97,9 @@ test("a document body of unclosed links does not stall the doctor", async (t) =>
     const started = process.hrtime.bigint();
     await diagnoseDocuments({ documents, workspace });
     const ms = Number(process.hrtime.bigint() - started) / 1e6;
-    t.diagnostic(`link scan: ${ms.toFixed(0)}ms for ${REPETITIONS} unclosed links`);
-    assert.ok(ms < LINK_CEILING_MS, `the link scan took ${ms.toFixed(0)}ms`);
-});
+    t.diagnostic(`link scan, ${name}: ${ms.toFixed(0)}ms over ${body.length} chars`);
+    assert.ok(ms < LINK_CEILING_MS, `${name} took ${ms.toFixed(0)}ms`);
+}
 
 test("a folder of separators does not stall document creation", (t) => {
     // The value arrives from `doc create --folder` and from the HTTP body, so
