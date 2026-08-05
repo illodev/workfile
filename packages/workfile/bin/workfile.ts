@@ -2137,6 +2137,13 @@ async function claudeCommand(workspace, action) {
             const why = file.reason ? `  (${file.reason})` : "";
             console.log(`  ${file.status.padEnd(10)} ${file.path}${why}`);
         }
+        // The command the hooks name, resolved. A settings file that is exactly
+        // right still describes a hook that cannot run, and those are two
+        // different repairs.
+        console.log(
+            `  ${report.runtime.status.padEnd(10)} ${report.runtime.command}` +
+                `${report.runtime.reason ? `  (${report.runtime.reason})` : ""}`
+        );
         process.exitCode = report.ok ? 0 : 1;
         return;
     }

@@ -1,12 +1,13 @@
 ---
 id: T-0177
 title: The two generated JSON artifacts are checked by existence, not by content
-status: backlog
+status: review
 type: bug
 priority: medium
 area: mcp
 created: 2026-08-05
 updated: 2026-08-05
+scope: [packages/workfile/src/modules/claude]
 ---
 
 `checkClaudeSurface` reports `.mcp.json` and `.claude/settings.json` as
@@ -37,6 +38,41 @@ record says exactly which values are ours to compare.
 
 ## Acceptance criteria
 
-- [ ] `claude check` reports a generated key whose value drifted from what install would write
-- [ ] Keys the repository owns in the same file are not compared and not reported
-- [ ] A workspace that gains or loses the local dependency is reported before the next install
+- [x] `claude check` reports a generated key whose value drifted from what install would write
+- [x] Keys the repository owns in the same file are not compared and not reported
+- [x] A workspace that gains or loses the local dependency is reported before the next install
+
+## Activity
+
+- 2026-08-05 15:17Z illodev@local#2cddaf94 · claimed
+- 2026-08-05 15:36Z illodev@local#2cddaf94 · doing → review
+
+## Notes
+
+- 2026-08-05 15:35Z illodev@local#2cddaf94 — The two JSON artifacts are compared by value now, against exactly what an install would write.
+
+The ledger was the answer the card pointed at, and it needed one change to be usable: it recorded top-level keys (`mcpServers`, `hooks`) while the merge is one level deeper (`next[key] = { ...current[key], ...ours }`). Ownership is per second-level key — `mcpServers.workfile` is ours, a `mcpServers.postgres` the repository added in the same object is not — so the ledger now records the leaves:
+
+```json
+{ "keys": {
+    "mcp": ["mcpServers.workfile"],
+    "hooks": ["hooks.SessionStart", "hooks.PreToolUse", "hooks.PostToolUse"]
+} }
+```
+
+That one representation serves both halves. `driftedPaths` compares those paths and names the ones that moved, so the report says `stale .mcp.json (mcpServers.workfile)` rather than `stale` — the [[T-0169]] lesson, applied where it was still missing. And removal deletes the leaf rather than the parent, dropping an object only if emptying it left nothing: previously, ceasing to generate `hooks` would have taken a `hooks.Stop` the repository owned with it. A ledger written before this holds the parent; that shape is still read, and is silently upgraded on the next sync.
+
+Values, not bytes. The file belongs to the repository, so its formatting and key order are not ours to have an opinion about.
+
+Verified end to end on a workspace built with `init` + `claude install`:
+
+- `mcpServers.postgres` and a `permissions` block added by hand → still `current`, and `install` leaves both alone (criterion #2).
+- `mcpServers.workfile.args` hand-edited to `@illodev/workfile@0.5.2` → `stale (mcpServers.workfile)`, and `install` repairs it while `postgres`, `permissions` and a repository-owned `hooks.Stop` survive (criterion #1).
+- the workspace then gains `node_modules/@illodev/workfile` and nothing else changes → both files reported stale in the same breath, because since [[T-0178]] the hooks follow the same `hasLocalInstall` answer as the server (criterion #3):
+
+```
+stale  .mcp.json  (mcpServers.workfile)
+stale  .claude/settings.json  (hooks.SessionStart, hooks.PreToolUse, hooks.PostToolUse)
+```
+
+Vacuity checked against the built `dist`: making `driftedPaths` return nothing fails the test, and making it compare whole top-level keys fails it on the neighbouring server — which is the assertion that would otherwise have been free.

@@ -386,6 +386,24 @@ otherwise invisible: the digest is taken over trimmed bytes, so a file that
 lost its final newline agrees with its own digest and is stale over a byte no
 hash covers.
 
+`.mcp.json` and `.claude/settings.json` carry no marker to hold a digest,
+because they are merged into files the repository also owns. They are compared
+against the values an install would write, key by key, using the ledger at
+`.project/generated/claude-code.json` that records which of them are this
+tool's — so a hand-edited server registration is reported as
+`mcpServers.workfile`, and a server the repository added beside it is neither
+compared nor touched.
+
+The last line of the report is not a file but the command the hooks name,
+resolved. A workspace with the package installed gets
+`node node_modules/@illodev/workfile/…/hooks.mjs`; one without gets the
+`workfile-hooks` bin, found on `PATH`. Either can be `unreachable`, which is a
+different repair from a stale file: the settings can say exactly what an
+install would write and still name a hook that is not there, and a hook that
+cannot run exits `0` in silence. It is reported as a warning rather than an
+error, because whether a bin is on `PATH` is true on one machine and false on
+another.
+
 `workfile claude` with no subcommand runs `check`, because reporting is the
 safe default for a word that otherwise writes files.
 

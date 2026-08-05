@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+    access,
+    cp,
+    mkdir,
+    mkdtemp,
+    readFile,
+    rm,
+    writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,10 +23,12 @@ import {
     claudeMcpFile,
     claudeSkillFile,
     createCard,
+    GLOBAL_HOOK_RUNTIME,
     LOCAL_CLI_RUNTIME,
     listMcpTools,
     loadCards,
     loadWorkspace,
+    NPM_HOOK_RUNTIME,
     PLUGIN_HOOK_RUNTIME,
     PLUGIN_PROJECT_ROOT,
     releaseCard,
@@ -577,6 +587,32 @@ test("the MCP server and the hooks run the same copy of the package", async () =
             "mcp"
         ]);
 
+        // The hooks follow the same rule, which they did not until T-0178:
+        // `.mcp.json` had a portable form and they had none, so in this exact
+        // workspace all three named a file that is not there. The bin, not
+        // `npx` — measured at 1663 ms per invocation against 26 ms, and
+        // `PostToolUse` matches every tool call.
+        const portable = JSON.parse(
+            await readFile(join(root, ".claude", "settings.json"), "utf8")
+        );
+        assert.deepEqual(
+            [
+                portable.hooks.SessionStart[0].hooks[0].command,
+                portable.hooks.PreToolUse[0].hooks[0].command,
+                portable.hooks.PostToolUse[0].hooks[0].command
+            ],
+            [
+                "workfile-hooks session-start",
+                "workfile-hooks pre-tool-use",
+                "workfile-hooks post-tool-use"
+            ]
+        );
+        assert.doesNotMatch(
+            JSON.stringify(portable.hooks),
+            /npx/,
+            "npx costs 1.6 s per hook; the measurement is in GLOBAL_HOOK_RUNTIME"
+        );
+
         await mkdir(join(root, "node_modules", "@illodev", "workfile", "dist", "bin"), {
             recursive: true
         });
@@ -621,6 +657,188 @@ test("the MCP server and the hooks run the same copy of the package", async () =
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+/**
+ * `.mcp.json` and `.claude/settings.json` were reported `current` on the
+ * strength of existing. They carry no marker to hold a digest, because they are
+ * merged into files the repository also owns — but the ledger already records
+ * which values are ours, and that answers the same question a digest does.
+ */
+test("a generated value that drifted is named, and a neighbouring one is not", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-json-drift-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await syncClaudeSurface(workspace);
+
+        const settingsPath = join(root, ".claude", "settings.json");
+        const mcpPath = join(root, ".mcp.json");
+        const read = async (path) => JSON.parse(await readFile(path, "utf8"));
+        const reportFor = async (label) => {
+            const report = await checkClaudeSurface(workspace);
+            const entry = report.files.find((file) => file.path === label);
+            assert.ok(entry, `${label} is missing from the report`);
+            return entry;
+        };
+
+        assert.equal((await reportFor(".mcp.json")).status, "current");
+
+        // What the repository put in the same objects. None of it is ours, so
+        // none of it may be compared, reported or removed.
+        const mine = await read(mcpPath);
+        mine.mcpServers.postgres = { command: "docker", args: ["run", "pg"] };
+        mine.permissions = { allow: ["Bash(ls *)"] };
+        await writeFile(mcpPath, `${JSON.stringify(mine, null, 2)}\n`);
+        const settings = await read(settingsPath);
+        settings.hooks.Stop = [{ matcher: "*", hooks: [] }];
+        await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+
+        assert.equal(
+            (await reportFor(".mcp.json")).status,
+            "current",
+            "a server the repository added is not this tool's to have an opinion about"
+        );
+        assert.equal((await reportFor(".claude/settings.json")).status, "current");
+
+        // Ours, hand-edited — the case that used to read as `current` and whose
+        // first symptom was an MCP server running a version nobody chose.
+        const edited = await read(mcpPath);
+        edited.mcpServers.workfile.args = ["-y", "@illodev/workfile@0.5.2", "mcp"];
+        await writeFile(mcpPath, `${JSON.stringify(edited, null, 2)}\n`);
+        const drifted = await reportFor(".mcp.json");
+        assert.equal(drifted.status, "stale");
+        assert.equal(
+            drifted.reason,
+            "mcpServers.workfile",
+            "which value moved, not that something did"
+        );
+
+        // And the repair leaves the neighbours where they were.
+        await syncClaudeSurface(workspace);
+        const repaired = await read(mcpPath);
+        assert.deepEqual(repaired.mcpServers.workfile.args, [
+            "-y",
+            "@illodev/workfile",
+            "mcp"
+        ]);
+        assert.deepEqual(repaired.mcpServers.postgres, {
+            command: "docker",
+            args: ["run", "pg"]
+        });
+        assert.deepEqual(repaired.permissions, { allow: ["Bash(ls *)"] });
+        assert.ok(
+            (await read(settingsPath)).hooks.Stop,
+            "a hook the repository owns survives our repair"
+        );
+        assert.equal((await reportFor(".mcp.json")).status, "current");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The check has to answer two questions, because they have two repairs: does
+ * the file say what an install would write, and can the command it names run.
+ * A hook that cannot run exits 0 in silence — DOC-0005 records that this is
+ * indistinguishable from one that works — so a settings file that is exactly
+ * correct is not evidence of anything by itself.
+ */
+test("a hook that cannot run is reported apart from the file that names it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-hook-reach-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await syncClaudeSurface(workspace);
+
+        // No local install and, in this process's PATH, no bin either.
+        const before = process.env.PATH;
+        process.env.PATH = "";
+        try {
+            const report = await checkClaudeSurface(workspace);
+            assert.equal(report.runtime.command, GLOBAL_HOOK_RUNTIME);
+            assert.equal(report.runtime.status, "unreachable");
+            assert.match(report.runtime.reason, /not on PATH/);
+            const issue = report.issues.find(
+                (entry) => entry.code === "claude-hook-unreachable"
+            );
+            assert.ok(issue, "doctor has to hear about it too");
+            assert.equal(
+                issue.severity,
+                "warning",
+                "true on one machine and false on another is not an error"
+            );
+            // And `ok` stays about the files, which are correct. The
+            // pre-commit hook runs `doctor --severity error`, so a colleague
+            // without the global binary must not fail this repository's commit.
+            assert.equal(report.ok, true);
+            // The file itself is right. Conflating the two sends the reader to
+            // re-run an install that will change nothing.
+            const settings = report.files.find(
+                (file) => file.path === ".claude/settings.json"
+            );
+            assert.ok(settings, "the settings file is missing from the report");
+            assert.equal(settings.status, "current");
+        } finally {
+            process.env.PATH = before;
+        }
+
+        // Given the package on disk the runtime is a path, and the same
+        // question is asked of the filesystem instead.
+        await mkdir(join(root, "node_modules", "@illodev", "workfile", "dist", "bin"), {
+            recursive: true
+        });
+        await writeFile(join(root, ...LOCAL_CLI_RUNTIME.split("/")), "//\n");
+        await mkdir(
+            join(root, "node_modules", "@illodev", "workfile", "dist", "src", "runtime", "claude"),
+            { recursive: true }
+        );
+        const installed = await checkClaudeSurface(workspace);
+        assert.match(installed.runtime.command, /node_modules/);
+        assert.equal(
+            installed.runtime.status,
+            "unreachable",
+            "the CLI is there and the hook runtime is not, which is not the same thing"
+        );
+
+        await writeFile(
+            join(root, "node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs"),
+            "//\n"
+        );
+        assert.equal(
+            (await checkClaudeSurface(workspace)).runtime.status,
+            "current"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * Why the portable form costs what the measured one costs.
+ *
+ * `hooks make the claim executable without slowing the session` measures
+ * `dist/src/runtime/claude/hooks.mjs` against a stand-in process. That
+ * measurement covers the bin as well — but only while the bin is that same
+ * script. Pointing it at the CLI instead would put the package's module graph,
+ * measured at 99 ms against the runtime's 25 ms, in front of every tool call,
+ * and no test would have noticed.
+ */
+test("the portable hook runtime is the script the budget was measured on", async () => {
+    const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+    const manifest = JSON.parse(
+        await readFile(join(packageRoot, "package.json"), "utf8")
+    );
+    const bin = manifest.bin[GLOBAL_HOOK_RUNTIME];
+    assert.ok(bin, `${GLOBAL_HOOK_RUNTIME} has to be a published bin to be on PATH`);
+    assert.equal(
+        resolve(packageRoot, bin),
+        runtime,
+        "the bin and the local path must be the same file, or the budget covers only one of them"
+    );
+    // The relative form names the same script through node_modules.
+    assert.ok(NPM_HOOK_RUNTIME.endsWith(bin));
+    await access(resolve(packageRoot, bin));
 });
 
 test("a generated file that lost its last byte can be given it back", async () => {

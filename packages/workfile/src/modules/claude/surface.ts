@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { writeFileAtomic } from "../../core/filesystem.js";
 import { exists } from "../../core/fs-utils.js";
@@ -254,6 +255,47 @@ export const PLUGIN_HOOK_RUNTIME =
     "node ${CLAUDE_PLUGIN_ROOT}/runtime/hooks.mjs";
 
 /**
+ * The same runtime, reached through PATH, for a workspace that has no copy of
+ * the package on disk.
+ *
+ * `NPM_HOOK_RUNTIME` names a relative path, so in a workspace that only ever
+ * used the global binary all three hooks named a file that is not there — and
+ * a hook that fails exits 0 in silence, which [[DOC-0005]] notes is
+ * indistinguishable from one that works. `.mcp.json` had already been given a
+ * portable form and the hooks had not, so the two halves of the surface could
+ * not agree in exactly the workspace `npx` exists for.
+ *
+ * `npx` is not that form. Measured on this machine with a warm npx cache, per
+ * invocation:
+ *
+ *   bare node spawn (floor)                 p50   20 ms
+ *   node node_modules/…/hooks.mjs           p50   25 ms
+ *   workfile-hooks (this, through PATH)     p50   26 ms
+ *   npx -y @illodev/workfile                p50 1663 ms
+ *
+ * `PreToolUse` runs before every call it matches and `PostToolUse` matches
+ * everything, so 1.6 s per invocation is not a slower hook, it is a different
+ * product. A dedicated bin costs one millisecond over the relative path
+ * because it is the same file: the runtime imports nothing from the package,
+ * so PATH resolution is all that is added.
+ *
+ * An absolute path resolved at install time was the other candidate and is
+ * worse than either: `.claude/settings.json` is committed, so it would put one
+ * machine's home directory into everyone else's checkout.
+ */
+export const GLOBAL_HOOK_RUNTIME = "workfile-hooks";
+
+/**
+ * Which of the two the workspace can actually run.
+ *
+ * The same question `.mcp.json` asks, answered the same way, so the server and
+ * the hooks cannot end up naming different copies of the package.
+ */
+export function hookRuntime(local) {
+    return local ? NPM_HOOK_RUNTIME : GLOBAL_HOOK_RUNTIME;
+}
+
+/**
  * Exported and parameterised because the distributable plugin ships the same
  * hooks under a different path, and its copy was hand-maintained — so when the
  * two matchers below were corrected, the plugin a user installs from the
@@ -316,6 +358,47 @@ export function claudeSkillFile(
     })}\n\n${skillBody(protocolText, cli)}\n`;
 }
 
+/**
+ * Whether the command the hooks name can actually be run.
+ *
+ * Two forms, two questions. The local runtime is a path, so ask the
+ * filesystem. The bin is resolved through PATH by whatever spawns the hook, so
+ * ask PATH — the same lookup and, unless the host runs with a different
+ * environment, the same answer. Either way the point is that `claude check`
+ * stops reporting a hook it has never tried to resolve.
+ */
+async function onPath(name) {
+    const candidates =
+        process.platform === "win32"
+            ? (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD")
+                  .split(";")
+                  .filter(Boolean)
+                  .map((extension) => `${name}${extension}`)
+            : [name];
+    for (const directory of (process.env.PATH || "").split(delimiter)) {
+        if (!directory) continue;
+        for (const candidate of candidates) {
+            if (await exists(join(directory, candidate))) return true;
+        }
+    }
+    return false;
+}
+
+export async function hookRuntimeReachable(root, runtime) {
+    if (runtime === GLOBAL_HOOK_RUNTIME) {
+        return (await onPath(GLOBAL_HOOK_RUNTIME))
+            ? { ok: true, reason: null }
+            : {
+                  ok: false,
+                  reason: `${GLOBAL_HOOK_RUNTIME} is not on PATH — install @illodev/workfile in this workspace or globally`
+              };
+    }
+    const script = runtime.replace(/^node /, "");
+    return (await exists(join(root, ...script.split("/"))))
+        ? { ok: true, reason: null }
+        : { ok: false, reason: `${script} does not exist` };
+}
+
 export function claudeArtifacts(workspace, { local = false }: any = {}) {
     return [
         ...commandDefinitions(workspace.cli).map((command) => ({
@@ -335,9 +418,62 @@ export function claudeArtifacts(workspace, { local = false }: any = {}) {
             id: "hooks",
             path: join(".claude", "settings.json"),
             kind: "claude-hooks",
-            json: claudeHooksFile()
+            json: claudeHooksFile(hookRuntime(local))
         }
     ];
+}
+
+/**
+ * The `parent.child` paths the merge writes, which is exactly what it owns.
+ *
+ * The merge is one level deep — `next[key] = { ...current[key], ...ours }` —
+ * so ownership is per second-level key, not per file and not per top-level
+ * key. `mcpServers.workfile` is ours; a `mcpServers.postgres` the repository
+ * added in the same object is not. Recording the leaves rather than their
+ * parent is what lets a stale entry be removed, and a drifted one be named,
+ * without either touching a neighbour.
+ */
+function generatedPaths(generated) {
+    return Object.entries(generated).flatMap(([key, value]) =>
+        Object.keys(value as object).map((name) => `${key}.${name}`)
+    );
+}
+
+function valueAt(source, path) {
+    return path
+        .split(".")
+        .reduce((node, key) => (node == null ? undefined : node[key]), source);
+}
+
+/**
+ * Which of our own values in a file the repository also owns no longer match
+ * what an install would write.
+ *
+ * The two JSON artifacts used to be reported `current` on the strength of the
+ * file existing, because they carry no marker to hold a digest. But the ledger
+ * already records which values are ours, and that is the same question a digest
+ * answers for the Markdown files.
+ *
+ * Values, not bytes: the file belongs to the repository, so its formatting and
+ * key order are not ours to have an opinion about.
+ */
+function driftedPaths(current, generated, ledgerPaths) {
+    const owned = generatedPaths(generated);
+    const drifted = owned.filter(
+        (path) => !isDeepStrictEqual(valueAt(current, path), valueAt(generated, path))
+    );
+    for (const entry of ledgerPaths) {
+        // Recorded as ours once and no longer generated: the install would
+        // remove it, so a check that ignores it disagrees with the install it
+        // is checking. Ledgers written before this was path-granular hold the
+        // parent, which is still generated and has nothing to answer for.
+        if (owned.includes(entry)) continue;
+        if (owned.some((path) => path.startsWith(`${entry}.`))) continue;
+        if (valueAt(current, entry) !== undefined) {
+            drifted.push(`${entry} (no longer generated)`);
+        }
+    }
+    return drifted;
 }
 
 /**
@@ -348,7 +484,7 @@ export function claudeArtifacts(workspace, { local = false }: any = {}) {
  * ledger records which keys are ours so removing one later actually removes it
  * instead of leaving it behind forever.
  */
-async function mergeJson(path, generated, ledgerKeys) {
+async function mergeJson(path, generated, ledgerPaths) {
     let current: any = {};
     if (await exists(path)) {
         try {
@@ -361,9 +497,24 @@ async function mergeJson(path, generated, ledgerKeys) {
     for (const [key, value] of Object.entries(generated)) {
         next[key] = { ...(current[key] || {}), ...(value as object) };
     }
-    // Keys we generated before and no longer do.
-    for (const key of ledgerKeys) {
-        if (!(key in generated) && key in next) delete next[key];
+    const owned = generatedPaths(generated);
+    for (const entry of ledgerPaths) {
+        if (owned.includes(entry)) continue;
+        const [parent, child] = entry.split(".");
+        if (child === undefined) {
+            // A ledger from before this was path-granular. Its parent is only
+            // removable when nothing under it is generated any more.
+            if (!owned.some((path) => path.startsWith(`${parent}.`)) && parent in next) {
+                delete next[parent];
+            }
+            continue;
+        }
+        if (!next[parent] || !(child in next[parent])) continue;
+        next[parent] = { ...next[parent] };
+        delete next[parent][child];
+        // An object we opened and then emptied is noise, but one the
+        // repository put keys of its own into is theirs to keep.
+        if (!Object.keys(next[parent]).length) delete next[parent];
     }
     const text = `${JSON.stringify(next, null, 2)}\n`;
     const before = await exists(path)
@@ -371,6 +522,18 @@ async function mergeJson(path, generated, ledgerKeys) {
         : null;
     if (before === text) return { status: "unchanged", text };
     return { status: before === null ? "created" : "updated", text };
+}
+
+/** The record of which values in those two files this tool wrote. */
+async function readLedger(workspace) {
+    const path = join(workspace.paths.protocolRoot, "generated", "claude-code.json");
+    if (!(await exists(path))) return { path, keys: {} };
+    try {
+        const ledger = JSON.parse(await readFile(path, "utf8"));
+        return { path, keys: ledger.keys || {}, version: ledger.version };
+    } catch {
+        return { path, keys: {} };
+    }
 }
 
 export async function planClaudeSurface(workspace) {
@@ -417,24 +580,26 @@ export async function planClaudeSurface(workspace) {
         })
     });
 
+    // Asked once and answered for both, because the whole point of T-0170 was
+    // that the server and the hooks must name the same copy of the package.
+    const local = await hasLocalInstall(workspace.root);
+    const runtime = hookRuntime(local);
     const json = [
         {
             id: "mcp",
             path: join(workspace.root, ".mcp.json"),
             label: ".mcp.json",
-            generated: claudeMcpFile(undefined, {
-                local: await hasLocalInstall(workspace.root)
-            })
+            generated: claudeMcpFile(undefined, { local })
         },
         {
             id: "hooks",
             path: join(workspace.root, ".claude", "settings.json"),
             label: ".claude/settings.json",
-            generated: claudeHooksFile()
+            generated: claudeHooksFile(runtime)
         }
     ];
 
-    return { files, json, version: PACKAGE_VERSION };
+    return { files, json, local, runtime, version: PACKAGE_VERSION };
 }
 
 export async function syncClaudeSurface(workspace, options: any = {}) {
@@ -452,51 +617,72 @@ export async function syncClaudeSurface(workspace, options: any = {}) {
         );
     }
 
-    const ledgerPath = join(
-        workspace.paths.protocolRoot,
-        "generated",
-        "claude-code.json"
-    );
-    const ledger = (await exists(ledgerPath))
-        ? JSON.parse(await readFile(ledgerPath, "utf8"))
-        : { keys: {} };
+    const ledger = await readLedger(workspace);
 
     for (const entry of plan.json) {
         const merged = await mergeJson(
             entry.path,
             entry.generated,
-            ledger.keys?.[entry.id] || []
+            ledger.keys[entry.id] || []
         );
         results.push({ path: entry.label, status: merged.status });
         if (!options.dryRun && merged.text && merged.status !== "unchanged") {
             await writeFileAtomic(entry.path, merged.text);
         }
-        ledger.keys = ledger.keys || {};
-        ledger.keys[entry.id] = Object.keys(entry.generated);
+        ledger.keys[entry.id] = generatedPaths(entry.generated);
     }
 
     if (!options.dryRun) {
         await writeFileAtomic(
-            ledgerPath,
-            `${JSON.stringify({ ...ledger, version: PACKAGE_VERSION }, null, 2)}\n`
+            ledger.path,
+            `${JSON.stringify({ keys: ledger.keys, version: PACKAGE_VERSION }, null, 2)}\n`
         );
     }
 
-    return { version: PACKAGE_VERSION, files: results };
+    return { version: PACKAGE_VERSION, runtime: plan.runtime, files: results };
 }
 
 export async function checkClaudeSurface(workspace) {
     const plan = await planClaudeSurface(workspace);
+    const ledger = await readLedger(workspace);
     const files: ManagedFileReport[] = [];
     for (const file of plan.files) {
         files.push(await inspectManagedFile(file));
     }
     for (const entry of plan.json) {
+        if (!(await exists(entry.path))) {
+            files.push({ path: entry.label, status: "missing", reason: null });
+            continue;
+        }
+        let current: any;
+        try {
+            current = JSON.parse(await readFile(entry.path, "utf8"));
+        } catch {
+            files.push({
+                path: entry.label,
+                status: "unmanaged",
+                reason: "not valid JSON"
+            });
+            continue;
+        }
+        const drifted = driftedPaths(
+            current,
+            entry.generated,
+            ledger.keys[entry.id] || []
+        );
         files.push({
             path: entry.label,
-            status: (await exists(entry.path)) ? "current" : "missing"
+            status: drifted.length ? "stale" : "current",
+            reason: drifted.length ? drifted.join(", ") : null
         });
     }
+    // The command itself, resolved rather than assumed, and reported beside the
+    // files rather than among them: a hook runtime is not a file, and "the
+    // settings file says what an install would write" is not the same claim as
+    // "the hooks run". A hook that cannot run exits 0 in silence, which
+    // DOC-0005 records as indistinguishable from one that works, so the two
+    // have to be separable — they have two different repairs.
+    const reachable = await hookRuntimeReachable(workspace.root, plan.runtime);
     const counts = files.reduce(
         (totals, file) => ({
             ...totals,
@@ -506,16 +692,43 @@ export async function checkClaudeSurface(workspace) {
     );
     return {
         module: "claude",
+        // The files, and only the files. Whether `workfile-hooks` is on this
+        // machine's PATH is not a property of the workspace — two people
+        // sharing a checkout get different answers — and the pre-commit hook
+        // runs `doctor --severity error`. It is reported as a warning below,
+        // which is where a fact that is true here and false there belongs.
         ok: !files.some((file) => file.status !== "current"),
         counts,
+        local: plan.local,
+        runtime: {
+            command: plan.runtime,
+            status: reachable.ok ? "current" : "unreachable",
+            reason: reachable.reason
+        },
         files,
-        issues: files
-            .filter((file) => file.status !== "current")
-            .map((file) => ({
-                severity: file.status === "missing" ? "info" : "warning",
-                code: `claude-surface-${file.status}`,
-                file: file.path,
-                message: `Generated Claude Code file is ${file.status}: ${file.path}`
-            }))
+        issues: [
+            ...files
+                .filter((file) => file.status !== "current")
+                .map((file) => ({
+                    severity: file.status === "missing" ? "info" : "warning",
+                    code: `claude-surface-${file.status}`,
+                    file: file.path,
+                    // The reason is the difference between "something is wrong
+                    // with one of seven files" and knowing which value moved.
+                    message: `Generated Claude Code file is ${file.status}: ${file.path}${
+                        file.reason ? ` (${file.reason})` : ""
+                    }`
+                })),
+            ...(reachable.ok
+                ? []
+                : [
+                      {
+                          severity: "warning",
+                          code: "claude-hook-unreachable",
+                          file: ".claude/settings.json",
+                          message: `The Claude Code hooks name \`${plan.runtime}\`, which cannot be run: ${reachable.reason}`
+                      }
+                  ])
+        ]
     };
 }

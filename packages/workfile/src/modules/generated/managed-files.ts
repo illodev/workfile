@@ -290,8 +290,14 @@ function mergeManagedText(existing, block, options) {
 
 export type ManagedFileReport = {
     path: string;
-    status: "missing" | "unmanaged" | "current" | "stale";
-    /** Which comparison failed, when the status is `stale`. */
+    /**
+     * `unreachable` is not about a file's contents but about whether a command
+     * it names can be run. A generated file can say exactly what an install
+     * would write and still describe a hook that does not exist, and those are
+     * two different repairs.
+     */
+    status: "missing" | "unmanaged" | "current" | "stale" | "unreachable";
+    /** Which comparison failed, or what could not be resolved. */
     reason?: string | null;
     current?: string | null;
     declared?: string | null;

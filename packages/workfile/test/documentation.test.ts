@@ -263,7 +263,7 @@ test("no doc teaches the removed project binary", async () => {
     ).bin;
     assert.deepEqual(
         Object.keys(declared).sort(),
-        ["wf", "workfile", "workfile-mcp"],
+        ["wf", "workfile", "workfile-hooks", "workfile-mcp"],
         "the declared bins changed; the vocabulary below is no longer closed"
     );
 
