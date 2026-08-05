@@ -1,11 +1,13 @@
 {
   "keys": {
     "mcp": [
-      "mcpServers"
+      "mcpServers.workfile"
     ],
     "hooks": [
-      "hooks"
+      "hooks.SessionStart",
+      "hooks.PreToolUse",
+      "hooks.PostToolUse"
     ]
   },
-  "version": "0.6.0"
+  "version": "0.7.0"
 }
