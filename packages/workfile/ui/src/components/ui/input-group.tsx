@@ -3,17 +3,34 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  CONTROL_HEIGHT,
+  CONTROL_SQUARE,
+  type ControlSize,
+} from "@/components/ui/control-size"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
+// A local amendment to the generated component: the group takes a rung off
+// the shared scale, and the control inside it fills whatever the group is.
+// `FilterSearch` had to write the height twice — once on the group and once
+// on the input — because the two disagreed by default, and the second of
+// those is the one a later edit forgets. Re-apply after
+// `shadcn add input-group`.
+function InputGroup({
+  className,
+  size = "default",
+  ...props
+}: React.ComponentProps<"div"> & { size?: ControlSize }) {
   return (
     <div
       data-slot="input-group"
       role="group"
+      data-size={size}
       className={cn(
         "group/input-group relative flex w-full items-center rounded-md border border-input shadow-xs transition-[color,box-shadow] outline-none dark:bg-input/30",
-        "h-9 min-w-0 has-[>textarea]:h-auto",
+        CONTROL_HEIGHT[size],
+        "min-w-0 has-[>textarea]:h-auto",
 
         // Variants based on alignment.
         "has-[>[data-align=inline-start]]:[&>input]:pl-2",
@@ -82,11 +99,10 @@ const inputGroupButtonVariants = cva(
   {
     variants: {
       size: {
-        xs: "h-6 gap-1 rounded-[calc(var(--radius)-5px)] px-2 has-[>svg]:px-2 [&>svg:not([class*='size-'])]:size-3.5",
-        sm: "h-8 gap-1.5 rounded-md px-2.5 has-[>svg]:px-2.5",
-        "icon-xs":
-          "size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0",
-        "icon-sm": "size-8 p-0 has-[>svg]:p-0",
+        xs: `${CONTROL_HEIGHT.xs} gap-1 rounded-[calc(var(--radius)-5px)] px-2 has-[>svg]:px-2 [&>svg:not([class*='size-'])]:size-3.5`,
+        sm: `${CONTROL_HEIGHT.sm} gap-1.5 rounded-md px-2.5 has-[>svg]:px-2.5`,
+        "icon-xs": `${CONTROL_SQUARE.xs} rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0`,
+        "icon-sm": `${CONTROL_SQUARE.sm} p-0 has-[>svg]:p-0`,
       },
     },
     defaultVariants: {
@@ -129,12 +145,14 @@ function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 function InputGroupInput({
   className,
   ...props
-}: React.ComponentProps<"input">) {
+}: React.ComponentProps<typeof Input>) {
   return (
     <Input
       data-slot="input-group-control"
       className={cn(
-        "flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent",
+        // `h-full`, not a rung: the border belongs to the group, so the
+        // group is the one thing that gets to be a height.
+        "h-full flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent",
         className
       )}
       {...props}

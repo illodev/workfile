@@ -82,6 +82,28 @@ function renderRecord(metadata, body = "") {
     return `---\n${lines.join("\n")}\n---\n\n${String(body).trim()}\n`;
 }
 
+/**
+ * The one field a loaded record cannot be missing.
+ *
+ * Every other absent field is `doctor`'s business: the record still loads and
+ * the report names it. `id` is different because `loadChangelog` sorts on it,
+ * so a hand-edited file with no `id:` line threw `TypeError: Cannot read
+ * properties of undefined (reading 'localeCompare')` out of the sort — after
+ * every file had been read, killing the whole load and with it `doctor`, the
+ * server and every command, naming neither the file nor the field. Refusing
+ * the record here puts it where every other malformed record already goes:
+ * `unreadable`, with its path, and the rest of the module still loads.
+ */
+function requireRecordId(metadata, repoPath, code, label) {
+    const id = typeof metadata.id === "string" ? metadata.id.trim() : metadata.id;
+    // A bare `id:` parses to no key at all and `id: ""` to the empty string;
+    // anything non-scalar arrives as an object. None of them sort.
+    if (typeof id !== "string" || !id) {
+        throw new ValidationError(code, `${label} has no id: ${repoPath}`);
+    }
+    return id;
+}
+
 function normalizeFragment({ file, repoPath, content, released = false }) {
     const parsed = parseFrontmatter(content, { listKeys: CHANGE_LIST_KEYS });
     if (!parsed) {
@@ -91,8 +113,14 @@ function normalizeFragment({ file, repoPath, content, released = false }) {
         );
     }
     const metadata = parsed.metadata;
+    const id = requireRecordId(
+        metadata,
+        repoPath,
+        "CHANGE_ID_REQUIRED",
+        "Changelog fragment"
+    );
     return {
-        id: metadata.id,
+        id,
         // Literal, not `string`: `loadChangelog` splits one array of these into
         // fragments and releases by this field, and only a discriminated union
         // lets that filter narrow.
@@ -127,8 +155,14 @@ function normalizeRelease({ file, repoPath, content }) {
         );
     }
     const metadata = parsed.metadata;
+    const id = requireRecordId(
+        metadata,
+        repoPath,
+        "RELEASE_ID_REQUIRED",
+        "Release record"
+    );
     return {
-        id: metadata.id,
+        id,
         kind: "release" as const,
         recordType: "release",
         title: metadata.title,

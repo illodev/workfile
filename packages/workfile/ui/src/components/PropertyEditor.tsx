@@ -89,7 +89,7 @@ function TagInput({
             ) : null}
             <Input
                 id={inputId}
-                className="h-8 text-xs md:text-xs"
+                className="text-xs md:text-xs"
                 value={draft}
                 placeholder="Add…"
                 onChange={(event) => setDraft(event.target.value)}
@@ -208,7 +208,7 @@ export function PropertyEditor({
                         ) : definition.kind === "date" ? (
                             <Input
                                 id={controlId}
-                                className="h-8 text-xs md:text-xs"
+                                className="text-xs md:text-xs"
                                 type="date"
                                 value={String(value ?? "")}
                                 disabled={locked}
@@ -231,7 +231,7 @@ export function PropertyEditor({
                                 </Button>
                             </div>
                         ) : definition.kind === "reference" ? (
-                            <InputGroup className="h-8">
+                            <InputGroup>
                                 <InputGroupInput
                                     id={controlId}
                                     className="font-mono text-xs md:text-xs"
@@ -259,7 +259,7 @@ export function PropertyEditor({
                         ) : (
                             <Input
                                 id={controlId}
-                                className="h-8 text-xs md:text-xs"
+                                className="text-xs md:text-xs"
                                 type="text"
                                 value={String(value ?? "")}
                                 disabled={locked}

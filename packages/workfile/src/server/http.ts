@@ -257,9 +257,19 @@ function expectedRevision(request, body: any = {}) {
  * second. Everything else went to `sanitizeCardChanges`, which refuses an
  * undeclared field, so the flat shape answered `CARD_FIELD_NOT_PATCHABLE:
  * Unsupported card fields: force` to the one caller that had reason to send it.
- * `reason` would have joined it, which is how this list came to exist.
+ * `reason` would have joined it, which is how this list came to exist — and
+ * `method`, `run` and `evidence` would have joined it next, since a flat
+ * `{status: "done", method: "ci"}` is the shape a client naturally sends.
  */
-const PATCH_ENVELOPE = ["expectedRevision", "actor", "force", "reason"];
+const PATCH_ENVELOPE = [
+    "expectedRevision",
+    "actor",
+    "force",
+    "reason",
+    "method",
+    "run",
+    "evidence"
+];
 
 function integerQuery(value, { fallback, min = 0, max = Number.MAX_SAFE_INTEGER }) {
     if (value == null || value === "") return fallback;
@@ -524,7 +534,16 @@ async function compatibilityPatch(workspace, id, changes, options: any = {}) {
     // Lifted out of `changes` because `actor` is not a card field: this route
     // passes the request body straight through, and `patchCard` refuses it as
     // an undeclared one. Lifting it is what lets a caller name an actor at all.
-    const { actor: supplied, ...rest } = changes || {};
+    // Lifted for the same reason `actor` is: they describe the write rather
+    // than the card, so leaving them in `changes` hands them to the field
+    // sanitizer and answers `CARD_FIELD_NOT_PATCHABLE`.
+    const {
+        actor: supplied,
+        method,
+        run,
+        evidence,
+        ...rest
+    } = changes || {};
     const actor = supplied ?? options.actor ?? resolveActor().actor;
     if (rest.status === "doing") {
         return transitionCard(workspace, id, "doing", {
@@ -534,6 +553,9 @@ async function compatibilityPatch(workspace, id, changes, options: any = {}) {
             // it, this now fails the way the CLI fails. See T-0117.
             actor: rest.claimed_by || actor,
             scope: rest.scope,
+            method,
+            run,
+            evidence,
             expectedRevision: options.expectedRevision
         });
     }
@@ -546,7 +568,13 @@ async function compatibilityPatch(workspace, id, changes, options: any = {}) {
         normalized.claimed_by = null;
         normalized.claimed_at = null;
     }
-    return patchCard(workspace, id, normalized, { ...options, actor });
+    return patchCard(workspace, id, normalized, {
+        ...options,
+        actor,
+        method,
+        run,
+        evidence
+    });
 }
 
 async function serveUi(response, uiDir, path) {
@@ -1443,7 +1471,12 @@ export function createProjectServer(
                     workspace,
                     input.ids,
                     input.changes,
-                    { expectedRevisions: input.expectedRevisions }
+                    {
+                        expectedRevisions: input.expectedRevisions,
+                        method: input.method,
+                        run: input.run,
+                        evidence: input.evidence
+                    }
                 );
                 indexStore.invalidate();
                 const listEtag = collectionEtag(result.records);
@@ -1467,7 +1500,10 @@ export function createProjectServer(
                         expectedRevision: expectedRevision(request, body),
                         actor: body.actor ?? resolveActor().actor,
                         force: body.force === true,
-                        reason: body.reason
+                        reason: body.reason,
+                        method: body.method,
+                        run: body.run,
+                        evidence: body.evidence
                     });
                     indexStore.invalidate();
                     return sendJson(
@@ -1510,6 +1546,9 @@ export function createProjectServer(
                             now: body.now,
                             force: body.force === true,
                             reason: body.reason,
+                            method: body.method,
+                            run: body.run,
+                            evidence: body.evidence,
                             expectedRevision: expectedRevision(request, body)
                         }
                     );

@@ -1,9 +1,9 @@
 ---
 id: T-0197
 title: History answers a click with an overlay its own view could hold
-status: backlog
-type: idea
-priority: low
+status: review
+type: bug
+priority: medium
 area: ui
 effort: M
 created: 2026-08-05
@@ -28,6 +28,18 @@ deliberately rather than drifting into.
 
 ## Acceptance criteria
 
-- [ ] A decision is recorded on whether history owns its reader or keeps the overlay.
-- [ ] If it owns one, the list stays visible beside it above the mobile breakpoint.
-- [ ] The reasoning in `VIEW_OWNS_DRAWER` is updated to describe the rule, not just the docs exception.
+- [x] A decision is recorded on whether history owns its reader or keeps the overlay.
+- [x] If it owns one, the list stays visible beside it above the mobile breakpoint.
+- [x] The reasoning in `VIEW_OWNS_DRAWER` is updated to describe the rule, not just the docs exception.
+
+## Notes
+
+- 2026-08-05 20:50Z illodev@local#bf4c5f67 — Decided and recorded as ADR-0017: history keeps the overlay. The axis is not how long the record is but what the list is for — reference material for the record (docs: outline and document read together) versus a queue you work through one at a time (history, explorer, memory, workflow, search). History is a queue. The complaint the card makes is real and is answered without layout: Inspector already carries a previous/next cursor for cards, and RecordPanel — every other kind — has none, so leaving one fragment to reach the next means dismissing the drawer and finding your place again. Filed as T-0207. Criterion 3, restating the rule in VIEW_OWNS_DRAWER, is still owed; ui/src/navigation.ts is held by another agent right now.
+- 2026-08-05 20:51Z illodev@local#bf4c5f67 — Criterion 2 is conditional on history owning a reader, and the decision is that it does not, so there is nothing to verify. Left unchecked rather than ticked: a checked box on this card should mean something was proven, and nothing was. It and criterion 3 both wait on the navigation.ts comment.
+- 2026-08-05 22:40Z illodev@local#bf4c5f67 — Correcting my previous note: this WAS reported. It is item six of the owner's triage list — 'En vista history cuando se pulsa un fragmento salta el drawer de inspector' — filed directly below the docs one that became T-0192. I had concluded from the filing commit's paragraph structure that I derived it myself, which was an inference the record could not support and which was wrong. ADR-0017 therefore decides against what was reported rather than against something I proposed, and that decision is open rather than settled.
+- 2026-08-05 22:45Z illodev@local#bf4c5f67 — Fixed, not decided. I opened the view and it settled itself: history is a two-column layout and always was — fragments left, a right-hand pane showing the derived changelog until a fragment is selected. Clicking one rendered it in the pane AND opened the drawer over that pane with the same fragment in it, so the text appeared twice and the copy underneath was cut off mid-word. ADR-0017 claimed changing this meant giving history a second pane; the second pane already existed. ADR-0018 supersedes it with a rule that can be checked instead of argued: a view owns the drawer when it already renders the selection. One line in VIEW_OWNS_DRAWER, a regression test, and verified in the browser at 1440 and 1280 — drawer box null, zero open overlays, fragment readable full width.
+- 2026-08-05 22:47Z illodev@local#bf4c5f67 — Refiled as a bug. It was reported as one, in a list headed Bugs y mejoras, immediately below the docs report that I did file as a bug and that got fixed the same day. I typed it idea and priority low on my own reading — that a fragment is short, that the behaviour was current with a comment explaining it — and that reclassification is what later licensed an ADR arguing against fixing it. The reporter does not have to defend the label.
+
+## Activity
+
+- 2026-08-05 22:45Z illodev@local#bf4c5f67 · backlog → review

@@ -1,7 +1,7 @@
 ---
 id: T-0187
 title: The project declares which verification methods each area accepts
-status: backlog
+status: review
 type: feature
 priority: medium
 area: core
@@ -29,7 +29,15 @@ declaration means every method is accepted, which is today's behaviour.
 
 ## Acceptance criteria
 
-- [ ] `cards.verification` is declared in project config and reported by `workfile schema`.
-- [ ] `done` is refused when the card's method is not accepted for its area, naming the accepted ones.
-- [ ] A project that declares nothing behaves exactly as before, proven by a test.
-- [ ] `doctor` reports `done` cards whose recorded method the current policy no longer accepts.
+- [x] `cards.verification` is declared in project config and reported by `workfile schema`.
+- [x] `done` is refused when the card's method is not accepted for its area, naming the accepted ones.
+- [x] A project that declares nothing behaves exactly as before, proven by a test.
+- [x] `doctor` reports `done` cards whose recorded method the current policy no longer accepts.
+
+## Notes
+
+- 2026-08-05 23:08Z illodev@local#bf4c5f67 — Verified end to end: with methods {*: [ci, manual], docs: [manual]} declared, closing an api card with --method local is refused — CARD_VERIFICATION_METHOD_REFUSED names the method offered, the area, and the methods that area accepts, and points at force with a reason as the way past. The same close with --method manual succeeds. workfile schema reports both halves of cards.verification including the timeout, so an agent can read the policy instead of discovering it by being refused.
+
+## Activity
+
+- 2026-08-05 23:09Z illodev@local#bf4c5f67 · backlog → review

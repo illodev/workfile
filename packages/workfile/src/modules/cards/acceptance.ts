@@ -225,7 +225,13 @@ export function criterionDigest(text: string): string {
 
 export interface VerifyEntry {
     id: string;
-    run: string;
+    /**
+     * The command as an argument vector, spawned without a shell — see
+     * `argvElements` in `validation.ts` for why it is not a shell string. The
+     * frontmatter codec holds it as an inline list inside the record:
+     * `run: [pnpm, test]`.
+     */
+    run: string[];
     criteria?: string[];
 }
 
@@ -306,10 +312,10 @@ export class AcceptanceBoundError extends Error {
     constructor(
         public index: number,
         public entry: string,
-        public run: string
+        public run: readonly string[]
     ) {
         super(
-            `Criterion ${index} is proved by \`${run}\` (verify entry ${entry}), ` +
+            `Criterion ${index} is proved by \`${run.join(" ")}\` (verify entry ${entry}), ` +
                 `so only that run may check it. Run \`workfile card verify\` instead.`
         );
     }

@@ -14,11 +14,14 @@ import {
     MEMORY_DEFINITIONS,
     SCHEMA_VERSION
 } from "../config/defaults.js";
+import { verifyTimeoutSeconds } from "../modules/cards/validation.js";
 import { discoverWorkspaceRoot } from "./discover.js";
 import type {
     EffectiveProjectSchema,
     ProjectConfig,
-    ProjectWorkspace
+    ProjectVerificationConfig,
+    ProjectWorkspace,
+    VerificationMethod
 } from "../types.js";
 import { exists } from "../core/fs-utils.js";
 import { cliInvocation, detectPackageManager } from "../core/package-manager.js";
@@ -84,7 +87,68 @@ function resolvePaths(root: string, config: ProjectConfig) {
     };
 }
 
+/**
+ * What a project declares about verification, for the schema.
+ *
+ * Both halves, because an agent asking "how do I close a card here" needs the
+ * commands it may name as much as the methods its area accepts, and reporting
+ * one under a key called `verification` would misdescribe the config it is
+ * reporting.
+ *
+ * `config` is still read untyped, and now for a narrower reason than when this
+ * was written: `cards.verification` is a field of `ProjectCardsConfig`, but a
+ * config module loaded from the repository is arbitrary JavaScript, so what
+ * arrives here has been validated rather than typed. The methods are narrowed
+ * on the way out because `validateVerificationCommands` has already refused
+ * anything outside the vocabulary — this is the boundary where a checked fact
+ * becomes a typed one.
+ */
+function verificationSchema(config): ProjectVerificationConfig {
+    const declared = config?.cards?.verification || {};
+    return {
+        commands: (Array.isArray(declared.commands) ? declared.commands : []).map(
+            (argv: string[]) => [...argv]
+        ),
+        // Reported for the same reason the commands are: an agent deciding
+        // whether to run `card verify` at all wants to know how long it may be
+        // waiting, and the alternative is finding out by being cut off. Read
+        // through the same function the runner uses, wrapped in the workspace
+        // shape it expects, so "declared or default" is decided once.
+        timeoutSeconds: verifyTimeoutSeconds({ config }),
+        methods: Object.fromEntries(
+            Object.entries(declared.methods || {}).map(([area, methods]) => [
+                area,
+                [...(methods as VerificationMethod[])]
+            ])
+        )
+    };
+}
+
 export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
+    // Bound rather than written inline so the extra key above is a widening of
+    // this value's own type instead of an excess property on a fresh literal.
+    const cards = {
+        statuses: [...CARD_STATUSES],
+        types: [...CARD_TYPES],
+        priorities: [...CARD_PRIORITIES],
+        efforts: [...CARD_EFFORTS],
+        areas: [...config.cards.areas],
+        // Reported so an agent discovers a project's axes the way it
+        // discovers its areas. Without this the only way to learn that
+        // `context:` exists and what it accepts is to read the config file,
+        // which the MCP surface deliberately does not expose.
+        axes: Object.fromEntries(
+            Object.entries(config.cards.axes || {}).map(([name, values]) => [
+                name,
+                [...(values as string[])]
+            ])
+        ),
+        // Same argument, one step further: a policy an agent cannot read is a
+        // policy it can only discover by being refused. An empty `methods` is
+        // the honest report of a project with no opinion, and is what every
+        // existing workspace reports.
+        verification: verificationSchema(config)
+    };
     return {
         schemaVersion: SCHEMA_VERSION,
         modules: {
@@ -96,23 +160,7 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
             ci: Boolean(config.ci.enabled),
             mcp: Boolean(config.mcp.enabled)
         },
-        cards: {
-            statuses: [...CARD_STATUSES],
-            types: [...CARD_TYPES],
-            priorities: [...CARD_PRIORITIES],
-            efforts: [...CARD_EFFORTS],
-            areas: [...config.cards.areas],
-            // Reported so an agent discovers a project's axes the way it
-            // discovers its areas. Without this the only way to learn that
-            // `context:` exists and what it accepts is to read the config file,
-            // which the MCP surface deliberately does not expose.
-            axes: Object.fromEntries(
-                Object.entries(config.cards.axes || {}).map(([name, values]) => [
-                    name,
-                    [...(values as string[])]
-                ])
-            )
-        },
+        cards,
         docs: {
             kinds: [...config.docs.kinds],
             statuses: [...config.docs.statuses],
@@ -174,6 +222,28 @@ export interface LoadWorkspaceOptions {
     allowMissing?: boolean;
 }
 
+/**
+ * A query string that no earlier load of this file can have used.
+ *
+ * The config is re-imported through a changing URL because ESM caches modules
+ * and a workspace has to see the config as it is on disk now. That key was
+ * `Date.now()` alone, and a millisecond is long enough to hold two loads: write
+ * a config, load it, and the URL matches the load from before the write, so the
+ * cache hands back the *previous* module and the workspace reports a config the
+ * file no longer holds. Rare in a person's hands and routine in a test, which is
+ * where it was found — a suite that writes a config and reloads it immediately
+ * saw its own declaration disappear, intermittently, for reasons that had
+ * nothing to do with what it was testing.
+ *
+ * The counter is per process, which is all that is needed: within a process the
+ * cache is what we are defeating, and across processes there is no cache.
+ */
+let reloads = 0;
+function nextReloadKey(): string {
+    reloads += 1;
+    return `${Date.now()}-${reloads}`;
+}
+
 export async function loadWorkspace(
     options: LoadWorkspaceOptions = {}
 ): Promise<ProjectWorkspace> {
@@ -196,7 +266,7 @@ export async function loadWorkspace(
     let declaredIntegrations: unknown = [];
     if (await exists(configPath)) {
         const url = pathToFileURL(configPath);
-        url.searchParams.set("project_protocol_reload", String(Date.now()));
+        url.searchParams.set("project_protocol_reload", nextReloadKey());
         const module = await import(url.href);
         raw = module.default || {};
         declaredIntegrations = module.integrations ?? [];

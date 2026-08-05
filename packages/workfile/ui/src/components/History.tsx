@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, Plus, X } from "lucide-react";
+import { ChevronLeft, Plus, X } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +20,6 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -49,6 +43,7 @@ import type {
     ReleaseRecord,
     RuntimeSchema
 } from "../types";
+import { FilterBar, FilterChip } from "./FilterBar";
 import { FilterSearch } from "./FilterSearch";
 import { MarkdownBody } from "./Markdown";
 
@@ -112,71 +107,6 @@ function nextVersionHint(
 
 function errorText(reason: unknown): string {
     return reason instanceof Error ? reason.message : String(reason);
-}
-
-/**
- * A filter chip that opens a menu — kit's ChipSelect rebuilt on the registry:
- * an outline Button trigger over a DropdownMenu. The empty value means "all",
- * renders dimmed and drops the active tint.
- */
-function FilterChip({
-    label,
-    value,
-    options,
-    onChange
-}: {
-    label: string;
-    value: string;
-    options: string[];
-    onChange: (value: string) => void;
-}) {
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={label}
-                    className={cn(
-                        "h-7 gap-1 px-2 text-xs",
-                        value && "border-ring bg-accent"
-                    )}
-                >
-                    {label}
-                    <span
-                        className={cn(
-                            "font-normal",
-                            !value && "text-muted-foreground"
-                        )}
-                    >
-                        {value || "all"}
-                    </span>
-                    <ChevronDown
-                        aria-hidden="true"
-                        className="size-3 text-muted-foreground"
-                    />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-                <DropdownMenuCheckboxItem
-                    checked={!value}
-                    onSelect={() => onChange("")}
-                >
-                    all
-                </DropdownMenuCheckboxItem>
-                {options.map((option) => (
-                    <DropdownMenuCheckboxItem
-                        key={option}
-                        checked={value === option}
-                        onSelect={() => onChange(option)}
-                    >
-                        {option}
-                    </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
 }
 
 // ------------------------------------------------------------------ rail
@@ -1021,28 +951,34 @@ export function HistoryView({
                         </Alert>
                     ) : null}
 
-                    <div className="flex flex-col gap-2">
-                        <FilterSearch
-                            scope="records"
-                            value={search}
-                            label="Search history"
-                            onChange={onSearchChange}
+                    <FilterBar
+                        before={
+                            <FilterSearch
+                                scope="records"
+                                value={search}
+                                label="Search history"
+                                onChange={onSearchChange}
+                            />
+                        }
+                    >
+                        <FilterChip
+                            label="state"
+                            value={state}
+                            options={[
+                                { value: "unreleased" },
+                                { value: "released" }
+                            ]}
+                            onChange={setState}
                         />
-                        <div className="flex items-center gap-1.5">
-                            <FilterChip
-                                label="state"
-                                value={state}
-                                options={["unreleased", "released"]}
-                                onChange={setState}
-                            />
-                            <FilterChip
-                                label="visibility"
-                                value={visibility}
-                                options={schema.visibilities}
-                                onChange={setVisibility}
-                            />
-                        </div>
-                    </div>
+                        <FilterChip
+                            label="visibility"
+                            value={visibility}
+                            options={schema.visibilities.map((value) => ({
+                                value
+                            }))}
+                            onChange={setVisibility}
+                        />
+                    </FilterBar>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-3.5 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">
@@ -1363,7 +1299,6 @@ export function HistoryView({
                                         aria-pressed={
                                             renderVisibility === value
                                         }
-                                        className="h-7 px-2.5 text-xs"
                                         onClick={() =>
                                             setRenderVisibility(value)
                                         }

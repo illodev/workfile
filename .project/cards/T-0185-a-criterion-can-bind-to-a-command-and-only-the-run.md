@@ -1,7 +1,7 @@
 ---
 id: T-0185
 title: A criterion can bind to a command, and only the runner may check it
-status: review
+status: done
 type: feature
 priority: high
 area: core
@@ -59,6 +59,7 @@ as opaque and refused on the first write.
 
 - 2026-08-05 19:52Z illodev@local#bf4c5f67 · claimed
 - 2026-08-05 20:31Z illodev@local#bf4c5f67 · doing → review
+- 2026-08-05 20:46Z illodev@local#bf4c5f67 · review → done
 
 ## Notes
 

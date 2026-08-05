@@ -1,22 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-    ChevronDown,
-    ChevronsLeftRight,
-    ChevronsRightLeft,
-    Inbox
-} from "lucide-react";
+import { ChevronsLeftRight, ChevronsRightLeft, Inbox } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import {
     Empty,
     EmptyDescription,
@@ -27,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Accent } from "../Accent";
+import { FilterBar, FilterChip } from "../FilterBar";
 import { priorityColor, severityColor, statusColor } from "../../theme";
 import {
     axisFor,
@@ -1077,82 +1066,39 @@ export function TimelineView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
-            <div className="no-scrollbar flex flex-none items-center gap-2.5 overflow-x-auto border-b bg-card px-3.5 py-2">
+            <FilterBar gutter="3.5" className="shrink-0 border-b bg-card py-2">
                 <span className="shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
                     {scheduled.length}{" "}
                     {mode === "actual" ? "recorded" : "scheduled"} ·{" "}
                     {edges.length} dependenc
                     {edges.length === 1 ? "y" : "ies"}
                 </span>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="dates"
-                            className="ml-auto shrink-0 text-[12.5px] font-medium"
-                        >
-                            dates
-                            <span className="font-normal text-muted-foreground">
-                                {mode}
-                            </span>
-                            <ChevronDown className="size-[13px] text-muted-foreground" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuRadioGroup
-                            value={mode}
-                            onValueChange={(value) =>
-                                onModeChange(value as TimelineMode)
-                            }
-                        >
-                            {/* Both readings are always offered, including the
-                                one with nothing in it. A project that has never
-                                set a date is exactly the project that needs to
-                                find out the Gantt is there, and hiding the
-                                option is how a feature stops being discovered
-                                by anyone who does not already know it. */}
-                            <DropdownMenuRadioItem value="plan">
-                                plan
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="actual">
-                                actual
-                            </DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="group"
-                            className="shrink-0 text-[12.5px] font-medium"
-                        >
-                            group
-                            <span className="font-normal text-muted-foreground">
-                                {grouping}
-                            </span>
-                            <ChevronDown className="size-[13px] text-muted-foreground" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuRadioGroup
-                            value={grouping}
-                            onValueChange={chooseGrouping}
-                        >
-                            {groupings.map((option) => (
-                                <DropdownMenuRadioItem
-                                    key={option}
-                                    value={option}
-                                >
-                                    {option}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+                <span className="ml-auto flex shrink-0 items-center gap-2">
+                    {/* Both readings are always offered, including the one
+                        with nothing in it. A project that has never set a date
+                        is exactly the project that needs to find out the Gantt
+                        is there, and hiding the option is how a feature stops
+                        being discovered by anyone who does not already know
+                        it. Neither reading is an "all", so the chip has no
+                        resting state and never takes the narrowed tint. */}
+                    <FilterChip
+                        label="dates"
+                        value={mode}
+                        allLabel={null}
+                        align="end"
+                        options={[{ value: "plan" }, { value: "actual" }]}
+                        onChange={(value) => onModeChange(value as TimelineMode)}
+                    />
+                    <FilterChip
+                        label="group"
+                        value={grouping}
+                        allLabel={null}
+                        align="end"
+                        options={groupings.map((value) => ({ value }))}
+                        onChange={chooseGrouping}
+                    />
+                </span>
+            </FilterBar>
             <div className="min-h-0 flex-1 overflow-auto">
                 <div
                     className="relative min-h-full"

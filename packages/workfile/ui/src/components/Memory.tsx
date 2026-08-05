@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-    Check,
-    ChevronDown,
-    GraduationCap,
-    Pencil,
-    Plus,
-    Replace
-} from "lucide-react";
+import { GraduationCap, Pencil, Plus, Replace } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +13,6 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -48,6 +35,7 @@ import type {
     RecordLink,
     RuntimeSchema
 } from "../types";
+import { FilterBar, FilterChip } from "./FilterBar";
 import { FilterSearch } from "./FilterSearch";
 import { MarkdownBody } from "./Markdown";
 
@@ -133,77 +121,6 @@ function tileNote(record: MemoryRecord): string {
             parts.push(record.category, record.severity);
     }
     return parts.filter(Boolean).join(" · ");
-}
-
-/**
- * A filter chip that opens a menu: the kit `ChipSelect` rebuilt on the
- * registry's Button + DropdownMenu. The empty value means "all" and drops
- * the chip out of its active look.
- */
-function FilterChip({
-    label,
-    value,
-    options,
-    allLabel = "all",
-    onChange
-}: {
-    label: string;
-    value: string;
-    options: Array<{ value: string; label?: string; color?: string }>;
-    allLabel?: string;
-    onChange: (value: string) => void;
-}) {
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={label}
-                    className={cn(
-                        "h-7 gap-1 rounded-full px-2.5 text-xs",
-                        value && "border-ring bg-accent"
-                    )}
-                >
-                    {label}
-                    <span className="font-normal text-muted-foreground">
-                        {value || allLabel}
-                    </span>
-                    <ChevronDown
-                        aria-hidden="true"
-                        className="size-3 text-muted-foreground"
-                    />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" sideOffset={4}>
-                <DropdownMenuItem onSelect={() => onChange("")}>
-                    {allLabel}
-                    {!value ? (
-                        <Check aria-hidden="true" className="ml-auto" />
-                    ) : null}
-                </DropdownMenuItem>
-                {options.map((option) => (
-                    <DropdownMenuItem
-                        key={option.value}
-                        onSelect={() => onChange(option.value)}
-                    >
-                        {option.color ? (
-                            <span
-                                className="size-2 shrink-0 rounded-full"
-                                style={{ backgroundColor: option.color }}
-                                aria-hidden="true"
-                            />
-                        ) : null}
-                        {option.label ?? option.value}
-                        {value === option.value ? (
-                            <Check aria-hidden="true" className="ml-auto" />
-                        ) : null}
-                    </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
 }
 
 /** Labelled form field for the dialogs, on the registry Field family. */
@@ -1382,35 +1299,19 @@ export function MemoryView({
                 which squeezed it to about 40px and clipped the count against
                 the edge; a field that cannot be shortened by a sibling cannot
                 come back from that. */}
-            <div className="flex flex-col gap-2 px-3.5 pt-3.5">
-                <FilterSearch
-                    scope="records"
-                    value={search}
-                    label="Search workfile memory"
-                    onChange={onSearchChange}
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                    <FilterChip
-                        label="collection"
-                        value={collection}
-                        options={schema.collections.map((item) => ({
-                            value: item.id
-                        }))}
-                        onChange={(next) => {
-                            setCollection(next);
-                            setStatus("");
-                        }}
+            <FilterBar
+                gutter="3.5"
+                className="pt-3.5"
+                before={
+                    <FilterSearch
+                        scope="records"
+                        value={search}
+                        label="Search workfile memory"
+                        onChange={onSearchChange}
                     />
-                    <FilterChip
-                        label="status"
-                        value={status}
-                        options={statuses.map((value) => ({
-                            value,
-                            color: recordStatusColor(value)
-                        }))}
-                        onChange={setStatus}
-                    />
-                    <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                }
+                after={
+                    <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
                         {loading ? (
                             <>
                                 <Spinner
@@ -1423,8 +1324,29 @@ export function MemoryView({
                             plural(records.length, "record")
                         )}
                     </span>
-                </div>
-            </div>
+                }
+            >
+                <FilterChip
+                    label="collection"
+                    value={collection}
+                    options={schema.collections.map((item) => ({
+                        value: item.id
+                    }))}
+                    onChange={(next) => {
+                        setCollection(next);
+                        setStatus("");
+                    }}
+                />
+                <FilterChip
+                    label="status"
+                    value={status}
+                    options={statuses.map((value) => ({
+                        value,
+                        color: recordStatusColor(value)
+                    }))}
+                    onChange={setStatus}
+                />
+            </FilterBar>
             {error ? (
                 <Alert
                     variant="destructive"

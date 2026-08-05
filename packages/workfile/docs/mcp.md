@@ -216,6 +216,27 @@ Every tool declares its full contract, so a caller never has to infer one:
 protocol's: a released card cannot stay `doing`, so that value is refused as an
 explicit target and omitted from the schema.
 
+`method` is the second. `project_card_transition`, `project_card_patch` and
+`project_card_release` each take `method`, `run` and `evidence`, which say how a
+close was proved — but the enum offers `local`, `ci` and `manual` only. `forced`
+is derived from what the acceptance gate waived and is refused as an input, and
+in any case no MCP tool can force a transition today: `project_card_transition`
+declares neither `force` nor `reason` and reads neither, so a close through this
+surface is always a proven one. Passing any of the three on a call that does not
+move the card into `done` is refused rather than ignored.
+
+That last point has a consequence worth stating, now that a project can declare
+which methods an area accepts. `CARD_VERIFICATION_METHOD_REFUSED` is **final on
+this surface**: the waiver every other surface offers is `force` with a reason,
+and no MCP tool carries either. An agent that meets it has to prove the card the
+way the project asks — read `project_workspace` first, under
+`cards.verification.methods`, rather than discovering the rule by being refused.
+Omitting `method` is not the way around it: a close with none records `local`.
+
+`project_doctor` takes `checkGit` beside `checkPaths`. It gates the one check
+that leaves the process — whether a done card's commit is still an ancestor of
+HEAD — and nothing is spawned unless some card carries a commit.
+
 ## Resources and prompts
 
 - **Resources:** `project://workspace`, `project://health`, `project://protocol`,

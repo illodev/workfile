@@ -154,57 +154,73 @@ export function TriageView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="flex items-center gap-2.5 border-b bg-card px-3.5 py-2.5">
-                <Progress
-                    value={
-                        originalTotal
-                            ? (processed.size / originalTotal) * 100
-                            : 0
-                    }
-                    className="max-w-[340px] flex-1"
-                />
-                <span className="font-mono text-[11px] text-muted-foreground">
-                    {processed.size} of {originalTotal} processed
-                </span>
-                <span className="flex-1" />
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={index === 0}
-                    onClick={() =>
-                        setIndex((current) => Math.max(0, current - 1))
-                    }
-                >
-                    <Kbd>K</Kbd>
-                    Previous
-                </Button>
-                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                    {index + 1} / {queue.length}
-                </span>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={index >= queue.length - 1}
-                    onClick={() =>
-                        setIndex((current) =>
-                            Math.min(queue.length - 1, current + 1)
-                        )
-                    }
-                >
-                    <Kbd>J</Kbd>
-                    Next
-                </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onOpen(task.id)}
-                >
-                    <PanelRight aria-hidden="true" />
-                    Open full card
-                </Button>
+            {/* Two groups, and the row is allowed to break between them.
+                Every control here is `shrink-0` — a nav button squeezed to
+                "Previ…" is worse than one on a second line — so a row that
+                cannot wrap can only run off the right edge, which is what it
+                did on a phone. The progress half claims a basis wide enough
+                to be worth reading, and anything narrower than the two
+                together sends the actions to their own line. */}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b bg-card px-3.5 py-2.5">
+                <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
+                    <Progress
+                        value={
+                            originalTotal
+                                ? (processed.size / originalTotal) * 100
+                                : 0
+                        }
+                        className="min-w-16 max-w-[340px] flex-1"
+                    />
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                        {processed.size} of {originalTotal} processed
+                    </span>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2.5">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={index === 0}
+                        onClick={() =>
+                            setIndex((current) => Math.max(0, current - 1))
+                        }
+                    >
+                        {/* The shortcut badges are a hint about a keyboard,
+                            and the widths that clip this header belong to
+                            devices that have none. */}
+                        <Kbd className="max-sm:hidden">K</Kbd>
+                        Previous
+                    </Button>
+                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                        {index + 1} / {queue.length}
+                    </span>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={index >= queue.length - 1}
+                        onClick={() =>
+                            setIndex((current) =>
+                                Math.min(queue.length - 1, current + 1)
+                            )
+                        }
+                    >
+                        <Kbd className="max-sm:hidden">J</Kbd>
+                        Next
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        title="Open full card"
+                        aria-label="Open full card"
+                        className="max-sm:size-7 max-sm:px-0"
+                        onClick={() => onOpen(task.id)}
+                    >
+                        <PanelRight aria-hidden="true" />
+                        <span className="max-sm:hidden">Open full card</span>
+                    </Button>
+                </div>
             </div>
 
             <div className={cn(READING_MEASURE, "px-6 py-7 sm:px-8")}>
@@ -249,12 +265,18 @@ export function TriageView({
                     <MarkdownBody source={task.body} onOpen={onOpen} />
                 </div>
 
+                {/* The deliberate exception to the scale. Everything else in
+                    the application is a control you use once in passing;
+                    these seven are the loop — you sit in this view and hit
+                    them, card after card — so they keep the largest rung
+                    while the header above them came down two. */}
                 <div className="mt-[30px] flex flex-wrap gap-2 border-t pt-[18px]">
                     {PRIORITIES.map((priority, priorityIndex) => (
                         <Button
                             key={priority}
                             type="button"
                             variant="outline"
+                            size="lg"
                             aria-pressed={task.priority === priority}
                             style={
                                 task.priority === priority
@@ -274,6 +296,7 @@ export function TriageView({
                             key={action.key}
                             type="button"
                             variant="outline"
+                            size="lg"
                             onClick={() => void apply({ status: action.status })}
                         >
                             <Kbd>{action.key}</Kbd>

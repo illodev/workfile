@@ -1,18 +1,34 @@
 import { access, readdir, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
+import { ValidationError } from "../../core/errors.js";
 import { parseFrontmatter } from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
 import {
     parseAcceptance,
     staleBindings,
-    unreadableCriteria
+    unreadableCriteria,
+    verifyEntries
 } from "./acceptance.js";
 import { misplacedTrailEntries } from "./body.js";
 import { claimState, readAgentSessions } from "./claims.js";
+import { headCommit, isAncestorOfHead, isShallowRepository } from "./git.js";
 import { cardFileName } from "./slug.js";
-import { declaredAxes } from "./validation.js";
+import {
+    allowedCommands,
+    argvElements,
+    commandAllowed,
+    commandNotAllowedMessage,
+    declaredAxes,
+    formatCommand,
+    verificationRefusal
+} from "./validation.js";
+import {
+    criteriaDigest,
+    verifiedCommit,
+    verifiedProblems
+} from "./verification.js";
 import {
     isResourceExhaustion,
     mapWithConcurrency
@@ -87,6 +103,28 @@ export async function loadCardDirectory(
         try {
             const content = await readFile(join(directory, file), "utf8");
             const card = parseCard(file, content, archived);
+            // The one field a loaded card cannot be missing. Every other absent
+            // field is doctor's business — the card loads and the report names
+            // it — but `buildProjectIndex` sorts every record on `id`, so a
+            // hand-edited card with no `id:` line threw out of the sort after
+            // every file had been read, killing the whole load and with it
+            // doctor, the server and every command, naming neither the file nor
+            // the field. A bare `id:` parses to no key at all and `id: ""` to
+            // the empty string; neither sorts. Refused here, where the same
+            // `catch` already puts every other malformed card: `unreadable`,
+            // with its path, and the rest of the directory still loads.
+            if (card && typeof card.id !== "string") {
+                throw new ValidationError(
+                    "CARD_ID_REQUIRED",
+                    `Card has no id: ${file}`
+                );
+            }
+            if (card && !card.id.trim()) {
+                throw new ValidationError(
+                    "CARD_ID_REQUIRED",
+                    `Card has an empty id: ${file}`
+                );
+            }
             return {
                 file,
                 card: card
@@ -218,6 +256,10 @@ export async function diagnoseCards({
     unreadable = [],
     workspace,
     checkPaths = true,
+    // Whether ancestry may be answered by spawning git. On by default and off
+    // in the unit tests that hand this a fabricated workspace — but see the
+    // short circuit below, which is what actually keeps the common case free.
+    checkGit = true,
     // Annotated through the default rather than on the destructure: `null`
     // alone infers `never`, so every `knownIds.has(...)` below becomes an
     // error — but annotating the whole parameter `any` silences two unrelated
@@ -264,6 +306,7 @@ export async function diagnoseCards({
         effort: CARD_EFFORTS
     };
     const axes = declaredAxes(workspace);
+    const allowed = allowedCommands(workspace);
     const idRe = cardIdPattern(workspace.config.cards.idPrefix);
     for (const card of cards) {
         const missing = CARD_REQUIRED_KEYS.filter((key) => !card[key]);
@@ -559,6 +602,51 @@ export async function diagnoseCards({
                 )
             );
         }
+        // The same allowlist the write path enforces, checked again on read.
+        //
+        // This is the half that reaches a card nobody wrote through the
+        // protocol. A card is a Markdown file, so in a repository that takes
+        // pull requests one arrives as a *file in a diff*: it never calls
+        // `createCard` or `patchCard`, and a write-time refusal never runs. The
+        // gate that turns that pull request red is this one, because `doctor
+        // --json` is what the generated CI workflow exists to run and `ok` is
+        // false while any error stands.
+        //
+        // `error` rather than `warning` for exactly that reason. A warning
+        // would let the case this rule was written for merge green, and there
+        // is no adoption cost to weigh against it: a repository that declares
+        // no commands also has no cards carrying one.
+        for (const entry of verifyEntries(card.verify)) {
+            const argv = argvElements(entry.run);
+            if (!argv) {
+                issues.push(
+                    issue(
+                        "error",
+                        "verify-run-invalid",
+                        card,
+                        `Verify entry ${entry.id} does not carry an argument vector, ` +
+                            `so nothing can decide what it would run.`,
+                        { entry: entry.id }
+                    )
+                );
+                continue;
+            }
+            if (!commandAllowed(allowed, argv)) {
+                issues.push(
+                    issue(
+                        "error",
+                        "verify-command-not-allowed",
+                        card,
+                        commandNotAllowedMessage(entry.id, argv, allowed),
+                        {
+                            entry: entry.id,
+                            run: formatCommand(argv),
+                            declared: allowed.map(formatCommand)
+                        }
+                    )
+                );
+            }
+        }
         const pending = reading.unchecked;
         if (card.status === "done" && pending.length) {
             issues.push(
@@ -569,6 +657,81 @@ export async function diagnoseCards({
                     `Done card has ${pending.length} unproven acceptance criteria: ` +
                         pending.map((item) => `#${item.index} ${item.text}`).join("; "),
                     { unchecked: pending.map(({ index, text }) => ({ index, text })) }
+                )
+            );
+        }
+        // No mutation can produce a malformed block, so one means the file was
+        // hand-edited or arrived as a file in somebody's diff. Worth a line of
+        // its own because the damage is not cosmetic: a `verified` the codec
+        // reads as opaque cannot be rewritten *or cleared*, so the card can no
+        // longer be reopened either, and the refusal names the codec rather
+        // than the edit that caused it.
+        const malformed = verifiedProblems(card.verified);
+        if (malformed.length) {
+            issues.push(
+                issue(
+                    "warning",
+                    "verified-block-invalid",
+                    card,
+                    `The verified block does not read as a verification: ` +
+                        `${malformed.join("; ")}.`,
+                    { problems: malformed }
+                )
+            );
+        } else if (card.verified?.digest) {
+            // Reported, never enforced retroactively. A card verified against
+            // text that has since changed is information; invalidating history
+            // every time somebody touches the scope again would make the field
+            // noise, and nobody would read it.
+            //
+            // Archived cards included. Editing the criteria of work that is
+            // filed away is a stranger act than editing a live card's, not a
+            // more forgivable one, and the check costs nothing but a hash.
+            const actual = criteriaDigest({
+                body: card.body,
+                verify: card.verify
+            });
+            if (actual !== card.verified.digest) {
+                issues.push(
+                    issue(
+                        "warning",
+                        "verified-criteria-changed",
+                        card,
+                        `Verified on ${card.verified.at} as ` +
+                            `${card.verified.method}, against criteria text that ` +
+                            `has since changed.`,
+                        {
+                            verifiedAt: card.verified.at,
+                            method: card.verified.method,
+                            recorded: card.verified.digest,
+                            actual
+                        }
+                    )
+                );
+            }
+        }
+        // A policy can tighten after a card closes, and this is where that
+        // shows up. Reported, never enforced retroactively, for the reason the
+        // two rules above give: re-gating history would light up a hundred
+        // records on the day a project first declares a policy, and there is
+        // nothing to do about a shipped card except decide it is acceptable —
+        // which is what the doctor baseline is for.
+        //
+        // `verificationRefusal` already returns `null` for a missing method and
+        // for `forced`, so all three exemptions collapse into the one call: a
+        // card closed before the block existed says nothing to check, and a
+        // forced close was answered on its trail line.
+        const recorded = card.verified?.method;
+        const unaccepted = verificationRefusal(workspace, card.area, recorded);
+        if (card.status === "done" && unaccepted) {
+            issues.push(
+                issue(
+                    "warning",
+                    "verification-method-unaccepted",
+                    card,
+                    `Verified by ${recorded}, and ${card.area} now accepts ` +
+                        `${unaccepted.join(", ")}.`,
+                    { method: recorded, area: card.area, accepted: unaccepted }
                 )
             );
         }
@@ -587,6 +750,66 @@ export async function diagnoseCards({
             );
         }
     }
+    // Whether the commit a card was closed at is still reachable.
+    //
+    // This is the only rule here that leaves the process, so it is gated twice
+    // before the first spawn. `runDoctor` is on the `/api/v2/health` path the UI
+    // polls on a debounce, and `diagnoseCards` is called straight from unit
+    // tests with workspaces that are objects rather than directories — neither
+    // may pay for a subprocess to learn that no card carries a commit.
+    //
+    // Archived cards are deliberately out: a rebase that orphaned the branch
+    // behind work filed away a year ago is not something anybody is going to
+    // act on, and the archive is where the commit count grows without bound.
+    const probes = checkGit && workspace?.root
+        ? cards.filter(
+              (card) =>
+                  !card.archived &&
+                  card.status === "done" &&
+                  verifiedCommit(card.verified)
+          )
+        : [];
+    if (probes.length) {
+        const head = await headCommit(workspace.root);
+        // Git absent, a directory that is not a repository, a repository with
+        // no commits and a shallow clone all mean the question cannot be
+        // answered — which is silence, not a finding. Shallow matters
+        // concretely: a CI checkout with `fetch-depth: 1` would otherwise
+        // report every historical commit as unreachable, on the one machine
+        // this most needs to stay quiet on.
+        if (head && !(await isShallowRepository(workspace.root))) {
+            const distinct = [
+                ...new Set(probes.map((card) => verifiedCommit(card.verified)))
+            ];
+            const verdicts = new Map(
+                await mapWithConcurrency(
+                    distinct,
+                    async (commit) =>
+                        [
+                            commit,
+                            await isAncestorOfHead(workspace.root, commit as string)
+                        ] as const,
+                    { concurrency: 8 }
+                )
+            );
+            for (const card of probes) {
+                const commit = verifiedCommit(card.verified) as string;
+                if (verdicts.get(commit) !== "no") continue;
+                issues.push(
+                    issue(
+                        "warning",
+                        "verified-commit-unreachable",
+                        card,
+                        `Verified at commit ${commit.slice(0, 8)}, which is not an ` +
+                            `ancestor of HEAD. The branch that proved it may have ` +
+                            `been rebased away, or never merged.`,
+                        { commit, head }
+                    )
+                );
+            }
+        }
+    }
+
     const severityOrder = { error: 0, warning: 1, info: 2 };
     issues.sort(
         (left, right) =>

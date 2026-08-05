@@ -170,6 +170,24 @@ POST      /api/v2/cards/:id/reopen
 POST      /api/v2/cards/bulk
 ```
 
+`PATCH /api/v2/cards/:id`, `POST /api/v2/cards/:id/transition` and
+`POST /api/v2/cards/bulk` accept `method`, `run` and `evidence` beside `actor`,
+`force` and `reason`. They describe the write rather than the card, so they are
+lifted out of the flat body the same way `force` is, and a client that sends
+`{"status": "done", "method": "ci", "run": "https://…"}` gets a card whose
+`verified` block says so. Sending any of them on a write that does not move the
+card into `done` is `400 CARD_VERIFICATION_NOT_APPLICABLE` rather than a silent
+drop; `method: "forced"` is `400 CARD_VERIFICATION_METHOD_CONFLICT`, since it is
+derived from what `force` waived. The legacy `PATCH /api/tasks/:id` accepts the
+same three.
+
+A method the card's area does not accept is `409 CARD_VERIFICATION_METHOD_REFUSED`,
+and the body's details carry the accepted list. Omitting `method` is not a way
+around it — a close with none records `local`, which is judged like any other.
+`GET /api/v2/schema` reports the policy under `cards.verification.methods`, so a
+client can read it before it writes. `force` with a `reason` waives it, and the
+card then records `forced`.
+
 ## Docs
 
 ```text

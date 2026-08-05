@@ -610,7 +610,6 @@ export function Explorer({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 gap-1.5 px-2.5 text-xs"
                             >
                                 <SlidersHorizontal className="size-3.5" />
                                 Facets
@@ -667,7 +666,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkStatus(event.target.value)
                             }
-                            className="h-7 px-2 py-0 pr-8 text-xs"
+                            size="sm"
                         >
                             <NativeSelectOption value="">
                                 status…
@@ -684,7 +683,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkPriority(event.target.value)
                             }
-                            className="h-7 px-2 py-0 pr-8 text-xs"
+                            size="sm"
                         >
                             <NativeSelectOption value="">
                                 priority…
@@ -701,7 +700,7 @@ export function Explorer({
                             onChange={(event) =>
                                 setBulkArea(event.target.value)
                             }
-                            className="h-7 px-2 py-0 pr-8 text-xs"
+                            size="sm"
                         >
                             <NativeSelectOption value="">
                                 area…
@@ -712,13 +711,14 @@ export function Explorer({
                                 </NativeSelectOption>
                             ))}
                         </NativeSelect>
-                        {/* h-7, the height the selects beside them carry: a
-                            strip of controls that steps up 6px in the middle
-                            reads as two strips. */}
+                        {/* The same rung the selects beside them declare — a
+                            strip of controls that steps up in the middle
+                            reads as two strips. It used to take two hand-
+                            written heights to say that; now it takes the
+                            word. */}
                         <ButtonGroup>
                             <Button
                                 size="sm"
-                                className="h-7"
                                 disabled={!bulkReady}
                                 onClick={() => void applyBulk()}
                             >
@@ -727,7 +727,6 @@ export function Explorer({
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7"
                                 onClick={() => setSelected(new Set())}
                             >
                                 Clear
@@ -810,7 +809,7 @@ export function Explorer({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => changeSort(key)}
-                                                className="-ml-2 h-7 gap-1 px-2 text-xs text-muted-foreground"
+                                                className="-ml-2 px-2 text-muted-foreground"
                                             >
                                                 {label}
                                                 {sortKey === key ? (

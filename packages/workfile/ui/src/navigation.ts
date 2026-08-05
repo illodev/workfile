@@ -91,20 +91,33 @@ export function recordCollection(id: string): string | null {
 }
 
 /**
- * Views that draw their own panel for a collection, and keep it.
+ * Views that already render the selection, mapped to the collection they render.
  *
- * The shared drawer stands down for these rather than opening over them.
- * Memory's lanes carry graduate and supersede, and Docs carries an outline and
- * freshness — editing bound to state those views own. Hoisting that is worth
- * doing and is not this change; what this map buys is that everywhere *else*
- * already goes through one drawer.
+ * **The test is mechanical: does this view put the selected record on screen by
+ * itself?** If it does, the shared drawer stands down. If it does not, the
+ * drawer is the only thing that can show it.
+ *
+ * Stated that way because the alternative was tried and was wrong. This map
+ * held `docs` alone and explained it as "the one view whose job is reading
+ * something long" — a rule about the record rather than about the view — and
+ * history was then argued into keeping the overlay on the grounds that giving
+ * it a reader would cost a second pane. History already had the second pane.
+ * Clicking a fragment rendered it in the right-hand column *and* opened the
+ * drawer over that column with the same fragment in it, so the reader got the
+ * text twice and could read neither: the pane was cut off mid-word underneath.
+ *
+ * A rule you can check by opening the view would have caught that. A rule about
+ * what kind of record it is has to be reasoned about, and reasoning is what got
+ * it wrong. See ADR-0018.
  */
 export const VIEW_OWNS_DRAWER: Partial<Record<View, string>> = {
-    // Docs alone, and not because it owns a drawer — it owns a *reader*. The
-    // list sits beside the document rather than over it, which is the right
-    // shape for the one view whose job is reading something long, and an
-    // overlay on top of it would cover the list it was opened from.
-    docs: "docs"
+    // The list sits beside the document rather than over it, and the outline
+    // rail belongs to the same reader.
+    docs: "docs",
+    // Two columns since it was built: fragments on the left, and a right-hand
+    // pane that shows the derived changelog until a fragment is selected and
+    // that fragment afterwards.
+    history: "changelog"
 };
 
 /**
