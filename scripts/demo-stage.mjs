@@ -13,6 +13,32 @@
  * program, for the same reason.
  */
 (() => {
+    /**
+     * Marks the overlays that belong above the frame rather than inside it.
+     *
+     * The stage relocates everything added to `document.body` into the scaler,
+     * which is how portals end up inside the browser window. The cursor and the
+     * caption were excluded by identity, but a click pulse is created per click
+     * and could not be — so every pulse was relocated into a `scale(.85)` box,
+     * where its `position: fixed` resolves against the transformed ancestor
+     * instead of the viewport and the ring lands short of the pointer that drew
+     * it. An attribute is the only exclusion that works for a node that does not
+     * exist when the observer starts.
+     */
+    const OVERLAY = "data-demo-overlay";
+
+    /**
+     * The pointer's hotspot, in CSS pixels from the element's top-left.
+     *
+     * The arrow is drawn from `M6.6 2.6` in a 24-unit viewBox rendered at 26px,
+     * so its tip sits (6.6, 2.6) × 26/24 into its own box. Placing the element
+     * at the event coordinates therefore drew the tip seven pixels down-right
+     * of the thing being clicked, while the click ring was centred on the
+     * coordinates exactly — two marks for one event, a constant distance apart.
+     * A real cursor anchors at the tip; so does this one.
+     */
+    const TIP = { x: (6.6 * 26) / 24, y: (2.6 * 26) / 24 };
+
     const install = () => {
         if (document.getElementById("demo-stage")) return;
         const app = document.getElementById("root");
@@ -104,6 +130,8 @@
             maxWidth: "76%",
             textAlign: "center"
         });
+        cursor.setAttribute(OVERLAY, "");
+        caption.setAttribute(OVERLAY, "");
         document.body.append(cursor, caption);
 
         /*
@@ -148,8 +176,7 @@
             for (const record of records) {
                 for (const node of record.addedNodes) {
                     if (node.nodeType !== 1) continue;
-                    if (node === stage || node === cursor || node === caption)
-                        continue;
+                    if (node === stage || node.hasAttribute(OVERLAY)) continue;
                     // Re-parenting blurs whatever the moved subtree had
                     // focused, and these overlays autofocus on purpose — the
                     // palette put its caret in the search box and the move
@@ -164,8 +191,8 @@
         document.addEventListener(
             "mousemove",
             (event) => {
-                cursor.style.left = `${event.clientX}px`;
-                cursor.style.top = `${event.clientY}px`;
+                cursor.style.left = `${event.clientX - TIP.x}px`;
+                cursor.style.top = `${event.clientY - TIP.y}px`;
             },
             true
         );
@@ -174,12 +201,18 @@
             (event) => {
                 cursor.style.scale = "0.82";
                 const pulse = document.createElement("div");
+                pulse.setAttribute(OVERLAY, "");
                 Object.assign(pulse.style, {
                     position: "fixed",
                     left: `${event.clientX - 15}px`,
                     top: `${event.clientY - 15}px`,
                     width: "30px",
                     height: "30px",
+                    // Content-box would add the 3px border outside the 30px
+                    // box and shift the ring's centre off the point by half of
+                    // it — small, constant, and visible against a pointer that
+                    // is now anchored exactly.
+                    boxSizing: "border-box",
                     borderRadius: "50%",
                     border: "3px solid #6f86ff",
                     zIndex: "2147483645",
@@ -199,10 +232,30 @@
             true
         );
 
+        /*
+         * Where the current push left its subject, in screen pixels, or null at
+         * rest.
+         *
+         * `__zoomTo` clamps so the pushed frame keeps covering the screen, and
+         * that clamp is exactly what drives a low target lower still: the
+         * presence strip carrying both agent locks — the shot this film exists
+         * for — came to rest under a caption pinned to the bottom edge, so the
+         * closest shot in the tour was the one that captioned over its own
+         * subject. The caption therefore reads the projection and moves to the
+         * opposite edge, rather than trusting the point that was requested.
+         */
+        let focusY = null;
+        const placeCaption = () => {
+            const low = focusY != null && focusY > innerHeight * 0.55;
+            caption.style.top = low ? "26px" : "";
+            caption.style.bottom = low ? "" : "26px";
+        };
+
         window.__caption = (text) => {
             caption.style.opacity = "0";
             setTimeout(() => {
                 if (text) {
+                    placeCaption();
                     caption.textContent = text;
                     caption.style.opacity = "1";
                 }
@@ -238,20 +291,22 @@
                 : Math.min(Math.max(value, low), high);
         window.__zoomTo = (tx, ty, s) => {
             if (!rest) rest = frame.getBoundingClientRect();
-            const dx = innerWidth / 2 - rest.left - s * (tx - rest.left);
-            const dy = innerHeight / 2 - rest.top - s * (ty - rest.top);
-            frame.style.transform = `translate(${clamp(
-                dx,
+            const dx = clamp(
+                innerWidth / 2 - rest.left - s * (tx - rest.left),
                 innerWidth - rest.left - s * rest.width,
                 -rest.left
-            )}px, ${clamp(
-                dy,
+            );
+            const dy = clamp(
+                innerHeight / 2 - rest.top - s * (ty - rest.top),
                 innerHeight - rest.top - s * rest.height,
                 -rest.top
-            )}px) scale(${s})`;
+            );
+            frame.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+            focusY = rest.top + dy + s * (ty - rest.top);
         };
         window.__zoomOut = () => {
             frame.style.transform = "";
+            focusY = null;
         };
     };
     if (document.body) install();

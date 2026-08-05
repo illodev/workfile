@@ -22,6 +22,11 @@ import {
  * framed window — the presence bar with two live agent locks gets the
  * closest shot. Captions live in the frame because launch-post audiences
  * watch muted. Regenerate after a redesign the same way the stills are.
+ *
+ * The tour visits every collection the opening caption names. That is a
+ * constraint and not a running order: the first line promises work, docs,
+ * history and memory, and a film that shows two of the four has spent its most
+ * valuable sentence on something the viewer is invited to check and cannot.
  */
 
 const exec = promisify(execFile);
@@ -82,6 +87,11 @@ const context = await browser.newContext({
     recordVideo: { dir: outDir, size: { width: 1440, height: 900 } }
 });
 const page = await context.newPage();
+// Recording starts with the page, so the film's timeline begins here — before
+// the first navigation, and well before the board has anything on it. The head
+// is trimmed against this mark once the tour knows when it really began.
+const recordingStart = Date.now();
+let tourStart = recordingStart;
 await page.addInitScript({
     path: fileURLToPath(new URL("./demo-stage.mjs", import.meta.url))
 });
@@ -175,7 +185,27 @@ try {
 
     // Open on the board.
     await page.goto(`${server.url}/?view=flow`, { waitUntil: "networkidle" });
-    await sleep(900);
+    /*
+     * Wait for the composed shot, not for the network.
+     *
+     * `networkidle` is satisfied while the app is still drawing its skeleton,
+     * so the film opened on a loading state — the one frame that says the thing
+     * is unfinished, in the position that decides whether anyone watches the
+     * rest. Readiness here is the stage frame plus real cards inside it, and
+     * the mark taken afterwards is where the head gets cut.
+     */
+    await page
+        .locator("#demo-window")
+        .waitFor({ state: "visible", timeout: 30_000 });
+    await page
+        .getByText(signalCardId, { exact: true })
+        .first()
+        .waitFor({ state: "visible", timeout: 30_000 });
+    // A held beat of composed board before the trim point, so a little skew
+    // between `newPage` and the first recorded frame cannot reach the skeleton.
+    await sleep(700);
+    tourStart = Date.now();
+    await sleep(500);
     // Park the pointer somewhere plausible before it is ever visible. Playwright
     // starts its mouse at 0,0, so without this the first glide sweeps in from
     // the corner of the screen instead of starting from rest.
@@ -183,6 +213,24 @@ try {
     await caption(
         "Work, docs, history and memory — versioned Markdown in your repo",
         2500
+    );
+
+    /*
+     * The claim the whole project rests on, made where it is literally visible.
+     *
+     * The breadcrumb reads `.project / cards / flow` — a path, not a workspace
+     * ID — and no other shot in the tour says the board is a directory. Placed
+     * before the agents so the rest of the film is read as files being edited
+     * rather than rows being updated.
+     */
+    const crumb = await center(
+        page.locator('[aria-label="Breadcrumb"]').getByText(".project")
+    );
+    await punchIn(
+        { x: crumb.x + 120, y: crumb.y },
+        2.4,
+        "No database, no SaaS — these are files in your repository",
+        2600
     );
 
     // The essential shot: two agents holding scoped locks, live.
@@ -217,11 +265,65 @@ try {
         2700
     );
 
+    /*
+     * The graph, which postdates the first cut of this film.
+     *
+     * Every other view is a list of one collection. This is the only one that
+     * draws the four as a single object — a card to the decision that caused
+     * it, to the release that shipped it — and that relation is the difference
+     * between this and a board with Markdown for a backend.
+     */
+    await page.keyboard.press("Escape");
+    await sleep(500);
+    await glide(nav.getByText("Workflow", { exact: true }), 300);
+    await click();
+    await sleep(1500);
+    await snap("scene3-workflow");
+    await punchIn(
+        { x: 780, y: 470 },
+        1.5,
+        // What the shot shows is a card graph: the curated corpus declares no
+        // frontmatter relation from a doc or a memory record to a card, so
+        // naming those collections here would caption something absent.
+        "Every record is a node, every typed relation an edge",
+        2700
+    );
+
+    /*
+     * Docs and Memory, because the opening caption promises four collections
+     * and the tour showed two. A film that names Docs in its first line and
+     * never opens it has spent its most valuable sentence on something the
+     * viewer cannot check.
+     */
+    await glide(nav.getByText("Docs", { exact: true }), 280);
+    await click();
+    await sleep(1200);
+    await snap("scene4-docs");
+    await caption("Documentation sits beside the work, not in a wiki", 2300);
+    // Cleared before leaving, unlike a `punchIn` — which ends by clearing its
+    // own. A plain caption outlives the view it was written for, so the Docs
+    // line was still on screen over Memory a beat and a half later.
+    await caption("", 450);
+
+    await glide(nav.getByText("Memory", { exact: true }), 280);
+    await click();
+    await sleep(1300);
+    const decision = await center(
+        page.getByText(/Markdown is canonical/).first()
+    );
+    await snap("scene5-memory");
+    await punchIn(
+        { x: decision.x, y: decision.y + 20 },
+        1.9,
+        "Decisions and learnings outlive the session that produced them",
+        2700
+    );
+
     // Timeline, with a lighter push over the arcs.
     await glide(nav.getByText("Timeline", { exact: true }), 300);
     await click();
     await sleep(1000);
-    await snap("scene3-timeline");
+    await snap("scene6-timeline");
     await punchIn(
         { x: 760, y: 480 },
         1.45,
@@ -234,7 +336,7 @@ try {
     await click();
     await sleep(1000);
     const release = await center(page.getByText("Prepare release").first());
-    await snap("scene4-history");
+    await snap("scene7-history");
     await punchIn(
         { x: release.x, y: release.y + 20 },
         1.9,
@@ -254,7 +356,7 @@ try {
     await query.waitFor({ state: "visible", timeout: 10_000 });
     await query.pressSequentially("watcher", { delay: 120 });
     await sleep(1700);
-    await snap("scene5-search");
+    await snap("scene8-search");
     await page.keyboard.press("Escape");
     await sleep(600);
 
@@ -266,7 +368,7 @@ try {
     await click();
     await sleep(1100);
     await caption("However many agents are working — one line tells you where it stands", 2600);
-    await snap("scene6-overview");
+    await snap("scene9-overview");
 
     /*
      * The live beat, and the only scene where the app is not merely displayed.
@@ -324,7 +426,7 @@ try {
             hold: 2600
         }
     ]);
-    await snap("scene7-live");
+    await snap("scene10-live");
 
     await punchIn(
         { x: 700, y: 300 },
@@ -332,7 +434,7 @@ try {
         "The repository is the database — npx @illodev/workfile init",
         3400
     );
-    await snap("scene8-close");
+    await snap("scene11-close");
     await sleep(600);
 } finally {
     const video = page.video();
@@ -345,8 +447,15 @@ try {
 
     // LinkedIn wants H.264; the recording is VP8. yuv420p and faststart keep
     // every player and the feed's transcoder happy.
+    //
+    // `-ss` first: everything before the tour began is boot — a blank document
+    // and then the app's skeleton — and a feed autoplays the first frame into a
+    // thumbnail whether or not anyone presses play.
+    const head = Math.max(0, (tourStart - recordingStart) / 1000);
     await exec("ffmpeg", [
         "-y",
+        "-ss",
+        head.toFixed(3),
         "-i",
         webm,
         "-c:v",
@@ -371,6 +480,7 @@ try {
         `${outDir}workfile-demo.mp4`
     ]);
     process.stdout.write(
-        `demo video: ${outDir}workfile-demo.mp4 (${Number(stdout).toFixed(1)}s)\n`
+        `demo video: ${outDir}workfile-demo.mp4 ` +
+            `(${Number(stdout).toFixed(1)}s, ${head.toFixed(1)}s of boot trimmed)\n`
     );
 }
