@@ -33,3 +33,7 @@ Two things fell out of the work:
 
 - 2026-08-06 12:16Z agent:claude · backlog → review
 - 2026-08-06 12:17Z illodev@local#dacd76e0 · renamed file to T-0214-serve-the-board-read-only-workfile-ui-read-only-an.md
+
+## Notes
+
+- 2026-08-06 12:43Z agent:claude — Released as 0.8.0 and published to npm. Verified against the published tarball rather than a local build: a container installing @illodev/workfile@latest serves Fube's 1755-card workspace read-only, refuses POST /api/v2/cards with WORKSPACE_READ_ONLY, answers to the host named by --allowed-host and to loopback, and refuses anything else. The remaining criterion is Fube's own deployment (fube T-2150).
