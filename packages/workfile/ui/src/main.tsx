@@ -87,6 +87,7 @@ import {
 import { activeClaims, orderClaims, overlapsByCard } from "./claims";
 import { drawerCovers, recordCollection, viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
+import { READ_ONLY_HINT, ReadOnlyProvider } from "./read-only";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
     drawableCount,
@@ -447,6 +448,7 @@ function App() {
     const [repoRoot, setRepoRoot] = useState("");
     const [repoUrl, setRepoUrl] = useState("");
     const [projectName, setProjectName] = useState("Workfile");
+    const [readOnly, setReadOnly] = useState(false);
     const [schema, setSchema] = useState<RuntimeSchema>(FALLBACK_SCHEMA);
     const [areas, setAreas] = useState<string[]>(["general"]);
     const [loading, setLoading] = useState(true);
@@ -529,6 +531,7 @@ function App() {
             setRepoRoot(response.repoRoot);
             setRepoUrl(response.repoUrl || "");
             setProjectName(response.projectName || "Workfile");
+            setReadOnly(Boolean(response.readOnly));
             setSchema(response.schema);
             setAreas(
                 response.schema.cards.areas.length
@@ -913,7 +916,22 @@ function App() {
         [taskById, view]
     );
 
+    // `readOnly` reaches these two through a ref for the same reason `tasks`
+    // does: `patch` and `bulkPatch` are handed to the board, the triage queue
+    // and the inspector, and a new identity on every change cancels the
+    // row-level memoisation downstream.
+    const readOnlyRef = useRef(false);
+    readOnlyRef.current = readOnly;
+
     const patch = useCallback(async (id: string, requested: TaskPatch) => {
+        // The affordances that reach here are already disabled in read-only.
+        // This is the backstop for the ones a later change forgets: without it
+        // the failure is an optimistic row that flips, waits for the wire and
+        // rolls back with a 409 nobody asked for.
+        if (readOnlyRef.current) {
+            setError(READ_ONLY_HINT);
+            throw new Error(READ_ONLY_HINT);
+        }
         const previous = tasksRef.current;
         const target = previous.find((task) => task.id === id);
         const changes = withClaimRelease(requested, target ? [target] : []);
@@ -944,6 +962,10 @@ function App() {
 
     const bulkPatch = useCallback(
         async (ids: string[], requested: TaskPatch) => {
+            if (readOnlyRef.current) {
+                setError(READ_ONLY_HINT);
+                throw new Error(READ_ONLY_HINT);
+            }
             const idSet = new Set(ids);
             const previous = tasksRef.current;
             const changes = withClaimRelease(
@@ -1162,6 +1184,7 @@ function App() {
             : VIEW_TITLE[view].toLowerCase());
 
     return (
+        <ReadOnlyProvider value={readOnly}>
         <SidebarProvider
             className="h-svh overflow-hidden"
             style={{ "--sidebar-width": "15rem" } as CSSProperties}
@@ -1187,6 +1210,15 @@ function App() {
                                 className="px-1.5 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
                             >
                                 demo
+                            </Badge>
+                        ) : null}
+                        {readOnly ? (
+                            <Badge
+                                variant="secondary"
+                                className="px-1.5 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
+                                title="The workspace is served read-only; nothing here can be changed."
+                            >
+                                read-only
                             </Badge>
                         ) : null}
                     </div>
@@ -1351,8 +1383,13 @@ function App() {
                         looking. */}
                     <Button
                         type="button"
-                        title="New card"
+                        title={
+                            readOnly
+                                ? "This board is read-only"
+                                : "New card"
+                        }
                         aria-label="New card"
+                        disabled={readOnly}
                         className="shrink-0 max-sm:size-8 max-sm:px-0"
                         onClick={() => setShowNewCard(true)}
                     >
@@ -2039,6 +2076,7 @@ function App() {
                 />
             )}
         </SidebarProvider>
+        </ReadOnlyProvider>
     );
 }
 

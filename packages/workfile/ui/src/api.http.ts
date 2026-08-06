@@ -99,6 +99,7 @@ export const httpApi = {
             repoRoot: workspace.root,
             repoUrl: workspace.repoUrl,
             projectName: workspace.name,
+            readOnly: workspace.readOnly,
             schema: workspace.schema,
             tasks: cards.records
         };

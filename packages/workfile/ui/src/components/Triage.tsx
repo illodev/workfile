@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCheck, PanelRight, RotateCcw } from "lucide-react";
+import { CheckCheck, Lock, PanelRight, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 import { READING_MEASURE } from "../layout";
+import { useReadOnly } from "../read-only";
 import { PRIORITIES, type Priority, type Status, type Task } from "../types";
 import { MarkdownBody } from "./Markdown";
 import { priorityColor, statusColor } from "../theme";
@@ -41,6 +42,7 @@ export function TriageView({
     ) => Promise<void>;
     onOpen: (id: string) => void;
 }) {
+    const readOnly = useReadOnly();
     const [processed, setProcessed] = useState<Set<string>>(() => new Set());
     const [index, setIndex] = useState(0);
     const queue = useMemo(
@@ -75,6 +77,10 @@ export function TriageView({
     );
 
     useEffect(() => {
+        // Hooks run before the read-only early return below, so this listener
+        // is installed either way: without the guard the view showed "triage
+        // needs a writable workspace" while `N` still tried to write one.
+        if (readOnly) return;
         const onKeyDown = (event: KeyboardEvent) => {
             // A modified key belongs to the browser, not to us. Without this,
             // Ctrl+1..4 — universal muscle memory for switching tabs — wrote a
@@ -110,7 +116,7 @@ export function TriageView({
         };
         document.addEventListener("keydown", onKeyDown);
         return () => document.removeEventListener("keydown", onKeyDown);
-    }, [apply, queue.length]);
+    }, [apply, queue.length, readOnly]);
 
     // The demo dataset ships records with an empty `file`; the link only
     // renders when there is a path to open.
@@ -118,6 +124,27 @@ export function TriageView({
         repoUrl
             ? `${repoUrl.replace(/\/+$/, "")}/blob/main/${path}`
             : `vscode://file${repoRoot}/${path}`;
+
+    // Triage is nothing but writes: every key in it assigns a status or a
+    // priority. Disabling the controls one by one would leave a queue that
+    // walks and does nothing, so the view says why it is empty instead.
+    if (readOnly)
+        return (
+            <Empty className="gap-3 p-10">
+                <EmptyHeader>
+                    <EmptyMedia>
+                        <Lock aria-hidden="true" size={20} />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-sm">
+                        Triage needs a writable workspace
+                    </EmptyTitle>
+                    <EmptyDescription className="text-[12.5px]">
+                        This board is served read-only, and every action here
+                        assigns a status or a priority.
+                    </EmptyDescription>
+                </EmptyHeader>
+            </Empty>
+        );
 
     if (!task)
         return (

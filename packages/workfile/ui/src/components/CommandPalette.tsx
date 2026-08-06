@@ -26,6 +26,7 @@ import {
 
 import { api } from "../api";
 import { recordCollection } from "../navigation";
+import { useReadOnly } from "../read-only";
 import type { SearchHit, SearchMode } from "../types";
 
 /**
@@ -104,11 +105,15 @@ export function CommandPalette({
     onCreate: () => void;
     onToggleTheme: () => void;
 }) {
+    const readOnly = useReadOnly();
     const [query, setQuery] = useState("");
     const [hits, setHits] = useState<SearchHit[]>([]);
     const [meta, setMeta] = useState<SearchMeta | null>(null);
     const previousFocus = useRef<Element | null>(null);
 
+    // Dropped rather than disabled: the palette is a list you type into and
+    // run, and a row that matches your query and then declines is a worse
+    // answer than no row.
     const actions = useMemo<Entry[]>(
         () => [
             ...VIEWS.map((view) => ({
@@ -117,7 +122,16 @@ export function CommandPalette({
                 meta: "view",
                 run: () => onNavigate(view)
             })),
-            { key: "new", title: "New card", meta: "action", run: onCreate },
+            ...(readOnly
+                ? []
+                : [
+                      {
+                          key: "new",
+                          title: "New card",
+                          meta: "action",
+                          run: onCreate
+                      }
+                  ]),
             {
                 key: "theme",
                 title: "Toggle theme",
@@ -125,7 +139,7 @@ export function CommandPalette({
                 run: onToggleTheme
             }
         ],
-        [onCreate, onNavigate, onToggleTheme]
+        [onCreate, onNavigate, onToggleTheme, readOnly]
     );
 
     const matchingActions = useMemo(() => {

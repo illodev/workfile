@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { api } from "../api";
+import { READ_ONLY_HINT, useReadOnly } from "../read-only";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor } from "../theme";
 import type {
@@ -931,6 +932,7 @@ function DetailPanel({
      *  click inside that dialog as an interaction outside itself. */
     onDialogOpenChange?: (open: boolean) => void;
 }) {
+    const readOnly = useReadOnly();
     const [editing, setEditing] = useState(false);
     const [lifecycle, setLifecycle] = useState<"" | "graduate" | "supersede">(
         ""
@@ -1050,6 +1052,8 @@ function DetailPanel({
                         type="button"
                         variant="outline"
                         size="sm"
+                        disabled={readOnly}
+                        title={readOnly ? READ_ONLY_HINT : undefined}
                         onClick={() => setEditing(true)}
                     >
                         <Pencil aria-hidden="true" />
@@ -1060,6 +1064,8 @@ function DetailPanel({
                             type="button"
                             variant="outline"
                             size="sm"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={() => setLifecycle("graduate")}
                         >
                             <GraduationCap aria-hidden="true" />
@@ -1071,6 +1077,8 @@ function DetailPanel({
                             type="button"
                             variant="outline"
                             size="sm"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={() => setLifecycle("supersede")}
                         >
                             <Replace aria-hidden="true" />
@@ -1198,6 +1206,7 @@ export function MemoryView({
     search: string;
     onSearchChange: (value: string) => void;
 }) {
+    const readOnly = useReadOnly();
     const [records, setRecords] = useState<MemoryRecord[]>([]);
     const [collection, setCollection] = useState("");
     const [status, setStatus] = useState("");
@@ -1387,6 +1396,10 @@ export function MemoryView({
                                         variant="ghost"
                                         size="icon-xs"
                                         aria-label={`New ${lane.schema.singular}`}
+                                        disabled={readOnly}
+                                        title={
+                                            readOnly ? READ_ONLY_HINT : undefined
+                                        }
                                         onClick={() =>
                                             setCreateFor(lane.schema.id)
                                         }

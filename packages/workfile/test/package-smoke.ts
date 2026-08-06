@@ -9,6 +9,7 @@ import {
     rm,
     writeFile
 } from "node:fs/promises";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -47,9 +48,9 @@ async function exists(path) {
     }
 }
 
-async function waitForServer(child) {
+async function waitForServer(child): Promise<string> {
     const lines = createInterface({ input: child.stdout });
-    return await new Promise((resolve, reject) => {
+    return await new Promise<string>((resolve, reject) => {
         const timeout = setTimeout(() => {
             lines.close();
             reject(new Error("Timed out waiting for the packaged UI server."));
@@ -437,9 +438,65 @@ void provider;
         server.kill();
     }
 
+    // A published board: read-only, bound to every interface, answering to a
+    // name that is not its bind address. Every part of that combination is a
+    // flag, and all three have to hold at once for the deployment to work —
+    // `--host 0.0.0.0` alone made the origin guard refuse the very name the
+    // board was published under.
+    const published = spawn(
+        project,
+        [
+            "ui",
+            "--root",
+            consumer,
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "0",
+            "--read-only",
+            "--allowed-host",
+            "board.example"
+        ],
+        { cwd: consumer, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    try {
+        const url = await waitForServer(published);
+        const port = Number(new URL(url).port);
+
+        const write = await fetch(`${url}/api/v2/cards`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: "Refused", area: "api" })
+        });
+        assert.equal(write.status, 409);
+        assert.equal((await write.json()).error.code, "WORKSPACE_READ_ONLY");
+
+        // `fetch` drops a manually set Host, so the allowlist needs a socket.
+        const status = (host: string) =>
+            new Promise<string>((done) => {
+                const socket = connect(port, "127.0.0.1", () => {
+                    socket.write(
+                        `GET /api/v2/workspace HTTP/1.1\r\nHost: ${host}\r\n` +
+                            "Connection: close\r\n\r\n"
+                    );
+                });
+                let buffer = "";
+                socket.on("data", (chunk) => (buffer += chunk));
+                socket.on("end", () => done(buffer.split("\r\n")[0]));
+            });
+
+        assert.match(await status("board.example"), /^HTTP\/1\.1 200/);
+        // Named hosts add to the loopback set instead of replacing it, or the
+        // container healthcheck of a published board would 403.
+        assert.match(await status(`127.0.0.1:${port}`), /^HTTP\/1\.1 200/);
+        assert.match(await status("attacker.example"), /^HTTP\/1\.1 403/);
+    } finally {
+        published.kill();
+    }
+
     console.log(
         `Package smoke passed: ${packageJson.name}@${packageJson.version} ` +
-            "(install, init, Work, Docs, History, Memory, MCP, UI)"
+            "(install, init, Work, Docs, History, Memory, MCP, UI, read-only board)"
     );
 } finally {
     await rm(temporaryRoot, { recursive: true, force: true });

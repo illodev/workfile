@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 
 import { api } from "../api";
 import { READING_MEASURE } from "../layout";
+import { READ_ONLY_HINT, useReadOnly } from "../read-only";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
 import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
@@ -393,6 +394,7 @@ export function DocsView({
     search: string;
     onSearchChange: (value: string) => void;
 }) {
+    const readOnly = useReadOnly();
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -776,6 +778,10 @@ export function DocsView({
                                         type="button"
                                         variant="outline"
                                         size="sm"
+                                        disabled={readOnly}
+                                        title={
+                                            readOnly ? READ_ONLY_HINT : undefined
+                                        }
                                         onClick={() =>
                                             setEditingBody((value) => !value)
                                         }
@@ -791,6 +797,10 @@ export function DocsView({
                                         type="button"
                                         variant="outline"
                                         size="sm"
+                                        disabled={readOnly}
+                                        title={
+                                            readOnly ? READ_ONLY_HINT : undefined
+                                        }
                                         onClick={() => openMetadata(active)}
                                     >
                                         <SlidersHorizontal aria-hidden="true" />

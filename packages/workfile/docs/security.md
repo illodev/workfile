@@ -90,6 +90,24 @@ add.
 Treat `--host` as equivalent to publishing the repository, and prefer an SSH
 tunnel.
 
+A wildcard bind (`--host 0.0.0.0`, which is what serving from a container
+needs) contributes nothing to the allowlist, so the board also needs
+`--allowed-host` to name the address people will reach it by. Both flags are
+about reachability; neither adds authentication.
+
+## Publishing a board people only read
+
+`workfile ui --read-only` loads the workspace read-only, so every mutating
+route answers `409 WORKSPACE_READ_ONLY` — the same `ensureWritable` guard the
+MCP server uses, applied in the one place all writes pass through, not per
+route. The UI reads the flag and stands its editing affordances down.
+
+This narrows what a reader can do; it does not decide who the readers are. A
+published board still serves every card, document, changelog fragment and
+memory record to anyone who can reach it, so put something that authenticates
+in front of it — the deployment shape this was built for is a reverse proxy
+with HTTP basic auth, with the board itself on an internal network.
+
 ## What is deliberately out of scope
 
 - **Multi-user authorisation.** There are no accounts and no roles. A workspace

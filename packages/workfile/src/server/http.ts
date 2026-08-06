@@ -617,7 +617,16 @@ function sanitizeAssetName(value) {
     return name && !name.startsWith(".") ? name : null;
 }
 
-const LOOPBACK_HOSTS = Object.freeze(["127.0.0.1", "localhost", "::1"]);
+/**
+ * Exported because a caller that names its own `allowedHosts` REPLACES this
+ * set, and a board published under a public name still has to answer its own
+ * container healthcheck on localhost. The union belongs to whoever builds the
+ * list, so they need to be able to spell it.
+ */
+export const LOOPBACK_HOSTS = Object.freeze(["127.0.0.1", "localhost", "::1"]);
+
+/** Bind addresses that mean "every interface" rather than naming one. */
+const WILDCARD_HOSTS = new Set(["0.0.0.0", "::"]);
 
 /** Strips brackets and the port from a Host or Origin authority. */
 function hostnameOf(authority) {
@@ -1885,7 +1894,7 @@ export async function startProjectServer(
             ? allowedHosts
             : [
                   ...LOOPBACK_HOSTS,
-                  ...(host && !["0.0.0.0", "::"].includes(host) ? [host] : [])
+                  ...(host && !WILDCARD_HOSTS.has(host) ? [host] : [])
               ];
     const server = createProjectServer(workspace, {
         uiDir,
@@ -1945,7 +1954,17 @@ export async function startProjectServer(
         requested: port,
         /** The port that was taken, and who had it — null when none was. */
         displaced: actualPort === port ? null : displaced,
-        url: `http://${host}:${actualPort}`,
+        /**
+         * An address that actually answers.
+         *
+         * A wildcard bind is not a hostname: `http://0.0.0.0:4747` reaches the
+         * server and is then refused by the origin guard, because `0.0.0.0` is
+         * never in the allowlist — so `--host 0.0.0.0` printed a link whose
+         * only effect was `REQUEST_ORIGIN_FORBIDDEN`. Loopback is in the
+         * allowlist by construction and reaches a wildcard bind, so that is
+         * what gets reported.
+         */
+        url: `http://${WILDCARD_HOSTS.has(host) ? "127.0.0.1" : host}:${actualPort}`,
         events: (server as any).projectEvents,
         close: () =>
             new Promise<void>((resolve, reject) => {

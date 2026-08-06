@@ -37,6 +37,7 @@ import {
     loadMemory,
     loadWorkspace,
     inspectMcpServer,
+    LOOPBACK_HOSTS,
     mcpClientConfiguration,
     moveManagedDocument,
     normalizeError,
@@ -135,7 +136,11 @@ const USAGE: Record<string, string[]> = {
         "workfile upgrade [--dry-run] [--json]   # resync every owned surface after a version bump"
     ],
     version: ["workfile version"],
-    ui: ["workfile ui [--host HOST] [--port PORT] [--verbose]"],
+    ui: [
+        "workfile ui [--host HOST] [--port PORT] [--verbose]",
+        "workfile ui --read-only   # serve the board without a way to change anything",
+        "workfile ui --host 0.0.0.0 --allowed-host board.example.com   # repeatable; `*` disables the check"
+    ],
     card: [
         "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
         "workfile card show ID [--json]",
@@ -628,8 +633,10 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--query"
     ],
     "ui": [
+        "--allowed-host",
         "--host",
-        "--port"
+        "--port",
+        "--read-only"
     ],
     "upgrade": [],
     "version": []
@@ -722,7 +729,12 @@ const BOOLEAN_FLAGS = new Set([
  * `option()` returns the first match and drops the rest. For anything not
  * listed here that is a silently discarded instruction, so it is refused.
  */
-const REPEATABLE_FLAGS = new Set(["--check", "--uncheck", "--axis"]);
+const REPEATABLE_FLAGS = new Set([
+    "--check",
+    "--uncheck",
+    "--axis",
+    "--allowed-host"
+]);
 
 /**
  * Refuses flags the subcommand does not know, instead of ignoring them.
@@ -1042,6 +1054,25 @@ function repeatedNumbers(name) {
                 );
             }
             values.push(value);
+        }
+    }
+    return values;
+}
+
+/**
+ * The string form of `repeatedNumbers`: every occurrence, comma-lists split.
+ *
+ * Empty entries are dropped rather than passed on, because a trailing comma in
+ * `--allowed-host a,b,` would otherwise put `""` in an allowlist — and an empty
+ * string matches the hostname of a request that carries no Host at all.
+ */
+function repeatedOption(name) {
+    const values: string[] = [];
+    for (let index = 0; index < process.argv.length; index += 1) {
+        if (process.argv[index] !== name) continue;
+        for (const part of String(process.argv[index + 1] || "").split(",")) {
+            const value = part.trim();
+            if (value) values.push(value);
         }
     }
     return values;
@@ -2470,10 +2501,20 @@ async function main() {
         await initCommand(root);
         return;
     }
+    // `--read-only` reaches the workspace itself, not just the surface that
+    // reads it. `assertKnownFlags` has already refused the flag on every
+    // command that does not list it, so this only fires for `ui` and `mcp` —
+    // and for `mcp` it closes a real gap: hiding the mutating tools left the
+    // workspace writable, so anything that reached a mutation another way
+    // still wrote. `ensureWritable` is the guard that actually holds.
     const workspace = await loadWorkspace(
         explicitRoot
-            ? { root: explicitRoot }
-            : { cwd: root, allowMissing: has("--allow-new") }
+            ? { root: explicitRoot, readOnly: has("--read-only") }
+            : {
+                  cwd: root,
+                  allowMissing: has("--allow-new"),
+                  readOnly: has("--read-only")
+              }
     );
     // Resolution walks five steps, and picking the wrong ancestor writes into
     // the wrong repository — which stops being hypothetical the moment someone
@@ -2646,17 +2687,45 @@ async function main() {
         return;
     }
     if (command === "ui" || command === "serve") {
+        // Without this the board cannot be reached under any name but the one
+        // it binds to: the origin guard answers only to the loopback set plus
+        // `--host`, and `--host` is excluded from that when it is `0.0.0.0` —
+        // which is exactly what serving it from a container requires. So a
+        // published board 403'd every request and the flag that would have
+        // fixed it did not exist.
+        //
+        // Named hosts are ADDED to the loopback set rather than replacing it,
+        // which is what `startProjectServer` does with the raw option: a board
+        // that answers only to `board.example.com` cannot answer its own
+        // container healthcheck, and refusing localhost buys nothing — the
+        // rebinding it guards against arrives carrying the attacker's name.
+        const namedHosts = repeatedOption("--allowed-host");
+        const allowedHosts = namedHosts.length
+            ? [...LOOPBACK_HOSTS, ...namedHosts]
+            : [];
         const server = await startProjectServer(workspace, {
             verbose: has("--verbose"),
             host: option("--host") || workspace.config.ui.host,
             port: option("--port")
                 ? numberOption("--port", { min: 0, max: 65535 })
                 : workspace.config.ui.port,
+            allowedHosts,
             // A port nobody named may move; a port somebody named may not.
             searchForFreePort: !option("--port")
         });
         console.log(`Workfile → ${server.url}`);
         console.log(`Workspace: ${workspace.root}`);
+        // Said out loud because it is invisible otherwise: a read-only board
+        // looks exactly like a writable one until something refuses to save.
+        if (workspace.readOnly) {
+            console.log("Read-only: every mutating route answers 409.");
+        }
+        if (namedHosts.includes("*")) {
+            console.log(
+                "Host check disabled by --allowed-host '*'. The server has no " +
+                    "authentication, so put it behind something that does."
+            );
+        }
         if (server.displaced) {
             const holder = server.displaced.holder;
             console.log(

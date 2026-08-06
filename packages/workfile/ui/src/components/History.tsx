@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 
 import { api } from "../api";
 import { READING_MEASURE } from "../layout";
+import { READ_ONLY_HINT, useReadOnly } from "../read-only";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor, statusColor } from "../theme";
 import type {
@@ -744,6 +745,7 @@ export function HistoryView({
     search: string;
     onSearchChange: (value: string) => void;
 }) {
+    const readOnly = useReadOnly();
     const [records, setRecords] = useState<HistoryRecord[]>([]);
     const [state, setState] = useState("");
     const [visibility, setVisibility] = useState("");
@@ -904,6 +906,8 @@ export function HistoryView({
             type="button"
             variant="outline"
             size="sm"
+            disabled={readOnly}
+            title={readOnly ? READ_ONLY_HINT : undefined}
             onClick={() => setShowCreate(true)}
         >
             <Plus aria-hidden="true" />
@@ -939,6 +943,8 @@ export function HistoryView({
                             type="button"
                             size="sm"
                             className="whitespace-nowrap"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={prepareRelease}
                         >
                             Prepare release
@@ -1255,7 +1261,7 @@ export function HistoryView({
                             />
                         </div>
 
-                        {active.kind === "change" ? (
+                        {active.kind === "change" && !readOnly ? (
                             <div className="mt-5.5">
                                 <FragmentEditor
                                     key={`${active.id}:${active.revision}`}

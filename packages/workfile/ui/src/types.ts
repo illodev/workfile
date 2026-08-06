@@ -157,6 +157,14 @@ export interface TaskResponse {
     /** When set (hosted demo), file links point here instead of vscode://. */
     repoUrl?: string;
     projectName: string;
+    /**
+     * The workspace refuses writes (`workfile ui --read-only`).
+     *
+     * The server has always said so and the UI has always thrown it away, so a
+     * published board offered every control it had and each one failed with a
+     * 409 on click. Editing affordances read this and stand down.
+     */
+    readOnly?: boolean;
     schema: RuntimeSchema;
     tasks: Task[];
 }

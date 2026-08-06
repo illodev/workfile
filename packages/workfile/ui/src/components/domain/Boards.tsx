@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Accent } from "../Accent";
 import { FilterBar, FilterChip } from "../FilterBar";
+import { useReadOnly } from "../../read-only";
 import { priorityColor, severityColor, statusColor } from "../../theme";
 import {
     axisFor,
@@ -222,6 +223,10 @@ function FlowColumn({
     onDragEnterColumn?: (status: Status) => void;
     onDragLeaveColumn?: (status: Status) => void;
 }) {
+    // Drag is the one affordance with nothing to grey out: a tile that lifts
+    // and then snaps back with an error is worse than a tile that does not
+    // lift, so read-only takes the handlers away and `draggable` follows.
+    const readOnly = useReadOnly();
     const [shown, hasMore, showMore] = useIncremental(cards, 25);
     const color = statusColor(status);
     // A collapsed column is still a column: it takes drops, it highlights while
@@ -373,15 +378,24 @@ function FlowColumn({
                             task={task}
                             epicId={epicIds.get(task.id)}
                             onOpen={onOpen}
-                            onCarry={onCarry ? () => onCarry(task) : undefined}
+                            onCarry={
+                                onCarry && !readOnly
+                                    ? () => onCarry(task)
+                                    : undefined
+                            }
                             carrying={carryingId === task.id}
-                            onDragStart={(event) => {
-                                event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData(
-                                    "text/plain",
-                                    task.id
-                                );
-                            }}
+                            onDragStart={
+                                readOnly
+                                    ? undefined
+                                    : (event) => {
+                                          event.dataTransfer.effectAllowed =
+                                              "move";
+                                          event.dataTransfer.setData(
+                                              "text/plain",
+                                              task.id
+                                          );
+                                      }
+                            }
                         />
                     ))
                 )}

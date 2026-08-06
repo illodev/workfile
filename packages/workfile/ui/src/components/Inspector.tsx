@@ -38,6 +38,7 @@ import { Item } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 
 import { api } from "../api";
+import { READ_ONLY_HINT, useReadOnly } from "../read-only";
 import { priorityColor, statusColor } from "../theme";
 import { BodyEditor } from "./BodyEditor";
 import { MarkdownBody } from "./Markdown";
@@ -166,6 +167,10 @@ function CardInspector({
     onArchive,
     onUpload
 }: CardInspectorProps) {
+    // Disables rather than hides: the rail's action row is how a reader learns
+    // what a card can do, and an empty row would read as a board that never had
+    // those verbs instead of one that is not accepting them right now.
+    const readOnly = useReadOnly();
     const [editingProps, setEditingProps] = useState(false);
     const [editingBody, setEditingBody] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -450,6 +455,8 @@ function CardInspector({
                         <Button
                             variant="outline"
                             size="sm"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={() =>
                                 void onPatch(task.id, {
                                     claimed_by: null,
@@ -463,6 +470,8 @@ function CardInspector({
                         <Button
                             variant="outline"
                             size="sm"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={() =>
                                 void onPatch(task.id, {
                                     claimed_by: "ui-local",
@@ -475,7 +484,12 @@ function CardInspector({
                     )}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={readOnly}
+                                title={readOnly ? READ_ONLY_HINT : undefined}
+                            >
                                 Transition
                                 <ChevronDown aria-hidden="true" />
                             </Button>
@@ -513,6 +527,8 @@ function CardInspector({
                     <Button
                         variant="outline"
                         size="sm"
+                        disabled={readOnly}
+                        title={readOnly ? READ_ONLY_HINT : undefined}
                         onClick={() => {
                             if (
                                 task.archived ||
@@ -535,6 +551,8 @@ function CardInspector({
                 <Button
                     variant="outline"
                     size="sm"
+                    disabled={readOnly}
+                    title={readOnly ? READ_ONLY_HINT : undefined}
                     onClick={() => fileRef.current?.click()}
                 >
                     <Upload aria-hidden="true" />
@@ -607,6 +625,8 @@ function CardInspector({
                         <Button
                             variant="outline"
                             size="xs"
+                            disabled={readOnly}
+                            title={readOnly ? READ_ONLY_HINT : undefined}
                             onClick={openPropertyEditor}
                         >
                             <Pencil aria-hidden="true" />
@@ -618,7 +638,7 @@ function CardInspector({
                     <PropertyEditor
                         values={draft}
                         definitions={definitions}
-                        disabled={saving}
+                        disabled={saving || readOnly}
                         onOpenReference={onOpen}
                         onChange={(key, value) =>
                             setDraft((state) =>
@@ -628,9 +648,12 @@ function CardInspector({
                     />
                 ) : (
                     <div
-                        className="grid cursor-pointer grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border"
-                        title="Edit properties"
-                        onClick={openPropertyEditor}
+                        className={cn(
+                            "grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border",
+                            !readOnly && "cursor-pointer"
+                        )}
+                        title={readOnly ? READ_ONLY_HINT : "Edit properties"}
+                        onClick={readOnly ? undefined : openPropertyEditor}
                     >
                         {metaCells.map((cell, index) => (
                             <span
@@ -802,6 +825,8 @@ function CardInspector({
                     <Button
                         variant="outline"
                         size="xs"
+                        disabled={readOnly}
+                        title={readOnly ? READ_ONLY_HINT : undefined}
                         onClick={() => setEditingBody((state) => !state)}
                     >
                         {editingBody ? (
@@ -884,37 +909,44 @@ function CardInspector({
                         </AttachmentContent>
                     </Attachment>
                 ))}
-                <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Attach files"
-                    data-dragover={dropOver ? true : undefined}
-                    className="cursor-pointer rounded-lg border border-dashed bg-background px-2.5 py-3.5 text-center transition-colors data-[dragover]:border-primary data-[dragover]:bg-primary/10"
-                    onClick={() => fileRef.current?.click()}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
+                {/* The drop zone is removed rather than disabled: a dashed
+                    rectangle inviting a drag is the affordance itself, and
+                    there is no greyed-out form of "drop files here" that
+                    stops a drag from being attempted. */}
+                {readOnly ? null : (
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Attach files"
+                        data-dragover={dropOver ? true : undefined}
+                        className="cursor-pointer rounded-lg border border-dashed bg-background px-2.5 py-3.5 text-center transition-colors data-[dragover]:border-primary data-[dragover]:bg-primary/10"
+                        onClick={() => fileRef.current?.click()}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                fileRef.current?.click();
+                            }
+                        }}
+                        onDragOver={(event: DragEvent<HTMLDivElement>) => {
                             event.preventDefault();
-                            fileRef.current?.click();
-                        }
-                    }}
-                    onDragOver={(event: DragEvent<HTMLDivElement>) => {
-                        event.preventDefault();
-                        setDropOver(true);
-                    }}
-                    onDragLeave={() => setDropOver(false)}
-                    onDrop={(event: DragEvent<HTMLDivElement>) => {
-                        event.preventDefault();
-                        setDropOver(false);
-                        void onUpload(task.id, event.dataTransfer.files);
-                    }}
-                >
-                    {/* Inert label: `dragleave` bubbles, so a hit-testable
-                        child would clear the drag state the moment the pointer
-                        crossed onto it. Clicks retarget to the zone. */}
-                    <span className="pointer-events-none text-[11px] text-muted-foreground">
-                        Drop files here or click to browse.
-                    </span>
-                </div>
+                            setDropOver(true);
+                        }}
+                        onDragLeave={() => setDropOver(false)}
+                        onDrop={(event: DragEvent<HTMLDivElement>) => {
+                            event.preventDefault();
+                            setDropOver(false);
+                            void onUpload(task.id, event.dataTransfer.files);
+                        }}
+                    >
+                        {/* Inert label: `dragleave` bubbles, so a hit-testable
+                            child would clear the drag state the moment the
+                            pointer crossed onto it. Clicks retarget to the
+                            zone. */}
+                        <span className="pointer-events-none text-[11px] text-muted-foreground">
+                            Drop files here or click to browse.
+                        </span>
+                    </div>
+                )}
             </div>
         </>
     );

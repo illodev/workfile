@@ -160,4 +160,8 @@ export {
 } from "./modules/health/baseline.js";
 export { runUpgrade } from "./modules/upgrade/index.js";
 
-export { createProjectServer, startProjectServer } from "./server/http.js";
+export {
+    createProjectServer,
+    startProjectServer,
+    LOOPBACK_HOSTS
+} from "./server/http.js";

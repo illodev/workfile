@@ -609,6 +609,7 @@ workfile init
 workfile schema --json
 workfile doctor --json
 workfile ui
+workfile ui --read-only --host 0.0.0.0 --allowed-host board.example.com
 ```
 
 Commands return stable machine-readable errors with `--json`. A stale revision exits with
@@ -617,6 +618,12 @@ with code `1`. The complete command surface is documented in
 [`docs/cli.md`](packages/workfile/docs/cli.md).
 
 ## HTTP API
+
+`workfile ui --read-only --host 0.0.0.0 --allowed-host board.example.com` serves the same
+board as a thing people read: every mutating route answers `409 WORKSPACE_READ_ONLY` and
+the UI drops its editing affordances. There is still no authentication of its own, so put
+a reverse proxy that authenticates in front of anything published this way — see
+[`docs/security.md`](packages/workfile/docs/security.md).
 
 `workfile ui` starts the local server, normally at `http://127.0.0.1:4747`. The versioned
 `/api/v2/*` surface covers the workspace, unified search, and every collection — cards,

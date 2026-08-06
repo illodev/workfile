@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 — 2026-08-06
+
+### Added
+
+- workfile ui gains --read-only and --allowed-host, so a board can be published for reading
+
 ## 0.7.0 — 2026-08-05
 
 ### Added

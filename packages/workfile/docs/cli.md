@@ -52,7 +52,7 @@ one needs to find the correction where the mistake was.
 | `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `changelog release`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
 | `--force` — proceed past the check the command would otherwise fail | `agents sync`, `card claim`, `card patch`, `card release`, `card transition`, `ci sync`, `claude install`, `claude sync`, `init`, `migrate apply` |
 | `--reason TEXT` — why a check was waived; recorded on the card | `card claim`, `card patch`, `card release`, `card transition` |
-| `--read-only` — disable the MCP mutation tools | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio` |
+| `--read-only` — load the workspace read-only: every write answers `WORKSPACE_READ_ONLY` | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio`, `ui` |
 | `--yes` — accept the initializer defaults without prompting | `init` |
 
 Exit codes: `3` stale revision · `2` configuration error · `1` validation / not found.
@@ -91,7 +91,7 @@ workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-
 workfile doctor --new              # only what appeared since the baseline
 workfile doctor --accept-baseline  # record the current state as known
 workfile upgrade [--dry-run] [--json]
-workfile ui [--host HOST] [--port PORT] [--verbose]
+workfile ui [--host HOST] [--port PORT] [--allowed-host HOST] [--read-only] [--verbose]
 workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]
 workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]
 ```
@@ -103,6 +103,21 @@ says which project holds the one it wanted. A port you named yourself does not
 move — an explicit `--port` that is in use fails with `UI_PORT_IN_USE` rather
 than landing somewhere you did not ask for. Set `ui.port` per project to keep
 each board at an address you can remember.
+
+`ui --read-only` serves the same board with the workspace loaded read-only:
+every mutating route answers `409 WORKSPACE_READ_ONLY`, the index cache is not
+written, and the UI drops its editing affordances rather than offering writes
+that cannot land. That is the shape to publish — a shared board people read.
+
+`ui --allowed-host HOST` names a host the board may answer to, repeatable and
+comma-separable. It is required to publish one at all: the server refuses any
+`Host` outside its allowlist (the guard that makes DNS rebinding fail), and
+that list is the loopback set plus `--host` — which contributes nothing when
+`--host` is `0.0.0.0`, the value serving from a container needs. Named hosts
+are added to the loopback set, not swapped for it, so a container healthcheck
+on `localhost` keeps working. `--allowed-host '*'` turns the check off; the
+server has no authentication of its own, so anything published that way needs
+something in front of it that does.
 
 `next` answers what to pick up now: work you already claimed first, then
 unblocked cards by priority, with unmet dependencies excluded rather than ranked
