@@ -1,5 +1,5 @@
 ---
-# workfile kind=claude-command-done version=0.7.0 digest=sha256:8c5f5d74e6308e72f0f151dc444169322891ccd7e6330a79d3cdc397363e5d01
+# workfile kind=claude-command-done version=0.8.0 digest=sha256:8c5f5d74e6308e72f0f151dc444169322891ccd7e6330a79d3cdc397363e5d01
 description: "Finish a card: verify, record, release"
 argument-hint: "[T-0042]"
 allowed-tools: "Bash(pnpm workfile card transition *), Bash(pnpm workfile changelog add *), Bash(pnpm workfile doctor *)"
