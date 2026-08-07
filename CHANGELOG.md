@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.1 — 2026-08-07
+
+### Added
+
+- Documentation trees can declare that their links are routes (T-0217)
+
+### Fixed
+
+- --help lists every flag a subcommand accepts (T-0215)
+- Patching a body keeps the blank line under the frontmatter (T-0216)
+
 ## 0.8.0 — 2026-08-06
 
 ### Added
