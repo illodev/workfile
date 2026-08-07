@@ -1390,6 +1390,14 @@ test("a claim taken after session start is visible to the guard", async () => {
             fromMutation.claims,
             "the hook's builder and the core's must produce the same board"
         );
+        // Including the session T-0219 added. `agent-elsewhere` holds no session
+        // here and `null` is the honest answer for it, so this pins the field's
+        // presence; the case where a session is actually resolved is the shared
+        // actor test below, which is where a non-null value can be produced.
+        assert.ok(
+            fromMutation.claims.every((claim: any) => "session" in claim),
+            "the board entry lost its session field"
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -1675,6 +1683,81 @@ const SEPARATION_CASES: ReadonlyArray<{
     }
 ];
 
+/**
+ * Two agents handed the same `--actor`, which is the residual ADR-0020 left open.
+ *
+ * The board carried `claimedBy` and no session, so the guard could recover a
+ * session only from the actor's tail — and a `claimed_by` written from an
+ * explicit `--actor` has no tail. Two agents sharing one saw a string equal to
+ * their own and the guard stayed silent, which is the collision it exists to
+ * prevent. LRN-0030 recorded it; T-0219 is putting the session on the entry.
+ *
+ * Driven through the real hook rather than over `separatesFromMe`, because what
+ * broke was the *board*, not the comparison: a rule reading a field nobody wrote
+ * is right and useless.
+ */
+test("two agents sharing an explicit actor do not look like one process", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-shared-actor-"));
+    const shared = "ci-runner";
+    const first = "11111111-1111-4111-8111-111111111111";
+    const second = "22222222-2222-4222-8222-222222222222";
+    const env = { ...BLANK, USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: shared };
+    const edit = (session: string) => ({
+        session_id: session,
+        tool_name: "Edit",
+        tool_input: { file_path: join(root, "src/api/billing.ts") }
+    });
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const card = await createCard(workspace, { title: "Contested", area: "api" });
+
+        // Agent A opens, which is what writes its session file, and takes the
+        // card with the shared actor — no tail, so the actor carries nothing.
+        await runHook("session-start", { session_id: first }, root, env);
+        await claimCard(workspace, card.id, { actor: shared, scope: ["src/api"] });
+        assert.equal(
+            (await loadCards(workspace)).cards.find((entry: any) => entry.id === card.id)
+                ?.claimed_by,
+            shared,
+            "the claim did not record the shared actor"
+        );
+
+        // A itself must still be free to work.
+        const own = await runHook("pre-tool-use", edit(first), root, env);
+        assert.equal(
+            own.stdout.trim(),
+            "",
+            `the guard asked agent A about its own card: ${own.stdout}`
+        );
+
+        // Agent B opens with its own session and the same actor. Its session start
+        // rebuilds the board, which must keep A's session on the entry rather than
+        // overwrite it with B's — the entry belongs to the claim, not to whoever
+        // last rebuilt the file.
+        await runHook("session-start", { session_id: second }, root, env);
+        const board = JSON.parse(
+            await readFile(join(root, ".project/.cache/activity/board.json"), "utf8")
+        );
+        const entry = board.claims.find((claim: any) => claim.id === card.id);
+        assert.equal(
+            entry?.session,
+            "11111111",
+            `the entry carries the wrong session: ${JSON.stringify(entry)}`
+        );
+
+        const contested = await runHook("pre-tool-use", edit(second), root, env);
+        assert.match(
+            JSON.parse(contested.stdout || "{}").hookSpecificOutput
+                ?.permissionDecisionReason ?? "",
+            new RegExp(card.id),
+            "two agents sharing an actor were treated as one process"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("the scope guard and the activity snapshot apply one separation rule", async () => {
     for (const scenario of SEPARATION_CASES) {
         const root = await mkdtemp(join(tmpdir(), "workfile-separation-"));
@@ -1700,22 +1783,36 @@ test("the scope guard and the activity snapshot apply one separation rule", asyn
                 scenario.actorEnv ||
                 resolveActor({ sessionId: scenario.session, env }).actor;
 
-            // What the snapshot would say about these two identities. The guard
-            // compares a claim against a live process rather than two claims, so
-            // the second side is this session's identity.
-            const basis = claimSeparation(
-                { by: scenario.claimedBy, sessionId: null },
-                { by: mine, sessionId: scenario.actorEnv ? null : scenario.session }
-            );
-            const shouldPrompt = Boolean(basis) && basis !== "unproven";
-
-            // The board the guard reads is written at session start.
+            // The board the guard reads is written at session start, and since
+            // T-0219 its entries carry the session resolved for each claim — so
+            // the model below has to read it from there rather than assume null.
+            // It did assume null, and the two rules then agreed by coincidence on
+            // the one case where the board had learned something the model had
+            // not: a pin that agrees for the wrong reason has stopped pinning.
             await runHook(
                 "session-start",
                 { session_id: scenario.session },
                 root,
                 env
             );
+            const entry = JSON.parse(
+                await readFile(
+                    join(root, ".project/.cache/activity/board.json"),
+                    "utf8"
+                )
+            ).claims.find((claim: any) => claim.id === card.id);
+            assert.ok(entry, `${scenario.label}: the claim is not on the board`);
+
+            // What the snapshot would say about these two identities. The guard
+            // compares a claim against a live process rather than two claims, so
+            // the second side is this session's identity — which always has a
+            // session, whatever `WORKFILE_ACTOR` says, because it comes off the
+            // hook payload rather than out of the actor string.
+            const basis = claimSeparation(
+                { by: scenario.claimedBy, sessionId: entry.session },
+                { by: mine, sessionId: scenario.session }
+            );
+            const shouldPrompt = Boolean(basis) && basis !== "unproven";
             const guard = await runHook(
                 "pre-tool-use",
                 {

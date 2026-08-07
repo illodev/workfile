@@ -161,15 +161,33 @@ function schema(properties, required: string[] = []) {
 /**
  * A declared reply shape.
  *
- * Never a closed object: `toolResult` appends `truncated` when a payload
+ * Never a closed object: `toolResult` appends `resultTruncated` when a payload
  * exceeds `mcp.maxToolResultBytes`, and a closed schema would make its own
- * degradation path invalid.
+ * degradation path invalid. Declared rather than merely allowed, so a caller
+ * reads it from the schema instead of discovering it when a payload gets large —
+ * and so it cannot be confused with a `truncated` a tool declares for its own
+ * reasons, which is what T-0147 was about.
  */
+const RESULT_TRUNCATED = {
+    type: "object",
+    additionalProperties: true,
+    description:
+        "Present only when the reply exceeded mcp.maxToolResultBytes and the " +
+        "server degraded it rather than failing. `records` counts the rows " +
+        "dropped; `bodyBytes` gives the original size of a body that was clipped. " +
+        "This is the transport speaking, never the tool: a `truncated` field " +
+        "beside it means whatever that tool documents.",
+    properties: {
+        records: { type: "integer" },
+        bodyBytes: { type: "integer" }
+    }
+};
+
 function output(properties, required: string[] = []) {
     return {
         type: "object",
         additionalProperties: true,
-        properties,
+        properties: { ...properties, resultTruncated: RESULT_TRUNCATED },
         ...(required.length ? { required } : {})
     };
 }

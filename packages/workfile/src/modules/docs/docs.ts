@@ -55,6 +55,11 @@ export const DOC_REQUIRED_KEYS = Object.freeze([
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The filename a managed document with this id and title would get today. */
+export function documentFileName(id, title) {
+    return `${id}-${slugify(title)}.md`;
+}
+
 function slugify(title) {
     return (
         String(title)

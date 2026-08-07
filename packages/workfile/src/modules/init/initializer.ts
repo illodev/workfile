@@ -1,3 +1,4 @@
+import { stripTrailingSlashes } from "../../core/glob.js";
 import { readFile } from "node:fs/promises";
 import { mkdir, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
@@ -297,7 +298,7 @@ export async function planInitialization(rootInput, options: any = {}) {
     // that moved it would otherwise commit its persisted index.
     const gitignoreAfter = addGitignoreEntry(
         gitignoreBefore,
-        `${config.storage.cache.replace(/\/+$/, "")}/`
+        `${stripTrailingSlashes(config.storage.cache)}/`
     );
     actions.push(
         fileAction(

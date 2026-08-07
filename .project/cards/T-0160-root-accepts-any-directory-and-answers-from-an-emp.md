@@ -1,15 +1,20 @@
 ---
 id: T-0160
 title: --root accepts any directory and answers from an empty workspace
-status: backlog
+status: done
 type: bug
 priority: low
 area: core
 effort: S
-scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/core]
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/workspace]
 origin: [T-0159]
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-07
+verified:
+  at: "2026-08-07T22:58:21.710Z"
+  method: local
+  commit: 9cfb0175194fc944ab34f527c800adf4c1b486d2
+  digest: "sha256:e3afefb220be80685c23d420ec7ffb7e24b0f57d9ada1868fbf6dd3707a8c919"
 ---
 
 `workfile doctor --root packages/workfile` runs. It reports six
@@ -48,8 +53,17 @@ resolving to a parent would be a second surprise rather than a fix.
 
 ## Acceptance criteria
 
-- [ ] `--root` pointed at a directory with no workspace marker is an error
-- [ ] The error names the directory and points at `init` or `--allow-new`
-- [ ] `--allow-new` still accepts a not-yet-workspace directory
-- [ ] Nothing writes a cache into a directory that failed the check
-- [ ] `pnpm run check` green, doctor 0/0
+- [x] `--root` pointed at a directory with no workspace marker is an error
+- [x] The error names the directory and points at `init` or `--allow-new`
+- [x] `--allow-new` still accepts a not-yet-workspace directory
+- [x] Nothing writes a cache into a directory that failed the check
+- [x] `pnpm run check` green, doctor 0/0
+
+## Activity
+
+- 2026-08-07 22:17Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 22:58Z illodev@local#42eb42f5 · released
+
+## Notes
+
+- 2026-08-07 22:58Z illodev@local#42eb42f5 — local verification: The card's own reproduction now exits 2: `doctor --root packages/workfile` names the directory and both ways forward instead of reporting six issues and exiting 0. `card list` the same. `--allow-new` still accepts one, and it reaches that branch now — it never did, which is how an explicit root came to check nothing. A real workspace is unaffected, and nothing was written into the directory that failed. Strict rather than a walk, so a root inside a workspace is refused rather than silently resolved upward; both halves mutation-proven.

@@ -7,6 +7,7 @@ import {
     VERIFICATION_POLICY_DEFAULT_AREA,
     VERIFY_TIMEOUT_SECONDS_DEFAULT
 } from "../../config/defaults.js";
+import { stripTrailingSlashes } from "../../core/glob.js";
 import { ValidationError } from "../../core/errors.js";
 import {
     CRITERION_DIGEST,
@@ -579,10 +580,9 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
 }
 
 function normalizeScopePath(value) {
-    return String(value || "")
-        .replaceAll("\\", "/")
-        .replace(/^\.\//, "")
-        .replace(/\/+$/, "");
+    return stripTrailingSlashes(
+        String(value || "").replaceAll("\\", "/").replace(/^\.\//, "")
+    );
 }
 
 export function scopesOverlap(left = [], right = []) {

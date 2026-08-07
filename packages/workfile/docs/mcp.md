@@ -34,8 +34,18 @@ conflict.
 
 Every result carries the data once, in `structuredContent`; `content` is a
 one-line summary rather than a second copy of the payload. When a result would
-exceed `maxToolResultBytes` it is truncated with a `truncated` marker instead of
-failing the call, because a get-by-id has no query to narrow.
+exceed `maxToolResultBytes` the server degrades it rather than failing the call,
+because a get-by-id has no query to narrow — and says so with
+**`resultTruncated`**: `{ records: <rows dropped> }`, or
+`{ bodyBytes: <original size> }` when a single record's body was clipped.
+
+That marker is the transport speaking, and it is deliberately not called
+`truncated`. A tool may declare a `truncated` of its own meaning something else
+entirely: `project_agent_context` returns `truncated: boolean` for relations
+dropped to respect `limit`, and the two used to be one key — so a large bundle
+replaced the boolean with an object, a caller checking `=== true` survived by
+accident because an object is truthy, and a caller reading `truncated.records` on
+any other tool got `true` from that one.
 
 ## Claude Code integration
 
@@ -208,9 +218,11 @@ Every tool declares its full contract, so a caller never has to infer one:
 - **Defaults are declared where the implementation has one**, rather than left
   for the caller to discover by omitting the field.
 - **Every tool declares an `outputSchema`** matching the `structuredContent` it
-  returns. None of them is a closed object: a payload over `maxToolResultBytes`
-  gains a `truncated` marker, and a schema that forbade it would invalidate the
-  server's own degradation path.
+  returns, including `resultTruncated` — declared rather than merely allowed, so
+  a caller reads it from the schema instead of meeting it the first time a
+  payload gets large. None of them is a closed object either: the degradation
+  path adds a field, and a schema that forbade it would invalidate the server's
+  own answer.
 
 `project_card_release` is the one place where an enum is narrower than the
 protocol's: a released card cannot stay `doing`, so that value is refused as an

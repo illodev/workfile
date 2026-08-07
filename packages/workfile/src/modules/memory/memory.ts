@@ -50,6 +50,19 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CONFIDENCE = new Set(["low", "medium", "high"]);
 const SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 
+/**
+ * The filename a memory record with this id and title would be created with
+ * today. Exported so the stale-filename rule can be written once, in the layer
+ * that holds every kind — see `health/filenames.ts`.
+ *
+ * The 70-character cap is not shared with the other kinds and must not be: cards
+ * cap at 50 and documents at 60, and unifying them would rename every existing
+ * record whose title is long enough to cross the new bound.
+ */
+export function memoryFileName(id, title) {
+    return `${id}-${slugify(title)}.md`;
+}
+
 function slugify(value) {
     return (
         String(value)

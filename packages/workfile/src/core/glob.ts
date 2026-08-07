@@ -52,6 +52,22 @@ export function globToRegExp(pattern) {
     return compiled;
 }
 
+/**
+ * Trailing separators removed, without a regex.
+ *
+ * `replace(/\/+$/, "")` is the obvious spelling and CodeQL is right about it:
+ * the engine retries the anchored `+` from every start position, so a value of N
+ * slashes costs O(N²). Nothing here is attacker-controlled — the values are
+ * config entries and repository paths a maintainer writes — but the loop is
+ * shorter than the argument for keeping the regex, and it was written five times
+ * across this package before this existed.
+ */
+export function stripTrailingSlashes(value: string): string {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "/") end -= 1;
+    return end === value.length ? value : value.slice(0, end);
+}
+
 export function normalizeRepoPath(value) {
     return String(value).split(sep).join("/").replace(/^\.\//, "");
 }

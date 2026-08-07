@@ -1,3 +1,4 @@
+import { stripTrailingSlashes } from "../../core/glob.js";
 import { stat } from "node:fs/promises";
 import { posix, resolve } from "node:path";
 
@@ -181,7 +182,7 @@ export async function diagnoseDocuments({
     // root written `docs/help/` must behave as `docs/help`, and the prefix test
     // below is a string test.
     const routeRoots = (workspace.config.docs.routeRoots || [])
-        .map((entry) => String(entry).replace(/^\.\//, "").replace(/\/+$/, ""))
+        .map((entry) => stripTrailingSlashes(String(entry).replace(/^\.\//, "")))
         .filter(Boolean);
     const ids = new Map();
     for (const document of documents) {

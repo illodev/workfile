@@ -83,6 +83,9 @@ async function buildBoard(root) {
     } catch {
         return { claims: [], builtAt: new Date().toISOString() };
     }
+    // Read once for the whole sweep. This runs at session start, not on the hot
+    // `PreToolUse` path, so the cost is paid where there is room for it.
+    const sessions = await readSessions(root);
     const claims = [];
     for (const name of names) {
         if (!name.endsWith(".md")) continue;
@@ -96,6 +99,18 @@ async function buildBoard(root) {
             status: fields.status,
             claimedBy: fields.claimed_by,
             claimedAt: fields.claimed_at,
+            // The same two steps `claimBoardEntry` takes, over the same files: a
+            // session that names this card beats one that merely shares an actor,
+            // because two agents can share an actor. Falls back to the tail the
+            // actor carries, and to `null` when there is none — which the guard
+            // reads as unproven rather than as one process.
+            session:
+                discriminatorOf(
+                    (
+                        sessions.find((entry) => entry.cardId === fields.id) ||
+                        sessions.find((entry) => entry.actor === fields.claimed_by)
+                    )?.sessionId
+                ) || discriminatorOf(/#([A-Za-z0-9]+)$/.exec(fields.claimed_by)?.[1]),
             scope: Array.isArray(fields.scope)
                 ? fields.scope
                 : fields.scope
@@ -106,9 +121,23 @@ async function buildBoard(root) {
     return { claims, builtAt: new Date().toISOString() };
 }
 
+/**
+ * Trailing separators removed without a regex, mirroring
+ * `stripTrailingSlashes` in `core/glob.ts` — which this file cannot import, see
+ * the header. `replace(/\/+$/, "")` retries the anchored `+` from every start
+ * position, so N slashes cost O(N²); CodeQL flags the package's copy of that
+ * spelling and is right to. The scope here comes off a card, and a card in a
+ * repository taking pull requests can arrive from a fork.
+ */
+const withoutTrailingSlashes = (value) => {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "/") end -= 1;
+    return end === value.length ? value : value.slice(0, end);
+};
+
 function scopeCovers(scope, repoPath) {
     return scope.some((entry) => {
-        const normalized = entry.replace(/\/+$/, "");
+        const normalized = withoutTrailingSlashes(entry);
         if (!normalized) return false;
         if (normalized.includes("*")) {
             const pattern = new RegExp(
@@ -146,6 +175,17 @@ const sessionId = (input) =>
  * session UUID. They never matched, so it asked about every claim including
  * your own, which is how a guard rail teaches people to turn it off.
  */
+/**
+ * `sessionDiscriminator` from `core/actor.ts`, duplicated for the reason the
+ * header gives: this file imports nothing from the package. Pinned against it by
+ * `test/claude-surface.test.ts`, because a board written by the CLI and read by
+ * this hook has to agree on what a session id normalises to.
+ */
+const discriminatorOf = (value) => {
+    const cleaned = String(value || "").replace(/[^A-Za-z0-9]/g, "");
+    return cleaned ? cleaned.slice(0, 8).toLowerCase() : null;
+};
+
 const actorFor = (input) => {
     const configured = (process.env.WORKFILE_ACTOR || "").trim();
     if (configured) return configured;
@@ -190,8 +230,18 @@ const actorFor = (input) => {
  * exists only in a session file — `claimed_by` written from an explicit
  * `--actor` carries no tail — and the snapshot can. That residual is LRN-0030.
  */
-function separatesFromMe(claimedBy, mine) {
-    return claimedBy !== mine;
+function separatesFromMe(claim, mine, mySession) {
+    const theirs = claim.session || null;
+    // Two sessions, seen. The strongest answer, and the one the board could not
+    // give before T-0219 put `session` on the entry.
+    if (theirs && mySession) return theirs !== mySession;
+    // One side has a session and the other does not, so they are not the same
+    // process — the same call `claimSeparation` makes.
+    if (theirs || mySession) return true;
+    // Neither has one. Different actors are two people; the same actor is
+    // `unproven`, and the guard stays quiet on a guess rather than interrupting
+    // somebody about their own card.
+    return claim.claimedBy !== mine;
 }
 
 const SESSIONS = `${CACHE}/sessions`;
@@ -243,6 +293,31 @@ async function signal(root, input, files = []) {
  * `events.jsonl` grew to 54 KB in this repository with no reader and no
  * pruning, which is the same mistake one file down.
  */
+/**
+ * Every session file this workspace holds.
+ *
+ * Mirrors `readAgentSessions` minus the liveness arithmetic, which `buildBoard`
+ * does not need: it is resolving which session a claim belongs to, not whether
+ * that session is still breathing. A half-written file is skipped rather than
+ * failing the sweep, the same rule the package side takes.
+ */
+async function readSessions(root) {
+    const directory = join(root, SESSIONS);
+    let names;
+    try {
+        names = await readdir(directory);
+    } catch {
+        return [];
+    }
+    const sessions = [];
+    for (const name of names) {
+        if (!name.endsWith(".json")) continue;
+        const session = await readJson(join(directory, name), null);
+        if (session?.sessionId) sessions.push(session);
+    }
+    return sessions;
+}
+
 async function pruneSessions(root, olderThanMs = 86_400_000) {
     const directory = join(root, SESSIONS);
     let names;
@@ -264,10 +339,16 @@ async function pruneSessions(root, olderThanMs = 86_400_000) {
 
 async function sessionStart(input) {
     const root = projectDir(input);
-    const board = await buildBoard(root);
     await mkdir(join(root, CACHE), { recursive: true });
     await pruneSessions(root);
+    // This session's own signal is written *before* the board is built, and the
+    // order is load-bearing now that an entry carries a session (T-0219). Built
+    // first, a claim this very session already holds resolved to no session — its
+    // file did not exist yet — and the guard then saw a claim with none against a
+    // caller with one, called them two processes, and asked the session about its
+    // own card. Which is precisely the failure the guard exists not to have.
     await signal(root, input);
+    const board = await buildBoard(root);
     await writeFile(
         join(root, CACHE, "board.json"),
         `${JSON.stringify(board)}\n`
@@ -392,10 +473,15 @@ async function preToolUse(input) {
 
     const board = await readBoard(root);
     const mine = actorFor(input);
+    // Read from the payload, not from the board: this is who *this* process is,
+    // and no file is opened for it. Which is the whole reason the other side's
+    // session is resolved when the board is written rather than here — a
+    // `PreToolUse` fires before every matching tool call, p95 under 30 ms.
+    const mySession = discriminatorOf(sessionId(input));
     const conflict = board.claims.find(
         (claim) =>
             claim.status === "doing" &&
-            separatesFromMe(claim.claimedBy, mine) &&
+            separatesFromMe(claim, mine, mySession) &&
             claim.scope.length &&
             scopeCovers(claim.scope, repoPath)
     );

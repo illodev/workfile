@@ -142,7 +142,7 @@ function boardPath(workspace) {
 }
 
 /** The board's view of one card, or null when it holds no claim. */
-export function claimBoardEntry(card) {
+export function claimBoardEntry(card, sessions: any[] = []) {
     if (!card?.claimed_by) return null;
     return {
         id: card.id,
@@ -150,12 +150,47 @@ export function claimBoardEntry(card) {
         status: card.status,
         claimedBy: card.claimed_by,
         claimedAt: card.claimed_at,
+        /**
+         * The session this claim belongs to, resolved here because here is where
+         * the session files are in hand (T-0219).
+         *
+         * The board carried `claimedBy` and nothing else, so the scope guard —
+         * which reads only this file — could recover a session from the actor's
+         * tail and no other way. A `claimed_by` written from an explicit
+         * `--actor` has no tail, so two agents sharing one saw a string equal to
+         * their own and the guard stayed silent. That is the residual ADR-0020
+         * left open, and LRN-0030 records it.
+         *
+         * `null` when there is none to find, which the guard has to treat as
+         * "unproven" rather than as "the same process".
+         */
+        session: sessionForClaim(card, sessions),
         scope: Array.isArray(card.scope)
             ? card.scope
             : card.scope
               ? [card.scope]
               : []
     };
+}
+
+/**
+ * The session behind a claim: the one that named this card, else the one
+ * belonging to this actor, else whatever the actor's tail carries.
+ *
+ * The first two are the same two-step `claimState` and the activity snapshot
+ * take, in that order and for the reason T-0206 established — a session that
+ * names the card beats one that merely shares an actor, because two agents can
+ * share an actor.
+ */
+function sessionForClaim(card, sessions: any[]): string | null {
+    const match =
+        sessions.find((candidate) => candidate.cardId === card.id) ||
+        sessions.find((candidate) => candidate.actor === card.claimed_by);
+    return (
+        sessionDiscriminator(match?.sessionId) ??
+        claimSession({ by: card.claimed_by }) ??
+        null
+    );
 }
 
 export async function readClaimBoard(workspace) {
@@ -195,7 +230,7 @@ export async function updateClaimBoard(workspace, card, { now = new Date() } = {
             const claims = (board.claims || []).filter(
                 (claim) => claim.id !== card.id
             );
-            const entry = claimBoardEntry(card);
+            const entry = claimBoardEntry(card, await readAgentSessions(workspace, { now }));
             if (entry) claims.push(entry);
             return writeBoard(workspace, claims, now);
         },
@@ -205,7 +240,13 @@ export async function updateClaimBoard(workspace, card, { now = new Date() } = {
 
 /** The whole board from a listing, for session start and for repair. */
 export async function rebuildClaimBoard(workspace, cards, { now = new Date() } = {}) {
-    return writeBoard(workspace, cards.map(claimBoardEntry).filter(Boolean), now);
+    // Read once for the whole sweep rather than per card.
+    const sessions = await readAgentSessions(workspace, { now });
+    return writeBoard(
+        workspace,
+        cards.map((card) => claimBoardEntry(card, sessions)).filter(Boolean),
+        now
+    );
 }
 
 /**
