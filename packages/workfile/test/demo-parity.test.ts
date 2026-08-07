@@ -140,3 +140,160 @@ test("the demo snapshot carries every collection the adapter reads", async () =>
         );
     }
 });
+
+/**
+ * What a query matches, on both sides of the same question.
+ *
+ * `api.demo.ts` answered `q` with a case-insensitive `includes` over the raw
+ * title, body, path and id, and the palette's lexical branch had a third rule
+ * again — id and title only, weighted 100/50/25/10. The server tokenizes: a body
+ * matches by whole token and only a title falls back to a substring. So `nvoic`
+ * found a body on the hosted demo and nothing against a real workspace, and
+ * T-0195 had to write a placeholder that was exactly true of the server and
+ * merely understated for the demo (T-0202).
+ *
+ * The two implementations have to stay separate — the server reaches the
+ * filesystem and the demo is a static bundle — so this drives both over one
+ * fixture and compares the answers, rather than asserting each against a list of
+ * expectations written twice. Ordered, not as sets: the ranking is the same rule
+ * as the match, and a record that outranks another on the server must outrank it
+ * in the demo.
+ */
+test("the demo backend and the server agree on what a query matches", async () => {
+    const { rankByQuery } = await import("../ui/src/record-search.ts");
+    const { searchProjectRecords } = await import(
+        "../dist/src/modules/records/public.js"
+    );
+
+    // Shaped to separate the rules that differed: a body token that no title
+    // carries, a partial word, a metadata-only hit, an id, and an accent.
+    const fixture = [
+        {
+            id: "DOC-0001",
+            kind: "doc",
+            recordType: "reference",
+            title: "Registry listings",
+            path: "docs/reference/DOC-0001-registry-listings.md",
+            status: "current",
+            area: "docs",
+            tags: ["registry"],
+            body: "Invoicing is documented elsewhere. See the retention policy.",
+            updated: "2026-08-05"
+        },
+        {
+            id: "DOC-0002",
+            kind: "doc",
+            recordType: "guide",
+            title: "Invoicing guide",
+            path: "docs/guides/DOC-0002-invoicing-guide.md",
+            status: "draft",
+            area: "billing",
+            tags: [],
+            body: "How to raise an invoice, and what a rectificativa changes.",
+            updated: "2026-08-06"
+        },
+        {
+            id: "CHG-0099",
+            kind: "change",
+            recordType: "change",
+            title: "Retention window widened",
+            path: ".project/changelog/unreleased/CHG-0099.md",
+            status: "unreleased",
+            area: "core",
+            visibility: "internal",
+            type: "changed",
+            tags: ["retention"],
+            body: "The window is a year now.",
+            updated: "2026-08-07"
+        },
+        {
+            id: "LRN-0007",
+            kind: "memory",
+            recordType: "learning",
+            title: "Acentuación en los índices",
+            path: ".project/memory/learnings/LRN-0007.md",
+            status: "active",
+            area: "search",
+            confidence: "high",
+            tags: [],
+            body: "Un índice construido con acentos no encuentra la consulta sin ellos.",
+            updated: "2026-08-04"
+        }
+    ];
+
+    const queries = [
+        "",
+        // The whole point: a body token, and a partial of it.
+        "invoicing",
+        "invoic",
+        "nvoic",
+        // A title substring, which is the one fallback the server keeps.
+        "listing",
+        // Metadata only — no title and no body carries these.
+        "billing",
+        "internal",
+        "registry",
+        // Identity.
+        "DOC-0002",
+        "chg-0099",
+        // Two terms, which the server ORs rather than requiring as a phrase.
+        "invoicing retention",
+        "retention window",
+        // Accents, folded on both sides.
+        "acentuacion",
+        "indice",
+        "índices",
+        // The filter grammar and negation.
+        "status:draft",
+        "area:docs",
+        "tag:retention",
+        "-invoicing retention",
+        "invoicing -guide",
+        // Nothing at all.
+        "zzzz",
+        // Punctuation the tokenizer drops.
+        "rectificativa.",
+        "a-year"
+    ];
+
+    const disagreements: string[] = [];
+    for (const query of queries) {
+        // A fresh copy per query: the server caches its tokens on the record
+        // object, and a shared fixture would let one query's cache answer the
+        // next one's — which would hide exactly the kind of bug this looks for.
+        const server = searchProjectRecords(
+            structuredClone(fixture),
+            query,
+            { limit: fixture.length }
+        ).records.map((record: { id: string }) => record.id);
+        const demo = rankByQuery(structuredClone(fixture), query).map(
+            (record) => (record as { id: string }).id
+        );
+        if (JSON.stringify(server) !== JSON.stringify(demo)) {
+            disagreements.push(
+                `  ${JSON.stringify(query)}\n` +
+                    `      server: ${server.join(", ") || "(none)"}\n` +
+                    `      demo:   ${demo.join(", ") || "(none)"}`
+            );
+        }
+    }
+    assert.deepEqual(
+        disagreements,
+        [],
+        `the demo backend and the server answer these differently:\n${disagreements.join("\n")}`
+    );
+
+    // And the adapter has no matcher of its own left. The three list endpoints
+    // and the palette all went through their own rule; a fourth would drift the
+    // same way, and this suite would not see it.
+    const adapter = await readFile(
+        new URL("../ui/src/api.demo.ts", import.meta.url),
+        "utf8"
+    );
+    assert.match(adapter, /import \{ rankByQuery \} from "\.\/record-search"/);
+    assert.doesNotMatch(
+        adapter,
+        /\.toLowerCase\(\)\.includes\(/,
+        "api.demo.ts is matching a query by substring again"
+    );
+});
