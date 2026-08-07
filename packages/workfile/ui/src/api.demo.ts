@@ -1,5 +1,7 @@
 import demoData from "./demo-data.json";
 
+import { rankByQuery } from "./record-search";
+
 import type { ProjectApi } from "./api";
 import type {
     ActivitySnapshot,
@@ -56,11 +58,6 @@ function nextId(prefix: string, existing: Iterable<string>) {
     return `${prefix}-${String(max + 1).padStart(4, "0")}`;
 }
 
-function matches(query: string, ...haystacks: Array<string | undefined>) {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return true;
-    return haystacks.some((value) => value?.toLowerCase().includes(needle));
-}
 
 /**
  * Mirrors the server's regex-query rule (`modules/search/search.ts`): the
@@ -240,38 +237,37 @@ export const demoApi: ProjectApi = {
                 provider: null
             };
         }
-        const needle = term.trim().toLowerCase();
-        if (!needle)
+        if (!term.trim())
             return {
                 records: [],
                 total: 0,
                 mode: "lexical" as const,
                 provider: null
             };
-        const scored: Array<{ score: number; hit: SearchHit }> = [];
-        for (const [kind, records] of searchPools()) {
-            for (const record of records) {
-                const id = String(record.id ?? "");
-                const title = String(record.title ?? "");
-                const haystack = `${id} ${title}`.toLowerCase();
-                if (!haystack.includes(needle)) continue;
-                const score = id.toLowerCase() === needle
-                    ? 100
-                    : id.toLowerCase().includes(needle)
-                      ? 50
-                      : title.toLowerCase().startsWith(needle)
-                        ? 25
-                        : 10;
-                scored.push({ score, hit: searchHit(kind, record) });
-            }
+        // The server answers a lexical search with the same ranker as its list
+        // routes — `searchProjectRecordsHybrid` falls through to
+        // `searchProjectRecords` when no provider is configured. This branch had
+        // a third rule of its own instead: id and title only, weighted
+        // 100/50/25/10, so the palette in the demo could not find a record by a
+        // word in its body or by its area, and ranked the ones it did find in an
+        // order the server never produces.
+        //
+        // Ranked across every pool at once rather than pool by pool, because the
+        // server scores one candidate list and the kind is not a tiebreak.
+        const pools = searchPools();
+        const kindOf = new Map<object, string>();
+        for (const [kind, records] of pools) {
+            for (const record of records) kindOf.set(record, kind);
         }
-        scored.sort(
-            (left, right) =>
-                right.score - left.score || left.hit.id.localeCompare(right.hit.id)
+        const ranked = rankByQuery(
+            pools.flatMap(([, records]) => records),
+            term
         );
         return {
-            records: scored.slice(0, limit).map((entry) => entry.hit),
-            total: scored.length,
+            records: ranked
+                .slice(0, limit)
+                .map((record) => searchHit(kindOf.get(record) ?? "card", record)),
+            total: ranked.length,
             mode: "lexical" as const,
             provider: null
         };
@@ -315,9 +311,7 @@ export const demoApi: ProjectApi = {
     },
     docs: async (query = "") => {
         await wait();
-        const records = state.docs.records.filter((record) =>
-            matches(query, record.title, record.body, record.path, record.id)
-        );
+        const records = rankByQuery(state.docs.records, query);
         return clone({ records, total: records.length });
     },
     document: async (id: string) => {
@@ -346,9 +340,7 @@ export const demoApi: ProjectApi = {
                     isChange(record) &&
                     record.visibility === options.visibility
             );
-        records = records.filter((record) =>
-            matches(query, record.title, record.body, record.id)
-        );
+        records = rankByQuery(records, query);
         return clone({ records, total: records.length });
     },
     createChange: async (input: Record<string, unknown>) => {
@@ -477,12 +469,14 @@ export const demoApi: ProjectApi = {
         options: { collection?: string; status?: string } = {}
     ) => {
         await wait();
-        const records = state.memory.records.filter(
-            (record) =>
-                (!options.collection ||
-                    record.collection === options.collection) &&
-                (!options.status || record.status === options.status) &&
-                matches(query, record.title, record.body, record.id)
+        const records = rankByQuery(
+            state.memory.records.filter(
+                (record) =>
+                    (!options.collection ||
+                        record.collection === options.collection) &&
+                    (!options.status || record.status === options.status)
+            ),
+            query
         );
         return clone({ records, total: records.length });
     },
