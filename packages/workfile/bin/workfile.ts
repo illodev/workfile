@@ -80,6 +80,7 @@ import {
     parseAcceptance,
     resolveActor,
     runCardVerification,
+    verifyChangedCards,
     setCardAcceptance,
     unreadableCriteria,
     ValidationError,
@@ -160,6 +161,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]",
         "workfile card ac ID [--check N] [--uncheck N]   # repeatable; no flags lists them",
         "workfile card verify ID [--only ENTRY,ENTRY] [--actor ACTOR]   # run the card's declared commands",
+        "workfile card verify --changed --base main [--close --run URL]   # every card this branch touched",
         "workfile card write ID [--body-file FILE]   # or pipe the body on stdin",
         "workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]",
         "workfile card renumber --duplicates [--actor ACTOR]   # heal after a merge"
@@ -418,7 +420,12 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card verify": [
         "--actor",
-        "--only"
+        "--base",
+        "--changed",
+        "--close",
+        "--commit",
+        "--only",
+        "--run"
     ],
     "card write": [
         "--body-file",
@@ -1546,12 +1553,18 @@ async function cardCommand(workspace, action) {
         const result = await createCard(workspace, input);
         return print(has("--json") ? result.card : `${result.id} ${result.file}`);
     }
-    // `card renumber --duplicates` is a sweep and names no record. It reached
-    // here only because the id position was read raw and `--duplicates` is a
-    // truthy string — the accident this guard was written to depend on without
-    // anyone saying so.
-    const sweeping = action === "renumber" && has("--duplicates");
-    if (!id && !sweeping) {
+    // Two card actions name no record, and each says so with a flag.
+    // `renumber --duplicates` sweeps the whole board; `verify --changed` takes
+    // its list from the branch. Stated as a rule rather than as one special
+    // case, because the first of them only ever reached here by accident: the
+    // id position was read raw and `--duplicates` is a truthy string, so the
+    // guard was depending on something nobody had written down. `--changed`
+    // does not get that accident — the id position is empty for it, since
+    // `--base` consumes the word after it.
+    const namesNoCard =
+        (action === "renumber" && has("--duplicates")) ||
+        (action === "verify" && has("--changed"));
+    if (!id && !namesNoCard) {
         throw new ValidationError(
             "CLI_ARGUMENT_REQUIRED",
             `card ${action} requires an ID`
@@ -1604,6 +1617,47 @@ async function cardCommand(workspace, action) {
         return;
     }
     if (action === "verify") {
+        if (has("--changed")) {
+            // No ID: the branch names the cards. `--base` is required rather
+            // than defaulted to `main`, because guessing it wrong means running
+            // the declared commands of cards this branch never opened, and
+            // writing to them.
+            const report = await verifyChangedCards(workspace, {
+                base: option("--base") || "",
+                actor: option("--actor") || defaultActor(),
+                close: has("--close"),
+                run: option("--run") || null,
+                // Undefined rather than null: the close door reads undefined as
+                // "resolve HEAD yourself" and null as "there is no commit".
+                commit: option("--commit") || undefined
+            });
+            // Unresolved is a failure, not an empty run. Git could not answer
+            // which cards this branch touched, so nothing here is a statement
+            // about any card.
+            process.exitCode = report.resolved && report.ok ? 0 : 1;
+            if (has("--json")) return print(report);
+            if (!report.resolved) {
+                console.error(
+                    `Could not diff against ${report.base || "(no base)"}: the ref is ` +
+                        "unknown here, or this is a shallow checkout with no merge base. " +
+                        "No card was verified."
+                );
+                return;
+            }
+            console.log(
+                `${report.cards.length} card${report.cards.length === 1 ? "" : "s"} ` +
+                    `touched since ${report.base}`
+            );
+            for (const card of report.cards) {
+                const closed = card.closed ? " · closed with method: ci" : "";
+                console.log(`  ${card.id} — ${card.outcome}${closed}`);
+                if (card.heldOpen) console.log(`      ${card.heldOpen}`);
+                for (const entry of card.report?.entries || []) {
+                    console.log(`      ${describeVerifyEntry(entry)}`);
+                }
+            }
+            return;
+        }
         const report = await runCardVerification(
             workspace,
             requireId("card", action, id),

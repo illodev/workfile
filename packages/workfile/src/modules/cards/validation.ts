@@ -545,6 +545,21 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
             fail("CARD_DEPENDENCY_NOT_FOUND", `Dependency not found: ${dependency}`);
         }
     }
+    // T-0161. The third relationship field, which had a `doctor` rule and no
+    // write-time guard — so `card create --title X --origin T-0001` allocating
+    // `T-0001` reported success and left the repository in a state `doctor`
+    // calls an error. The pre-commit hook then refuses the next commit, for a
+    // card written minutes earlier by a command that said it worked.
+    //
+    // Existence is deliberately not checked here, unlike `parent` and
+    // `depends`. An origin may legitimately name a record that does not exist
+    // yet — a card can come out of a decision still being written — which is
+    // why `missing-origin` stays a `doctor` rule and this is not.
+    for (const origin of candidate.origin || []) {
+        if (origin === currentId || origin === candidate.id) {
+            fail("CARD_SELF_ORIGIN", "A card cannot originate from itself.");
+        }
+    }
     const hasActor = Boolean(candidate.claimed_by);
     const hasTimestamp = Boolean(candidate.claimed_at);
     if (hasActor !== hasTimestamp) {

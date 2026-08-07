@@ -232,6 +232,8 @@ workfile card ac ID                              # list criteria with their numb
 workfile card ac ID --check 1,3 --check 5        # repeatable, comma lists accepted
 workfile card ac ID --uncheck 2
 workfile card verify ID [--only gate] [--actor ACTOR]   # run the declared commands
+workfile card verify --changed --base main              # every card this branch touched
+workfile card verify --changed --base main --close --run URL --commit SHA
 ```
 
 Acceptance criteria are the `- [ ]` items under a `## Acceptance criteria` heading.
@@ -711,6 +713,45 @@ a client reads `.mcp.json` and starts the server itself. See
 workfile ci sync [--targets github,gitlab,generic]
 workfile ci check [--targets ...]
 ```
+
+### What the generated GitHub workflow does, and what it will not do
+
+Three jobs. `doctor` validates the protocol. `cards` runs the commands the cards
+this branch touched declare, and `record` writes the result back.
+
+Those last two are deliberately not one job. A criterion bound to a command can
+only be checked by running it, so `cards` executes commands a pull request
+declared — and therefore holds `permissions: {}`, with no credentials left in
+`.git/config`. Writing evidence needs `contents: write`, so `record` holds it and
+runs no repository code at all: not even Workfile, because every Workfile command
+`import()`s `project.config.mjs` from the checkout. It applies a patch bounded to
+the protocol directory and pushes.
+
+**A fork records nothing.** GitHub issues a read-only token for `pull_request`
+from a fork, so the push cannot land whatever the workflow says; `record` also
+declines to start there, in order to say so rather than fail at the last step.
+
+**CI closes a card only when every one of its criteria is bound to a command.** A
+narrative criterion is not something a runner has an opinion about, so a card
+that carries one gets its bound boxes written and stays open, with the reason
+reported. That is the whole safety of the write-back: `card ac --check` refuses a
+bound criterion and only the runner writes it, so the boxes CI touches are boxes
+no person was going to check either way.
+
+**Only on a pull request.** "The cards this branch touched" is a diff against a
+base and a push to a default branch has none. The checkout needs
+`fetch-depth: 0`, because the diff is taken from the merge base and a shallow
+clone has none — reported as *cannot answer* rather than as an empty diff, which
+would turn "nothing was verified" into "there was nothing to verify".
+
+`--base` is required and has no default. Guessing it wrong means running the
+declared commands of cards the branch never opened, and writing to them.
+
+**GitLab and the generic script run no card commands.** GitLab has no per-job
+permission scope, so the job sees every unprotected variable in the project and
+there is nowhere to put a command a merge request declared; the generic script
+inherits the whole environment of whatever invokes it. Both files carry the
+invocation commented out with what a maintainer would have to arrange first.
 
 ## Legacy migration
 

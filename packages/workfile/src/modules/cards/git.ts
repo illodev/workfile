@@ -1,10 +1,11 @@
 /**
- * The repository, asked two questions and nothing else.
+ * The repository, asked three questions and nothing else.
  *
  * A card that records the commit it was verified at needs to know what HEAD is,
- * and `doctor` needs to know whether that commit is still reachable. Both are
- * git questions, and this is the first subprocess anything under `src/` spawns —
- * so the shape of it is worth stating rather than inferring.
+ * `doctor` needs to know whether that commit is still reachable, and a CI run
+ * that verifies the cards a branch touched needs to know which ones those are.
+ * All three are git questions, and this is the first subprocess anything under
+ * `src/` spawns — so the shape of it is worth stating rather than inferring.
  *
  * **Git is optional.** Nothing else in this package requires a repository, and
  * a protocol that refused to close a card outside one would be refusing the
@@ -149,4 +150,45 @@ export async function isAncestorOfHead(
     ]);
     if (result.ok) return "yes";
     return result.code === 1 ? "no" : "unknown";
+}
+
+/** A ref as this module will pass one to git, which is deliberately narrow. */
+const SAFE_REF = /^[0-9A-Za-z._\/-]{1,255}$/;
+
+/**
+ * The paths this branch touched, against a base ref.
+ *
+ * `base...HEAD` with three dots, which diffs from the merge base rather than
+ * from the tip of the base branch — the same thing a pull request shows. Two
+ * dots would report every file the base moved on since, so a branch that merely
+ * fell behind would look like it had touched cards it never opened, and CI would
+ * run their commands and write to them.
+ *
+ * `null` is "cannot answer", and every caller has to treat it as such rather
+ * than as "nothing changed". The distinction is the whole safety of the thing
+ * this feeds: a shallow CI checkout has no merge base, and reading that as an
+ * empty list would report a run that verified nothing as a run that found
+ * nothing to verify. Those are opposite claims about the same silence.
+ *
+ * The ref is checked against `SAFE_REF` before it becomes an argument. Nothing
+ * here goes through a shell, so this is not about metacharacters: it is about a
+ * value out of the environment beginning with `-` and being read as an option.
+ */
+export async function changedPaths(
+    root: string,
+    base: string
+): Promise<string[] | null> {
+    if (!root || !SAFE_REF.test(String(base))) return null;
+    // Resolved first, so a base ref this clone does not have is reported as
+    // "cannot answer" rather than as a diff against something else.
+    const resolved = await git(root, ["rev-parse", "--verify", `${base}^{commit}`]);
+    if (!resolved.ok) return null;
+    const result = await git(root, [
+        "diff",
+        "--name-only",
+        "--diff-filter=d",
+        `${base}...HEAD`
+    ]);
+    if (!result.ok) return null;
+    return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
 }

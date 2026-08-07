@@ -5,8 +5,10 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
+# Nothing at the top level, so a job added by hand starts from no permissions
+# rather than inheriting these — the shape the generated template uses, and the
+# reason the two jobs below can differ so sharply.
+permissions: {}
 
 jobs:
   doctor:
@@ -16,6 +18,8 @@ jobs:
     # Validating the protocol with the tree's own code is also the honest
     # dogfood: a PR is checked by the exact behavior it ships.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -29,3 +33,111 @@ jobs:
         run: node ./packages/workfile/dist/bin/workfile.js doctor --json
       - name: Check generated agent instructions
         run: node ./packages/workfile/dist/bin/workfile.js agents check --json
+
+  # The two-job split T-0189 generates, ported to the local build for the same
+  # reason the doctor job is: inside this repository `npx @illodev/workfile`
+  # resolves to the checkout's own package.json, so the published spec would
+  # install nothing runnable.
+  #
+  # The job that runs card-declared commands holds nothing, and the job that
+  # holds a write token runs no repository code. They cannot be one job: a
+  # criterion bound to a command can only be checked by running it, and a
+  # process a pull request configured must not be handed a token.
+  cards:
+    # A card diff needs a base to be taken against, and a push to main has none.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Nothing at all. This job runs commands the pull request declared.
+    # `actions/checkout` works unauthenticated here because the repository is
+    # public; a private one would need `contents: read`, which is a real cost of
+    # this shape and not a detail.
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The diff is taken from the merge base, and a shallow clone has none.
+          # `changedPaths` reports that as "cannot answer" rather than as an
+          # empty diff, so this would fail the job rather than silently verify
+          # nothing — but it would still fail.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:core
+      # Values arrive through `env:`, never interpolated into the script: an
+      # expression inside a `run:` block is expanded before the shell sees it,
+      # so a branch name is code there and data here.
+      - name: Verify the cards this branch touched
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node ./packages/workfile/dist/bin/workfile.js card verify --changed \
+            --base "origin/$BASE_REF" \
+            --close --run "$RUN_URL" --commit "$HEAD_SHA" \
+            --json | tee workfile-cards.json
+      - name: Collect what the run wrote
+        if: always()
+        run: git diff -- .project > workfile-cards.patch || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workfile-cards
+          path: |
+            workfile-cards.json
+            workfile-cards.patch
+          if-no-files-found: ignore
+
+  record:
+    needs: cards
+    # Same-repository pull requests only. A fork gets a read-only token whatever
+    # this says, so the push there fails rather than being refused by us; the
+    # condition keeps the job from starting in order to say so.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # The head branch, not the merge commit: a commit is being pushed to it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: workfile-cards
+      # This job runs no Workfile command, deliberately. Every one of them
+      # `import()`s project.config.mjs from the checkout, which is the code this
+      # job exists not to execute while holding a write token.
+      - name: Refuse a patch that reaches outside the protocol directory
+        run: |
+          test -s workfile-cards.patch || exit 0
+          git apply --check workfile-cards.patch
+          if git apply --numstat workfile-cards.patch | cut -f3 |
+              grep -qv '^.project/'; then
+            echo "::error::refusing a patch that reaches outside .project/"
+            exit 1
+          fi
+      # No loop, for two independent reasons and the first is the load-bearing
+      # one: a push made with GITHUB_TOKEN does not start a workflow run, so
+      # this does not re-enter. Observed on PR #36 as two runs created in
+      # `action_required` that never executed. And if one did run, it would find
+      # the boxes already checked, produce an empty patch and commit nothing.
+      - name: Commit the evidence
+        run: |
+          test -s workfile-cards.patch || exit 0
+          git apply workfile-cards.patch
+          git add -- .project
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Record card verification from CI"
+          git push
