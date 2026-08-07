@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { availableParallelism, homedir } from "node:os";
 import { join } from "node:path";
 
@@ -103,23 +103,194 @@ function createEmbeddingCache(cacheDir, model) {
     };
 }
 
-async function loadTransformersEmbedder(model, dtype, numThreads) {
-    const { pipeline } = await import("@huggingface/transformers");
-    // Quantized by default: on CPU q8 is several times faster than fp32 and
-    // the retrieval quality difference is noise at this scale.
-    const extractor = await pipeline("feature-extraction", model, {
-        dtype,
-        session_options: {
-            intraOpNumThreads: numThreads,
-            interOpNumThreads: 1
+/**
+ * The ONNX file a dtype names, in the layout Hugging Face repositories use.
+ *
+ * `q8` is spelled `model_quantized.onnx` and everything else is
+ * `model_<dtype>.onnx`, with `fp32` the unsuffixed original. This is a naming
+ * convention rather than an API, so a dtype this cannot spell is refused here
+ * with the list — better than a 404 from a URL the caller never wrote.
+ */
+export function onnxFileName(dtype) {
+    if (dtype === "fp32") return "model.onnx";
+    if (dtype === "q8") return "model_quantized.onnx";
+    if (/^(fp16|int8|uint8|q4|q4f16|bnb4)$/.test(dtype)) {
+        return `model_${dtype}.onnx`;
+    }
+    throw new Error(
+        `Unknown dtype "${dtype}". Use fp32, fp16, q8, int8, uint8, q4, q4f16 or bnb4.`
+    );
+}
+
+/**
+ * Mean-pool a batch's hidden states over the attention mask, then L2-normalize.
+ *
+ * Separated from the session so it can be tested without a model: this is the
+ * arithmetic the whole ranking rests on, and it is the part a refactor breaks
+ * silently — a pooled vector that divides by the padded width instead of the
+ * real token count still looks like a plausible embedding.
+ *
+ * Padding must be excluded rather than averaged in. It is why the mask is read
+ * here at all: with a batch of one, dividing by the width happens to be right,
+ * and every batch after that is quietly wrong in proportion to how uneven the
+ * texts are.
+ */
+export function poolAndNormalize(hidden, mask, { rows, width, size }) {
+    const vectors = [];
+    for (let row = 0; row < rows; row += 1) {
+        const vector = new Array(size).fill(0);
+        let counted = 0;
+        for (let column = 0; column < width; column += 1) {
+            if (!mask[row * width + column]) continue;
+            counted += 1;
+            const base = (row * width + column) * size;
+            for (let i = 0; i < size; i += 1) vector[i] += hidden[base + i];
         }
-    });
+        if (counted) for (let i = 0; i < size; i += 1) vector[i] /= counted;
+        let norm = 0;
+        for (const value of vector) norm += value * value;
+        norm = Math.sqrt(norm) || 1;
+        for (let i = 0; i < size; i += 1) vector[i] /= norm;
+        vectors.push(vector);
+    }
+    return vectors;
+}
+
+/**
+ * Where the model files live, fetching them once if they are not there yet.
+ *
+ * `@huggingface/transformers` used to do this, and it is most of what it was
+ * here for. It also brought `sharp` and `onnxruntime-node` as hard
+ * dependencies — image processing and an archive extractor this package never
+ * touches — each carrying a high-severity advisory with no upstream fix, handed
+ * to everybody who installed this package. See ADR-0021 and T-0221.
+ *
+ * A `model` containing a path separator is read from disk and never fetched, so
+ * an air-gapped or offline install works by pointing at a directory.
+ */
+async function ensureModelFiles(model, dtype, modelDir) {
+    const onnx = onnxFileName(dtype);
+    if (model.includes("/") && (model.startsWith(".") || model.startsWith("/"))) {
+        return {
+            tokenizer: join(model, "tokenizer.json"),
+            tokenizerConfig: join(model, "tokenizer_config.json"),
+            onnx: join(model, onnx)
+        };
+    }
+    const directory = join(modelDir, model.replace(/[^a-zA-Z0-9._-]+/g, "-"));
+    await mkdir(directory, { recursive: true });
+    const wanted = [
+        ["tokenizer.json", "tokenizer.json"],
+        ["tokenizer_config.json", "tokenizer_config.json"],
+        [`onnx/${onnx}`, onnx]
+    ];
+    const resolved = {};
+    for (const [remote, local] of wanted) {
+        const path = join(directory, local);
+        resolved[local] = path;
+        try {
+            await stat(path);
+            continue;
+        } catch {
+            // Not cached yet.
+        }
+        const url = `https://huggingface.co/${model}/resolve/main/${remote}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(
+                `Could not fetch ${remote} for ${model}: HTTP ${response.status} from ${url}`
+            );
+        }
+        // Written under a temporary name and renamed, so an interrupted
+        // download can never leave a truncated model that loads and produces
+        // nonsense — the same reason the embedding cache does it.
+        const temporary = `${path}.${process.pid}.tmp`;
+        await writeFile(temporary, Buffer.from(await response.arrayBuffer()));
+        await rename(temporary, path);
+    }
+    return {
+        tokenizer: resolved["tokenizer.json"],
+        tokenizerConfig: resolved["tokenizer_config.json"],
+        onnx: resolved[onnx]
+    };
+}
+
+/**
+ * Feature extraction over `onnxruntime-web` and `@huggingface/tokenizers`.
+ *
+ * Replaces one `pipeline("feature-extraction")` call, and the reason is the
+ * dependency tree rather than the API: this reaches the same weights through the
+ * WASM execution provider, which needs neither the native binding nor its
+ * archive extractor. Verified against the implementation it replaces — per
+ * vector cosine 0.9978 on the same texts with the same q8 weights, unit norms,
+ * and the same ranking order. The residual is the WASM and native kernels
+ * disagreeing at quantized precision, not a difference in method.
+ */
+async function loadOnnxEmbedder(model, dtype, numThreads, modelDir) {
+    const [ort, { Tokenizer }] = await Promise.all([
+        import("onnxruntime-web"),
+        import("@huggingface/tokenizers")
+    ]);
+    const files = await ensureModelFiles(model, dtype, modelDir);
+    const [tokenizerJson, tokenizerConfigJson] = await Promise.all([
+        readFile(files.tokenizer, "utf8"),
+        readFile(files.tokenizerConfig, "utf8").catch(() => "{}")
+    ]);
+    const config = JSON.parse(tokenizerConfigJson);
+    const tokenizer = new Tokenizer(JSON.parse(tokenizerJson), config);
+
+    // A global on the ort environment rather than a session option: for the
+    // WASM provider `intraOpNumThreads` is not the knob, `env.wasm.numThreads`
+    // is. Same intent as before — half the machine, never all of it.
+    ort.env.wasm.numThreads = numThreads;
+    const session = await ort.InferenceSession.create(files.onnx);
+    const wantsTokenTypes = session.inputNames.includes("token_type_ids");
+    // These models truncate anyway; feeding more than the position embeddings
+    // cover is an error from the runtime rather than a longer read.
+    const limit = Number(config.model_max_length) || 512;
+
     return async (texts) => {
-        const output = await extractor(texts, {
-            pooling: "mean",
-            normalize: true
+        const encodings = texts.map((text) => {
+            const encoded = tokenizer.encode(text, {
+                return_token_type_ids: wantsTokenTypes
+            });
+            const ids = encoded.ids.slice(0, limit);
+            return {
+                ids,
+                mask: (encoded.attention_mask || ids.map(() => 1)).slice(0, limit)
+            };
         });
-        return output.tolist();
+        const rows = encodings.length;
+        const width = Math.max(...encodings.map((encoding) => encoding.ids.length));
+        const ids = new BigInt64Array(rows * width);
+        const mask = new BigInt64Array(rows * width);
+        encodings.forEach((encoding, row) => {
+            for (let column = 0; column < encoding.ids.length; column += 1) {
+                ids[row * width + column] = BigInt(encoding.ids[column]);
+                mask[row * width + column] = BigInt(encoding.mask[column]);
+            }
+        });
+        const dims = [rows, width];
+        const feeds = {
+            input_ids: new ort.Tensor("int64", ids, dims),
+            attention_mask: new ort.Tensor("int64", mask, dims)
+        };
+        // All zeros: one segment. Present only because the exported graph
+        // declares the input, which XLM-R-derived models do while never using it.
+        if (wantsTokenTypes) {
+            feeds.token_type_ids = new ort.Tensor(
+                "int64",
+                new BigInt64Array(rows * width),
+                dims
+            );
+        }
+        const output = await session.run(feeds);
+        const hidden = output.last_hidden_state;
+        return poolAndNormalize(hidden.data, mask, {
+            rows,
+            width,
+            size: hidden.dims[2]
+        });
     };
 }
 
@@ -142,9 +313,10 @@ async function loadTransformersEmbedder(model, dtype, numThreads) {
  *         }
  *     })();
  *
- * The model is downloaded once on first use (to the transformers.js cache) and
- * everything afterwards is offline. Repository content never leaves the
- * machine — which is the reason this package exists instead of an API client.
+ * The model is downloaded once on first use, into `modelDir`, and everything
+ * afterwards is offline. Repository content never leaves the machine — which is
+ * the reason this package exists instead of an API client. Pointing `model` at a
+ * directory skips the download entirely, for an install with no network.
  */
 export function localSearchIntegration(options = {}) {
     const {
@@ -152,9 +324,15 @@ export function localSearchIntegration(options = {}) {
         model = DEFAULT_MODEL,
         dtype = "q8",
         cacheDir = join(homedir(), ".cache", "workfile", "embeddings"),
+        /**
+         * Where the model and tokenizer are kept. Separate from `cacheDir`:
+         * vectors are cheap to recompute and the model is a 118 MB download, so
+         * clearing one must not cost the other.
+         */
+        modelDir = join(homedir(), ".cache", "workfile", "models"),
         passageChars = 2000,
         embedder = null,
-        /** ONNX intra-op threads. Default: half the cores, never all. */
+        /** ONNX WASM threads. Default: half the cores, never all. */
         numThreads = DEFAULT_THREADS,
         /** Records embedded per model call; the cache persists after each batch. */
         batchSize = 32,
@@ -166,7 +344,7 @@ export function localSearchIntegration(options = {}) {
     const resolveEmbedder = () => {
         embedderPromise ||= embedder
             ? Promise.resolve(embedder)
-            : loadTransformersEmbedder(model, dtype, numThreads);
+            : loadOnnxEmbedder(model, dtype, numThreads, modelDir);
         return embedderPromise;
     };
 

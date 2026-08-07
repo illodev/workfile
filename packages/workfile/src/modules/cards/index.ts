@@ -55,6 +55,8 @@ export {
     buildActivitySnapshot,
     claimBoardChanged,
     claimBoardEntry,
+    claimSeparation,
+    claimSession,
     claimState,
     readActiveLocks,
     readClaimBoard,

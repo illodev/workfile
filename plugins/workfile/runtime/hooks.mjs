@@ -167,6 +167,33 @@ const actorFor = (input) => {
     return `${user}@${host}${suffix}`;
 };
 
+/**
+ * Whether a claim belongs to some process other than this one.
+ *
+ * The rule is `claimSeparation` in `modules/cards/claims.ts`: two claims are one
+ * process only when provably one session, and an actor is not a session. Here it
+ * collapses back to comparing the strings, and that is worth stating rather than
+ * leaving to look like a coincidence — `actorFor` writes the session
+ * discriminator into the tail, so for every pairing this guard can see, actor
+ * equality *is* session equality:
+ *
+ * - both tails present and equal, or both absent with the same actor → one
+ *   process, or `unproven` and deliberately not prompted on. A configured
+ *   `WORKFILE_ACTOR` is somebody declaring an identity, and interrupting them
+ *   about their own claim is how a guard rail gets switched off.
+ * - tails differing, or one present and one absent → two processes.
+ * - no tails and different actors → two people.
+ *
+ * So this stays a string comparison, and the pinning test in
+ * `test/claude-surface.test.ts` drives both derivations over every case rather
+ * than trusting the paragraph above. What the guard cannot see is a session that
+ * exists only in a session file — `claimed_by` written from an explicit
+ * `--actor` carries no tail — and the snapshot can. That residual is LRN-0030.
+ */
+function separatesFromMe(claimedBy, mine) {
+    return claimedBy !== mine;
+}
+
 const SESSIONS = `${CACHE}/sessions`;
 
 /**
@@ -368,7 +395,7 @@ async function preToolUse(input) {
     const conflict = board.claims.find(
         (claim) =>
             claim.status === "doing" &&
-            claim.claimedBy !== mine &&
+            separatesFromMe(claim.claimedBy, mine) &&
             claim.scope.length &&
             scopeCovers(claim.scope, repoPath)
     );

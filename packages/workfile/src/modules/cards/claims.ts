@@ -1,6 +1,7 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import { sessionDiscriminator } from "../../core/actor.js";
 import { writeFileAtomic } from "../../core/filesystem.js";
 import { withFileLock } from "../../core/locks.js";
 import { exists } from "../../core/fs-utils.js";
@@ -239,10 +240,13 @@ export function claimState(card, sessions, { leaseHours, now = new Date() }) {
     if (!card.claimed_by) return { state: "unclaimed" };
     const claimedAt = Date.parse(card.claimed_at || "");
     const ageMs = Number.isFinite(claimedAt) ? now.getTime() - claimedAt : null;
-    const session = sessions.find(
-        (candidate) =>
-            candidate.cardId === card.id || candidate.actor === card.claimed_by
-    );
+    // The card's own session wins over any session merely sharing its actor.
+    // As one `find` over an `||` this returned whichever session came first, so
+    // two cards held by one actor string could both be attributed to the same
+    // session — which is exactly the evidence the conflict rule below reads.
+    const session =
+        sessions.find((candidate) => candidate.cardId === card.id) ||
+        sessions.find((candidate) => candidate.actor === card.claimed_by);
     const base = {
         by: card.claimed_by,
         at: card.claimed_at || null,
@@ -261,6 +265,60 @@ export function claimState(card, sessions, { leaseHours, now = new Date() }) {
         return { ...base, state: "orphaned" };
     }
     return { ...base, state: "held" };
+}
+
+/**
+ * The session a claim was made from, however it can be recovered.
+ *
+ * Two places carry it and neither is always present. A live session file knows
+ * its own id; a `claimed_by` written by any process that resolved its own actor
+ * carries the discriminator in its tail, which outlives the session file and
+ * survives into git. Normalized through `sessionDiscriminator` so a full id from
+ * a session file and an eight-character tail from an actor compare equal.
+ */
+export function claimSession(claim: {
+    by?: string | null;
+    sessionId?: string | null;
+}): string | null {
+    const fromSession = sessionDiscriminator(claim.sessionId || undefined);
+    if (fromSession) return fromSession;
+    const tail = /#([A-Za-z0-9]+)$/.exec(String(claim.by || ""));
+    return tail ? sessionDiscriminator(tail[1]) || null : null;
+}
+
+/**
+ * What tells two claims apart, or nothing if they are one process.
+ *
+ * The rule this replaces compared `claimed_by`, and that reads as a session only
+ * by accident: `resolveActor` appends a session discriminator, so two agents
+ * *usually* differ. Two plain terminals resolve to the same `user@host` and were
+ * dropped as one person; so were two agents that were handed the same `--actor`.
+ * Both are two processes about to overwrite each other.
+ *
+ * So the question is not "same actor" but "provably the same process", and the
+ * answer names its own evidence, because the three cases are not equally strong:
+ *
+ * - `sessions-differ` — two sessions, seen. Two processes.
+ * - `actors-differ` — no session either side, different actors. Two people.
+ * - `unproven` — no session either side and the same actor. One person holding
+ *   two overlapping cards and two terminals racing each other are the same
+ *   record; nothing in the workspace distinguishes them.
+ *
+ * `unproven` is reported rather than dropped, and that is the decision T-0206
+ * had to make. Silence is the bug — it is what let two terminals collide with
+ * no trace. But a consumer that interrupts somebody must be able to tell a
+ * verdict from a guess, which is what the label is for: the popover can show it,
+ * and the scope guard does not prompt on it (see `plugins/workfile/runtime/hooks.mjs`).
+ */
+export function claimSeparation(
+    a: { by?: string | null; sessionId?: string | null },
+    b: { by?: string | null; sessionId?: string | null }
+): "sessions-differ" | "actors-differ" | "unproven" | null {
+    const left = claimSession(a);
+    const right = claimSession(b);
+    if (left && right) return left === right ? null : "sessions-differ";
+    if (left || right) return "sessions-differ";
+    return a.by === b.by ? "unproven" : "actors-differ";
 }
 
 /**
@@ -296,7 +354,8 @@ export async function buildActivitySnapshot(
         for (let right = left + 1; right < claims.length; right += 1) {
             const a = claims[left];
             const b = claims[right];
-            if (a.claim.by === b.claim.by) continue;
+            const basis = claimSeparation(a.claim, b.claim);
+            if (!basis) continue;
             const shared = a.scope.filter((path) =>
                 b.scope.some(
                     (other) =>
@@ -306,7 +365,7 @@ export async function buildActivitySnapshot(
                 )
             );
             if (shared.length) {
-                conflicts.push({ cards: [a.id, b.id], paths: shared });
+                conflicts.push({ cards: [a.id, b.id], paths: shared, basis });
             }
         }
     }

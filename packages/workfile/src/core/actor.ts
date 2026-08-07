@@ -147,8 +147,16 @@ export function resolveActor(options: ResolveActorOptions = {}): ResolvedActor {
  * A UUID's first block is already distinct enough to separate the handful of
  * sessions that can share one checkout, and it stays short enough that the
  * actor is still a name rather than a token.
+ *
+ * Exported because it is not only how an actor is *written*: it is also how a
+ * claim is read back. `claimSession` in `modules/cards/claims.ts` recovers the
+ * session from a `claimed_by` written by an earlier process, and a second copy
+ * of this normalization there would let the two drift apart silently — the
+ * comparison would start answering "different session" for one session.
  */
-function sessionDiscriminator(sessionId: string | undefined): string | undefined {
+export function sessionDiscriminator(
+    sessionId: string | undefined
+): string | undefined {
     if (!sessionId) return undefined;
     const cleaned = sessionId.replace(/[^A-Za-z0-9]/g, "");
     if (!cleaned) return undefined;

@@ -30,7 +30,8 @@
     "test": "pnpm --filter @illodev/workfile run test && pnpm --filter @illodev/workfile-search-local run test",
     "check": "pnpm run build && pnpm run build:plugin && pnpm run strict && pnpm run test",
     "smoke:package": "pnpm --filter @illodev/workfile run smoke:package",
-    "check:release": "pnpm run check && pnpm audit --audit-level=high && pnpm run smoke:package",
+    "audit:consumer": "node ./scripts/audit-consumer.ts",
+    "check:release": "pnpm run check && pnpm audit --audit-level=high && pnpm run audit:consumer && pnpm run smoke:package",
     "bench": "pnpm --filter @illodev/workfile run bench",
     "screenshots": "pnpm run build && node ./scripts/screenshots.ts",
     "doctor": "node packages/workfile/dist/bin/workfile.js doctor",
@@ -53,8 +54,6 @@
   },
   "pnpm": {
     "overrides": {
-      "sharp": "^0.35.0",
-      "adm-zip": "^0.6.0",
       "fast-uri": "^3.1.5",
       "js-yaml": "^4.3.1"
     }

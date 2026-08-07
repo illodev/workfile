@@ -4,7 +4,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { localSearchIntegration } from "../index.js";
+import {
+    localSearchIntegration,
+    onnxFileName,
+    poolAndNormalize
+} from "../index.js";
 import {
     defineProjectIntegration,
     searchProjectRecordsHybrid
@@ -245,4 +249,64 @@ test("empty queries and empty record sets short-circuit without embedding", asyn
         []
     );
     assert.equal(embed.calls.length, 0);
+});
+
+/**
+ * The arithmetic and the naming the ONNX path rests on, without a model.
+ *
+ * T-0221 replaced one `pipeline("feature-extraction")` call with the tokenize →
+ * run → pool → normalize sequence it was doing internally. Everything above this
+ * line injects `embedder`, so none of it touches the new code at all: these two
+ * functions are the parts a refactor breaks silently, and neither needs the
+ * 118 MB download to check.
+ */
+test("a dtype names its ONNX file, and an unknown one is refused with the list", () => {
+    assert.equal(onnxFileName("fp32"), "model.onnx");
+    // The one that is not `model_<dtype>.onnx`, which is why this exists.
+    assert.equal(onnxFileName("q8"), "model_quantized.onnx");
+    assert.equal(onnxFileName("fp16"), "model_fp16.onnx");
+    assert.equal(onnxFileName("q4"), "model_q4.onnx");
+    assert.throws(
+        () => onnxFileName("q9"),
+        // Refused here rather than becoming a 404 on a URL the caller never wrote.
+        (error: Error) => /Unknown dtype "q9"/.test(error.message) && /q8/.test(error.message)
+    );
+});
+
+test("pooling averages only the real tokens and returns unit vectors", () => {
+    // Two rows, three columns, two features. Row 0 has one padded column; row 1
+    // has two. Hidden states chosen so the correct mean is exact in binary.
+    const hidden = [
+        // row 0
+        2, 0, /* col 1 */ 4, 0, /* col 2, padded */ 1000, 1000,
+        // row 1
+        0, 3, /* col 1, padded */ 500, 500, /* col 2, padded */ 700, 700
+    ];
+    const mask = [1, 1, 0, 1, 0, 0];
+    const vectors = poolAndNormalize(hidden, mask, { rows: 2, width: 3, size: 2 });
+
+    // Row 0 pools (2,0) and (4,0) to (3,0); normalized that is (1,0). Summing
+    // the padded column instead would give (335.3, 333.3), about 45 degrees off,
+    // and that is what this pins.
+    //
+    // Note what it deliberately does *not* pin: the divisor. Dividing by the
+    // padded width rather than the token count is a positive scalar, and the
+    // normalization below cancels it exactly — so that mutation is undetectable
+    // here because it is undetectable anywhere. `counted` is kept for the sake of
+    // the value being a mean, not because the ranking can tell.
+    assert.deepEqual(vectors[0], [1, 0]);
+    assert.deepEqual(vectors[1], [0, 1]);
+
+    for (const vector of vectors) {
+        const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+        assert.ok(Math.abs(norm - 1) < 1e-12, `not a unit vector: ${norm}`);
+    }
+});
+
+test("an all-padding row is a zero vector rather than a division by zero", () => {
+    // Reachable only through a bug upstream, and it must not return NaN: a NaN
+    // score sorts unpredictably and would corrupt the whole ranking rather than
+    // just that record.
+    const vectors = poolAndNormalize([5, 5], [0], { rows: 1, width: 1, size: 2 });
+    assert.deepEqual(vectors[0], [0, 0]);
 });

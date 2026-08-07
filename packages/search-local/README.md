@@ -1,7 +1,9 @@
 # @illodev/workfile-search-local
 
 Local embeddings semantic search provider for [Workfile](https://github.com/illodev/workfile).
-Models run on-device via [transformers.js](https://github.com/huggingface/transformers.js) (ONNX on CPU) — repository content never leaves the machine.
+Models run on-device via [onnxruntime-web](https://onnxruntime.ai/) and
+[@huggingface/tokenizers](https://github.com/huggingface/tokenizers) (ONNX on CPU, WASM) —
+repository content never leaves the machine.
 
 ## Usage
 
@@ -59,8 +61,10 @@ record re-embeds that record only.
 ## Behavior
 
 - The model (default `Xenova/multilingual-e5-small`, quantized, multilingual)
-  is downloaded once on first use to the transformers.js cache; everything
-  afterwards is offline.
+  is downloaded once on first use into `modelDir` — about 135 MB of tokenizer
+  and weights — and everything afterwards is offline. Point `model` at a
+  directory holding `tokenizer.json` and the ONNX file to skip the download
+  entirely, which is how this runs on a machine with no network.
 - Record embeddings are cached in `~/.cache/workfile/embeddings`, keyed by
   content hash — editing a card re-embeds that card only. Only the first
   `passageChars` characters of a body are embedded, so edits beyond that
@@ -77,11 +81,12 @@ record re-embeds that record only.
 localSearchIntegration({
     id: "local-embeddings",             // integration id, referenced by search.provider
     model: "Xenova/multilingual-e5-small",
-    dtype: "q8",                        // model quantization passed to transformers.js
+    dtype: "q8",                        // which exported ONNX weights to load
     cacheDir: "~/.cache/workfile/embeddings-or-null",
+    modelDir: "~/.cache/workfile/models", // where the model and tokenizer are kept
     passageChars: 2000,                 // body characters embedded per record
     embedder: null,                     // inject your own (texts) => vectors
-    numThreads: 4,                      // ONNX threads; default: half the cores
+    numThreads: 4,                      // ONNX WASM threads; default: half the cores
     batchSize: 32,                      // records per model call; cache persists per batch
     onProgress: ({ done, total }) => {} // default: stderr lines on large passes
 });

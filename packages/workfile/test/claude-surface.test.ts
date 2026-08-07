@@ -18,6 +18,7 @@ import {
     buildActivitySnapshot,
     checkClaudeSurface,
     claimCard,
+    claimSeparation,
     claudeCommandFiles,
     claudeHooksFile,
     claudeMcpFile,
@@ -1614,5 +1615,127 @@ test("every matcher covers the events its handler acts on", async () => {
         );
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * T-0206: the guard and the activity snapshot must answer one question.
+ *
+ * The snapshot decides whether two claims are two processes; the guard decides
+ * whether *this* process holds the claim covering the file. Same question, and
+ * the rule is `claimSeparation`. The guard reaches it by comparing `claimed_by`
+ * against its own actor, which reads as an actor comparison and is a session
+ * comparison — `actorFor` writes the session into the tail. That equivalence is
+ * the kind of thing that is true until somebody changes one side, so it is
+ * driven rather than argued: the real hook runs for each pairing and its silence
+ * has to match what `claimSeparation` says about the same two identities.
+ *
+ * `unproven` counts as silence. Two sessionless claims under one actor cannot be
+ * told apart, and a guard that prompts a person about a card they claimed
+ * themselves is the guard people switch off — the snapshot reports it instead,
+ * where nobody is interrupted.
+ */
+const SEPARATION_CASES: ReadonlyArray<{
+    label: string;
+    claimedBy: string;
+    session: string | null;
+    actorEnv?: string;
+}> = [
+    {
+        label: "my own session",
+        claimedBy: "solo@box#e55eab30",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48"
+    },
+    {
+        label: "another agent's session",
+        claimedBy: "solo@box#aaaaaaaa",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48"
+    },
+    {
+        label: "a plain terminal, seen by an agent",
+        claimedBy: "solo@box",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48"
+    },
+    {
+        label: "another person entirely",
+        claimedBy: "someone@else",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48"
+    },
+    {
+        label: "a configured actor claiming its own card",
+        claimedBy: "ci-runner",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48",
+        actorEnv: "ci-runner"
+    },
+    {
+        label: "a configured actor over somebody else's card",
+        claimedBy: "solo@box#aaaaaaaa",
+        session: "e55eab30-b661-4290-bd58-d3b3a82f3b48",
+        actorEnv: "ci-runner"
+    }
+];
+
+test("the scope guard and the activity snapshot apply one separation rule", async () => {
+    for (const scenario of SEPARATION_CASES) {
+        const root = await mkdtemp(join(tmpdir(), "workfile-separation-"));
+        try {
+            await cp(fixture, root, { recursive: true });
+            const workspace = await loadWorkspace({ root });
+            const card = await createCard(workspace, {
+                title: scenario.label,
+                area: "api"
+            });
+            await claimCard(workspace, card.id, {
+                actor: scenario.claimedBy,
+                scope: ["src/api"]
+            });
+
+            const env = {
+                ...BLANK,
+                USER: "solo",
+                HOSTNAME: "box",
+                ...(scenario.actorEnv ? { WORKFILE_ACTOR: scenario.actorEnv } : {})
+            };
+            const mine =
+                scenario.actorEnv ||
+                resolveActor({ sessionId: scenario.session, env }).actor;
+
+            // What the snapshot would say about these two identities. The guard
+            // compares a claim against a live process rather than two claims, so
+            // the second side is this session's identity.
+            const basis = claimSeparation(
+                { by: scenario.claimedBy, sessionId: null },
+                { by: mine, sessionId: scenario.actorEnv ? null : scenario.session }
+            );
+            const shouldPrompt = Boolean(basis) && basis !== "unproven";
+
+            // The board the guard reads is written at session start.
+            await runHook(
+                "session-start",
+                { session_id: scenario.session },
+                root,
+                env
+            );
+            const guard = await runHook(
+                "pre-tool-use",
+                {
+                    session_id: scenario.session,
+                    tool_name: "Edit",
+                    tool_input: { file_path: join(root, "src/api/billing.ts") }
+                },
+                root,
+                env
+            );
+            const prompted = guard.stdout.includes("permissionDecision");
+            assert.equal(
+                prompted,
+                shouldPrompt,
+                `${scenario.label}: claimSeparation said ${basis ?? "one process"}, the guard ${
+                    prompted ? "prompted" : "stayed silent"
+                }`
+            );
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
     }
 });
