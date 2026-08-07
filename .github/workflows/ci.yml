@@ -46,6 +46,34 @@ jobs:
             # The hosted demo build must keep compiling too.
             - run: pnpm run build:demo
 
+    audit:
+        # `pnpm audit` ran only inside `check:release`, which runs on a tag push
+        # — so an advisory published by the ecosystem failed a *release* instead
+        # of a pull request. That is what it cost for v0.5.4: a tag whose
+        # release did nothing, `Publish to npm` never reached, and the tag moved
+        # onto the fix rather than the version being burned. The advisory did not
+        # change; only where it surfaced did. Here a re-run replaces a retag.
+        #
+        # Blocking, and at the same threshold as the release gate. A warning
+        # nobody has to act on is not a gate, and the repository already fixes
+        # these one way — a `pnpm.overrides` entry — which is a reviewable diff.
+        # Read what that fix does and does not do in ADR-0021 before adding one.
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm audit --audit-level=high
+            # And the tree a consumer actually resolves, which the line above
+            # cannot see: root `pnpm.overrides` rewrite resolution in this
+            # workspace only, so an override silences the gate here and reaches
+            # no user. Blocking with no allowlist, deliberately — ADR-0021.
+            - run: pnpm run audit:consumer
+
     smoke:
         # Packs the real tarball and installs it in a clean consumer. Only worth
         # running once: it is the slowest job and platform-independent.
