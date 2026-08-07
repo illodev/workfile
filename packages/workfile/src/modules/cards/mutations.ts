@@ -797,6 +797,30 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
             code: "CARD_ID_ALLOCATION_FAILED"
         },
         async (id) => {
+            // The allocated id, checked here because here is the only place it
+            // exists. `validateCardCandidate` above ran against `id: "pending"`
+            // — the allocation decides the id and the allocation needs the lock
+            // — so a create naming the id it is about to be given cannot be
+            // refused up there, whatever the field.
+            //
+            // T-0161 assumed it could, on the grounds that the self-parent
+            // branch catches the same case on creation. It does not: a self
+            // `parent` on create is refused by `CARD_PARENT_NOT_FOUND`, because
+            // the id is not among the loaded cards either. The right code for
+            // the wrong reason, and only for the two fields whose targets have
+            // to exist. `origin` has no existence rule — an origin may name a
+            // record not written yet — so nothing caught it at all.
+            //
+            // A `ValidationError` is not create contention, so it leaves the
+            // retry loop rather than being read as a collision and retried onto
+            // the next id.
+            if ((base.origin || []).includes(id)) {
+                throw new ValidationError(
+                    "CARD_SELF_ORIGIN",
+                    "A card cannot originate from itself.",
+                    { id, field: "origin" }
+                );
+            }
             const file = `${id}-${slugify(input.title)}.md`;
             const path = join(workspace.paths.cards, file);
             const content = renderCard({ ...base, id }, input.body);

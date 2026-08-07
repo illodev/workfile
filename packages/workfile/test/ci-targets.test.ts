@@ -88,13 +88,134 @@ test("every target states that the checkout's own config executes, both hops", a
     }
 });
 
-test("no generated target lowers a card-declared command into a shell", async () => {
-    // The pin that keeps the next card honest. A `verify[].run` is an argument
-    // vector precisely so that no shell parses it; writing one into a YAML
-    // `run:` block or into the generic sh script would hand it straight back to
-    // one and make the allowlist a claim about a string again.
+/**
+ * The pin T-0188 left for the next card, kept and made precise.
+ *
+ * It read `doesNotMatch(/card verify/)` and `doesNotMatch(/\$\{\{/)` on every
+ * target, and T-0189 is the card it was left for — so it is worth saying exactly
+ * what it was protecting and what it was not.
+ *
+ * It was protecting two things. A `verify[].run` is an argument vector precisely
+ * so that no shell parses it, and writing one into a YAML `run:` block would hand
+ * it back to one and make the allowlist a claim about a string again. And a
+ * `\${{ }}` inside a `run:` block is expanded by Actions *before* the shell sees
+ * it, so a branch name or a PR title interpolated there is code.
+ *
+ * Neither is what invoking the runner does. `card verify --changed` is a fixed
+ * argument vector of the tool's own flags; the card's command never appears in
+ * the workflow, and the tool spawns it with no shell — which is the property
+ * T-0188 actually bought. So the two blanket assertions are replaced by the two
+ * rules they stood for, and the second is now checked where it matters rather
+ * than everywhere: inside `run:` scripts only, since `env:` and `if:` are where
+ * an expression belongs.
+ */
+test("no generated target hands a card's command, or an expression, to a shell", async () => {
     for (const [id, body] of Object.entries(await bodies())) {
-        assert.doesNotMatch(body, /card verify/, id);
-        assert.doesNotMatch(body, /\$\{\{/, id);
+        // Nothing composes a command out of card data. The workflow names the
+        // tool and its flags; what the tool then runs it reads off the card and
+        // spawns as a vector.
+        assert.doesNotMatch(
+            body,
+            /verify\[|\.run\b|criteria:/,
+            `${id} reads a card's verify block into the template`
+        );
+
+        // And no Actions expression reaches a shell. Scanned by indentation
+        // rather than by one regex over the whole file: a `run: |` block is its
+        // opening line plus every following line indented past it, and the
+        // continuation lines are exactly where an interpolation would hide. The
+        // first version of this check used a single lookahead pattern, and a
+        // mutation that put `\${{ github.base_ref }}` on a continuation line
+        // passed it — the assertion was the broken half, and a pin that does not
+        // bite is worse than no pin.
+        const lines = body.split("\n");
+        const shellLines: string[] = [];
+        // The generic target is a shell script end to end, so every line of it
+        // that is not a comment already is one.
+        if (id === "generic") {
+            shellLines.push(
+                ...lines.filter((line) => line.trim() && !line.trimStart().startsWith("#"))
+            );
+        }
+        for (let index = 0; index < lines.length; index += 1) {
+            // `run:` on GitHub, `script:` on GitLab — the same thing under two
+            // names, and both hand their contents to a shell.
+            const opening = /^(\s*)(?:-\s+)?(?:run|script):(.*)$/.exec(lines[index]);
+            if (!opening) continue;
+            const indent = opening[1].length;
+            // `run: something` on one line is itself a shell line.
+            if (opening[2].trim() && !/^[|>]/.test(opening[2].trim())) {
+                shellLines.push(lines[index]);
+                continue;
+            }
+            for (let next = index + 1; next < lines.length; next += 1) {
+                const line = lines[next];
+                if (!line.trim()) continue;
+                const width = line.length - line.trimStart().length;
+                if (width <= indent) break;
+                shellLines.push(line);
+            }
+        }
+        // A floor per target, because the three formats carry different amounts
+        // of shell: GitHub has four `run:` steps across two jobs, GitLab has a
+        // two-line `script:`, and the generic file is shell throughout. Set at
+        // all so a scan that silently stops matching fails loudly instead of
+        // reporting a clean sweep over nothing.
+        const floor = id === "gitlab" ? 2 : id === "generic" ? 3 : 8;
+        assert.ok(
+            shellLines.length >= floor,
+            `${id}: found ${shellLines.length} shell lines, expected at least ` +
+                `${floor} — the scan stopped matching rather than the shell going away`
+        );
+        for (const line of shellLines) {
+            assert.doesNotMatch(
+                line,
+                /\$\{\{/,
+                `${id} interpolates an Actions expression into a shell: ${line.trim()}`
+            );
+        }
     }
+});
+
+/**
+ * And the two-job split, which is the whole safety of T-0189.
+ *
+ * One job runs commands a pull request declared and holds nothing. Another holds
+ * a write token and runs no repository code — not even Workfile, because every
+ * Workfile command `import()`s `project.config.mjs` from the checkout. A change
+ * that merges them, or that teaches the write job to run the tool, is the one
+ * mistake here that would not look like a mistake.
+ */
+test("the job that runs card commands and the job that writes are not the same job", async () => {
+    const github = (await bodies()).github;
+    const job = (name: string) => {
+        const start = github.indexOf(`\n  ${name}:\n`);
+        assert.notEqual(start, -1, `the ${name} job is gone`);
+        const rest = github.slice(start + 1);
+        const next = rest.search(/\n {2}\w+:\n/);
+        return next === -1 ? rest : rest.slice(0, next);
+    };
+
+    const cards = job("cards");
+    assert.match(cards, /^ {4}permissions: \{\}$/m, "the card runner holds a scope");
+    assert.match(cards, /card verify --changed/);
+    assert.match(cards, /persist-credentials: false/);
+    // Without the full history there is no merge base, and a card diff taken
+    // against nothing is the failure this whole feature must not have.
+    assert.match(cards, /fetch-depth: 0/);
+
+    const record = job("record");
+    assert.match(record, /^ {4}permissions:\n {6}contents: write$/m);
+    assert.doesNotMatch(
+        record,
+        /@illodev\/workfile/,
+        "the write-scoped job invokes Workfile, which imports the checkout's config"
+    );
+    // A patch out of the untrusted job is applied here, so its reach is bounded
+    // before it is applied rather than trusted because of where it came from.
+    assert.match(record, /refusing a patch that reaches outside/);
+    assert.match(record, /git apply --check/);
+    // Fork pull requests never start this job. The token would be read-only
+    // anyway; the condition is what says so.
+    assert.match(record, /head\.repo\.full_name == github\.repository/);
 });

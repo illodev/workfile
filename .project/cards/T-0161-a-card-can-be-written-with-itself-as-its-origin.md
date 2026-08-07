@@ -1,7 +1,7 @@
 ---
 id: T-0161
 title: A card can be written with itself as its origin
-status: backlog
+status: doing
 type: bug
 priority: low
 area: core
@@ -9,7 +9,13 @@ effort: S
 scope: [packages/workfile/src/modules/cards/validation.ts]
 origin: [T-0156]
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-07
+claimed_by: "illodev@local#42eb42f5"
+claimed_at: "2026-08-07T21:19:17.046Z"
+verify:
+  - id: self-reference
+    run: [node, --test, packages/workfile/test/self-reference.test.ts]
+    criteria: ["sha256:ae2edc316ff93cb65b575452945408f5f712ad33d6b5c7ed4fb61e9a5bb8af1b", "sha256:08de66f38da03ca41f2963e76624fc4140e4fd240792af7fbd1f8b826d7d38b9", "sha256:ee509c4d091e14ef3f3d6ec54722acb30bc019b2d2d5de59db82058afc24e497", "sha256:193e044572b952be47178266f43cdb70cc42ef043b03bdaff153cb343de4d96b"]
 ---
 
 Found in the 0.6.0 smoke test, against the published package. On a fresh
@@ -57,3 +63,8 @@ that does not exist yet.
 - [ ] The error code reads like its two neighbours
 - [ ] The doctor rule stays, for records written before this landed
 - [ ] `pnpm run check` green, doctor 0/0
+
+## Activity
+
+- 2026-08-07 21:19Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 21:24Z illodev@local#42eb42f5 · verify self-reference: node --test packages/workfile/test/self-reference.test.ts passed, checked #1, #2, #3, #4
