@@ -55,7 +55,7 @@
   "pnpm": {
     "overrides": {
       "fast-uri": "^3.1.5",
-      "hono": "^4.12.34",
+      "hono": "4.12.33",
       "js-yaml": "^4.3.1"
     }
   }
