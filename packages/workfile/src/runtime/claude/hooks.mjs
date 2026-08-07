@@ -121,9 +121,23 @@ async function buildBoard(root) {
     return { claims, builtAt: new Date().toISOString() };
 }
 
+/**
+ * Trailing separators removed without a regex, mirroring
+ * `stripTrailingSlashes` in `core/glob.ts` — which this file cannot import, see
+ * the header. `replace(/\/+$/, "")` retries the anchored `+` from every start
+ * position, so N slashes cost O(N²); CodeQL flags the package's copy of that
+ * spelling and is right to. The scope here comes off a card, and a card in a
+ * repository taking pull requests can arrive from a fork.
+ */
+const withoutTrailingSlashes = (value) => {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "/") end -= 1;
+    return end === value.length ? value : value.slice(0, end);
+};
+
 function scopeCovers(scope, repoPath) {
     return scope.some((entry) => {
-        const normalized = entry.replace(/\/+$/, "");
+        const normalized = withoutTrailingSlashes(entry);
         if (!normalized) return false;
         if (normalized.includes("*")) {
             const pattern = new RegExp(
