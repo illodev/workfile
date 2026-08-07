@@ -58,13 +58,14 @@ that does not exist yet.
 
 ## Acceptance criteria
 
-- [ ] `card create --origin` naming the ID being allocated is refused
-- [ ] `card patch` setting a card's own ID as its origin is refused
-- [ ] The error code reads like its two neighbours
-- [ ] The doctor rule stays, for records written before this landed
+- [x] `card create --origin` naming the ID being allocated is refused
+- [x] `card patch` setting a card's own ID as its origin is refused
+- [x] The error code reads like its two neighbours
+- [x] The doctor rule stays, for records written before this landed
 - [ ] `pnpm run check` green, doctor 0/0
 
 ## Activity
 
 - 2026-08-07 21:19Z illodev@local#42eb42f5 · claimed
 - 2026-08-07 21:24Z illodev@local#42eb42f5 · verify self-reference: node --test packages/workfile/test/self-reference.test.ts passed, checked #1, #2, #3, #4
+- 2026-08-07 21:28Z runner@local · verify self-reference: node --test packages/workfile/test/self-reference.test.ts passed, checked #1, #2, #3, #4
