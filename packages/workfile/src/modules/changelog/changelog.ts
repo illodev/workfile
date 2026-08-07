@@ -63,6 +63,11 @@ export const RELEASE_REQUIRED_KEYS = Object.freeze([
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SEMVER_RE = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
+/** The filename a changelog fragment with this id and title would get today. */
+export function fragmentFileName(id, title) {
+    return `${id}-${slugify(title)}.md`;
+}
+
 function slugify(value, fallback = "change") {
     return (
         String(value)

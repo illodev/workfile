@@ -139,7 +139,8 @@ export {
     healDuplicateRecordIds,
     renumberCard,
     renumberRecord,
-    reslugStaleCardFiles
+    reslugStaleCardFiles,
+    reslugStaleRecordFiles
 } from "./modules/health/renumber.js";
 export {
     HEALABLE_KINDS,

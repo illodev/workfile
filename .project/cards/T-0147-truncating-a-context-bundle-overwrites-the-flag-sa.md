@@ -1,14 +1,20 @@
 ---
 id: T-0147
 title: Truncating a context bundle overwrites the flag saying it was truncated
-status: backlog
+status: done
 type: bug
 priority: low
 area: mcp
 tags: [mcp, truncation]
 created: 2026-08-03
-updated: 2026-08-04
+updated: 2026-08-07
 origin: [T-0146]
+scope: [packages/workfile/src/modules/mcp]
+verified:
+  at: "2026-08-07T22:58:23.966Z"
+  method: local
+  commit: 9cfb0175194fc944ab34f527c800adf4c1b486d2
+  digest: "sha256:cae81812f469d88981a5082dbb9a514cb0a7a5dea3d6cd3a5dc15cdea30befb5"
 ---
 
 `buildAgentContext` returns `truncated: boolean` — true when related records
@@ -43,9 +49,18 @@ not an assumption to build a fix on.
 
 ## Acceptance criteria
 
-- [ ] A test drives `project_agent_context` past `maxToolResultBytes` and pins
+- [x] A test drives `project_agent_context` past `maxToolResultBytes` and pins
       what the two markers do to each other
-- [ ] The byte-ceiling marker stops colliding with tool payload fields — a
+- [x] The byte-ceiling marker stops colliding with tool payload fields — a
       distinct key, or a nested one
-- [ ] `outputSchema` for `project_agent_context` matches whatever wins
-- [ ] `docs/mcp.md` describes the marker that ends up shipping
+- [x] `outputSchema` for `project_agent_context` matches whatever wins
+- [x] `docs/mcp.md` describes the marker that ends up shipping
+
+## Activity
+
+- 2026-08-07 22:17Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 22:58Z illodev@local#42eb42f5 · released
+
+## Notes
+
+- 2026-08-07 22:58Z illodev@local#42eb42f5 — local verification: Reproduced first, as the card asked: with the ceiling lowered, project_agent_context returned `truncated: {"records":1}` where its outputSchema declares a boolean. The byte-ceiling marker is `resultTruncated` now, declared in every tool's schema rather than merely allowed, and docs/mcp.md says which of the two is the transport speaking. Mutation-proven: restoring the shared key reports the object where a boolean belongs. Full gate green at 484 + 10 tests.

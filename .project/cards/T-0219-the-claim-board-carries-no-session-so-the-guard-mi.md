@@ -1,7 +1,7 @@
 ---
 id: T-0219
 title: The claim board carries no session, so the guard misses a shared actor
-status: backlog
+status: done
 type: task
 priority: low
 area: core
@@ -12,6 +12,11 @@ related: [T-0089]
 origin: [T-0206, LRN-0030]
 created: 2026-08-07
 updated: 2026-08-07
+verified:
+  at: "2026-08-07T22:58:23.322Z"
+  method: local
+  commit: 9cfb0175194fc944ab34f527c800adf4c1b486d2
+  digest: "sha256:89f0faee49e0513ddaf53fd252b98b26d1965433665d6a7341bf822cd8ab4cdf"
 ---
 
 The residual ADR-0020 left open, recorded in full in LRN-0030.
@@ -40,7 +45,16 @@ T-0089 is already about board staleness and would pass through the same code.
 
 ## Acceptance criteria
 
-- [ ] A board entry carries the session resolved for its claim, from either source.
-- [ ] Both writers of the board — `rebuildClaimBoard` and the hook's `buildBoard` — produce the same entry for the same card, proven by a test.
-- [ ] Two agents sharing an explicit `--actor` make the guard prompt, proven by driving the real hook.
-- [ ] The hook's latency budget still holds.
+- [x] A board entry carries the session resolved for its claim, from either source.
+- [x] Both writers of the board — `rebuildClaimBoard` and the hook's `buildBoard` — produce the same entry for the same card, proven by a test.
+- [x] Two agents sharing an explicit `--actor` make the guard prompt, proven by driving the real hook.
+- [x] The hook's latency budget still holds.
+
+## Activity
+
+- 2026-08-07 22:17Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 22:58Z illodev@local#42eb42f5 · released
+
+## Notes
+
+- 2026-08-07 22:58Z illodev@local#42eb42f5 — local verification: Driven through the real hook, four cases: the holding session stays silent; two agents with different sessions and the same explicit --actor now prompt, which is the case LRN-0030 left open; two session-free terminals with one actor stay silent because unproven is not a verdict; different actors prompt. The board carries the session from either source and both writers agree, pinned by a test that now compares the rule the guard applies rather than assuming null on both sides — it was agreeing by coincidence. The latency budget test passes, and the hot path gained one string operation and no I/O. Two mutations caught: dropping the field, and collapsing the guard back to comparing actors.

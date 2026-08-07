@@ -62,6 +62,7 @@ import {
     renderChangelog,
     renumberCard,
     reslugStaleCardFiles,
+    reslugStaleRecordFiles,
     reopenCard,
     runUpgrade,
     runDoctor,
@@ -2633,7 +2634,15 @@ async function main() {
     // still wrote. `ensureWritable` is the guard that actually holds.
     const workspace = await loadWorkspace(
         explicitRoot
-            ? { root: explicitRoot, readOnly: has("--read-only") }
+            ? {
+                  root: explicitRoot,
+                  // `--allow-new` reaches both branches now. It did not, which
+                  // is how `--root` came to check nothing at all: the flag that
+                  // means "accept a directory that is not yet a workspace" was
+                  // only wired to the path that already refused one (T-0160).
+                  allowMissing: has("--allow-new"),
+                  readOnly: has("--read-only")
+              }
             : {
                   cwd: root,
                   allowMissing: has("--allow-new"),
@@ -2656,10 +2665,10 @@ async function main() {
         let fixed:
             | (Awaited<ReturnType<typeof healDuplicateRecordIds>> & {
                   renamed: Awaited<
-                      ReturnType<typeof reslugStaleCardFiles>
+                      ReturnType<typeof reslugStaleRecordFiles>
                   >["moves"];
                   renameSkipped: Awaited<
-                      ReturnType<typeof reslugStaleCardFiles>
+                      ReturnType<typeof reslugStaleRecordFiles>
                   >["skipped"];
                   trails: Awaited<
                       ReturnType<typeof healMisplacedTrailEntries>
@@ -2672,7 +2681,11 @@ async function main() {
             // Renaming runs after the ID repair: a card that just moved to a
             // fresh ID keeps the old title slug, and this is what brings the
             // whole filename back in step.
-            const renamed = await reslugStaleCardFiles(workspace, { actor });
+            // Every kind, not only cards. Memory records, managed documents and
+            // unreleased changelog fragments derive their filenames from their
+            // titles the same way and had neither the rule nor the repair
+            // (T-0223).
+            const renamed = await reslugStaleRecordFiles(workspace, { actor });
             // Last, because both repairs above rewrite whole files and this one
             // reads the body it finds afterwards.
             const trails = await healMisplacedTrailEntries(workspace, { actor });
@@ -2786,9 +2799,15 @@ async function main() {
             }
             // Grouped counts, so a wall of one repeated rule reads as one
             // problem rather than as hundreds.
+            // Keyed by module and code, not by code alone. A core `code` implies
+            // its module to anyone who knows the codebase; a diagnostic returned
+            // by a repository's own `healthCheck` implies nothing, and used to
+            // read exactly like one Workfile produced. `integration:<id>/<code>`
+            // is unmistakable (T-0218).
             const byCode = new Map();
             for (const issue of shown) {
-                byCode.set(issue.code, (byCode.get(issue.code) || 0) + 1);
+                const key = issue.module ? `${issue.module}/${issue.code}` : issue.code;
+                byCode.set(key, (byCode.get(key) || 0) + 1);
             }
             if (byCode.size) {
                 console.log("\nBy rule:");

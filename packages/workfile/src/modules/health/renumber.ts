@@ -23,6 +23,7 @@ import { DOC_LIST_KEYS } from "../docs/index.js";
 import { MEMORY_LIST_KEYS } from "../memory/index.js";
 import { buildProjectIndex } from "../records/public.js";
 import { classifyDuplicates } from "./duplicates.js";
+import { staleFilenames } from "./filenames.js";
 
 function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -517,51 +518,85 @@ export async function healDuplicateCardIds(workspace, options: any = {}) {
  * the same slug, and picking a winner would rename a file the caller never
  * asked about.
  */
+/**
+ * Renames every record whose filename no longer matches its title.
+ *
+ * The card-only version is below and delegates to this. Driven off the index
+ * rather than off four loaders, because the index already holds every kind with
+ * the one thing this needs: the repository-relative path, whose directory is
+ * where the file goes and whose basename is what it is called. That is what
+ * makes an archived card, a memory collection and an unreleased fragment the
+ * same case here.
+ *
+ * Nothing rewrites references. Records are linked by id, and the id half of a
+ * filename does not move — only the slug does.
+ *
+ * The activity line is appended for cards alone, because cards are the only kind
+ * that carries a trail. A rename with no trail entry is not silent: it is a
+ * `git mv` in a diff, which for the other three kinds is the whole record of it.
+ *
+ * Which kinds are in scope, and why the others are not, is stated once in
+ * `filenames.ts` — the same function that decides what to report.
+ */
+export async function reslugStaleRecordFiles(
+    workspace,
+    { actor = null, now, kinds = null }: any = {}
+) {
+    ensureWritable(workspace);
+    const index = await buildProjectIndex(workspace);
+    const wanted = kinds ? new Set(kinds) : null;
+    const moves: Array<{ id: string; from: string; to: string }> = [];
+    const skipped: Array<{ id: string; file: string; reason: string }> = [];
+    // Every path the workspace already holds, so a rename cannot land on one.
+    // Read once and kept current as moves happen, which is what makes two records
+    // wanting the same slug a skip rather than a lost file.
+    const taken = new Set(
+        index.records.map((record) => normalizeRepoPath(record.path || ""))
+    );
+    for (const entry of staleFilenames(index.records)) {
+        const record = entry.record;
+        if (wanted && !wanted.has(record.kind)) continue;
+        const from = normalizeRepoPath(record.path);
+        const directory = dirname(from);
+        const to = `${directory}/${entry.expected}`;
+        if (taken.has(to)) {
+            skipped.push({ id: record.id, file: entry.current, reason: "name-taken" });
+            continue;
+        }
+        const absoluteFrom = join(workspace.root, from);
+        const content = await readFile(absoluteFrom, "utf8");
+        const written =
+            record.kind === "card" && workspace.config.cards.activityTrail !== false
+                ? appendActivityLine(
+                      content,
+                      activityEntry(actor, `renamed file to ${entry.expected}`, now)
+                  )
+                : content;
+        try {
+            await createFileExclusive(join(workspace.root, to), written);
+        } catch (error: any) {
+            // `taken` was read before the loop, so a name can be claimed
+            // underneath us — by another process, or by an earlier move in this
+            // very pass. Skipping a collision is the contract whichever way the
+            // collision arrives.
+            if (!isCreateContention(error)) throw error;
+            skipped.push({ id: record.id, file: entry.current, reason: "name-taken" });
+            continue;
+        }
+        await rm(absoluteFrom, { force: true });
+        taken.delete(from);
+        taken.add(to);
+        moves.push({ id: record.id, from: entry.current, to: entry.expected });
+    }
+    return { moves, skipped };
+}
+
 export async function reslugStaleCardFiles(
     workspace,
     { actor = null, now }: any = {}
 ) {
-    ensureWritable(workspace);
-    const loaded = await loadCards(workspace);
-    const moves: Array<{ id: string; from: string; to: string }> = [];
-    const skipped: Array<{ id: string; file: string; reason: string }> = [];
-    const taken = new Set(loaded.cards.map((card) => card.file));
-    for (const card of loaded.cards) {
-        if (!card.id || !card.title) continue;
-        if (!card.file?.startsWith(`${card.id}-`)) continue;
-        const target = cardFileName(card.id, card.title);
-        if (target === card.file) continue;
-        if (taken.has(target)) {
-            skipped.push({ id: card.id, file: card.file, reason: "name-taken" });
-            continue;
-        }
-        const directory = card.archived
-            ? workspace.paths.cardArchive
-            : workspace.paths.cards;
-        const content = await readFile(join(directory, card.file), "utf8");
-        const trailed =
-            workspace.config.cards.activityTrail !== false
-                ? appendActivityLine(
-                      content,
-                      activityEntry(actor, `renamed file to ${target}`, now)
-                  )
-                : content;
-        try {
-            await createFileExclusive(join(directory, target), trailed);
-        } catch (error: any) {
-            // `taken` was read before the loop started, so the name can be
-            // claimed underneath us — by another process, or by an earlier
-            // move in this very pass. The contract above is to skip a
-            // collision, and it applies whichever way the collision is
-            // reported: this used to escape as an internal error instead.
-            if (!isCreateContention(error)) throw error;
-            skipped.push({ id: card.id, file: card.file, reason: "name-taken" });
-            continue;
-        }
-        await rm(join(directory, card.file), { force: true });
-        taken.delete(card.file);
-        taken.add(target);
-        moves.push({ id: card.id, from: card.file, to: target });
-    }
-    return { moves, skipped };
+    // Kept as the name the CLI and the exported surface already use. The rule and
+    // the repair are one implementation now — leaving a card-only copy beside it
+    // is how the other three kinds came to have no rule at all.
+    return reslugStaleRecordFiles(workspace, { actor, now, kinds: ["card"] });
 }

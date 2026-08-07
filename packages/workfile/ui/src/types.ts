@@ -174,6 +174,15 @@ export type IssueSeverity = "error" | "warning" | "info";
 export interface HealthIssue {
     severity: IssueSeverity;
     code: string;
+    /**
+     * Which reporter produced it — `cards`, `memory`, `doctor`, or
+     * `integration:<id>` for one a repository's own `healthCheck` returned.
+     *
+     * That last case is the reason the field exists: a well-formed diagnostic
+     * from a hook is the one source that is not ours, and it used to arrive
+     * indistinguishable from a finding Workfile made itself (T-0218).
+     */
+    module?: string;
     id?: string | null;
     file?: string | null;
     archived?: boolean;

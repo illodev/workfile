@@ -12,6 +12,23 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
+/**
+ * A refusal, narrowed once.
+ *
+ * `assert.rejects` hands its callback an `unknown`, so every field read off it is
+ * a strict error — eleven of them in this file before this existed. Narrowed by
+ * `instanceof` rather than cast: the ratchet's instruction is to fix the null
+ * handling and not to annotate the binding `any`, and a cast would have hidden a
+ * rejection that is not an Error at all.
+ */
+function refusal(error: unknown) {
+    assert.ok(
+        error instanceof Error,
+        `expected an Error, got ${typeof error}: ${String(error)}`
+    );
+    return error as Error & { code?: string; exitCode?: number };
+}
+
 import {
     containedPath,
     discoverWorkspaceRoot,
@@ -106,9 +123,10 @@ test("a directory with no workspace marker is an error, not a new workspace", as
         await assert.rejects(
             () => loadWorkspace({ cwd: empty }),
             (error) => {
-                assert.equal(error.code, "WORKSPACE_NOT_FOUND");
-                assert.equal(error.exitCode, 2);
-                assert.match(error.message, /workfile init/);
+                const refused = refusal(error);
+                assert.equal(refused.code, "WORKSPACE_NOT_FOUND");
+                assert.equal(refused.exitCode, 2);
+                assert.match(refused.message, /workfile init/);
                 return true;
             }
         );
@@ -119,6 +137,67 @@ test("a directory with no workspace marker is an error, not a new workspace", as
         // Bootstrapping callers can still opt in explicitly.
         const permissive = await loadWorkspace({ cwd: empty, allowMissing: true });
         assert.equal(permissive.root, empty);
+    } finally {
+        await rm(empty, { recursive: true, force: true });
+    }
+});
+
+/**
+ * And an explicit `root` gets the same check, which it did not.
+ *
+ * The guard above only ever covered the discovery path. `loadWorkspace({ root })`
+ * took the directory as given and checked nothing, so `doctor --root
+ * packages/workfile` inside this very monorepo reported six missing-instruction
+ * issues, exited 0, and indexed that package's `docs/` as the workspace's
+ * documents. The failure is silent and plausible: a mistyped or stale `--root`
+ * one directory too deep produces a clean, empty, believable answer, and nothing
+ * distinguishes it from a board that is genuinely empty (T-0160).
+ */
+test("an explicit root with no workspace marker is an error too", async () => {
+    const empty = await mkdtemp(join(tmpdir(), "workfile-explicit-"));
+    try {
+        await assert.rejects(
+            () => loadWorkspace({ root: empty }),
+            (error) => {
+                const refused = refusal(error);
+                assert.equal(refused.code, "WORKSPACE_NOT_FOUND");
+                assert.equal(refused.exitCode, 2);
+                // The directory it refused, and both ways forward: the message
+                // is the whole value here, since the caller believed it named a
+                // workspace.
+                assert.ok(
+                    refused.message.includes(empty),
+                    `the message does not name the directory: ${refused.message}`
+                );
+                assert.match(refused.message, /workfile init/);
+                assert.match(refused.message, /--allow-new/);
+                return true;
+            }
+        );
+
+        // Nothing was written on the way out — no cache, no lock, no index.
+        assert.deepEqual(await readdir(empty), []);
+
+        // `--allow-new` is the way through, and it is what the flag already
+        // means. It reaches this branch now; it used to reach only the other one.
+        const permissive = await loadWorkspace({ root: empty, allowMissing: true });
+        assert.equal(permissive.root, empty);
+
+        // Strict, not a walk. A root inside a workspace is not the workspace:
+        // resolving upward would be a second surprise rather than a fix.
+        const nested = join(empty, "packages", "thing");
+        await mkdir(nested, { recursive: true });
+        await writeFile(join(empty, "project.config.mjs"), "export default {};\n");
+        assert.equal(await discoverWorkspaceRoot(nested), empty);
+        await assert.rejects(
+            () => loadWorkspace({ root: nested }),
+            (error) => {
+                const refused = refusal(error);
+                assert.equal(refused.code, "WORKSPACE_NOT_FOUND");
+                return true;
+            },
+            "an explicit root resolved upward instead of being refused"
+        );
     } finally {
         await rm(empty, { recursive: true, force: true });
     }

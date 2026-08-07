@@ -1543,6 +1543,19 @@ test("doctor --new gates on what appeared since the accepted baseline", async ()
             ),
             "the baseline did not record readable fields"
         );
+        // And it records no module, which is what keeps every baseline accepted
+        // before T-0218 matching. Every issue now carries the reporter that
+        // produced it, and `issueIdentity` deliberately ignores it: namespacing
+        // the `code` would have read better and would have made every accepted
+        // baseline stale at once. The `--new` run below is the other half of
+        // this — it matches a baseline written from issues, against issues that
+        // now carry a field the baseline has never heard of.
+        for (const entry of written.issues) {
+            assert.ok(
+                !("module" in entry),
+                `the baseline recorded a module: ${JSON.stringify(entry)}`
+            );
+        }
 
         const quiet = await outcome(["doctor", "--root", root, "--new", "--json"]);
         assert.equal(quiet.code, 0, "an unchanged repository must pass the gate");

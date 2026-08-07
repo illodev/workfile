@@ -6,6 +6,7 @@ import { checkCiTemplates } from "../ci/index.js";
 import { createIntegrationRegistry } from "../integrations/registry.js";
 import { buildProjectIndex } from "../records/public.js";
 import { classifyDuplicates, duplicateIssueMessage } from "./duplicates.js";
+import { staleFilenameIssue, staleFilenames } from "./filenames.js";
 import { exists } from "../../core/fs-utils.js";
 import { lockIsStale } from "../../core/locks.js";
 import { readdir } from "node:fs/promises";
@@ -65,9 +66,21 @@ export async function runDoctor(workspace, options: any = {}) {
             now: options.now || new Date(),
             diagnose: true
         }));
-    const reports = [];
+    /**
+     * Each reporter's findings, tagged with who produced them.
+     *
+     * The module is named here because here is the only place that knows: the
+     * core reporters return `{ counts, ok, issues }` and no module — only the
+     * integration registry returns one, which is what T-0218 assumed of all of
+     * them. Tagged rather than mutated, so the shared report objects hanging off
+     * the index are left as they are for the routes that also serve them.
+     */
+    const reports: Array<{ module: string; issues: any[] }> = [];
+    const from = (module: string, report: { issues?: any[] }) =>
+        reports.push({ module, issues: report.issues || [] });
     if (workspace.config.cards.enabled) {
-        reports.push(
+        from(
+            "cards",
             await diagnoseCards({
                 cards: index.records.filter((record) => record.kind === "card"),
                 unreadable: index.unreadable.cards,
@@ -88,14 +101,14 @@ export async function runDoctor(workspace, options: any = {}) {
             })
         );
     }
-    if (workspace.config.docs.enabled) reports.push(index.reports.docs);
-    if (workspace.config.changelog.enabled) reports.push(index.reports.changelog);
-    if (workspace.config.memory.enabled) reports.push(index.reports.memory);
+    if (workspace.config.docs.enabled) from("docs", index.reports.docs);
+    if (workspace.config.changelog.enabled) from("changelog", index.reports.changelog);
+    if (workspace.config.memory.enabled) from("memory", index.reports.memory);
     if (workspace.config.agents.enabled) {
-        reports.push(await checkAgentInstructions(workspace));
+        from("agents", await checkAgentInstructions(workspace));
     }
     if (workspace.config.ci.enabled && workspace.config.ci.targets.length) {
-        reports.push(await checkCiTemplates(workspace));
+        from("ci", await checkCiTemplates(workspace));
     }
     const integrationRegistry =
         options.integrationRegistry ||
@@ -108,10 +121,34 @@ export async function runDoctor(workspace, options: any = {}) {
     // This is the only layer that holds all of them, so it answers for
     // duplicate identity — once, rather than leaving a second line standing
     // beside it that names nothing to run.
+    // Every kind's stale filenames, answered here for the same reason duplicate
+    // identity is: a module sees one kind, and this question is about all of them
+    // (T-0223). Attributed to the module that owns each record so the field
+    // T-0218 added stays honest.
+    for (const entry of staleFilenames(index.records)) {
+        reports.push({ module: entry.module, issues: [staleFilenameIssue(entry)] });
+    }
     const duplicates = classifyDuplicates(index);
     const claimed = new Set(duplicates.map((duplicate) => duplicate.id));
+    // The module rides along with each issue, which it did not: every reporter
+    // returns `{ module, issues }` and this flatten threw the module away, so
+    // what reached the reader was a flat list where nothing said where a finding
+    // came from. Mostly invisible, because a core `code` implies its module to
+    // anyone who knows the codebase — and not invisible at all for integrations,
+    // which are the one source that is not ours. A well-formed diagnostic
+    // returned by a repository's own `healthCheck` read exactly like one Workfile
+    // produced (T-0218).
+    //
+    // A field, and `code` deliberately untouched. Namespacing the code would be
+    // clearer and would change `issueIdentity`, which is what a baseline is
+    // matched by — so every baseline accepted with `--accept-baseline` would go
+    // stale at once, for a cosmetic gain.
     const issues = reports
-        .flatMap((report) => report.issues)
+        .flatMap((report) =>
+            report.issues.map((issue) =>
+                issue.module ? issue : { ...issue, module: report.module }
+            )
+        )
         .filter(
             (issue) =>
                 issue.code !== "duplicate-record-id" ||
@@ -125,6 +162,7 @@ export async function runDoctor(workspace, options: any = {}) {
     ) {
         issues.push({
             severity: "warning",
+            module: "doctor",
             code: "search-provider-unresolved",
             message: `search.provider is "${workspace.config.search.provider}", but no declared integration with that id offers semantic search. Search runs lexical-only.`,
             details: {
@@ -152,6 +190,7 @@ export async function runDoctor(workspace, options: any = {}) {
     if (workspace.config.cards.enabled && orphanedPolicy.length) {
         issues.push({
             severity: "warning",
+            module: "doctor",
             code: "verification-policy-area-unknown",
             message:
                 `cards.verification.methods names ${orphanedPolicy.join(", ")}, ` +
@@ -163,6 +202,7 @@ export async function runDoctor(workspace, options: any = {}) {
     for (const duplicate of duplicates) {
         issues.push({
             severity: "error",
+            module: "doctor",
             code: "duplicate-record-id",
             id: duplicate.id,
             // Code-unit smallest, so the issue keeps one identity across
@@ -180,6 +220,7 @@ export async function runDoctor(workspace, options: any = {}) {
     for (const stale of await findStaleLocks(workspace)) {
         issues.push({
             severity: "warning",
+            module: "doctor",
             code: "stale-write-lock",
             id: stale.owner?.metadata?.recordId,
             file: stale.file,
@@ -200,6 +241,7 @@ export async function runDoctor(workspace, options: any = {}) {
     if ((await exists(legacyCards)) && !(await exists(migrationState))) {
         issues.push({
             severity: "info",
+            module: "doctor",
             code: "legacy-planning-not-migrated",
             file: ".planning/backlog/tasks",
             message:

@@ -332,28 +332,14 @@ export async function diagnoseCards({
                     `Filename must start with ${card.id}-`
                 )
             );
-        } else if (
-            card.id &&
-            card.title &&
-            basename(card.file || "") !== cardFileName(card.id, card.title)
-        ) {
-            // Creating a card derives the filename from the title; retitling it
-            // never revisited that, so a file could sit for months named after a
-            // title the card no longer has. The filename is the handle people
-            // and agents grep by, and a stale one misdirects long after anyone
-            // remembers the rename. A warning rather than an error: the record
-            // is intact and only its label has drifted, and renaming on every
-            // title edit would churn history and break open editor buffers —
-            // so the repair is `doctor --fix`, when the reader asks for it.
-            issues.push(
-                issue(
-                    "warning",
-                    "filename-stale",
-                    card,
-                    `Filename no longer matches the title; \`doctor --fix\` renames it to ${cardFileName(card.id, card.title)}`
-                )
-            );
         }
+        // The stale-filename rule used to sit here, and it only ever covered
+        // cards. It moved to `health/filenames.ts`, which is the layer that
+        // holds every kind: memory records, managed documents and unreleased
+        // changelog fragments derive their names from their titles identically
+        // and had no rule at all (T-0223). The same argument
+        // `duplicate-record-id` makes — a module sees one kind, and this
+        // question is about all of them.
         if ((card.title || "").length > 80) {
             issues.push(
                 issue(

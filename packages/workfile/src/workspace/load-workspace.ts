@@ -15,7 +15,7 @@ import {
     SCHEMA_VERSION
 } from "../config/defaults.js";
 import { verifyTimeoutSeconds } from "../modules/cards/validation.js";
-import { discoverWorkspaceRoot } from "./discover.js";
+import { discoverWorkspaceRoot, isWorkspaceRoot } from "./discover.js";
 import type {
     EffectiveProjectSchema,
     ProjectConfig,
@@ -248,14 +248,31 @@ export async function loadWorkspace(
     options: LoadWorkspaceOptions = {}
 ): Promise<ProjectWorkspace> {
     const cwd = resolve(options.cwd || process.cwd());
-    const discovered = options.root
-        ? resolve(options.root)
-        : await discoverWorkspaceRoot(cwd);
+    const explicit = options.root ? resolve(options.root) : null;
+    const discovered = explicit ?? (await discoverWorkspaceRoot(cwd));
     if (!discovered && !options.allowMissing) {
         throw new ConfigError(
             "WORKSPACE_NOT_FOUND",
             `No project workspace found in ${cwd} or any parent directory. Run \`workfile init\` to create one, or pass --root.`,
             { cwd }
+        );
+    }
+    // An explicit root gets the same marker check the walk performs, which it
+    // never had: it was taken as given, so a mistyped or stale `--root` inside a
+    // monorepo — one directory too deep is the ordinary case — answered from an
+    // empty workspace and reported nothing wrong. `allowMissing` is the way
+    // through, and it is what `--allow-new` already means: accept a directory
+    // that is not yet a workspace. `init` is its one caller.
+    //
+    // Before anything is read or written, so a directory that fails this gets no
+    // cache, no lock and no index.
+    if (explicit && !options.allowMissing && !(await isWorkspaceRoot(explicit))) {
+        throw new ConfigError(
+            "WORKSPACE_NOT_FOUND",
+            `${explicit} is not a workspace: it has no project.config.mjs and no ` +
+                ".project/VERSION. Run `workfile init --root <dir>` to create one, " +
+                "or pass --allow-new to accept a directory that is not one yet.",
+            { root: explicit }
         );
     }
     const root = discovered || cwd;

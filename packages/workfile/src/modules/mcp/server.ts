@@ -183,7 +183,17 @@ function toolResult(value, maximumBytes, modern = false) {
                 }
             };
         }
-        if (truncated) payload = { ...payload, truncated };
+        // `resultTruncated`, not `truncated`. This marker is the transport
+        // saying what the byte ceiling did; `truncated` is whatever the tool
+        // itself means by it, and one of them means something already:
+        // `project_agent_context` returns `truncated: boolean` for relations
+        // dropped to respect `limit`, and this write landed on top of it. A
+        // caller checking `=== true` then got an object, which is truthy, so the
+        // check survived by accident; a caller reading `truncated.records` on any
+        // other tool got `true` from that one and read `.records` off a boolean.
+        // Two different facts — the limit dropped relations, the ceiling dropped
+        // rows — and indistinguishable once merged (T-0147).
+        if (truncated) payload = { ...payload, resultTruncated: truncated };
     }
 
     const bytes = measure(payload);

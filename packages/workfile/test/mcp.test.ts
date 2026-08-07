@@ -341,6 +341,22 @@ test("the process emitted by mcp config actually answers initialize", async () =
 // doing?", the question an agent asks first, was not expressible over MCP at
 // all. The only way to answer it was to read the Markdown directly, which is
 // the token spend this protocol exists to remove.
+/**
+ * The success half of a JSON-RPC reply, narrowed once.
+ *
+ * `handle` returns a union of the error and result shapes, so every `.result`
+ * read is a strict error. Narrowed by asserting the shape rather than cast: a
+ * reply that carries an error instead fails here, by name, rather than reading
+ * `undefined` off it three lines later.
+ */
+function resultOf(response: any) {
+    assert.ok(
+        response && "result" in response,
+        `expected a result, got ${JSON.stringify(response)}`
+    );
+    return response.result;
+}
+
 test("listing tools answer what is in the workspace without a search query", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-listing-"));
     await cp(fixture, root, { recursive: true });
@@ -351,15 +367,17 @@ test("listing tools answer what is in the workspace without a search query", asy
 
         let id = 100;
         const call = async (name, args = {}) => {
-            const response = await server.handle(
-                request(++id, "tools/call", { name, arguments: args })
+            const result = resultOf(
+                await server.handle(
+                    request(++id, "tools/call", { name, arguments: args })
+                )
             );
             assert.equal(
-                response.result.isError,
+                result.isError,
                 undefined,
-                `${name}: ${JSON.stringify(response.result.structuredContent)}`
+                `${name}: ${JSON.stringify(result.structuredContent)}`
             );
-            return response.result;
+            return result;
         };
 
         const all = await call("project_card_list");
@@ -523,6 +541,80 @@ test("a listing says which cards are archived", async () => {
         // Explicitly false rather than absent: "no such key" and "not archived"
         // are the same shape to a reader, and one of them was the bug.
         assert.equal(live.archived, false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The byte ceiling and a tool's own truncation flag used to be one key.
+ *
+ * `buildAgentContext` returns `truncated: boolean` — true when relations were
+ * dropped to respect `limit`. `toolResult`, when a payload exceeds
+ * `maxToolResultBytes`, did `payload = { ...payload, truncated }` where its own
+ * `truncated` is `{ records: <dropped> }`. For every other tool that key is free,
+ * so the marker landed cleanly; for `project_agent_context` it landed on top of a
+ * boolean that already meant something else.
+ *
+ * The two meanings are genuinely different — "the limit dropped relations"
+ * against "the byte ceiling dropped rows" — and merged they are
+ * indistinguishable. A caller checking `truncated === true` got an object, which
+ * is truthy, so the boolean check survived by accident; a caller reading
+ * `truncated.records` on any other tool got `true` here and read `.records` off a
+ * boolean, which is `undefined` (T-0147).
+ *
+ * Reproduced by lowering the ceiling rather than by inflating the workspace,
+ * which the card said it could not do at `limit: 20`. The collision is about the
+ * ceiling being reached, not about 512 KB in particular, and a configurable
+ * ceiling is the honest lever: `maxToolResultBytes` is a declared option.
+ */
+test("the byte ceiling and a tool's own truncation flag are two markers", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-truncation-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const workspace = await loadWorkspace({ root });
+        // Small enough that the bundle cannot fit. The `markdown` field alone is
+        // most of it, so the records loop keeps nothing and the marker reports
+        // everything it dropped — which is the branch that writes it at all.
+        const server = createMcpProtocolServer(workspace, {
+            version: "0.6.0",
+            maxToolResultBytes: 900
+        });
+        await initialize(server);
+
+        const result = resultOf(
+            await server.handle(
+                request(900, "tools/call", {
+                    name: "project_agent_context",
+                    arguments: { cardId: "T-0001", limit: 20 }
+                })
+            )
+        );
+        const payload = result.structuredContent;
+        assert.equal(
+            result.isError,
+            undefined,
+            `the call failed instead of degrading: ${JSON.stringify(payload)}`
+        );
+
+        // The tool's own flag keeps its declared type. It said `boolean` in the
+        // outputSchema and it has to be one, which is the whole complaint.
+        assert.equal(
+            typeof payload.truncated,
+            "boolean",
+            `the tool's own flag is ${JSON.stringify(payload.truncated)}`
+        );
+
+        // And the transport's marker is its own key, saying what the ceiling did.
+        assert.equal(
+            typeof payload.resultTruncated?.records,
+            "number",
+            `the byte ceiling left no marker of its own: ${JSON.stringify(payload)}`
+        );
+        assert.ok(
+            payload.resultTruncated.records > 0,
+            "the marker claims nothing was dropped"
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }
