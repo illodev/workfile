@@ -372,6 +372,29 @@ export function requireFrontmatter(content, options: any = {}) {
 }
 
 /**
+ * Swaps a record's body, leaving its frontmatter byte for byte as it was.
+ *
+ * Four call sites wrote this inline — `changelog patch`, `changelog release
+ * --amend`, `doc patch` and `memory patch` — and all four spliced the body
+ * directly onto `prefixLength`, which ends at the closing `---` newline. The
+ * renderers that *create* those records put a blank line there. So every
+ * record was born with one and lost it the first time anything patched its
+ * body: a diff line on a write that changed nothing else, on four surfaces,
+ * repeated for every record that ever went through a body patch. Twelve
+ * records in one consuming repository carried the mark before anyone noticed
+ * what was making it.
+ *
+ * The end-of-line comes from the file rather than from here, the same way
+ * `patchFrontmatter` reads it. A CRLF record patched with a hardcoded `\n`
+ * ends up mixed, and the one line that differs is the one this function adds.
+ */
+export function replaceBody(content: string, body: string): string {
+    const parsed = requireFrontmatter(content);
+    const eol = /\r\n/.test(content.slice(0, parsed.prefixLength)) ? "\r\n" : "\n";
+    return `${content.slice(0, parsed.prefixLength)}${eol}${String(body).trim()}${eol}`;
+}
+
+/**
  * One `key: value` line inside a nested structure.
  *
  * List-ness is decided by the value, not by the key, which is the inverse of

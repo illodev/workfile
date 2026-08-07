@@ -15,7 +15,7 @@ import {
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
-    requireFrontmatter
+    replaceBody
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
@@ -499,8 +499,7 @@ function prepareMemoryPatch(
         { listKeys: MEMORY_LIST_KEYS }
     );
     if (nextBody !== undefined) {
-        const parsed = requireFrontmatter(next, { listKeys: MEMORY_LIST_KEYS });
-        next = `${next.slice(0, parsed.prefixLength)}${String(nextBody).trim()}\n`;
+        next = replaceBody(next, String(nextBody));
     }
     const path = resolve(workspace.root, current.path);
     const record = normalizeMemory({

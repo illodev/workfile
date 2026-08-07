@@ -13,7 +13,10 @@ import {
     requireFrontmatter,
     serializeValue
 } from "../dist/src/index.js";
-import { renderFrontmatterEntry } from "../dist/src/core/frontmatter.js";
+import {
+    renderFrontmatterEntry,
+    replaceBody
+} from "../dist/src/core/frontmatter.js";
 import { CARD_LIST_KEYS } from "../dist/src/modules/cards/index.js";
 import { CHANGE_LIST_KEYS } from "../dist/src/modules/changelog/index.js";
 import { DOC_LIST_KEYS } from "../dist/src/modules/docs/index.js";
@@ -373,4 +376,43 @@ test("every record in this repository re-renders byte for byte", async () => {
         }
     }
     assert.ok(entries > 1000, `only ${entries} entries were compared`);
+});
+
+/**
+ * A body swap is a body swap, and must not move the line under the header.
+ *
+ * The four call sites that patch a body spliced it straight onto
+ * `prefixLength`, which ends at the closing `---` newline — while every
+ * renderer that *creates* a record puts a blank line there. So a record was
+ * born with one and lost it the first time anything patched its body: a diff
+ * line on a write that changed nothing else, on `changelog patch`, `changelog
+ * release --amend`, `doc patch` and `memory patch` alike.
+ *
+ * Idempotence is the half that says the bug is gone rather than moved: the
+ * second pass must not add a second blank line.
+ */
+test("replaceBody keeps the shape a freshly rendered record has", () => {
+    const created = "---\nid: CHG-0001\ntitle: One\n---\n\nOriginal body.\n";
+    const once = replaceBody(created, "Rewritten body.");
+    assert.equal(once, "---\nid: CHG-0001\ntitle: One\n---\n\nRewritten body.\n");
+    assert.equal(replaceBody(once, "Rewritten body."), once);
+
+    // The frontmatter is returned byte for byte, quoting and all.
+    const quoted = '---\nid: DOC-0001\ntitle: "Sweep: keep me"\ntags: [a, b]\n---\n\nBody.\n';
+    assert.equal(
+        replaceBody(quoted, "Next.").slice(0, quoted.indexOf("---\n\n") + 4),
+        quoted.slice(0, quoted.indexOf("---\n\n") + 4)
+    );
+
+    // A record that lost its blank line — every record patched before this
+    // existed — is healed rather than left as it was found.
+    const flattened = "---\nid: LRN-0001\n---\nBody.\n";
+    assert.equal(replaceBody(flattened, "Body."), "---\nid: LRN-0001\n---\n\nBody.\n");
+});
+
+test("replaceBody does not mix line endings into a CRLF record", () => {
+    const crlf = "---\r\nid: CHG-0002\r\ntitle: Two\r\n---\r\n\r\nOld.\r\n";
+    const next = replaceBody(crlf, "New.");
+    assert.equal(next, "---\r\nid: CHG-0002\r\ntitle: Two\r\n---\r\n\r\nNew.\r\n");
+    assert.equal(/(?<!\r)\n/.test(next), false, "a bare LF crept into a CRLF record");
 });

@@ -379,3 +379,56 @@ test("a fragment command aimed at a release says so", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * The shape a record has after `add` is the shape it keeps after `patch`.
+ *
+ * `createChangeFragment` renders `---` then a blank line then the body;
+ * `patchChangeFragment` spliced the body directly onto the frontmatter and
+ * dropped that line. Nobody noticed because the file still parses and still
+ * renders — it just produced one line of diff on a write whose whole purpose
+ * was to change the body, on every fragment ever patched. In one consuming
+ * repository twelve records carried the mark before anyone traced it back.
+ *
+ * The assertion is against a freshly created record rather than against a
+ * literal, so the two renderers are pinned to each other and neither can drift
+ * alone.
+ */
+test("patching a fragment's body leaves the frontmatter untouched", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        const created = await createChangeFragment(workspace, {
+            title: "Something happened",
+            type: "fixed",
+            area: "billing",
+            visibility: "public",
+            body: "First telling."
+        });
+        const path = join(root, created.fragment.path);
+        const before = await readFile(path, "utf8");
+
+        await patchChangeFragment(
+            workspace,
+            created.id,
+            { body: "Second telling." },
+            { expectedRevision: created.revision }
+        );
+        const after = await readFile(path, "utf8");
+
+        const header = (text: string) => text.slice(0, text.indexOf("\n---\n") + 5);
+        assert.equal(header(after), header(before), "the frontmatter block moved");
+        assert.equal(
+            after.slice(header(after).length),
+            "\nSecond telling.\n",
+            "the blank line under the header did not survive the patch"
+        );
+
+        // Writing the same body again is a no-op on disk, which is the half
+        // that says the line is stable rather than merely present once.
+        await patchChangeFragment(workspace, created.id, { body: "Second telling." });
+        assert.equal(await readFile(path, "utf8"), after);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

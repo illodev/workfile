@@ -25,7 +25,7 @@ import {
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
-    requireFrontmatter
+    replaceBody
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
@@ -597,9 +597,7 @@ export async function patchManagedDocument(
                 listKeys: DOC_LIST_KEYS
             });
             if (nextBody !== undefined) {
-                const parsed = requireFrontmatter(next, { listKeys: DOC_LIST_KEYS });
-                next = `${next.slice(0, parsed.prefixLength)}${String(nextBody).trim()}
-`;
+                next = replaceBody(next, String(nextBody));
             }
             await writeFileAtomic(path, next);
             const info = await stat(path);

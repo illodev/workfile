@@ -22,6 +22,7 @@ import {
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
+    replaceBody,
     requireFrontmatter
 } from "../../core/frontmatter.js";
 import { withFileLock } from "../../core/locks.js";
@@ -563,8 +564,7 @@ export async function patchChangeFragment(
                 { listKeys: CHANGE_LIST_KEYS }
             );
             if (nextBody !== undefined) {
-                const parsed = requireFrontmatter(next, { listKeys: CHANGE_LIST_KEYS });
-                next = `${next.slice(0, parsed.prefixLength)}${String(nextBody).trim()}\n`;
+                next = replaceBody(next, String(nextBody));
             }
             await writeFileAtomic(path, next);
             const fragment = normalizeFragment({
@@ -774,10 +774,7 @@ export async function amendRelease(
                 touchUpdated: false
             });
             if (nextBody !== undefined) {
-                const parsed = requireFrontmatter(next, {
-                    listKeys: CHANGE_LIST_KEYS
-                });
-                next = `${next.slice(0, parsed.prefixLength)}${String(nextBody).trim()}\n`;
+                next = replaceBody(next, String(nextBody));
             }
             // The write is the last chance to notice that an amendment removed
             // something a release cannot be without. Checked against the same
