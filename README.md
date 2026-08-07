@@ -488,7 +488,7 @@ content over the network by itself.
 
 ### First-party: local embeddings
 
-`@illodev/workfile-search-local` runs embeddings on-device (transformers.js,
+`@illodev/workfile-search-local` runs embeddings on-device (onnxruntime-web,
 ONNX on CPU, `Xenova/multilingual-e5-small` quantized) — repository content
 never leaves the machine. Declare it in `project.config.mjs` with a **guarded
 import**, because the config must also load where the package cannot resolve

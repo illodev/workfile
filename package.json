@@ -54,8 +54,6 @@
   },
   "pnpm": {
     "overrides": {
-      "sharp": "^0.35.0",
-      "adm-zip": "^0.6.0",
       "fast-uri": "^3.1.5",
       "js-yaml": "^4.3.1"
     }

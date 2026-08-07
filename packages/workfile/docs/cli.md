@@ -155,7 +155,7 @@ if the repository explicitly declares it.
 
 The first-party provider is
 [`@illodev/workfile-search-local`](https://github.com/illodev/workfile/tree/main/packages/search-local#readme):
-on-device embeddings via transformers.js, cached by content hash, fully
+on-device embeddings via onnxruntime-web, cached by content hash, fully
 offline after the first model download.
 
 `upgrade` is the one command to run after bumping `@illodev/workfile`: it
