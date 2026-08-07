@@ -10,6 +10,8 @@ import { createTestWorkspace } from "./support/workspace.ts";
 import {
     buildActivitySnapshot,
     claimCard,
+    claimSeparation,
+    claimSession,
     claimState,
     createCard,
     loadCards,
@@ -304,6 +306,175 @@ test("the activity snapshot answers who is working on what", async () => {
             1,
             "still only conflicts with agent-b, not with agent-a's own card"
         );
+    } finally {
+        await cleanup();
+    }
+});
+
+/**
+ * T-0206: the skip that decided a conflict compared actors, not processes.
+ *
+ * `resolveActor` writes a session discriminator into the actor's tail, so two
+ * agents *usually* differ and the old comparison looked right. Two plain
+ * terminals both resolve to `user@host`, and two agents handed the same
+ * `--actor` both resolve to that — in each case the pair was dropped as one
+ * person, and each is two processes about to overwrite each other.
+ */
+test("what separates two claims is the session, and it names its own evidence", () => {
+    // A full session id from a session file and an eight-character tail from an
+    // actor are the same session; if these ever normalise differently the whole
+    // comparison starts answering "different" for one process.
+    assert.equal(
+        claimSession({ by: "solo@box#e55eab30", sessionId: null }),
+        "e55eab30"
+    );
+    assert.equal(
+        claimSession({ by: "solo@box", sessionId: "E55EAB30-b661-4290-bd58" }),
+        "e55eab30"
+    );
+    assert.equal(claimSession({ by: "solo@box", sessionId: null }), null);
+
+    const same = { by: "solo@box#aaaaaaaa", sessionId: null };
+    const other = { by: "solo@box#bbbbbbbb", sessionId: null };
+    assert.equal(claimSeparation(same, { ...same }), null, "one session");
+
+    // The case the old rule missed: one actor string, two sessions.
+    assert.equal(
+        claimSeparation(
+            { by: "shared", sessionId: "sess-a" },
+            { by: "shared", sessionId: "sess-b" }
+        ),
+        "sessions-differ"
+    );
+    assert.equal(claimSeparation(same, other), "sessions-differ");
+    assert.equal(
+        claimSeparation(same, { by: "solo@box", sessionId: null }),
+        "sessions-differ",
+        "a session on one side is still two processes"
+    );
+
+    // No session either side. Different actors are two people; the same actor is
+    // the case nothing in the workspace can decide.
+    assert.equal(
+        claimSeparation(
+            { by: "alvaro@box", sessionId: null },
+            { by: "other@box", sessionId: null }
+        ),
+        "actors-differ"
+    );
+    assert.equal(
+        claimSeparation(
+            { by: "solo@box", sessionId: null },
+            { by: "solo@box", sessionId: null }
+        ),
+        "unproven"
+    );
+});
+
+test("two terminals sharing one actor are reported, marked as unproven", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-claims-unproven-"
+    });
+    try {
+        const first = await createCard(workspace, { title: "One", area: "api" });
+        const second = await createCard(workspace, { title: "Two", area: "api" });
+        // Exactly what two plain terminals write: no session, so no tail.
+        await claimCard(workspace, first.id, {
+            actor: "solo@box",
+            scope: ["src/api"]
+        });
+        await claimCard(workspace, second.id, {
+            actor: "solo@box",
+            scope: ["src/api/billing"]
+        });
+
+        const { cards } = await loadCards(workspace);
+        const snapshot = await buildActivitySnapshot(workspace, cards);
+
+        // Before this the pair was dropped: two processes overwriting each other
+        // with nothing anywhere saying so.
+        assert.equal(snapshot.conflicts.length, 1);
+        assert.deepEqual(snapshot.conflicts[0].cards.sort(), [
+            first.id,
+            second.id
+        ].sort());
+        assert.equal(
+            snapshot.conflicts[0].basis,
+            "unproven",
+            "one person with two cards is the same record as two terminals racing"
+        );
+    } finally {
+        await cleanup();
+    }
+});
+
+test("one actor string over two sessions is a conflict, and one session is not", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({
+        prefix: "workfile-claims-sessions-"
+    });
+    try {
+        const left = await createCard(workspace, { title: "Left", area: "api" });
+        const right = await createCard(workspace, { title: "Right", area: "api" });
+        // Two agents handed the same `--actor`, which is what the protocol used
+        // to teach. The actor cannot tell them apart; the sessions can.
+        await claimCard(workspace, left.id, {
+            actor: "shared-agent",
+            scope: ["src/api"]
+        });
+        await claimCard(workspace, right.id, {
+            actor: "shared-agent",
+            scope: ["src/api/billing"]
+        });
+        await recordAgentSignal(workspace, {
+            sessionId: "aaaaaaaa-1111",
+            actor: "shared-agent",
+            cardId: left.id,
+            files: ["src/api/billing.ts"]
+        });
+        await recordAgentSignal(workspace, {
+            sessionId: "bbbbbbbb-2222",
+            actor: "shared-agent",
+            cardId: right.id,
+            files: ["src/api/billing.ts"]
+        });
+
+        const { cards } = await loadCards(workspace);
+        const snapshot = await buildActivitySnapshot(workspace, cards);
+        assert.equal(snapshot.conflicts.length, 1);
+        assert.equal(snapshot.conflicts[0].basis, "sessions-differ");
+
+        // And the other half of the rule: one session holding both overlapping
+        // cards is not colliding with itself. Attribution has to prefer the
+        // session that names the card — as a single `find` over an `||` this
+        // returned whichever session came first, so both cards could be
+        // attributed to one session and a real conflict disappeared.
+        const solo = await createTestWorkspace({
+            prefix: "workfile-claims-solo-"
+        });
+        try {
+            const a = await createCard(solo.workspace, {
+                title: "A",
+                area: "api"
+            });
+            const b = await createCard(solo.workspace, {
+                title: "B",
+                area: "api"
+            });
+            for (const card of [a, b]) {
+                await claimCard(solo.workspace, card.id, {
+                    actor: "solo@box#cccccccc",
+                    scope: ["src/api"]
+                });
+            }
+            const listing = await loadCards(solo.workspace);
+            const own = await buildActivitySnapshot(
+                solo.workspace,
+                listing.cards
+            );
+            assert.deepEqual(own.conflicts, []);
+        } finally {
+            await solo.cleanup();
+        }
     } finally {
         await cleanup();
     }

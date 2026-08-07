@@ -383,7 +383,17 @@ export interface ActivitySnapshot {
         filesTouched: string[];
     }>;
     claims: ClaimEntry[];
-    conflicts: Array<{ cards: string[]; paths: string[] }>;
+    conflicts: Array<{
+        cards: string[];
+        paths: string[];
+        /**
+         * What told the two claims apart. `unproven` means neither claim carried
+         * a session and both resolved to the same actor, so one person holding
+         * two overlapping cards and two terminals racing cannot be distinguished
+         * — report it as possible, never as certain.
+         */
+        basis?: "sessions-differ" | "actors-differ" | "unproven";
+    }>;
     writing: Array<{ recordId: string | null; module: string | null }>;
 }
 
