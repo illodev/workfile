@@ -119,6 +119,24 @@ export type FrontmatterStyle =
 
 const KEY_LINE = /^([A-Za-z_][\w.-]*):(.*)$/;
 const BLOCK_ITEM = /^(\s+)-\s?(.*)$/;
+
+/**
+ * Trailing newlines removed without a regex.
+ *
+ * `replace(/\n+$/, "")` retries the anchored `+` from every start position, so a
+ * value that ends in anything other than a newline costs O(N²) — and this one is
+ * applied to a *body*, which nothing caps. A card title is refused past 80
+ * characters, so the same shape in the slug helpers is quadratic over a bounded
+ * input; a body read from `--body-file` is bounded by the disk. Found while
+ * writing the rule for T-0224, not by CodeQL, which reported only the copy whose
+ * taint it could follow.
+ */
+function stripTrailingNewlines(value: string): string {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "\n") end -= 1;
+    return end === value.length ? value : value.slice(0, end);
+}
+
 const BLOCK_SCALAR = /^([|>])([+-]?\d*)\s*$/;
 /** `  - id: gate-test` — the line that opens one record in a `records` block. */
 const RECORD_ITEM = /^(\s+)-\s+([A-Za-z_][\w.-]*):\s*(.*)$/;
@@ -289,7 +307,7 @@ function scanEntries(lines, listKeys) {
             const text = dedent(block);
             value =
                 style === "literal"
-                    ? text.join("\n").replace(/\n+$/, "")
+                    ? stripTrailingNewlines(text.join("\n"))
                     : text.join(" ").replace(/\s+/g, " ").trim();
         } else if (
             meaningful.length &&

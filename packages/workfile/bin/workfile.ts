@@ -147,6 +147,7 @@ const USAGE: Record<string, string[]> = {
         "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
         "workfile card show ID [--json]",
         "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
+        "workfile card create --title TITLE --raised reported|derived   # a person asked, or you inferred it",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
         "workfile card create --title TITLE --axis context=treasury   # repeatable; see `workfile schema`",
         "workfile card patch ID --json-input FILE [--expected-revision REV]",
@@ -333,6 +334,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card create": [
         "--area",
+        "--raised",
         "--axis",
         "--body",
         "--depends",
@@ -1532,6 +1534,7 @@ async function cardCommand(workspace, action) {
             ...(option("--body") ? { body: option("--body") } : {}),
             ...(option("--parent") ? { parent: option("--parent") } : {}),
             ...(option("--source") ? { source: option("--source") } : {}),
+            ...(option("--raised") ? { raised: option("--raised") } : {}),
             ...(option("--milestone")
                 ? { milestone: option("--milestone") }
                 : {}),

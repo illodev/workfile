@@ -54,6 +54,17 @@ export interface Task {
     depends?: string[];
     /** Records this card was discovered while working on. Any record kind. */
     origin?: string[];
+    /**
+     * How the card came to be on the board: `reported` when a person asked for
+     * it, `derived` when an agent inferred it from the repository.
+     *
+     * Neither `origin` nor `source` answers this. `origin` is the provenance of
+     * discovered work — what you were doing when you found it — and `source` is a
+     * path checked on disk, so a report made in conversation has nothing to put
+     * there. Absent on every card filed before the field existed, and those are
+     * deliberately not guessed at (T-0210).
+     */
+    raised?: "reported" | "derived";
     related?: string[];
     milestone?: string;
     source?: string;

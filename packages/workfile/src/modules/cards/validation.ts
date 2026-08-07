@@ -47,8 +47,30 @@ export const CARD_PATCHABLE_FIELDS = Object.freeze([
     "due",
     "related",
     "origin",
+    "raised",
     "verify"
 ]);
+
+/**
+ * How a card came to be on the board, which nothing recorded.
+ *
+ * Asked where one of eight cards came from, the record could not answer: the
+ * commit message that filed them was read, the grouping of its paragraphs was
+ * taken as evidence that the card was the agent's own, and it was wrong — it was
+ * item six of a list the owner had written out. The fields that look like they
+ * should carry this are both something else. `origin` takes record ids, which is
+ * the provenance of *discovered* work: what were you doing when you found this.
+ * `source` takes a repository-relative path and is checked on disk, so a report
+ * made in conversation has nothing to put there.
+ *
+ * Two values, and the smallness is the decision. A person reported it, or it was
+ * derived from reading the code. More than two and nobody picks correctly — and
+ * the distinction that actually changes behaviour is exactly this one: a reported
+ * card is a commitment to somebody, and a derived card is a proposal that costs
+ * nothing to discard. Six months of the two mixed together is a backlog nobody
+ * can prioritise (T-0210).
+ */
+export const CARD_RAISED_VALUES = Object.freeze(["reported", "derived"]);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
@@ -560,6 +582,12 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
         if (origin === currentId || origin === candidate.id) {
             fail("CARD_SELF_ORIGIN", "A card cannot originate from itself.");
         }
+    }
+    if (candidate.raised && !CARD_RAISED_VALUES.includes(candidate.raised)) {
+        fail(
+            "CARD_RAISED_INVALID",
+            `raised must be one of ${CARD_RAISED_VALUES.join(", ")}.`
+        );
     }
     const hasActor = Boolean(candidate.claimed_by);
     const hasTimestamp = Boolean(candidate.claimed_at);

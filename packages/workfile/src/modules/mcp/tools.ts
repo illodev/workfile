@@ -872,6 +872,16 @@ const TOOL_DEFINITIONS = [
                     "IDs of cards that must close first. Blocks this card from being ranked as actionable."
                 ),
                 source: text("Where the work came from: an issue URL, a person, a meeting."),
+                raised: {
+                    type: "string",
+                    enum: ["reported", "derived"],
+                    description:
+                        "Who put this on the board: `reported` when a person asked for " +
+                        "it, `derived` when you inferred it from reading the repository. " +
+                        "Set it — a reported card is a commitment to somebody and a " +
+                        "derived one is a proposal, and the difference is unrecoverable " +
+                        "once the session ends."
+                },
                 tags: strings("Free-form tags for filtering."),
                 scope: strings(
                     "Repository paths this work will change. Declared here, enforced when the card is claimed."
