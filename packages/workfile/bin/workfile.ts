@@ -168,6 +168,7 @@ const USAGE: Record<string, string[]> = {
         "workfile doc list [--query TEXT] [--managed] [--json]",
         "workfile doc show ID [--json]",
         "workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]",
+        "workfile doc create --json-input FILE   # recommended: body and metadata in one call",
         "workfile doc move ID --folder PATH [--expected-revision REV]",
         "workfile doc patch ID --json-input FILE [--expected-revision REV]"
     ],
@@ -175,6 +176,7 @@ const USAGE: Record<string, string[]> = {
         "workfile changelog list [--unreleased] [--visibility public|internal] [--json]",
         "workfile changelog show ID [--json]",
         "workfile changelog add --title TITLE [--type fixed] [--area AREA]",
+        "workfile changelog add --json-input FILE   # recommended: body and metadata in one call",
         "workfile changelog patch ID --json-input FILE [--expected-revision REV]",
         "workfile changelog preview [--fragments CHG-0001,CHG-0002]",
         "workfile changelog release VERSION [--title TITLE] [--date YYYY-MM-DD] [--fragments CHG-0001,CHG-0002]",
@@ -186,6 +188,7 @@ const USAGE: Record<string, string[]> = {
         "workfile memory list [--collection learnings] [--status active] [--json]",
         "workfile memory show ID [--json]",
         "workfile memory add COLLECTION --title TITLE [--status STATUS]",
+        "workfile memory add COLLECTION --json-input FILE   # recommended: body and metadata in one call",
         "workfile memory patch ID --json-input FILE [--expected-revision REV]",
         "workfile memory graduate ID --to CONV-0001,DOC-0001",
         "workfile memory supersede ID --by ID",
@@ -874,6 +877,72 @@ const DOCUMENT_FOLDERS = `Document folders:
   writes to the managed root); --folder PATH overrides it and must stay inside
   docs.managedPath. Use --folder "" to write to (or move back to) the root.`;
 
+const FLAG_COLUMNS = 78;
+
+/** One prefixed, wrapped paragraph of items, hanging-indented under the prefix. */
+function wrapped(prefix: string, items: string[]): string[] {
+    const indent = " ".repeat(prefix.length);
+    const lines: string[] = [];
+    let current = prefix;
+    let empty = true;
+    for (const item of items) {
+        if (!empty && current.length + 1 + item.length > FLAG_COLUMNS) {
+            lines.push(current);
+            current = indent;
+            empty = true;
+        }
+        current += empty ? item : ` ${item}`;
+        empty = false;
+    }
+    lines.push(current);
+    return lines;
+}
+
+/**
+ * Every flag a subcommand accepts, printed under its usage.
+ *
+ * The usage lines are curated prose and have to stay readable, so they name the
+ * shape of a command rather than its whole surface. What fell out of them was
+ * the half that matters most to whoever is reading: `doc create` accepts ten
+ * flags and showed four, `memory add` accepts eighteen and showed two, and not
+ * one of `doc create`, `changelog add` or `memory add` mentioned `--body` or
+ * `--json-input` — the only ways to write a record's body in the same call that
+ * creates it. `card create` documented `--json-input` and the other three did
+ * not, which reads as a statement about them rather than about the help.
+ *
+ * The reasonable conclusion from that help is that the CLI cannot write a body,
+ * so you create the record empty and open the file. Under Claude Code that is
+ * an `Edit` inside `.project/`, which the hook stops to ask about — every time,
+ * on a question the reader had already answered. A missing line in the help
+ * turned into a permission dialog per document, and neither end looked like the
+ * other's cause.
+ *
+ * Generated from `COMMAND_FLAGS` rather than written out. A second list is only
+ * right until one of them moves, and that table is itself pinned against what
+ * each branch actually reads — so this section cannot drift from behaviour
+ * either, which is the property the curated lines never had.
+ */
+function acceptedFlags(word: string): string[] {
+    const rows = Object.entries(COMMAND_FLAGS)
+        .filter(([key]) => key === word || key.startsWith(`${word} `))
+        .map(
+            ([key, flags]) =>
+                [key === word ? word : key.slice(word.length + 1), [...flags].sort()] as const
+        )
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    if (!rows.length) return [];
+    const width = Math.max(...rows.map(([name]) => name.length));
+    return [
+        "",
+        "Flags, by subcommand, on top of the global ones below:",
+        ...rows.flatMap(([name, flags]) =>
+            flags.length
+                ? wrapped(`  ${name.padEnd(width)}  `, flags)
+                : [`  ${name.padEnd(width)}  (none)`]
+        )
+    ];
+}
+
 /** Help for one command word; falls back to the full manual when unknown. */
 function printCommandUsage(command) {
     const key = USAGE_ALIASES[command] || command;
@@ -885,6 +954,7 @@ function printCommandUsage(command) {
             "",
             "Usage:",
             ...lines.map((line) => `  ${spoken(line)}`),
+            ...acceptedFlags(key),
             "",
             ...(key === "doc" ? [DOCUMENT_FOLDERS, ""] : []),
             GLOBAL_OPTIONS

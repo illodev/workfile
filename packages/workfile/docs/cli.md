@@ -580,6 +580,7 @@ signalling, and `workfile card reap` releases them.
 workfile doc list [--query TEXT] [--managed] [--json]
 workfile doc show ID [--json]
 workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]
+workfile doc create --json-input FILE   # recommended: body and metadata in one call
 workfile doc move ID --folder PATH [--expected-revision REV]
 workfile doc patch ID --json-input FILE [--expected-revision REV]
 ```
@@ -600,6 +601,7 @@ The path must stay inside `docs.managedPath`; `--folder ""` targets the root.
 workfile changelog list [--unreleased] [--visibility public|internal] [--json]
 workfile changelog show ID [--json]
 workfile changelog add --title TITLE [--type fixed] [--area AREA]
+workfile changelog add --json-input FILE   # recommended: body and metadata in one call
 workfile changelog patch ID --json-input FILE [--expected-revision REV]
 workfile changelog preview [--fragments CHG-0001,CHG-0002]
 workfile changelog release VERSION [--fragments CHG-0001,CHG-0002] [--title TITLE]
@@ -616,6 +618,7 @@ Release version validation follows `changelog.releaseStrategy`: `semver`,
 workfile memory list [--collection learnings] [--status active] [--json]
 workfile memory show ID [--json]
 workfile memory add COLLECTION --title TITLE [--status STATUS]
+workfile memory add COLLECTION --json-input FILE   # recommended: body and metadata in one call
 workfile memory patch ID --json-input FILE [--expected-revision REV]
 workfile memory graduate ID --to CONV-0001,DOC-0001
 workfile memory supersede ID --by ID

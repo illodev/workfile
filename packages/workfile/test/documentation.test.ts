@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { createTestWorkspace } from "./support/workspace.ts";
+
+const execute = promisify(execFile);
+const cli = resolve(fileURLToPath(new URL("../dist/bin/workfile.js", import.meta.url)));
 
 /**
  * The shipped documentation must not name things that do not exist.
@@ -365,6 +372,50 @@ test("no doc gives a subcommand a flag it does not accept", async () => {
         }
     }
     assert.deepEqual(wrong, [], `\n${wrong.join("\n")}\n`);
+});
+
+/**
+ * The other direction, which nothing checked: a flag that exists and that the
+ * help never names.
+ *
+ * Every test above asks whether what the documentation teaches is real. None
+ * asked whether what is real is taught, and the gap was not small — `doc
+ * create` accepts ten flags and its usage line named four, `memory add`
+ * accepts eighteen and named two. Among the missing were `--body` and
+ * `--json-input` on all three record creators, which are the only way to write
+ * a record's body in the call that creates it. `card create` named
+ * `--json-input`; the other three did not, so the help read as a statement
+ * about those commands rather than about itself.
+ *
+ * That is not a cosmetic gap. Reading it, the reasonable move is to create the
+ * record empty and then open the file — which under Claude Code is an `Edit`
+ * inside `.project/`, and the protocol hook stops to ask about every one of
+ * them. An unwritten line in the help came out the other end as a permission
+ * dialog per document, with nothing connecting the two.
+ *
+ * `--help` rather than `cli.md` on purpose: the help ships compiled into
+ * `dist` and is what someone at a terminal actually reads, and an agent has no
+ * browser open.
+ */
+test("--help names every flag its subcommands accept", async () => {
+    const { accepts } = await dispatchTable();
+    const words = [...new Set([...accepts.keys()].map((key) => key.split(" ")[0]))];
+    const missing: string[] = [];
+    for (const word of words) {
+        const { stdout } = await execute(process.execPath, [cli, word, "--help"], {
+            encoding: "utf8",
+            maxBuffer: 1024 * 1024
+        });
+        for (const [key, flags] of accepts) {
+            if (key !== word && !key.startsWith(`${word} `)) continue;
+            for (const flag of flags) {
+                // Word-bounded: `--to` must not be satisfied by `--tags`.
+                if (new RegExp(`${flag}(?![\\w-])`).test(stdout)) continue;
+                missing.push(`workfile ${word} --help never names ${flag} (${key})`);
+            }
+        }
+    }
+    assert.deepEqual(missing, [], `\n${missing.join("\n")}\n`);
 });
 
 /**
