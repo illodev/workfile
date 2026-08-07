@@ -406,9 +406,9 @@ export function validateProjectConfig(config: any) {
     if (!config.docs || typeof config.docs !== "object") {
         issues.push(issue("CONFIG_DOCS_REQUIRED", "docs", "docs must be an object"));
     } else {
-        for (const key of ["sources", "exclude", "kinds", "statuses"]) {
+        for (const key of ["sources", "exclude", "routeRoots", "kinds", "statuses"]) {
             validateStringList(issues, config.docs[key], `docs.${key}`, {
-                required: key !== "exclude"
+                required: key !== "exclude" && key !== "routeRoots"
             });
         }
         validatePrefix(

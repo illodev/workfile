@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { codeMask } from "../dist/src/modules/docs/validation.js";
 import { createTestWorkspace } from "./support/workspace.ts";
 
 const execute = promisify(execFile);
@@ -233,7 +234,13 @@ test("every relative link in the docs resolves", async () => {
     for (const [path, base] of DOCS) {
         const document = new URL(path, base);
         const text = await readFile(document, "utf8");
+        // The same reading the doctor uses, imported rather than repeated: a
+        // link inside a code span is being shown. This test failed on SPEC.md's
+        // own `[text](section/page)` — the sentence explaining that very
+        // distinction, flagged by a scanner that did not make it.
+        const code = codeMask(text);
         for (const match of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+            if (code[match.index]) continue;
             const target = match[1];
             if (/^(?:https?:|mailto:|#)/.test(target)) continue;
             const [file] = target.split("#");

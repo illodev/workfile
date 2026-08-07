@@ -48,9 +48,105 @@ function dayNumber(date) {
  */
 const LINK = /\[[^\]\n]{0,512}\]\(([^)\n]{1,1024})\)/g;
 
-function localMarkdownPaths(document) {
-    const paths = [];
-    for (const match of String(document.body || "").matchAll(LINK)) {
+/**
+ * Which offsets of a body are code, so a link shown as an example is not
+ * followed as a link.
+ *
+ * The clearest case is a template. `_TEMPLATE.md` teaches the house link style
+ * by printing `` `[texto](categoria/slug)` ``, and it was reported as linking
+ * to a category that does not exist: the document doing exactly its job, called
+ * broken. `parseAcceptance` has skipped fences since T-0157 for the same
+ * reason; the link scan never did.
+ *
+ * A mask rather than a blanked copy, and this is the part worth being careful
+ * about. Blanking first and matching after changes what matches: a real link
+ * whose *label* is code — ``[`app/(private)/page.tsx`](…)`` — has brackets
+ * inside that label, so the scanner never saw it, and erasing the backticks
+ * revealed a link the target pattern then truncated at the first `)`. Two
+ * managed documents turned red on links that are fine. Matching first and
+ * discarding what falls inside code cannot invent a match that was not already
+ * there; blanking can.
+ */
+export function codeMask(body: string): Uint8Array {
+    const mask = new Uint8Array(body.length);
+    const cover = (start: number, end: number) => mask.fill(1, start, end);
+
+    let offset = 0;
+    let fenceAt = -1;
+    let fence = "";
+    for (const line of body.split("\n")) {
+        const opener = line.match(/^[ \t]*(```+|~~~+)/);
+        if (fenceAt === -1) {
+            if (opener) {
+                fenceAt = offset;
+                fence = opener[1];
+            }
+        } else if (opener && opener[1].startsWith(fence)) {
+            cover(fenceAt, offset + line.length);
+            fenceAt = -1;
+        }
+        offset += line.length + 1;
+    }
+    // A fence nobody closed runs to the end of the document, which is how a
+    // Markdown renderer reads it too.
+    if (fenceAt !== -1) cover(fenceAt, body.length);
+
+    for (const span of body.matchAll(/`+[^`\n]*`+/g)) {
+        if (!mask[span.index]) cover(span.index, span.index + span[0].length);
+    }
+    return mask;
+}
+
+/**
+ * What a target might name, once the tree it lives in is taken into account.
+ *
+ * A path resolves against the file and is either there or not. A *route*
+ * resolves against the site root and onto whichever file backs it, so
+ * `guides/invoicing` is `guides/invoicing.md`, `guides/invoicing.mdx`, or an
+ * `index` of either inside `guides/invoicing/`. The four suffixes are what
+ * every generator in this family does; nothing here models redirects or
+ * trailing slashes, and it should not — that is the site's business.
+ *
+ * The file-relative reading is always tried, and tried first. Declaring a tree
+ * as routes widens what counts as resolvable inside it; it never narrows it,
+ * so a link that was fine before a root was declared is still fine after.
+ */
+const ROUTE_SUFFIXES = ["", ".md", ".mdx", "/index.md", "/index.mdx"];
+
+function candidatesFor(document, target: string, routeRoots: string[]): string[] {
+    const fromFile = target.startsWith("/")
+        ? target.slice(1)
+        : posix.normalize(posix.join(posix.dirname(document.path), target));
+    const root = routeRoots.find(
+        (entry) => document.path === entry || document.path.startsWith(`${entry}/`)
+    );
+    if (root === undefined) return [fromFile];
+
+    // An explicit `/` is site-absolute inside a route tree, which is the one
+    // spelling that does not go through the file's directory at all.
+    const fromRoot = posix.normalize(
+        posix.join(root, target.startsWith("/") ? target.slice(1) : target)
+    );
+    return [
+        ...new Set([
+            ...ROUTE_SUFFIXES.map((suffix) => `${fromFile}${suffix}`),
+            ...ROUTE_SUFFIXES.map((suffix) => `${fromRoot}${suffix}`)
+        ])
+    ];
+}
+
+/**
+ * Every local link in a body, with what each one could resolve to.
+ *
+ * A link is broken only when none of its candidates exist, so the caller has to
+ * see them grouped rather than flattened.
+ */
+function localMarkdownLinks(document, routeRoots: string[]) {
+    const body = String(document.body || "");
+    const links = new Map<string, string[]>();
+    const code = codeMask(body);
+    for (const match of body.matchAll(LINK)) {
+        if (code[match.index]) continue;
         let target = match[1].trim().replace(/^<|>$/g, "");
         if (
             !target ||
@@ -65,13 +161,10 @@ function localMarkdownPaths(document) {
         } catch {
             // Invalid percent escapes are checked as a literal local path.
         }
-        paths.push(
-            target.startsWith("/")
-                ? target.slice(1)
-                : posix.normalize(posix.join(posix.dirname(document.path), target))
-        );
+        if (!target || links.has(target)) continue;
+        links.set(target, candidatesFor(document, target, routeRoots));
     }
-    return [...new Set(paths)];
+    return [...links].map(([target, candidates]) => ({ target, candidates }));
 }
 
 export async function diagnoseDocuments({
@@ -84,6 +177,12 @@ export async function diagnoseDocuments({
     const issues = unreadable.map((entry) =>
         issue("error", "unreadable-document", { path: entry.file }, `Cannot read document: ${entry.reason}`)
     );
+    // Trailing separators stripped once here rather than at every comparison: a
+    // root written `docs/help/` must behave as `docs/help`, and the prefix test
+    // below is a string test.
+    const routeRoots = (workspace.config.docs.routeRoots || [])
+        .map((entry) => String(entry).replace(/^\.\//, "").replace(/\/+$/, ""))
+        .filter(Boolean);
     const ids = new Map();
     for (const document of documents) {
         if (!ids.has(document.id)) ids.set(document.id, []);
@@ -174,8 +273,15 @@ export async function diagnoseDocuments({
                 );
             }
         }
-        for (const linkedPath of localMarkdownPaths(document)) {
-            if (!(await pathExistsWithinWorkspace(workspace, linkedPath))) {
+        for (const link of localMarkdownLinks(document, routeRoots)) {
+            let resolved = false;
+            for (const candidate of link.candidates) {
+                if (await pathExistsWithinWorkspace(workspace, candidate)) {
+                    resolved = true;
+                    break;
+                }
+            }
+            if (!resolved) {
                 issues.push(
                     issue(
                         // An indexed document is read-only through the protocol,
@@ -187,8 +293,13 @@ export async function diagnoseDocuments({
                         document.managed ? "error" : "warning",
                         "doc-broken-local-link",
                         document,
-                        `Linked path does not exist: ${linkedPath}`,
-                        { path: linkedPath }
+                        // The target as written. It used to be the resolved
+                        // path, which in a route tree is the doubled one
+                        // (`clientes/clientes/…`) — the shape that made the
+                        // finding unreadable rather than the one that explains
+                        // it. What was tried goes in the details.
+                        `Linked path does not exist: ${link.target}`,
+                        { path: link.candidates[0], target: link.target, tried: link.candidates }
                     )
                 );
             }

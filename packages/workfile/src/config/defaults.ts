@@ -316,6 +316,10 @@ export const DEFAULT_CONFIG = Object.freeze({
             ".git/**",
             ".project/.cache/**"
         ],
+        // Empty by default: a repository's Markdown is paths until someone says
+        // otherwise, and guessing which trees are published sites would turn a
+        // real broken link into silence.
+        routeRoots: [],
         idPrefix: "DOC",
         kinds: [...DOC_KINDS],
         statuses: [...DOC_STATUSES],

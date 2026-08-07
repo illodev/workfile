@@ -1015,6 +1015,16 @@ Indexed documents:
 - do not require protocol frontmatter;
 - receive a derived identity based on path unless explicitly assigned a managed ID.
 
+An indexed tree that is published as a site may declare itself with
+`docs.routeRoots`. Inside such a root, a link target is a **route** rather than
+a path: it resolves from the root itself rather than from the linking file, and
+onto whichever file backs the route — `.md`, `.mdx`, or an `index` of either.
+Without it, a documentation site whose house style is `[text](section/page)` has
+every link reported as broken, and any genuinely dead one is lost in the noise.
+
+`routeRoots` only ever widens what resolves. The file-relative reading is still
+tried, and outside a declared root a link is a path.
+
 ### 12.3 Managed documents
 
 Managed documents live under `.project/docs/` or another configured path.

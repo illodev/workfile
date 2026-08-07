@@ -22,7 +22,9 @@ import {
     searchProjectRecords
 } from "../dist/src/index.js";
 
-async function makeWorkspace({ layout } = {}) {
+async function makeWorkspace(
+    { layout, routeRoots }: { layout?: string; routeRoots?: string[] } = {}
+) {
     const root = await mkdtemp(join(tmpdir(), "workfile-docs-"));
     await mkdir(join(root, ".project", "cards", "archive"), { recursive: true });
     await mkdir(join(root, ".project", "docs"), { recursive: true });
@@ -37,6 +39,10 @@ async function makeWorkspace({ layout } = {}) {
             docs: {
                 sources: ["README.md", "docs/**/*.md"],${
                     layout ? `\n                layout: ${JSON.stringify(layout)},` : ""
+                }${
+                    routeRoots
+                        ? `\n                routeRoots: ${JSON.stringify(routeRoots)},`
+                        : ""
                 }
                 reviewIntervalDays: 30
             }
@@ -603,6 +609,161 @@ test("a write conflict reports the record as it now stands", async () => {
             { expectedRevision: now.revision }
         );
         assert.equal(resolved.document.body.trim(), "Merged version.");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A documentation site's links are routes, and a route is not a path.
+ *
+ * `[text](guides/invoicing)` inside a published tree means "the page at that
+ * route": resolved from the site root rather than from the file, and onto
+ * whichever file backs it — `.md`, `.mdx`, or an `index` of either. Read as a
+ * path, every link in such a tree is broken. One repository whose editorial
+ * guide mandates that spelling collected 635 of these warnings, 99% of every
+ * warning it had, with six genuinely dead links underneath.
+ *
+ * `docs.routeRoots` names the trees where that reading applies. It only ever
+ * widens what resolves, so it cannot hide a link that was fine before, and
+ * outside those roots a link is still a path — which is what a README's links
+ * are, and where the six real ones lived.
+ */
+test("inside a declared route root a link resolves as a route", async () => {
+    const root = await makeWorkspace({ routeRoots: ["docs/help"] });
+    try {
+        await mkdir(join(root, "docs", "help", "clientes"), { recursive: true });
+        await mkdir(join(root, "docs", "help", "ventas", "facturas"), {
+            recursive: true
+        });
+        await writeFile(
+            join(root, "docs", "help", "clientes", "gestion-clientes.md"),
+            "# Clientes\n"
+        );
+        await writeFile(
+            join(root, "docs", "help", "ventas", "cobros.mdx"),
+            "# Cobros\n"
+        );
+        await writeFile(
+            join(root, "docs", "help", "ventas", "facturas", "index.md"),
+            "# Facturas\n"
+        );
+        await writeFile(
+            join(root, "docs", "help", "clientes", "contactos.md"),
+            [
+                "# Contactos",
+                "",
+                // Written from the site root, from a file two levels down: as a
+                // path this reads `docs/help/clientes/clientes/…`, the doubling
+                // that made the finding unreadable as well as wrong.
+                "See [clientes](clientes/gestion-clientes),",
+                "[cobros](ventas/cobros) and [facturas](ventas/facturas).",
+                "",
+                "Site-absolute works too: [otra vez](/clientes/gestion-clientes).",
+                "",
+                "And a genuine mistake stays a mistake: [nope](ventas/no-existe).",
+                ""
+            ].join("\n")
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        const broken = index.reports.docs.issues.filter(
+            (issue) => issue.code === "doc-broken-local-link"
+        );
+        assert.deepEqual(
+            broken.map((issue) => issue.details.target),
+            ["ventas/no-existe"],
+            "only the link that names nothing should be reported"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a route root does not change how the rest of the repository is read", async () => {
+    const root = await makeWorkspace({ routeRoots: ["docs/help"] });
+    try {
+        await mkdir(join(root, "docs", "help"), { recursive: true });
+        await writeFile(join(root, "docs", "help", "index.md"), "# Help\n");
+        // Outside the root, a bare slug is a path and a path it stays: the six
+        // links this rule exists to surface were in a README.
+        await writeFile(
+            join(root, "docs", "guides", "outside.md"),
+            "# Outside\n\nSee [help](help/index) and [billing](billing.md).\n"
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        const broken = index.reports.docs.issues
+            .filter((issue) => issue.code === "doc-broken-local-link")
+            .map((issue) => issue.details.target);
+        assert.deepEqual(broken, ["help/index"], "billing.md is a real sibling");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A link being shown is not a link being followed.
+ *
+ * A template that teaches the house link style by printing
+ * `` `[texto](categoria/slug)` `` was reported as linking to a category that
+ * does not exist — the document doing its job, called broken.
+ *
+ * The second half is the one that bit during development. Blanking code before
+ * matching changes *what matches*: a real link whose label is code, like
+ * ``[`app/(private)/page.tsx`](…)``, has brackets inside that label, so the
+ * scanner never saw it — and erasing the backticks revealed a link whose target
+ * the pattern then truncated at the first `)`. Two managed documents turned red
+ * on links that are fine. Matching first and discarding what falls inside code
+ * cannot invent a match that was not already there.
+ */
+test("links inside code are shown, not followed", async () => {
+    const root = await makeWorkspace();
+    try {
+        await writeFile(
+            join(root, "docs", "guides", "teaching.md"),
+            [
+                "# How to link",
+                "",
+                "Always use a relative slug: `[texto](categoria/slug)`.",
+                "",
+                "```markdown",
+                "- [Related one](categoria/related-one)",
+                "- [Related two](categoria/related-two)",
+                "```",
+                "",
+                "Evidence: [`app/(private)/page.tsx#L1`](../../src/billing.js)",
+                "",
+                "But this one is real and missing: [gone](categoria/gone.md).",
+                ""
+            ].join("\n")
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        const broken = index.reports.docs.issues
+            .filter((issue) => issue.code === "doc-broken-local-link")
+            .map((issue) => issue.details.target);
+        assert.deepEqual(broken, ["categoria/gone.md"]);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("an unclosed fence swallows the rest of the document, as a renderer would", async () => {
+    const root = await makeWorkspace();
+    try {
+        await writeFile(
+            join(root, "docs", "guides", "unclosed.md"),
+            "# Unclosed\n\n```\n[example](nowhere/at/all)\n\nStill inside: [also](nope.md)\n"
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        assert.deepEqual(
+            index.reports.docs.issues.filter(
+                (issue) => issue.code === "doc-broken-local-link"
+            ),
+            []
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }

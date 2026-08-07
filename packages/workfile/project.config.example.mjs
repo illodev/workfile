@@ -75,6 +75,15 @@ export default {
             ".git/**",
             ".project/.cache/**"
         ],
+        // Trees whose links are site routes rather than paths on disk. Inside
+        // one of these, `[text](guides/invoicing)` is resolved from the root
+        // named here — not from the linking file — and onto whatever backs that
+        // route: `.md`, `.mdx`, or an `index` of either. Without it every link
+        // in a published documentation tree reads as broken.
+        //
+        // Empty by default, and it only ever widens what resolves: outside
+        // these roots a link is a path, which is what a README's links are.
+        routeRoots: [],
         kinds: [
             "architecture",
             "product",

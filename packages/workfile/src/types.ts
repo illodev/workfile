@@ -88,6 +88,21 @@ export interface ProjectDocsConfig {
     layout: DocumentLayout;
     sources: string[];
     exclude: string[];
+    /**
+     * Trees whose links are site routes rather than paths on disk.
+     *
+     * A documentation site resolves `[text](guides/invoicing)` through its own
+     * router: from the site root, not from the file, and onto whatever file
+     * backs that route — `guides/invoicing.md`, `.mdx`, or an `index` inside a
+     * folder. Checked as a path, every one of those links is broken, and the
+     * doctor said so 635 times in one repository whose editorial guide
+     * *mandates* that spelling. Six genuinely dead links sat underneath.
+     *
+     * A root listed here says "inside this tree a bare link is a route", and
+     * the check resolves it as one before calling it broken. Everything else
+     * keeps being read as a path, which is what a README's links are.
+     */
+    routeRoots: string[];
     idPrefix: string;
     kinds: string[];
     statuses: string[];
