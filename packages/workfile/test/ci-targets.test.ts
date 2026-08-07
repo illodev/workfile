@@ -74,6 +74,20 @@ test("the generic script states the contract it cannot enforce", async () => {
     assert.match(generic, /inherits the\n# entire environment/);
 });
 
+test("every target states that the checkout's own config executes, both hops", async () => {
+    // T-0213. The first hop was already stated on GitHub only, and stating it
+    // alone reads as "it imports a settings file" — the second hop is that
+    // `doctor` then *calls functions the config handed it*, which is what makes
+    // this worth pricing. A reader who has to discover that from the source has
+    // been told the wrong thing, so it is pinned on all three.
+    for (const [id, body] of Object.entries(await bodies())) {
+        assert.match(body, /`import\(\)`s project\.config\.mjs/, id);
+        assert.match(body, /module body/, id);
+        assert.match(body, /healthCheck/, id);
+        assert.match(body, /Nothing in Workfile sandboxes it/, id);
+    }
+});
+
 test("no generated target lowers a card-declared command into a shell", async () => {
     // The pin that keeps the next card honest. A `verify[].run` is an argument
     // vector precisely so that no shell parses it; writing one into a YAML

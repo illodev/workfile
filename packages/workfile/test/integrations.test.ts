@@ -268,6 +268,200 @@ test("a malformed integrations export fails on load, naming the config", async (
     }
 });
 
+/**
+ * T-0213: a declared `healthCheck` is a foreign call inside `doctor`.
+ *
+ * The hook is repository-supplied code, and the config module body that declares
+ * it already ran on import — so none of this is containment and ADR-0019 says so.
+ * What these pin is narrower and is the part that was broken: a hook cannot speak
+ * *for* `doctor`. It cannot take the command down, it cannot hang it forever, and
+ * it cannot hand back a value that decides whether the repository passes.
+ */
+test("a healthCheck that throws becomes a finding, not a dead doctor", async () => {
+    const root = await workspaceWithConfig(
+        `export default { schemaVersion: 2, name: "Throwing" };
+export const integrations = [
+    { id: "sync-boom", healthCheck() { throw new Error("exploded on the spot"); } },
+    { id: "async-boom", async healthCheck() { throw new Error("exploded later"); } }
+];
+`
+    );
+    try {
+        const workspace = await loadWorkspace({ root });
+        // Before this, the raw error propagated out of runDoctor and took every
+        // caller with it: the CLI, /api/v2/health, and the MCP doctor tool.
+        const report = await runDoctor(workspace);
+        const failures = report.issues.filter(
+            (issue) => issue.code === "integration-health-check-failed"
+        );
+        assert.equal(failures.length, 2);
+        for (const failure of failures) {
+            assert.equal(failure.severity, "error");
+            // Attributed, or the reader cannot tell which of their integrations
+            // to go and fix.
+            assert.match(failure.message, /^Integration (sync|async)-boom /);
+            assert.match(failure.details.error, /exploded (on the spot|later)/);
+        }
+        // A declared check that could not answer is not a pass.
+        assert.equal(report.ok, false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a healthCheck returning an uncountable diagnostic cannot decide `ok`", async () => {
+    const root = await workspaceWithConfig(
+        `export default { schemaVersion: 2, name: "Junk" };
+export const integrations = [{ id: "junk", healthCheck() { return { issues: [
+    { severity: "catastrophe", code: 42 },
+    { severity: "warning", code: "well-formed", message: "this one counts" }
+] }; } }];
+`
+    );
+    try {
+        const workspace = await loadWorkspace({ root });
+        const report = await runDoctor(workspace);
+
+        // The failure this replaces: `counts[issue.severity] += 1` on an unknown
+        // severity wrote NaN into the counts, the issue landed in no bucket, and
+        // `ok` stayed true while the comparator sorted on NaN.
+        assert.deepEqual(Object.keys(report.counts).sort(), [
+            "error",
+            "info",
+            "warning"
+        ]);
+        for (const count of Object.values(report.counts)) {
+            assert.equal(Number.isInteger(count), true);
+        }
+        assert.equal(
+            report.issues.some((issue) => issue.severity === "catastrophe"),
+            false
+        );
+
+        const invalid = report.issues.find(
+            (issue) => issue.code === "integration-health-check-invalid"
+        );
+        assert.equal(invalid.severity, "error");
+        assert.match(invalid.message, /1 of 2/);
+        assert.equal(invalid.details.integration, "junk");
+
+        // And the well-formed sibling in the same batch still lands: rejecting
+        // one entry is not rejecting the integration.
+        assert.equal(
+            report.issues.some((issue) => issue.code === "well-formed"),
+            true
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a healthCheck returning something that is not diagnostics at all is named", async () => {
+    const root = await workspaceWithConfig(
+        `export default { schemaVersion: 2, name: "Stringy" };
+export const integrations = [{ id: "stringy", healthCheck() { return "not diagnostics"; } }];
+`
+    );
+    try {
+        const workspace = await loadWorkspace({ root });
+        const report = await runDoctor(workspace);
+        const invalid = report.issues.find(
+            (issue) => issue.code === "integration-health-check-invalid"
+        );
+        assert.equal(invalid.severity, "error");
+        assert.match(invalid.message, /returned string/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("a healthCheck with nothing to say is indistinguishable from no hook", async () => {
+    const quiet = await workspaceWithConfig(
+        `export default { schemaVersion: 2, name: "Quiet", cards: { areas: ["api", "web", "infra", "docs"] } };
+export const integrations = [{ id: "quiet", healthCheck() { return null; } }];
+`
+    );
+    const none = await workspaceWithConfig(
+        `export default { schemaVersion: 2, name: "Quiet", cards: { areas: ["api", "web", "infra", "docs"] } };
+`
+    );
+    try {
+        const withHook = await runDoctor(await loadWorkspace({ root: quiet }));
+        const without = await runDoctor(await loadWorkspace({ root: none }));
+        assert.deepEqual(withHook.counts, without.counts);
+        assert.deepEqual(
+            withHook.issues.map((issue) => issue.code),
+            without.issues.map((issue) => issue.code)
+        );
+    } finally {
+        await rm(quiet, { recursive: true, force: true });
+        await rm(none, { recursive: true, force: true });
+    }
+});
+
+test("a healthCheck that never settles is bounded, and doctor still answers", async () => {
+    // Bounded through the injectable seam so this costs milliseconds; the
+    // default is ten seconds and `runDoctor` uses it. Verified once at the real
+    // default against the built binary — see the card's note.
+    const integrationRegistry = createIntegrationRegistry(
+        [
+            defineProjectIntegration({
+                id: "hang",
+                healthCheck() {
+                    return new Promise(() => {});
+                }
+            })
+        ],
+        { healthCheckTimeoutMs: 25 }
+    );
+    const workspace = await loadWorkspace({ root: fixture });
+    // Through `runDoctor` rather than the registry alone, because the claim is
+    // about the command: it returns a report instead of waiting on the hook.
+    const report = await runDoctor(workspace, { integrationRegistry });
+    const timedOut = report.issues.find(
+        (issue) => issue.code === "integration-health-check-timeout"
+    );
+    assert.equal(timedOut.severity, "error");
+    assert.equal(timedOut.details.timeoutMs, 25);
+    assert.equal(timedOut.details.integration, "hang");
+    assert.equal(report.ok, false);
+});
+
+test("declaring no integrations leaves doctor exactly as it was", async () => {
+    // The criterion that keeps the rest of this honest: everything above adds
+    // machinery to the health path, and the overwhelming majority of workspaces
+    // — including this repository — declare no integrations at all. They must
+    // not pay for it, and must not see a single issue they did not see before.
+    const root = await workspaceWithConfig(
+        `export default {
+    schemaVersion: 2,
+    name: "No integrations",
+    cards: { areas: ["api", "web", "infra", "docs"] }
+};
+`
+    );
+    try {
+        const workspace = await loadWorkspace({ root });
+        assert.deepEqual(workspace.integrations, []);
+        const report = await runDoctor(workspace);
+        assert.equal(
+            report.issues.some((issue) =>
+                String(issue.code).startsWith("integration-health-check")
+            ),
+            false
+        );
+        // No health hook to call means no bounding timer was ever armed, so the
+        // report is produced and the process is free to exit immediately.
+        assert.deepEqual(Object.keys(report.counts).sort(), [
+            "error",
+            "info",
+            "warning"
+        ]);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("doctor flags a search.provider no declared integration satisfies", async () => {
     const root = await workspaceWithConfig(
         `export default {

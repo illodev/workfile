@@ -20,7 +20,7 @@
     "src/modules/docs/validation.ts": 4,
     "src/modules/health/doctor.ts": 19,
     "src/modules/init/initializer.ts": 17,
-    "src/modules/integrations/registry.ts": 10,
+    "src/modules/integrations/registry.ts": 9,
     "src/modules/mcp/server.ts": 5,
     "src/modules/memory/memory.ts": 8,
     "src/modules/memory/validation.ts": 4,
