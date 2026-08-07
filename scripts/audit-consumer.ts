@@ -4,12 +4,13 @@
  *
  * `pnpm audit` audits this workspace. The workspace has `pnpm.overrides`, and
  * overrides are a workspace-install mechanism: they rewrite resolution here and
- * do not travel inside a published package. So the release gate could read zero
- * high advisories while somebody running `npm i @illodev/workfile-search-local`
- * resolved several — which is exactly what it did. Two of the four overrides,
- * `sharp` and `adm-zip`, sit under `@huggingface/transformers`, a `dependencies`
- * entry of that published package, and the overrides fixed them for nobody but
- * us.
+ * do not travel inside a published package. So the release gate read zero high
+ * advisories for months while somebody running
+ * `npm i @illodev/workfile-search-local` resolved four. Two overrides —
+ * `sharp` and `adm-zip` — sat under `@huggingface/transformers`, a
+ * `dependencies` entry of that published package, and fixed them for nobody but
+ * us. T-0221 removed the dependency and those two overrides with it; what stays
+ * is the reason this file exists.
  *
  * This resolves what the *manifests* declare instead. The consumer manifest is
  * the union of every publishable package's `dependencies`, so it describes this
@@ -17,7 +18,7 @@
  * the overrides because it is a different install root.
  *
  * `--package-lock-only` resolves without downloading, so this costs a few
- * seconds and no binaries — `sharp` and `onnxruntime-node` would otherwise pull
+ * seconds and no binaries — the tree it was written against would otherwise pull
  * platform builds worth hundreds of megabytes to tell us something the lockfile
  * already knows.
  *
@@ -41,7 +42,13 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-const THRESHOLD = new Set(["high", "critical"]);
+/**
+ * Aligned with Dependabot's alerting floor rather than with a sense of what is
+ * serious. A gate above the floor something else already reports leaves those
+ * advisories to pile up where nobody must look — see the `hono` note in
+ * `.github/workflows/ci.yml`.
+ */
+const THRESHOLD = new Set(["moderate", "high", "critical"]);
 
 async function publishableDependencies() {
     const packagesDir = join(repoRoot, "packages");
@@ -140,7 +147,7 @@ try {
     if (!blocking.length) {
         const counts = report.metadata?.vulnerabilities || {};
         console.log(
-            `\nConsumer tree clean at high and above. Below the threshold: ${
+            `\nConsumer tree clean at moderate and above. Below the threshold: ${
                 Object.entries(counts)
                     .filter(([level, count]) => level !== "total" && Number(count) > 0)
                     .map(([level, count]) => `${count} ${level}`)
@@ -151,7 +158,7 @@ try {
     }
 
     console.error(
-        `\n${blocking.length} package(s) at high or above in the tree a consumer resolves:\n`
+        `\n${blocking.length} package(s) at moderate or above in the tree a consumer resolves:\n`
     );
     for (const entry of blocking.sort((left, right) =>
         String(left.name).localeCompare(String(right.name))

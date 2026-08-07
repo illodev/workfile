@@ -58,6 +58,14 @@ jobs:
         # nobody has to act on is not a gate, and the repository already fixes
         # these one way — a `pnpm.overrides` entry — which is a reviewable diff.
         # Read what that fix does and does not do in ADR-0021 before adding one.
+        #
+        # `moderate`, not `high`, and the reason is GitHub rather than severity:
+        # Dependabot alerts on moderate, so a gate that started at `high` left
+        # every moderate advisory to accumulate in the security tab where nobody
+        # is obliged to look and nothing turns red. That is what the `hono` ReDoS
+        # did for days. Aligning the floor with the alerting cost nothing at the
+        # time — both trees audit clean at `low` — and the point is that the next
+        # one fails a pull request instead of waiting to be noticed.
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -67,7 +75,7 @@ jobs:
                   node-version: 22
                   cache: pnpm
             - run: pnpm install --frozen-lockfile
-            - run: pnpm audit --audit-level=high
+            - run: pnpm audit --audit-level=moderate
             # And the tree a consumer actually resolves, which the line above
             # cannot see: root `pnpm.overrides` rewrite resolution in this
             # workspace only, so an override silences the gate here and reaches
