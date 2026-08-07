@@ -1,12 +1,17 @@
 ---
 id: T-0217
 title: A documentation sites links are routes, and every one reads as broken
-status: review
+status: done
 type: bug
 priority: high
 area: docs
 created: 2026-08-07
 updated: 2026-08-07
+verified:
+  at: "2026-08-07T20:20:10.557Z"
+  method: local
+  commit: 61512e4dce848b0646b87f3c438a55f996a9b1d5
+  digest: "sha256:2219ee32df506a95737f379455aaac5c8c7dd27f9a0fafe6d5a53d13c57dd644"
 ---
 
 A documentation site resolves `[text](guides/invoicing)` through its own router:
@@ -65,7 +70,9 @@ the scanner never saw it; erasing the backticks revealed a link whose target the
 pattern then truncated at the first `)`, and two managed documents in Fube
 turned from clean to **error**. Matching first and discarding what falls inside
 code cannot invent a match that was not already there.
+- 2026-08-07 20:20Z illodev@local#42eb42f5 — local verification: Verified against Fube's real help tree and against a fixture for the shapes a corpus cannot isolate. Fube live (1784 cards): 0 errors and 0 broken-link findings; the 8 dead links the criterion recorded have since been fixed there. Non-vacuity proven both ways on a copy of that 180-file tree in a scratch workspace: with routeRoots declared, 4 link findings (3 pointing at files outside the copy, 1 planted); with the same tree and the declaration removed, 683. So the scan runs and the route reading is what resolves them. Fixture: a bare link resolves onto .md, .mdx, index.md and index.mdx, and site-absolute /... too, with all five candidates listed in the finding's tried detail and only the deliberately dead one reported. Outside a route root a link is still a path — README's path link resolves and its dead one is found, tried listing the single file-relative candidate. Two links inside an unclosed fence are not followed. codeMask is exported from validation.ts and imported by documentation.test.ts, so the code reading is shared rather than written twice. Full gate green: 470 + 10 tests, strict ratchet clean.
 
 ## Activity
 
 - 2026-08-07 10:25Z illodev@local#bada1057 · backlog → review
+- 2026-08-07 20:20Z illodev@local#42eb42f5 · released

@@ -1,12 +1,18 @@
 ---
 id: T-0215
 title: --help names 139 of the 232 flags the CLI accepts
-status: review
+status: done
 type: bug
 priority: high
 area: core
 created: 2026-08-07
 updated: 2026-08-07
+scope: [packages/workfile/bin/workfile.ts]
+verified:
+  at: "2026-08-07T20:13:47.301Z"
+  method: local
+  commit: 61512e4dce848b0646b87f3c438a55f996a9b1d5
+  digest: "sha256:73450a43fa74404f8f7a25bc61c0ddcdd6b331841273571fa72f7c29a4b3e7d9"
 ---
 
 `--help` documents 139 of the 232 flags the dispatcher accepts. The usage lines
@@ -42,7 +48,10 @@ asked whether what is real is taught.
 
 Reported from Fube on 2026-08-07, where it had been costing one permission
 dialog per protocol record.
+- 2026-08-07 20:13Z illodev@local#42eb42f5 — local verification: Verified against the shipped dist binary, not the source: 63 subcommands under 17 command words, 232 accepted (word, flag) pairs — the card's own number — and every one of them is printed by its word's --help, word-bounded so --to is not satisfied by --tags. The three record creators each carry the curated --json-input usage line that only card create had. Guard mutation-proven: making the generated block drop one flag per row fails documentation.test.ts naming the exact flags, and the generator is read from COMMAND_FLAGS so it cannot drift from what the dispatcher accepts. Full gate green: 470 + 10 tests, strict ratchet with no new errors.
 
 ## Activity
 
 - 2026-08-07 10:04Z illodev@local#bada1057 · backlog → review
+- 2026-08-07 20:09Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 20:13Z illodev@local#42eb42f5 · released
