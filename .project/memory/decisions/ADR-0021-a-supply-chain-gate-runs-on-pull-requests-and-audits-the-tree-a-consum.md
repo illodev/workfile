@@ -45,8 +45,8 @@ and pins `sharp: ^0.34.5`.
 
 One policy for both gates, and a third gate that neither card asked for.
 
-**Gates run on pull requests.** `pnpm audit --audit-level=high` is now its own job
-in `ci.yml`, blocking, at the same threshold as the release gate. An advisory the
+**Gates run on pull requests.** `pnpm audit --audit-level=moderate` is now its own
+job in `ci.yml`, blocking, at the same threshold as the release gate. An advisory the
 ecosystem publishes will turn an unrelated pull request red through no fault of
 its author; that is the cost, and it buys a re-run instead of a retag. A
 non-blocking version was rejected: a warning nobody must act on is not a gate, and
@@ -91,6 +91,16 @@ removed with it — they had become entries pinning packages no longer in the gr
 
 Worth keeping in view: a baseline would have made this a line on a list, and the
 list would have been the answer for as long as nobody looked at it.
+
+**The floor is Dependabot's, not ours** (added for T-0222). It started at `high`,
+which is the release gate's threshold and looked like the consistent choice. It was
+not: Dependabot alerts on `moderate`, so every moderate advisory went to the
+security tab, where nothing turns red and nobody is obliged to look — the `hono`
+ReDoS sat there for days. A gate whose floor is above the floor of something that
+already reports is a gate that guarantees a backlog somewhere else. Both audits now
+block at `moderate`. It cost nothing when it was changed, because both trees were
+clean at `low`, and the point is not today's reading: it is that the next moderate
+fails a pull request instead of waiting to be noticed.
 
 An override is now understood as two different things depending on where the
 overridden package sits. Under a devDependency it is a real fix for the only tree
