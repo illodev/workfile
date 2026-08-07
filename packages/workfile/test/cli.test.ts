@@ -1123,7 +1123,10 @@ const CREATE_FLAG_COVERAGE = {
     // Any record id, not only a card: a decision spawns work as often as a
     // card does, and restricting the edge to cards throws away the half of the
     // provenance tree that explains why the work exists.
-    origin: ["--origin", "T-0001,ADR-0001"]
+    origin: ["--origin", "T-0001,ADR-0001"],
+    // Two values and no default. A card filed without it is a card nobody has
+    // classified, which is a fact worth keeping rather than one to invent.
+    raised: ["--raised", "reported"]
 };
 
 test("card create reaches every field the mutation accepts", async () => {

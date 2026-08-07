@@ -210,6 +210,7 @@ workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent I
                   [--with-body] [--json]
 workfile card show ID [--json]
 workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
+workfile card create --title TITLE --raised reported|derived
                     [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
                     [--depends ID,ID] [--related ID,ID] [--origin ID,ID]
                     [--milestone M] [--effort S|M|L]

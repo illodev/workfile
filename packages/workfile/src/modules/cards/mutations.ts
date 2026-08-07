@@ -767,6 +767,9 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
         ...(input.scope?.length ? { scope: input.scope } : {}),
         ...(input.related?.length ? { related: input.related } : {}),
         ...(input.origin?.length ? { origin: input.origin } : {}),
+        // Beside `origin` and `source`, because it answers the neighbouring
+        // question and a reader meets the three together.
+        ...(input.raised ? { raised: input.raised } : {}),
         ...(input.start ? { start: input.start } : {}),
         ...(input.due ? { due: input.due } : {}),
         ...(input.claimed_by ? { claimed_by: input.claimed_by } : {}),

@@ -672,6 +672,7 @@ A card carries five relationship fields, and they are not interchangeable:
 | `parent` | one card ID | this card is **part of** that one |
 | `depends` | card IDs | those must close **before** this one is actionable |
 | `origin` | record IDs, any kind | this card was **discovered while working on** those |
+| `raised` | `reported` \| `derived` | who put it on the board: a person asked, or an agent inferred it from the repository |
 | `related` | record IDs, any kind | worth reading alongside; no direction, no claim |
 | `source` | a repository-relative path | the file the work came from, checked on disk |
 

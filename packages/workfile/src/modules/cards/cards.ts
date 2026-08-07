@@ -40,6 +40,17 @@ import {
     CARD_TYPES
 } from "../../config/defaults.js";
 
+/**
+ * The first day `raised` could be answered, so the rule below can be quiet about
+ * every card filed before it.
+ *
+ * A date rather than a config value: a project does not get to choose when this
+ * field became available in the package it installed, and a knob here would only
+ * be used to switch the rule off — which `doctor --severity` and the baseline
+ * already do, per project, with a record of the decision.
+ */
+const RAISED_EXPECTED_FROM = "2026-08-08";
+
 export const CARD_LIST_KEYS = new Set([
     "tags",
     "depends",
@@ -340,6 +351,37 @@ export async function diagnoseCards({
         // and had no rule at all (T-0223). The same argument
         // `duplicate-record-id` makes — a module sees one kind, and this
         // question is about all of them.
+        /**
+         * A card that does not say whether a person asked for it.
+         *
+         * `warning`, not `error`, because it is a fact about how the card was
+         * filed and not a defect in the record — and because the repair is a
+         * judgement only the filer can make.
+         *
+         * Bounded by date, and that is the part the card did not settle. Every
+         * card written before the field existed carries none, and this repository
+         * alone holds 223 of them; reporting all of them would drown the doctor
+         * on the day the field shipped and teach everyone to ignore the rule.
+         * Backfilling is not available either — guessing which of them were
+         * reported would reproduce the exact error that prompted T-0210. So the
+         * rule speaks about cards filed from the day it could be answered, and
+         * says nothing about the ones that could not.
+         */
+        if (
+            !card.raised &&
+            String(card.created || "") >= RAISED_EXPECTED_FROM &&
+            !card.archived
+        ) {
+            issues.push(
+                issue(
+                    "warning",
+                    "raised-missing",
+                    card,
+                    "Does not say whether a person reported it or it was derived; " +
+                        "set `raised: reported` or `raised: derived`"
+                )
+            );
+        }
         if ((card.title || "").length > 80) {
             issues.push(
                 issue(
