@@ -34,10 +34,12 @@ import { cn } from "@/lib/utils";
 import { api } from "../api";
 import { READING_MEASURE } from "../layout";
 import { READ_ONLY_HINT, useReadOnly } from "../read-only";
+import { RecordCursor } from "../record-cursor";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor, statusColor } from "../theme";
 import type {
     ChangeRecord,
+    HistoryFilters,
     HistoryRecord,
     RecordLink,
     ReleasePreview,
@@ -733,10 +735,14 @@ export function HistoryView({
     schema,
     areas,
     search,
-    onSearchChange
+    onSearchChange,
+    filters,
+    onFiltersChange
 }: {
     selectedId: string | null;
-    onSelect: (id: string) => void;
+    // The second argument is the list the click came from, in display order,
+    // which is what the reader's previous/next cursor walks (T-0207).
+    onSelect: (id: string, orderedIds?: string[]) => void;
     onOpenRecord: (id: string) => void;
     schema: ChangelogSchema;
     areas: string[];
@@ -744,11 +750,15 @@ export function HistoryView({
     // address bar: the local state this replaced died on every reload.
     search: string;
     onSearchChange: (value: string) => void;
+    // These two by the same route and for the same reason (T-0201). They were
+    // left behind when the free text moved, so a reader who narrowed to
+    // unreleased fragments, opened one and came back got the whole history.
+    filters: HistoryFilters;
+    onFiltersChange: (patch: Partial<HistoryFilters>) => void;
 }) {
     const readOnly = useReadOnly();
     const [records, setRecords] = useState<HistoryRecord[]>([]);
-    const [state, setState] = useState("");
-    const [visibility, setVisibility] = useState("");
+    const { state, visibility } = filters;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [actionError, setActionError] = useState("");
@@ -870,6 +880,19 @@ export function HistoryView({
         () => nextVersionHint(releases, unpublished),
         [releases, unpublished]
     );
+    /**
+     * The list the reader's previous/next cursor walks, in the order the rail
+     * draws it: unpublished, then releases, then published fragments. Not
+     * `sorted`, which is the same records in a different order — a cursor that
+     * disagrees with the column beside it is worse than none (T-0207).
+     */
+    const order = useMemo(
+        () =>
+            [...unpublished, ...releases, ...published].map(
+                (record) => record.id
+            ),
+        [published, releases, unpublished]
+    );
     const active = selectedId ? recordById.get(selectedId) : undefined;
 
     const openRelation = (id: string) => {
@@ -880,8 +903,7 @@ export function HistoryView({
         // A fragment shipped in an older release falls outside the active
         // filters; widen them instead of dead-ending on a missing record.
         if (/^(CHG|REL)-/.test(id)) {
-            setState("");
-            setVisibility("");
+            onFiltersChange({ state: "", visibility: "" });
             onSelect(id);
             return;
         }
@@ -974,7 +996,9 @@ export function HistoryView({
                                 { value: "unreleased" },
                                 { value: "released" }
                             ]}
-                            onChange={setState}
+                            onChange={(next) =>
+                                onFiltersChange({ state: next })
+                            }
                         />
                         <FilterChip
                             label="visibility"
@@ -982,7 +1006,9 @@ export function HistoryView({
                             options={schema.visibilities.map((value) => ({
                                 value
                             }))}
-                            onChange={setVisibility}
+                            onChange={(next) =>
+                                onFiltersChange({ visibility: next })
+                            }
                         />
                     </FilterBar>
                 </div>
@@ -1017,19 +1043,19 @@ export function HistoryView({
                                 label="unpublished"
                                 records={unpublished}
                                 selectedId={selectedId}
-                                onSelect={onSelect}
+                                onSelect={(id) => onSelect(id, order)}
                             />
                             <RailGroup
                                 label="releases"
                                 records={releases}
                                 selectedId={selectedId}
-                                onSelect={onSelect}
+                                onSelect={(id) => onSelect(id, order)}
                             />
                             <RailGroup
                                 label="published fragments"
                                 records={published}
                                 selectedId={selectedId}
-                                onSelect={onSelect}
+                                onSelect={(id) => onSelect(id, order)}
                             />
                         </>
                     )}
@@ -1156,6 +1182,19 @@ export function HistoryView({
                                 they used to crowd the row and push the close
                                 control off the right edge. */}
                             <span className="ml-auto flex shrink-0 items-center gap-1">
+                                {/* First in the group, because it is the one
+                                    that gets used repeatedly: reading the
+                                    fragments of a release in order is what
+                                    T-0197 was complaining about, and this view
+                                    owns its reader (ADR-0018) so the drawer's
+                                    copy of this control never opens here. */}
+                                <RecordCursor
+                                    noun={
+                                        active.kind === "release"
+                                            ? "release"
+                                            : "fragment"
+                                    }
+                                />
                                 {newFragmentButton}
                                 <Button
                                     type="button"

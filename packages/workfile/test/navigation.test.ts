@@ -6,6 +6,7 @@ import {
     CARD_VIEWS,
     drawerCovers,
     recordCollection,
+    recordNeighbours,
     viewForRecord
 } from "../ui/src/navigation.ts";
 import type { View } from "../ui/src/types.ts";
@@ -182,4 +183,123 @@ test("a view that already renders the selection is not covered by the drawer", (
     assert.equal(drawerCovers("history", "memory"), true);
     assert.equal(drawerCovers("docs", "changelog"), true);
     assert.equal(drawerCovers("explorer", "changelog"), true);
+});
+
+/**
+ * The reading cursor, which every kind now has and only cards used to.
+ *
+ * `Inspector` has carried previous/next for cards since the rail became a
+ * drawer. Reading three changelog fragments in a row meant dismissing the
+ * reader, finding your place in the list, and clicking again — T-0207, and the
+ * one finding of ADR-0017 that survived being superseded.
+ */
+test("the reading cursor is absent where there is no list, not guessed", () => {
+    const list = ["CHG-0151", "REL-0021", "CHG-0149"];
+
+    // No list at all: a `[[LRN-0004]]` in a card body, a `related` row, the
+    // command palette, a node of the Workflow graph.
+    assert.deepEqual(recordNeighbours([], "CHG-0151"), {
+        previousId: null,
+        nextId: null
+    });
+    // A record the list does not hold, which is the same thing: the reader
+    // followed a link out of it.
+    assert.deepEqual(recordNeighbours(list, "ADR-0018"), {
+        previousId: null,
+        nextId: null
+    });
+    // And nothing selected, which is the docs view on a wide screen before the
+    // reader has picked anything: it shows the first document as a fallback,
+    // and a fallback is not a place in a sequence.
+    assert.deepEqual(recordNeighbours(list, null), {
+        previousId: null,
+        nextId: null
+    });
+    // A list of one has nowhere to step, so the control is absent rather than
+    // present with both halves dead.
+    assert.deepEqual(recordNeighbours(["CHG-0151"], "CHG-0151"), {
+        previousId: null,
+        nextId: null
+    });
+});
+
+test("the reading cursor walks the list it was given, and stops at both ends", () => {
+    const list = ["CHG-0151", "REL-0021", "CHG-0149"];
+
+    // One end, the middle, the other end. At an end one side is null and the
+    // other is not, which renders one disabled button — that is how a reader
+    // tells "no next" from "there was never a sequence here".
+    assert.deepEqual(recordNeighbours(list, "CHG-0151"), {
+        previousId: null,
+        nextId: "REL-0021"
+    });
+    assert.deepEqual(recordNeighbours(list, "REL-0021"), {
+        previousId: "CHG-0151",
+        nextId: "CHG-0149"
+    });
+    assert.deepEqual(recordNeighbours(list, "CHG-0149"), {
+        previousId: "REL-0021",
+        nextId: null
+    });
+
+    // The order is the caller's, never re-sorted here. History's rail draws
+    // unpublished, then releases, then published fragments, and a cursor that
+    // walked the ids in any other order would disagree with the column beside
+    // it.
+    assert.equal(recordNeighbours(list, "REL-0021").nextId, "CHG-0149");
+});
+
+/**
+ * One control, in every panel that reads a record.
+ *
+ * The card inspector had its own previous/next pair inline. Copying it into the
+ * memory panel, the record panel, and the readers Docs and History own would
+ * have been four more chances for one of them to disagree — about where the
+ * control sits, whether it disables or vanishes at the ends, or what its
+ * accessible name is. So the pair moved out and each panel renders it.
+ */
+test("every panel that reads a record renders the same cursor", async () => {
+    const read = (name: string) =>
+        readFile(new URL(`../ui/src/${name}`, import.meta.url), "utf8").then(
+            (source) => source.replaceAll("\r\n", "\n")
+        );
+
+    const panels = [
+        "components/Inspector.tsx",
+        "components/RecordPanel.tsx",
+        "components/Memory.tsx",
+        "components/Docs.tsx",
+        "components/History.tsx"
+    ];
+    for (const panel of panels) {
+        const source = await read(panel);
+        assert.match(
+            source,
+            /import \{ RecordCursor \} from "\.\.\/record-cursor"/,
+            `${panel} does not use the shared cursor`
+        );
+        assert.match(source, /<RecordCursor\b/, `${panel} renders no cursor`);
+    }
+
+    // And nobody has a second pair that looks like it. The accessible names are
+    // written in exactly one file, which is the whole of "one control".
+    for (const name of panels.concat(["main.tsx"])) {
+        assert.doesNotMatch(
+            await read(name),
+            /aria-label=\{?[`"](Previous|Next) /,
+            `${name} declares its own previous/next control`
+        );
+    }
+    assert.match(
+        await read("record-cursor.tsx"),
+        /aria-label=\{`Previous \$\{noun\}`\}/
+    );
+
+    // The shell owns the list and hands it over once, around the whole tree:
+    // the panels that render the cursor sit in three different places — the
+    // drawer, the docs reader and the history pane — and a prop would have to
+    // reach all three.
+    const main = await read("main.tsx");
+    assert.match(main, /<RecordCursorProvider/);
+    assert.match(main, /ids=\{cursorIds\}/);
 });

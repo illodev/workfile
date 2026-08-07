@@ -35,7 +35,47 @@ const suite = canLoadTypeScript
 
 const uiRoot = new URL("../ui/src/", import.meta.url);
 
-const read = (path: string) => readFile(new URL(path, uiRoot), "utf8");
+// Normalised in the reader, not per assertion, per LRN-0026: a regex here that
+// anchors on `\n` matches nothing on a Windows checkout and reports the code it
+// was looking at as missing. The next regex added to this file inherits the fix,
+// which is the point — its author will be on a machine where the bug cannot
+// reproduce.
+const read = async (path: string) =>
+    (await readFile(new URL(path, uiRoot), "utf8")).replaceAll("\r\n", "\n");
+
+/**
+ * The address bar, stubbed, and every URL written through it.
+ *
+ * `query.ts` reads `location.search` and writes through `history`, so a round
+ * trip needs both. Shared by the suites below rather than set up twice: two
+ * copies of a stub is two chances for one of them to drift into testing a
+ * browser neither suite is running in.
+ */
+function addressBar() {
+    const calls: Array<[string, string]> = [];
+    const wrote = (kind: string, url: string) => {
+        calls.push([kind, url]);
+        globalThis.location.search = url.includes("?")
+            ? url.slice(url.indexOf("?"))
+            : "";
+    };
+    globalThis.location = { pathname: "/", search: "" };
+    globalThis.history = {
+        pushState: (_state, _title, url) => wrote("push", url),
+        replaceState: (_state, _title, url) => wrote("replace", url)
+    };
+    return {
+        calls,
+        /** The parameter names the last write put in the URL, in order. */
+        names: () => [
+            ...new URLSearchParams(globalThis.location.search).keys()
+        ],
+        restore: () => {
+            delete globalThis.location;
+            delete globalThis.history;
+        }
+    };
+}
 
 /** Every ui/src source file, path → content. */
 async function sources() {
@@ -74,7 +114,6 @@ const RECORD_VIEWS = [
  */
 suite("free text round-trips through the URL beside the card query", async () => {
     const query = await import("../ui/src/query.ts");
-    const calls: Array<[string, string]> = [];
     const filters = {
         search: "",
         status: "",
@@ -85,18 +124,8 @@ suite("free text round-trips through the URL beside the card query", async () =>
         showIdeas: false,
         showClosed: false
     };
-    const wrote = (kind: string, url: string) => {
-        calls.push([kind, url]);
-        globalThis.location.search = url.includes("?")
-            ? url.slice(url.indexOf("?"))
-            : "";
-    };
-
-    globalThis.location = { pathname: "/", search: "" };
-    globalThis.history = {
-        pushState: (_state, _title, url) => wrote("push", url),
-        replaceState: (_state, _title, url) => wrote("replace", url)
-    };
+    const bar = addressBar();
+    const { calls } = bar;
 
     try {
         // Absent when empty, so every URL the app wrote before this parameter
@@ -139,9 +168,219 @@ suite("free text round-trips through the URL beside the card query", async () =>
         assert.deepEqual(calls.at(-1), ["replace", "/?view=docs"]);
         assert.equal(query.readUrlState().recordSearch, "");
     } finally {
-        delete globalThis.location;
-        delete globalThis.history;
+        bar.restore();
     }
+});
+
+/** The card filters, all empty, which is the base every write below starts from. */
+const NO_CARD_FILTERS = {
+    search: "",
+    status: "",
+    area: "",
+    type: "",
+    priority: "",
+    milestone: "",
+    showIdeas: false,
+    showClosed: false
+};
+
+/**
+ * And the axis filters beside the free text, which is the rest of the same job.
+ *
+ * T-0195 moved the three boxes into the URL and left the five chips where they
+ * were: Docs' `managed` toggle, History's state and visibility, Memory's
+ * collection and status. Narrowing Memory to open incidents, opening one to read
+ * it and coming back handed you every record in the workspace, with nothing in
+ * the interface saying the narrowing had ever been there.
+ *
+ * The names are the part worth pinning. Every one of them is prefixed by its
+ * view, and the reason is that the obvious name for Memory's is `status`, which
+ * the card filter already owns — a clash `readUrlState` would not report but
+ * quietly resolve, because it validates the card `status` against `STATUSES` and
+ * answers `""` for anything that is not one. So the loser of the clash filters
+ * by nothing, in silence. The disjointness assertion below is that trap, and it
+ * derives both sets from what `writeUrlState` actually emits rather than
+ * restating them, so a new axis on either side is covered the day it is added.
+ */
+suite("every record filter round-trips, in a namespace of its own", async () => {
+    const query = await import("../ui/src/query.ts");
+    const bar = addressBar();
+    const { calls } = bar;
+    const everyRecordFilter = {
+        docs: { managedOnly: true },
+        history: { state: "unreleased", visibility: "internal" },
+        memory: { collection: "incidents", status: "open" }
+    };
+
+    try {
+        // Absent when nothing is narrowed, so every URL the app wrote before
+        // these parameters existed is the URL it writes now.
+        query.writeUrlState("memory", NO_CARD_FILTERS, null, {
+            recordFilters: query.NO_RECORD_FILTERS
+        });
+        assert.deepEqual(calls.at(-1), ["replace", "/?view=memory"]);
+        // And omitting the bag entirely is the same as passing an empty one:
+        // the views with no record filters to reflect pass neither it nor `find`.
+        query.writeUrlState("memory", NO_CARD_FILTERS, null);
+        assert.deepEqual(calls.at(-1), ["replace", "/?view=memory"]);
+
+        query.writeUrlState("docs", NO_CARD_FILTERS, null, {
+            recordFilters: everyRecordFilter
+        });
+        const recordNames = bar.names().filter((name) => name !== "view");
+
+        query.writeUrlState(
+            "explorer",
+            {
+                search: "T-0201",
+                status: "doing",
+                area: "ui",
+                type: "bug",
+                priority: "medium",
+                milestone: "0.9.0",
+                showIdeas: true,
+                showClosed: true
+            },
+            null,
+            { find: "filters" }
+        );
+        const cardNames = bar.names().filter((name) => name !== "view");
+
+        // Checked before the names themselves, so a clash is reported as a clash
+        // rather than as the renamed parameter it also is.
+        const clashes = recordNames.filter((name) => cardNames.includes(name));
+        assert.deepEqual(
+            clashes,
+            [],
+            "claimed by both a card filter and a record filter, so one of them " +
+                `will silently filter by nothing: ${clashes.join(", ")}`
+        );
+        assert.deepEqual(
+            recordNames,
+            [
+                "docs-managed",
+                "history-state",
+                "history-visibility",
+                "memory-collection",
+                "memory-status"
+            ],
+            "a record filter is missing from the URL, or its parameter was renamed"
+        );
+
+        // Each view's round trip, one at a time, so a failure names the view.
+        for (const [view, narrowed] of [
+            ["docs", { docs: everyRecordFilter.docs }],
+            ["history", { history: everyRecordFilter.history }],
+            ["memory", { memory: everyRecordFilter.memory }]
+        ] as const) {
+            const recordFilters = { ...query.NO_RECORD_FILTERS, ...narrowed };
+            query.writeUrlState(view, NO_CARD_FILTERS, null, { recordFilters });
+            assert.deepEqual(
+                query.readUrlState().recordFilters,
+                recordFilters,
+                `${view} does not restore its filters from the address bar`
+            );
+        }
+
+        // A view switch is what actually broke: the filters ride the URL whatever
+        // the current view is, so leaving Memory for a card and coming back finds
+        // the narrowing still there rather than silently widened.
+        query.writeUrlState("explorer", NO_CARD_FILTERS, "T-0201", {
+            recordFilters: everyRecordFilter
+        });
+        assert.deepEqual(
+            query.readUrlState().recordFilters,
+            everyRecordFilter,
+            "the record filters do not survive a view that does not render them"
+        );
+
+        // Clearing one takes its parameter out rather than leaving an empty
+        // `memory-status=` behind for the next reader to wonder about.
+        query.writeUrlState("memory", NO_CARD_FILTERS, null, {
+            recordFilters: {
+                ...query.NO_RECORD_FILTERS,
+                memory: { collection: "incidents", status: "" }
+            }
+        });
+        assert.deepEqual(calls.at(-1), [
+            "replace",
+            "/?view=memory&memory-collection=incidents"
+        ]);
+        assert.equal(query.readUrlState().recordFilters.memory.status, "");
+
+        // The card filters and these are two bags, and neither reaches into the
+        // other: dropping a record axis into `Filters` would put it behind the
+        // work strip's reset chip, in a view that never renders it.
+        const restored = query.readUrlState();
+        for (const key of ["docs", "history", "memory"]) {
+            assert.ok(
+                !(key in restored.filters),
+                `${key} filters are reachable as a card filter`
+            );
+        }
+    } finally {
+        bar.restore();
+    }
+});
+
+/**
+ * And the shell owns all five, which is what makes the round trip above reach
+ * the interface at all.
+ *
+ * A view that keeps its own `useState` for one of these serialises nothing: the
+ * URL would carry a value the chip never reads. The pair shape is the tell —
+ * `const [collection, setCollection] = useState("")` — so it is what this looks
+ * for, in the three views that used to have five of them between them.
+ */
+suite("no record view owns its own axis filter", async () => {
+    const all = await sources();
+    const owners: Array<[string, string[], string]> = [
+        ["components/Docs.tsx", ["managedOnly"], "DocsFilters"],
+        ["components/History.tsx", ["state", "visibility"], "HistoryFilters"],
+        ["components/Memory.tsx", ["collection", "status"], "MemoryFilters"]
+    ];
+
+    for (const [path, fields, type] of owners) {
+        const source = all.get(path);
+        assert.ok(source, `${path} is gone`);
+        for (const field of fields) {
+            assert.doesNotMatch(
+                source,
+                new RegExp(`\\[\\s*${field}\\s*,\\s*set[A-Z]\\w*\\s*\\]`),
+                `${path} holds ${field} in local state, so it dies on reload`
+            );
+        }
+        assert.match(
+            source,
+            new RegExp(`filters: ${type};`),
+            `${path} does not take its filters from the shell`
+        );
+        assert.match(
+            source,
+            /onFiltersChange: \(patch: Partial</,
+            `${path} takes no patch callback, so a coupled pair cannot clear atomically`
+        );
+    }
+
+    // And the shell holds them, one bag per view, in the state that reaches the
+    // address bar.
+    const shell = all.get("main.tsx") ?? "";
+    assert.match(shell, /useState<RecordFilters>\(/);
+    for (const view of ["docs", "history", "memory"]) {
+        assert.match(
+            shell,
+            new RegExp(`filters=\\{recordFilters\\.${view}\\}`),
+            `main.tsx does not pass ${view} its filters`
+        );
+    }
+    assert.match(shell, /writeUrlState\([\s\S]{0,200}recordFilters/);
+    // Both directions. Writing without restoring on `popstate` means Back walks
+    // the address bar over a narrowing the chips never come off.
+    assert.match(
+        shell,
+        /setRecordFilters\(next\.recordFilters\)/,
+        "main.tsx does not restore the record filters when the user goes Back"
+    );
 });
 
 /**

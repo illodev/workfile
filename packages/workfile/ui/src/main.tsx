@@ -88,6 +88,7 @@ import { activeClaims, orderClaims, overlapsByCard } from "./claims";
 import { drawerCovers, recordCollection, viewForRecord } from "./navigation";
 import { filterTasks, readUrlState, writeUrlState } from "./query";
 import { READ_ONLY_HINT, ReadOnlyProvider } from "./read-only";
+import { RecordCursorProvider } from "./record-cursor";
 import { changeTouches, useWorkspaceChanges } from "./store/live";
 import {
     drawableCount,
@@ -99,8 +100,12 @@ import {
     STATUSES,
     TYPES,
     type ActivitySnapshot,
+    type DocsFilters,
     type Filters,
     type HealthReport,
+    type HistoryFilters,
+    type MemoryFilters,
+    type RecordFilters,
     type RuntimeSchema,
     type Task,
     type TaskPatch,
@@ -468,6 +473,45 @@ function App() {
      * it once, and try each collection with it.
      */
     const [recordSearch, setRecordSearch] = useState(INITIAL.recordSearch);
+    /**
+     * And their axis filters, for the same reason and by the same route.
+     *
+     * T-0195 moved the free text here and left these behind, so Docs' `managed`
+     * toggle and the four chips in History and Memory kept dying on a reload
+     * while the box above them survived one. Held per view rather than pooled:
+     * a collection only Memory has and a visibility only History has are not one
+     * filter under two names, and sharing them would apply a narrowing the view
+     * you switched to never offered.
+     */
+    const [recordFilters, setRecordFilters] = useState<RecordFilters>(
+        INITIAL.recordFilters
+    );
+    /**
+     * One updater per view, each taking a patch rather than a value.
+     *
+     * A patch because Memory's two are coupled — picking a collection clears the
+     * status, which belongs to that collection's vocabulary — and two sequential
+     * setters would write the address bar twice, once through a state no chip
+     * ever showed.
+     */
+    const patchDocsFilters = useCallback((patch: Partial<DocsFilters>) => {
+        setRecordFilters((current) => ({
+            ...current,
+            docs: { ...current.docs, ...patch }
+        }));
+    }, []);
+    const patchHistoryFilters = useCallback((patch: Partial<HistoryFilters>) => {
+        setRecordFilters((current) => ({
+            ...current,
+            history: { ...current.history, ...patch }
+        }));
+    }, []);
+    const patchMemoryFilters = useCallback((patch: Partial<MemoryFilters>) => {
+        setRecordFilters((current) => ({
+            ...current,
+            memory: { ...current.memory, ...patch }
+        }));
+    }, []);
     const [showNewCard, setShowNewCard] = useState(false);
     const [showPalette, setShowPalette] = useState(false);
     /**
@@ -668,14 +712,43 @@ function App() {
      *  record-open stamps this ref; the dismiss handlers ignore anything
      *  arriving in its shadow. */
     const lastSelectRef = useRef(0);
-    const selectRecord = useCallback((id: string | null) => {
-        lastSelectRef.current = performance.now();
-        setSelectedId(id);
-        // Any kind. This read `=== "cards"` while the drawer only held cards,
-        // and left behind the state where selecting a doc moved the selection
-        // and opened nothing.
-        if (id) setInspectorOpen(true);
-    }, []);
+    /**
+     * The list the reader is stepping through, published by the view that was
+     * showing it (T-0207).
+     *
+     * Only the record collections need this. Cards are read against the work
+     * views' `visibleTasks`, which the shell already holds, so the cursor for a
+     * card has never needed anyone to hand it a list.
+     */
+    const [recordOrder, setRecordOrder] = useState<string[]>([]);
+    const recordOrderRef = useRef<string[]>([]);
+    recordOrderRef.current = recordOrder;
+    const selectRecord = useCallback(
+        /**
+         * `orderedIds` is the list the click came from, in display order.
+         *
+         * Omitting it does not always clear the cursor, and the difference is
+         * the point: stepping to the next record calls this with one argument,
+         * and so does a `[[LRN-0004]]` in a body. The first stays inside the
+         * list and keeps it; the second leaves it and drops it. So the rule is
+         * about where the new record *is*, not about who asked — which is also
+         * the honest answer for a `related` row that happens to point back into
+         * the list the reader is already walking.
+         */
+        (id: string | null, orderedIds?: string[]) => {
+            lastSelectRef.current = performance.now();
+            setSelectedId(id);
+            if (orderedIds) setRecordOrder(orderedIds);
+            else if (!id || !recordOrderRef.current.includes(id)) {
+                setRecordOrder([]);
+            }
+            // Any kind. This read `=== "cards"` while the drawer only held cards,
+            // and left behind the state where selecting a doc moved the selection
+            // and opened nothing.
+            if (id) setInspectorOpen(true);
+        },
+        []
+    );
 
     useEffect(() => {
         document.title = projectName;
@@ -688,8 +761,12 @@ function App() {
         const signature = `${view}|${selectedId ?? ""}`;
         const push = signature !== lastNavigation.current;
         lastNavigation.current = signature;
-        writeUrlState(view, filters, selectedId, { push, find: recordSearch });
-    }, [filters, recordSearch, selectedId, view]);
+        writeUrlState(view, filters, selectedId, {
+            push,
+            find: recordSearch,
+            recordFilters
+        });
+    }, [filters, recordFilters, recordSearch, selectedId, view]);
 
     useEffect(() => {
         const onPopState = () => {
@@ -699,6 +776,7 @@ function App() {
             setFilters(next.filters);
             setSelectedId(next.selectedId);
             setRecordSearch(next.recordSearch);
+            setRecordFilters(next.recordFilters);
         };
         window.addEventListener("popstate", onPopState);
         return () => window.removeEventListener("popstate", onPopState);
@@ -883,6 +961,19 @@ function App() {
         return pairs;
     }, [tasks]);
     const selected = selectedId ? taskById.get(selectedId) : undefined;
+    /**
+     * The list the previous/next cursor moves along.
+     *
+     * Cards read against the work views' visible list, which is filtered and
+     * sorted here already and needs nobody to publish it; every other kind reads
+     * against the list the view that was showing it handed over. Memoised
+     * because it is a context value: a fresh array every render would re-render
+     * every panel that reads the cursor, on every keystroke anywhere.
+     */
+    const cursorIds = useMemo(
+        () => (selected ? visibleTasks.map((task) => task.id) : recordOrder),
+        [recordOrder, selected, visibleTasks]
+    );
     const milestones = useMemo(
         () =>
             [
@@ -1185,6 +1276,17 @@ function App() {
 
     return (
         <ReadOnlyProvider value={readOnly}>
+        {/* The list the previous/next cursor moves along, wrapped around the
+            whole tree because the panels that render the control are in three
+            different places: the drawer, the docs reader and the history pane.
+            Cards come from the work views' own visible list, which the shell
+            already holds; every other kind is published by the view that was
+            showing it. */}
+        <RecordCursorProvider
+            ids={cursorIds}
+            selectedId={selectedId}
+            onStep={openRecord}
+        >
         <SidebarProvider
             className="h-svh overflow-hidden"
             style={{ "--sidebar-width": "15rem" } as CSSProperties}
@@ -1664,6 +1766,8 @@ function App() {
                                         onOpenCard={openRecord}
                                         search={recordSearch}
                                         onSearchChange={setRecordSearch}
+                                        filters={recordFilters.docs}
+                                        onFiltersChange={patchDocsFilters}
                                     />
                                 ) : view === "workflow" ? (
                                     <WorkflowView
@@ -1683,6 +1787,8 @@ function App() {
                                         areas={areas}
                                         search={recordSearch}
                                         onSearchChange={setRecordSearch}
+                                        filters={recordFilters.history}
+                                        onFiltersChange={patchHistoryFilters}
                                     />
                                 ) : view === "memory" ? (
                                     <MemoryView
@@ -1692,6 +1798,8 @@ function App() {
                                         schema={schema.memory}
                                         search={recordSearch}
                                         onSearchChange={setRecordSearch}
+                                        filters={recordFilters.memory}
+                                        onFiltersChange={patchMemoryFilters}
                                     />
                                 ) : (
                                     <HealthView onOpen={openRecord} />
@@ -1990,9 +2098,6 @@ function App() {
                     tasks={tasks}
                     areas={areas}
                     schema={schema}
-                    orderedIds={visibleTasks.map(
-                        (task) => task.id
-                    )}
                     // `openRecord`, not `selectRecord`. This prop reaches the
                     // body's `[[DOC-0002]]` links and the `origin` and
                     // `related` rows, all of which carry records of any kind.
@@ -2076,6 +2181,7 @@ function App() {
                 />
             )}
         </SidebarProvider>
+        </RecordCursorProvider>
         </ReadOnlyProvider>
     );
 }
