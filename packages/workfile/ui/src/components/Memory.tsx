@@ -27,10 +27,12 @@ import { cn } from "@/lib/utils";
 
 import { api } from "../api";
 import { READ_ONLY_HINT, useReadOnly } from "../read-only";
+import { RecordCursor } from "../record-cursor";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor, severityColor } from "../theme";
 import type {
     MemoryCollectionSchema,
+    MemoryFilters,
     MemoryRecord,
     RecordIssue,
     RecordLink,
@@ -996,6 +998,11 @@ function DetailPanel({
                 >
                     {record.status}
                 </span>
+                {/* Right end of the identity bar, which is where the card
+                    inspector puts the same control. Absent unless the reader
+                    arrived from a list — T-0207. */}
+                <span className="flex-1" />
+                <RecordCursor />
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
                 <div className="flex flex-col gap-1.5">
@@ -1195,21 +1202,29 @@ export function MemoryView({
     onOpenRecord,
     schema,
     search,
-    onSearchChange
+    onSearchChange,
+    filters,
+    onFiltersChange
 }: {
     selectedId: string | null;
-    onSelect: (id: string) => void;
+    // The second argument is the list the click came from, in display order,
+    // which is what the reader's previous/next cursor walks (T-0207).
+    onSelect: (id: string, orderedIds?: string[]) => void;
     onOpenRecord: (id: string) => void;
     schema: RuntimeSchema["memory"];
     // Owned by the shell, shared with docs and history, and serialised to the
     // address bar: the local state this replaced died on every reload.
     search: string;
     onSearchChange: (value: string) => void;
+    // These two by the same route and for the same reason (T-0201). Narrowing
+    // to open incidents, opening one and coming back used to hand back every
+    // record in the workspace, with nothing saying the narrowing had been there.
+    filters: MemoryFilters;
+    onFiltersChange: (patch: Partial<MemoryFilters>) => void;
 }) {
     const readOnly = useReadOnly();
     const [records, setRecords] = useState<MemoryRecord[]>([]);
-    const [collection, setCollection] = useState("");
-    const [status, setStatus] = useState("");
+    const { collection, status } = filters;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [createFor, setCreateFor] = useState<string | null>(null);
@@ -1218,9 +1233,13 @@ export function MemoryView({
     // tile would otherwise dismiss the drawer the click just retargeted.
     const lastSelectRef = useRef(0);
     const selectRecord = useCallback(
-        (id: string) => {
+        // `orderedIds` is omitted where the caller is not a lane tile — a
+        // relation row inside the panel, say — so the cursor goes absent
+        // rather than claiming the lanes as context for something reached
+        // from outside them.
+        (id: string, orderedIds?: string[]) => {
             lastSelectRef.current = performance.now();
-            onSelect(id);
+            onSelect(id, orderedIds);
         },
         [onSelect]
     );
@@ -1288,6 +1307,18 @@ export function MemoryView({
         return known;
     }, [schema.collections, sorted, collection]);
 
+    /**
+     * The list the reader's previous/next cursor walks: lane by lane, each lane
+     * top to bottom, which is how the columns are read. Derived from `lanes`
+     * rather than from `sorted` so the collection filter narrows it too — a
+     * cursor that steps into a lane the reader has filtered away has jumped
+     * (T-0207).
+     */
+    const order = useMemo(
+        () => lanes.flatMap((lane) => lane.records.map((record) => record.id)),
+        [lanes]
+    );
+
     const active = sorted.find((record) => record.id === selectedId);
     const statuses = collection
         ? collectionStatuses(schema.collections, collection)
@@ -1341,10 +1372,13 @@ export function MemoryView({
                     options={schema.collections.map((item) => ({
                         value: item.id
                     }))}
-                    onChange={(next) => {
-                        setCollection(next);
-                        setStatus("");
-                    }}
+                    // One patch, not two calls: the status belongs to the
+                    // collection's vocabulary, so it clears with it, and
+                    // clearing it separately would put a state no chip ever
+                    // showed into the address bar on the way past.
+                    onChange={(next) =>
+                        onFiltersChange({ collection: next, status: "" })
+                    }
                 />
                 <FilterChip
                     label="status"
@@ -1353,7 +1387,7 @@ export function MemoryView({
                         value,
                         color: recordStatusColor(value)
                     }))}
-                    onChange={setStatus}
+                    onChange={(next) => onFiltersChange({ status: next })}
                 />
             </FilterBar>
             {error ? (
@@ -1420,7 +1454,7 @@ export function MemoryView({
                                         record={record}
                                         selected={record.id === selectedId}
                                         onSelect={() =>
-                                            selectRecord(record.id)
+                                            selectRecord(record.id, order)
                                         }
                                     />
                                 ))}

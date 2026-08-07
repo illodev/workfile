@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { api } from "../api";
+import { RecordCursor } from "../record-cursor";
 import type { BaseRecord } from "../types";
 import { documentOutline, MarkdownBody } from "./Markdown";
 import { OutlineRail } from "./OutlineRail";
@@ -83,6 +84,9 @@ export function RecordPanel({
                     <ExternalLink aria-hidden="true" className="size-3" />
                     Open in its view
                 </Button>
+                {/* Reading three fragments in a row used to mean dismissing
+                    this, finding your place in the list and clicking again. */}
+                <RecordCursor />
             </div>
             <h2 className="mt-1 text-sm font-medium">
                 {record?.title ?? (error ? "Unavailable" : "…")}

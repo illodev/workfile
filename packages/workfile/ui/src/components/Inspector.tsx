@@ -4,8 +4,6 @@ import {
     ArchiveRestore,
     Check,
     ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Paperclip,
     Pencil,
     Upload,
@@ -39,6 +37,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { api } from "../api";
 import { READ_ONLY_HINT, useReadOnly } from "../read-only";
+import { RecordCursor } from "../record-cursor";
 import { priorityColor, statusColor } from "../theme";
 import { BodyEditor } from "./BodyEditor";
 import { MarkdownBody } from "./Markdown";
@@ -64,7 +63,6 @@ export interface InspectorProps {
     tasks: Task[];
     areas: string[];
     schema: RuntimeSchema;
-    orderedIds: string[];
     onOpen: (id: string) => void;
     onClose: () => void;
     onPatch: (id: string, changes: TaskPatch) => Promise<void>;
@@ -145,7 +143,6 @@ interface CardInspectorProps {
     tasks: Task[];
     areas: string[];
     schema: RuntimeSchema;
-    orderedIds: string[];
     onOpen: (id: string) => void;
     onPatch: (id: string, changes: TaskPatch) => Promise<void>;
     onEditingChange: (editing: boolean) => void;
@@ -160,7 +157,6 @@ function CardInspector({
     tasks,
     areas,
     schema,
-    orderedIds,
     onOpen,
     onPatch,
     onEditingChange,
@@ -283,13 +279,6 @@ function CardInspector({
     }, [task.id, tasks]);
 
     const activity = useMemo(() => parseActivity(task.body), [task.body]);
-
-    const index = orderedIds.indexOf(task.id);
-    const previousId = index > 0 ? orderedIds[index - 1] : null;
-    const nextId =
-        index >= 0 && index < orderedIds.length - 1
-            ? orderedIds[index + 1]
-            : null;
 
     // Hosted builds (repoUrl set) link into the repository on the web;
     // local builds open the file in the user's editor.
@@ -559,26 +548,12 @@ function CardInspector({
                     Upload
                 </Button>
                 <span className="flex-1" />
-                <ButtonGroup>
-                    <Button
-                        variant="outline"
-                        size="icon-sm"
-                        disabled={!previousId}
-                        aria-label="Previous card"
-                        onClick={() => previousId && onOpen(previousId)}
-                    >
-                        <ChevronLeft aria-hidden="true" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon-sm"
-                        disabled={!nextId}
-                        aria-label="Next card"
-                        onClick={() => nextId && onOpen(nextId)}
-                    >
-                        <ChevronRight aria-hidden="true" />
-                    </Button>
-                </ButtonGroup>
+                {/* The cursor this panel used to own outright. It moved to
+                    `record-cursor.tsx` unchanged so every other kind could have
+                    the same one rather than a second control that looks like it
+                    — T-0207. The list it moves along now arrives by context,
+                    which is why `orderedIds` is gone from here. */}
+                <RecordCursor noun="card" />
                 <input
                     ref={fileRef}
                     type="file"
@@ -960,7 +935,6 @@ export function Inspector({
     tasks,
     areas,
     schema,
-    orderedIds,
     onOpen,
     onPatch,
     onEditingChange,
@@ -1001,7 +975,6 @@ export function Inspector({
                         tasks={tasks}
                         areas={areas}
                         schema={schema}
-                        orderedIds={orderedIds}
                         onOpen={onOpen}
                         onPatch={onPatch}
                         onEditingChange={onEditingChange}

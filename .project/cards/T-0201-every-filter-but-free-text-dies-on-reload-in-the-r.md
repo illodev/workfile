@@ -1,7 +1,7 @@
 ---
 id: T-0201
 title: Every filter but free text dies on reload in the record views
-status: backlog
+status: done
 type: bug
 priority: medium
 area: ui
@@ -10,7 +10,12 @@ effort: S
 scope: [packages/workfile/ui/src]
 origin: [T-0195]
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-08-07
+verified:
+  at: "2026-08-07T19:27:25.363Z"
+  method: local
+  commit: 94c9db17dcc2adea13b1e2e0f4d18e373136ee19
+  digest: "sha256:f03dcd31b0af609f8e57ea210b9d8e85af6dbd9e11dbb197b4757df42bf70c1e"
 ---
 
 T-0195 moved the three free-text boxes off local `useState` and into the URL, the
@@ -33,8 +38,17 @@ the URL one view at a time is five chances to name the parameter differently.
 
 ## Acceptance criteria
 
-- [ ] Docs, history and memory restore every filter they offer after a reload.
-- [ ] They survive a view switch and a return, the way the work views' filters do.
-- [ ] The parameter names are decided in one place, next to `q` and `find`.
-- [ ] Clearing a filter removes its parameter rather than leaving it empty in the URL.
-- [ ] A test covers the round trip for each view.
+- [x] Docs, history and memory restore every filter they offer after a reload.
+- [x] They survive a view switch and a return, the way the work views' filters do.
+- [x] The parameter names are decided in one place, next to `q` and `find`.
+- [x] Clearing a filter removes its parameter rather than leaving it empty in the URL.
+- [x] A test covers the round trip for each view.
+
+## Activity
+
+- 2026-08-07 19:09Z illodev@local#42eb42f5 · claimed
+- 2026-08-07 19:27Z illodev@local#42eb42f5 · released
+
+## Notes
+
+- 2026-08-07 19:27Z illodev@local#42eb42f5 — local verification: Playwright against a live server on the repo workspace, 24 checks: Memory narrowed 55 to 32 records and kept it across a reload, a switch to Explorer and back; History 171 rows to 2 with state and visibility both restored; the docs indexed group gone with the toggle still pressed after a reload; Back walked the narrowings. The guard was mutation-proven five ways, including the parameter-name clash with the card status filter.

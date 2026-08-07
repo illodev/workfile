@@ -38,9 +38,15 @@ import { cn } from "@/lib/utils";
 import { api } from "../api";
 import { READING_MEASURE } from "../layout";
 import { READ_ONLY_HINT, useReadOnly } from "../read-only";
+import { RecordCursor } from "../record-cursor";
 import { changeTouches, useWorkspaceChanges } from "../store/live";
 import { recordStatusColor } from "../theme";
-import type { DocumentRecord, RecordLink, RuntimeSchema } from "../types";
+import type {
+    DocsFilters,
+    DocumentRecord,
+    RecordLink,
+    RuntimeSchema
+} from "../types";
 import { BodyEditor } from "./BodyEditor";
 import { FilterBar, FilterToggle } from "./FilterBar";
 import { FilterSearch } from "./FilterSearch";
@@ -380,25 +386,33 @@ export function DocsView({
     onSelect,
     onOpenCard,
     search,
-    onSearchChange
+    onSearchChange,
+    filters,
+    onFiltersChange
 }: {
     selectedId: string | null;
     // `null` is "no document", which the back control needs to be able to say.
     // It said `""` instead, and an empty string is a selection of something
     // unnameable rather than the absence of one — enough to leave the shell's
     // inspector open over the list this control exists to go back to.
-    onSelect: (id: string | null) => void;
+    // The second argument is the list the click came from, in display order,
+    // which is what the reader's previous/next cursor walks (T-0207).
+    onSelect: (id: string | null, orderedIds?: string[]) => void;
     onOpenCard: (id: string) => void;
     // Owned by the shell, shared with history and memory, and serialised to
     // the address bar: the local state this replaced died on every reload.
     search: string;
     onSearchChange: (value: string) => void;
+    // Owned by the shell for the same reason, and by the same route (T-0201).
+    // This one was left behind when the free text moved.
+    filters: DocsFilters;
+    onFiltersChange: (patch: Partial<DocsFilters>) => void;
 }) {
     const readOnly = useReadOnly();
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [managedOnly, setManagedOnly] = useState(false);
+    const { managedOnly } = filters;
     // Only managed documents can be edited: an indexed one is read-only
     // through the protocol by definition, and offering an editor for it would
     // promise something the server will refuse.
@@ -486,6 +500,16 @@ export function DocsView({
             { key: "indexed", label: "indexed · read only", docs: indexed }
         ].filter((group) => group.docs.length > 0);
     }, [visible]);
+    /**
+     * The list the reader's previous/next cursor walks, in the order the rail
+     * draws it: managed first, then indexed, both after the search and the
+     * toggle. Derived from `groups` rather than from `documents` on purpose — a
+     * cursor that steps onto a document the list is not showing has jumped.
+     */
+    const order = useMemo(
+        () => groups.flatMap((group) => group.docs.map((doc) => doc.id)),
+        [groups]
+    );
 
     // Below `lg` the list and the reader are one pane at a time, so a default
     // selection would open a document over the list every visit and leave the
@@ -676,7 +700,9 @@ export function DocsView({
                         on={managedOnly}
                         onLabel="only"
                         offLabel="all"
-                        onChange={setManagedOnly}
+                        onChange={(next) =>
+                            onFiltersChange({ managedOnly: next })
+                        }
                     />
                 </FilterBar>
                 <div
@@ -722,7 +748,9 @@ export function DocsView({
                                         key={document.id}
                                         document={document}
                                         selected={active?.id === document.id}
-                                        onSelect={() => onSelect(document.id)}
+                                        onSelect={() =>
+                                            onSelect(document.id, order)
+                                        }
                                     />
                                 ))}
                             </div>
@@ -808,6 +836,11 @@ export function DocsView({
                                     </Button>
                                 </>
                             ) : null}
+                            {/* This view owns its reader rather than raising
+                                the drawer (ADR-0018), so the cursor has to be
+                                here — the drawer's copy never opens over docs.
+                                T-0207. */}
+                            <RecordCursor noun="document" />
                         </div>
                         <h2 className="mt-3 mb-1.5 text-2xl font-semibold tracking-tight">
                             {active.title}

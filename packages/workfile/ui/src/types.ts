@@ -339,6 +339,38 @@ export interface Filters {
     showClosed: boolean;
 }
 
+/** The axis filters Docs offers. */
+export interface DocsFilters {
+    managedOnly: boolean;
+}
+
+/** The axis filters History offers. */
+export interface HistoryFilters {
+    state: string;
+    visibility: string;
+}
+
+/** The axis filters Memory offers. */
+export interface MemoryFilters {
+    collection: string;
+    status: string;
+}
+
+/**
+ * The record collections' axis filters, one bag per view.
+ *
+ * `Filters` above is card-shaped and the work views share every field of it.
+ * These are not: a collection only Memory has and a visibility only History has
+ * are not one filter under two names, so each view gets exactly its own bag and
+ * can neither read nor write another's. Which URL parameter each rides in is
+ * decided in `query.ts`, beside `q` and `find`.
+ */
+export interface RecordFilters {
+    docs: DocsFilters;
+    history: HistoryFilters;
+    memory: MemoryFilters;
+}
+
 export type SortKey =
     | "id"
     | "title"

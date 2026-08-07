@@ -136,3 +136,39 @@ export function drawerCovers(view: View, collection: string | null): boolean {
     if (!collection) return false;
     return VIEW_OWNS_DRAWER[view] !== collection;
 }
+
+/**
+ * Where previous and next go from here, or nothing when there is nowhere.
+ *
+ * The list is whatever the view was showing, in the order it was showing it:
+ * filtered, sorted, grouped as the reader sees it. `null` on both sides means
+ * the control is not rendered at all, which happens in three ways and they are
+ * deliberately the same answer:
+ *
+ * - no list, because the record was reached from a `[[LRN-0004]]` in a body, a
+ *   `related` row, the command palette, or a node of the Workflow graph;
+ * - a record that is not in the list, because the reader followed a link out of
+ *   it — the neighbours of where they used to be are not the neighbours of
+ *   where they are;
+ * - a list of one, where there is nothing to step to.
+ *
+ * Absent rather than guessed, per ADR-0018: a next that means something
+ * different depending on how you arrived is worse than no next. At the ends of a
+ * real list one side is null and the other is not, so the control renders with
+ * one button disabled — which is how a reader tells "no next" from "there was
+ * never a sequence here".
+ *
+ * Here rather than in the component so the rule can be tested without a
+ * renderer, and beside the other navigation rules because it is one.
+ */
+export function recordNeighbours(
+    ids: readonly string[],
+    selectedId: string | null
+): { previousId: string | null; nextId: string | null } {
+    const index = selectedId ? ids.indexOf(selectedId) : -1;
+    if (index < 0) return { previousId: null, nextId: null };
+    return {
+        previousId: index > 0 ? ids[index - 1] : null,
+        nextId: index < ids.length - 1 ? ids[index + 1] : null
+    };
+}

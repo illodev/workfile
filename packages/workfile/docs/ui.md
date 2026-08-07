@@ -142,6 +142,33 @@ file is checked.
   rides the address bar like every other filter (`?q=` for cards, `?find=`
   for docs, history and memory). `test/filter-search.test.ts` fails if a view
   grows a box of its own or a wording of its own.
+- **A filter that is not in the URL is a filter that dies on reload.** Every
+  one of them is state the shell owns and `ui/src/query.ts` serialises — the
+  card axes flat (`?status=`, `?area=`, …), the record collections' axes
+  namespaced by view (`?docs-managed=1`, `?history-state=`,
+  `?memory-collection=`, `?memory-status=`). The prefix is a rule and not a
+  case-by-case choice: the obvious name for Memory's is `status`, which the
+  card filter already owns, and the loser of a clash like that filters by
+  nothing without saying so. A record view therefore takes its filters as a
+  prop and reports changes as a patch, so its coupled pairs — picking a Memory
+  collection clears the status that belonged to it — reach the address bar in
+  one write. Same suite: it fails on a view that takes one back into a
+  `useState`, and on a parameter that collides with a card axis.
+- **A record opened from a list can be read as a sequence.** Every panel that
+  reads a record — the card inspector, the memory panel, the generic record
+  panel, and the readers Docs and History own themselves — renders
+  `ui/src/record-cursor.tsx`, and the rule for where previous and next go is
+  `recordNeighbours` in `navigation.ts`, beside the other navigation rules. The
+  list is whatever the view was showing, in the order it was showing it, so it
+  narrows when the filters do; each view publishes its own as the second
+  argument to `onSelect`. **Absent, not guessed, where there is no list:** a
+  `[[LRN-0004]]` in a body, a `related` row, the command palette, and a node of
+  the Workflow graph all open a record with nothing behind it, and a force
+  layout is not an order. At the ends of a real list the control renders with
+  one half disabled, which is how a reader tells "no next" from "there was
+  never a sequence here". It is a context rather than a prop for the reason
+  `read-only.tsx` gives: the panels sit in three different places, and all
+  three have to reach it.
 - **The filter bar is one container, and it decides what may scroll away.**
   `ui/src/components/FilterBar.tsx` owns the whole bar in every view that has
   one — the shell, Docs, History, Memory, Workflow and the Gantt toolbar — and
