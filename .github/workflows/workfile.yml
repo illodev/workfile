@@ -126,9 +126,11 @@ jobs:
             echo "::error::refusing a patch that reaches outside .project/"
             exit 1
           fi
-      # The push re-triggers this workflow, and the second run finds the boxes
-      # already checked: nothing to write, an empty patch, no commit. It
-      # converges rather than looping.
+      # No loop, for two independent reasons and the first is the load-bearing
+      # one: a push made with GITHUB_TOKEN does not start a workflow run, so
+      # this does not re-enter. Observed on PR #36 as two runs created in
+      # `action_required` that never executed. And if one did run, it would find
+      # the boxes already checked, produce an empty patch and commit nothing.
       - name: Commit the evidence
         run: |
           test -s workfile-cards.patch || exit 0

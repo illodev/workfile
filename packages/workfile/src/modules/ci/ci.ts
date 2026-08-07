@@ -218,9 +218,13 @@ ${twoJobSplit("  # ")}
             echo "::error::refusing a patch that reaches outside ${protocolRoot}/"
             exit 1
           fi
-      # The push re-triggers this workflow, and the second run finds the cards
-      # already closed: nothing to write, an empty patch, no commit. It
-      # converges rather than looping.
+      # No loop, for two independent reasons and the first one is the load
+      # bearing one: a push made with GITHUB_TOKEN does not start a workflow
+      # run, so this does not re-enter. Observed as a run created in
+      # \`action_required\` that never executes. And if it did run, it would find
+      # the cards already recorded, produce an empty patch and commit nothing —
+      # which is what makes the first reason safe to rely on rather than
+      # load-bearing on its own.
       - name: Commit the evidence
         run: |
           test -s workfile-cards.patch || exit 0
