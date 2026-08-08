@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.0 — 2026-08-08
+
+### Added
+
+- A card says whether a person reported it or an agent derived it (T-0210)
+- CI runs the checks a card declares and records what they proved (T-0189, T-0161)
+- Every kind of record can be read in sequence, not only cards (T-0207)
+
+### Changed
+
+- Every doctor finding says which module produced it (T-0218, T-0223)
+
+### Fixed
+
+- An explicit --root is checked the way a discovered one always was (T-0160)
+- The scope guard sees two agents that share an actor (T-0219)
+- The MCP byte ceiling stops overwriting a tool's own truncation flag (T-0147)
+- The hosted demo matches a search the way a real workspace does (T-0202)
+- The record views' filters survive a reload (T-0201)
+
+### Security
+
+- A trailing strip over an uncapped body no longer backtracks (T-0224)
+- search-local runs on onnxruntime-web, clearing four high advisories it used to ship (T-0221, ADR-0021)
+
 ## 0.8.1 — 2026-08-07
 
 ### Added
