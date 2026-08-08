@@ -1,6 +1,6 @@
 {
   "name": "@illodev/workfile",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "type": "module",
   "mcpName": "io.github.illodev/workfile",
   "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",

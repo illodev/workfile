@@ -1,5 +1,5 @@
 ---
-# workfile kind=claude-skill version=0.8.1 digest=sha256:e155cb8be3ebed6c1837a0779b3876d7589a703306eb745158a70a0902f12315
+# workfile kind=claude-skill version=0.9.0 digest=sha256:e155cb8be3ebed6c1837a0779b3876d7589a703306eb745158a70a0902f12315
 name: "workfile"
 description: "How to read and change Work, Docs, History and Memory in this repository. Load before touching anything under .project/."
 ---

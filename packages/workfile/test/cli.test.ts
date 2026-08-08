@@ -1567,9 +1567,15 @@ test("doctor --new gates on what appeared since the accepted baseline", async ()
         assert.equal(quietReport.baseline.known, accepted.baseline.accepted);
         assert.equal(quietReport.baseline.resolved, 0);
 
+        // `--raised` because a card filed from now on says how it came to be, and
+        // this one is about the baseline gate rather than about that: without it
+        // the card earns a second, unrelated finding and the assertion below stops
+        // measuring what it is for. Which is the rule reaching the CLI, so it is
+        // worth the two words rather than worth loosening the count.
         await run([
             "card", "create", "--root", root,
-            "--title", "Freshly broken", "--source", "docs/brand-new.md"
+            "--title", "Freshly broken", "--source", "docs/brand-new.md",
+            "--raised", "derived"
         ]);
         const regressed = await outcome(["doctor", "--root", root, "--new", "--json"]);
         assert.equal(regressed.code, 1, "a new issue must fail the gate");
