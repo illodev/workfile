@@ -2,7 +2,10 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
 import { ValidationError } from "../../core/errors.js";
-import { parseFrontmatter } from "../../core/frontmatter.js";
+import {
+    opaqueFrontmatterKeys,
+    parseFrontmatter
+} from "../../core/frontmatter.js";
 import { readMarkdownTree } from "../../core/paths.js";
 import { revisionForContent } from "../../core/revision.js";
 import {
@@ -86,11 +89,13 @@ export function cardIdPattern(prefix = "T") {
 export function parseCard(fileName, content, archived = false): any {
     const parsed = parseFrontmatter(content, { listKeys: CARD_LIST_KEYS });
     if (!parsed) return null;
+    const opaque = opaqueFrontmatterKeys(parsed);
     return {
         file: fileName,
         archived,
         body: parsed.body.trim(),
-        ...parsed.metadata
+        ...parsed.metadata,
+        ...(opaque.length ? { frontmatterOpaque: opaque } : {})
     };
 }
 

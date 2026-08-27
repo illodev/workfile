@@ -79,6 +79,8 @@ export {
 } from "./config/defaults.js";
 export {
     DEFAULT_LIST_KEYS,
+    opaqueFrontmatterKeys,
+    opaqueRepairHint,
     parseFrontmatter,
     parseValue,
     patchFrontmatter,

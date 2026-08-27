@@ -199,6 +199,35 @@ export async function runDoctor(workspace, options: any = {}) {
             details: { areas: orphanedPolicy, declared: [...declaredAreas] }
         });
     }
+    // A header shape no write can touch, on any kind of record.
+    //
+    // Here rather than in the four per-kind reports for the reason duplicate
+    // identity is here: one rule, one message, one place to change it. The
+    // finding is the same whatever the record is — the file reads perfectly and
+    // the next write to that key dies — and the repair is the same too.
+    //
+    // A warning, not an error. The record is intact and every read path works;
+    // what is broken is a write nobody has attempted yet. Erroring would turn
+    // `doctor` red on a repository that inherited a formatter's output and
+    // block its pipeline over files that are, until somebody edits them,
+    // perfectly fine. The point is to be told before `card claim` tells you.
+    for (const record of index.records) {
+        const opaque = record.frontmatterOpaque;
+        if (!opaque?.length) continue;
+        issues.push({
+            severity: "warning",
+            code: "frontmatter-opaque",
+            id: record.id,
+            file: record.path,
+            message:
+                `Frontmatter ${opaque.length === 1 ? "key" : "keys"} ${opaque.map((key) => `\`${key}\``).join(", ")} ` +
+                `${opaque.length === 1 ? "is" : "are"} written in a shape the record codec cannot rewrite, so any ` +
+                `write touching ${opaque.length === 1 ? "it" : "them"} fails with RECORD_FRONTMATTER_OPAQUE — ` +
+                `\`card claim\` writes \`scope\`, so a card in this state cannot be started. ` +
+                `Put a flow collection back on one line (\`scope: [a, b]\`), or flatten a nested value to one level.`,
+            details: { keys: opaque }
+        });
+    }
     for (const duplicate of duplicates) {
         issues.push({
             severity: "error",

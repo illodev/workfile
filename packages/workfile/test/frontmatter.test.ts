@@ -149,10 +149,12 @@ test("block scalars round-trip and deeper nesting is refused, not mangled", () =
     assert.match(patched, /deep:\n {2}a: 1\n {2}b:\n {4}c: 2\n/);
     assert.equal(parseFrontmatter(patched).metadata.summary, "first line\nsecond line");
 
-    // Rewriting one of them would silently destroy structure, so it errors.
+    // Rewriting one of them would silently destroy structure, so it errors —
+    // and the error names the repair for the shape it actually found, which for
+    // a mapping two levels deep is to flatten it.
     assert.throws(
         () => patchFrontmatter(source, { deep: "flat" }),
-        /nested structure/
+        /go one level deep/
     );
 });
 

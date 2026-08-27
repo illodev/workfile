@@ -19,6 +19,7 @@ import {
 } from "../../core/errors.js";
 import {
     DEFAULT_LIST_KEYS,
+    opaqueFrontmatterKeys,
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
@@ -125,6 +126,7 @@ function normalizeFragment({ file, repoPath, content, released = false }) {
         "CHANGE_ID_REQUIRED",
         "Changelog fragment"
     );
+    const opaque = opaqueFrontmatterKeys(parsed);
     return {
         id,
         // Literal, not `string`: `loadChangelog` splits one array of these into
@@ -147,6 +149,7 @@ function normalizeFragment({ file, repoPath, content, released = false }) {
         ...(metadata.tags?.length ? { tags: metadata.tags } : {}),
         ...(metadata.created ? { created: metadata.created } : {}),
         ...(metadata.updated ? { updated: metadata.updated } : {}),
+        ...(opaque.length ? { frontmatterOpaque: opaque } : {}),
         revision: revisionForContent(content),
         metadata
     };
@@ -167,6 +170,7 @@ function normalizeRelease({ file, repoPath, content }) {
         "RELEASE_ID_REQUIRED",
         "Release record"
     );
+    const opaque = opaqueFrontmatterKeys(parsed);
     return {
         id,
         kind: "release" as const,
@@ -182,6 +186,7 @@ function normalizeRelease({ file, repoPath, content }) {
         ...(metadata.tags?.length ? { tags: metadata.tags } : {}),
         created: metadata.date,
         updated: metadata.date,
+        ...(opaque.length ? { frontmatterOpaque: opaque } : {}),
         revision: revisionForContent(content),
         metadata
     };
