@@ -66,6 +66,68 @@ function splitListItems(value) {
     return items;
 }
 
+/**
+ * Whether a flow sequence's contents open a collection of their own.
+ *
+ * `[a, b]` is a list of scalars and is read as one; `[[a], [b]]` and
+ * `[{id: a}]` are lists this codec has no scalar reading of, and inventing one
+ * would rewrite somebody's file into something they did not write. Brackets
+ * inside a quoted item are text, so the scan tracks quoting the way
+ * `splitListItems` does and for the same reason.
+ */
+function opensCollection(text: string) {
+    let quoteChar: string | null = null;
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index];
+        if (quoteChar) {
+            if (char === "\\" && index + 1 < text.length) index += 1;
+            else if (char === quoteChar) quoteChar = null;
+        } else if (char === '"' || char === "'") {
+            quoteChar = char;
+        } else if (char === "[" || char === "]" || char === "{" || char === "}") {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * A flow sequence of scalars — `[a, b]` — however many lines it is written
+ * across, or `null` when the lines are not one.
+ *
+ * Prettier formats the YAML header along with the Markdown around it, and a
+ * flow sequence wider than its print width comes back as
+ *
+ * ```yaml
+ * scope:
+ *   [
+ *     apps/api/src/FubeCore/Domain/Billing/TaxModel/State/Provider/Model349.php,
+ *   ]
+ * ```
+ *
+ * which is the same list, written the way YAML allows. Reading it as `opaque`
+ * meant `card claim` — whose whole job is to write `scope` — refused every card
+ * a formatter had reached: 135 of 1 811 on the repository where this surfaced,
+ * every one of them unstartable until somebody rewrote the header by hand.
+ *
+ * Only the joining is special. Once the lines are one string this is the same
+ * parse `parseValue` already does for the single-line form, which is what keeps
+ * the two readings from drifting apart.
+ */
+function readFlowSequence(inline: string, meaningful: string[]) {
+    const text = [inline, ...meaningful.map((line) => line.trim())]
+        .filter(Boolean)
+        .join(" ");
+    if (text.length < 2 || !text.startsWith("[") || !text.endsWith("]")) {
+        return null;
+    }
+    const inner = text.slice(1, -1);
+    if (opensCollection(inner)) return null;
+    return splitListItems(inner)
+        .map((item) => unquote(item.trim()))
+        .filter(Boolean);
+}
+
 export function parseValue(key, raw, listKeys = DEFAULT_LIST_KEYS) {
     let value = raw.trim();
     if (listKeys.has(key)) {
@@ -97,6 +159,8 @@ export function serializeValue(key, value, listKeys = DEFAULT_LIST_KEYS) {
  * How a key was written in the source document.
  *
  *  - `flow`    — `tags: [a, b]` or `title: text`, the shape this codec emits.
+ *                A list key a formatter has re-wrapped over several lines reads
+ *                as this too, and is written back on one.
  *  - `block`   — a YAML block sequence (`tags:` then `  - a`), which is what
  *                Obsidian, `yaml.dump` and most LLMs produce by default.
  *  - `records` — a block sequence whose items are mappings one level deep.
@@ -116,6 +180,74 @@ export type FrontmatterStyle =
     | "literal"
     | "folded"
     | "opaque";
+
+/**
+ * The repair for a value this codec refuses to rewrite, chosen from the value.
+ *
+ * Two shapes reach the refusal and they need opposite advice. A flow collection
+ * is the right value in a shape the reader cannot take — a nested one, or one
+ * under a key that was never declared a list — and the fix is to write it on
+ * one line, or to keep the formatter that broke it away from the file. Anything
+ * else is genuinely deeper than one level and has to be flattened. The message
+ * used to give the second answer to both, which sent everyone who hit the first
+ * one hunting for nesting that was not there.
+ */
+export function opaqueRepairHint(key: string, value: unknown): string {
+    const text = String(value ?? "").trim();
+    if (text.startsWith("[") || text.startsWith("{")) {
+        return (
+            `It holds a flow collection written across ${String(value).split("\n").length} lines. ` +
+            `Put it on one line — \`${key}: [a, b]\` — or write it as a block sequence ` +
+            `(\`${key}:\` then \`  - a\`). A formatter whose print width is narrower than the ` +
+            `value is the usual cause: exclude the record directory from it so it does not ` +
+            `come back.`
+        );
+    }
+    return (
+        "Nested values go one level deep: a mapping of scalars, or a list of " +
+        "such mappings."
+    );
+}
+
+/**
+ * The keys of a parsed header whose shape no write can touch.
+ *
+ * Every one of these is a latent failure with a long fuse: the record reads
+ * fine, lists fine and searches fine, and then the first `card claim` — which
+ * writes `scope` — dies on it. Surfacing them from `doctor` is what turns that
+ * into something a reader finds while looking, rather than something an agent
+ * discovers by crashing into it on the first command of the protocol.
+ *
+ * Every record normalizer carries the answer onto the record as
+ * `frontmatterOpaque` rather than refusing the load, because this is not a load
+ * failure — reading, listing and search are all unaffected, and only a write to
+ * one of these keys fails. `doctor` is the one layer holding every kind at
+ * once, so it is the layer that reports it.
+ */
+export function opaqueFrontmatterKeys(parsed: {
+    styles?: Record<string, FrontmatterStyle>;
+} | null): string[] {
+    if (!parsed?.styles) return [];
+    return Object.entries(parsed.styles)
+        .filter(([, style]) => style === "opaque")
+        .map(([key]) => key);
+}
+
+/**
+ * One top-level key of a header, and the span of lines it owns.
+ *
+ * Named rather than inferred: `scanEntries` builds these into an array that
+ * starts empty, and every read of `entry.style` or `entry.value` in
+ * `patchFrontmatter` is a read off that array.
+ */
+type FrontmatterEntry = {
+    key: string;
+    start: number;
+    end: number;
+    style: FrontmatterStyle;
+    value: any;
+    indent: string;
+};
 
 const KEY_LINE = /^([A-Za-z_][\w.-]*):(.*)$/;
 const BLOCK_ITEM = /^(\s+)-\s?(.*)$/;
@@ -264,8 +396,8 @@ function dedent(lines) {
  * as an empty value and a patch replaced only the first of its lines, leaving
  * the rest orphaned and the document invalid.
  */
-function scanEntries(lines, listKeys) {
-    const entries = [];
+function scanEntries(lines, listKeys): FrontmatterEntry[] {
+    const entries: FrontmatterEntry[] = [];
     let index = 0;
     while (index < lines.length) {
         const match = lines[index].match(KEY_LINE);
@@ -301,6 +433,21 @@ function scanEntries(lines, listKeys) {
                 ? readStructured(meaningful)
                 : null;
 
+        // The same list key written as a flow sequence a formatter has broken
+        // across lines. Restricted to declared list keys, and that is the
+        // decision rather than an oversight: `[a, b]` is the only shape this
+        // codec ever writes and it writes it only for those keys, so those are
+        // the only values a re-wrap can reach. Reading an array out of any
+        // other key would hand `serializeValue` a list it has no list rule for,
+        // and the next patch would write the scalar `a,b` over the author's
+        // structure — a silent corruption in place of a loud refusal.
+        const flow =
+            meaningful.length &&
+            listKeys.has(key) &&
+            (inline === "" || inline.startsWith("["))
+                ? readFlowSequence(inline, meaningful)
+                : null;
+
         if (meaningful.length && BLOCK_SCALAR.test(inline)) {
             style = inline.startsWith("|") ? "literal" : "folded";
             indent = meaningful[0].match(/^\s*/)[0];
@@ -319,6 +466,16 @@ function scanEntries(lines, listKeys) {
             value = meaningful
                 .map((line) => unquote(line.match(BLOCK_ITEM)[2].trim()))
                 .filter(Boolean);
+        } else if (flow) {
+            // Recorded as `flow`, so the next patch collapses it back onto one
+            // line. Remembering the broken shape would mean re-deriving a
+            // formatter's line breaks from a print width this codec does not
+            // know, and only for a key the patch is already rewriting — so the
+            // one-time diff buys a file that is canonical again. If the
+            // formatter runs a second time it breaks it a second time, and the
+            // reader takes it a second time; what it no longer does is fail.
+            style = "flow";
+            value = flow;
         } else if (structured) {
             ({ style, value, indent } = structured);
         } else if (meaningful.length) {
@@ -572,8 +729,8 @@ export function patchFrontmatter(
     // Edits are collected against the original line numbers and applied from
     // the bottom up, so rewriting a multi-line key cannot shift the ranges of
     // the keys that follow it.
-    const edits = [];
-    const appended = [];
+    const edits: Array<{ start: number; end: number; lines: string[] }> = [];
+    const appended: string[] = [];
     for (const [key, value] of Object.entries(applied)) {
         const entry = entries.find((candidate) => candidate.key === key);
         const empty =
@@ -587,9 +744,18 @@ export function patchFrontmatter(
         if (entry?.style === "opaque") {
             throw new ValidationError(
                 "RECORD_FRONTMATTER_OPAQUE",
-                `frontmatter key "${key}" holds a nested structure this codec does not rewrite. ` +
-                    `Nested values go one level deep: a mapping of scalars, or a list of such mappings.`,
-                { key }
+                `frontmatter key "${key}" is written in a shape this codec does not rewrite, ` +
+                    `so the key cannot be edited until the header is repaired. ` +
+                    opaqueRepairHint(key, entry.value),
+                {
+                    key,
+                    // The first line of what was found. A reader who has the
+                    // error and not the file still gets to see which of the two
+                    // repairs above is theirs.
+                    found: String(entry.value ?? "")
+                        .split("\n")[0]
+                        .trim()
+                }
             );
         }
         if (empty) {

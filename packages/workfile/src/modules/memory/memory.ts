@@ -12,6 +12,7 @@ import {
 } from "../../core/errors.js";
 import {
     DEFAULT_LIST_KEYS,
+    opaqueFrontmatterKeys,
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
@@ -142,6 +143,7 @@ function normalizeMemory({ collection, file, repoPath, content }) {
         );
     }
     const metadata = parsed.metadata;
+    const opaque = opaqueFrontmatterKeys(parsed);
     return {
         id: requireRecordId(metadata, repoPath),
         kind: "memory",
@@ -171,6 +173,7 @@ function normalizeMemory({ collection, file, repoPath, content }) {
         ...optional(metadata, "tags"),
         ...optional(metadata, "created"),
         ...optional(metadata, "updated"),
+        ...(opaque.length ? { frontmatterOpaque: opaque } : {}),
         revision: revisionForContent(content),
         metadata
     };

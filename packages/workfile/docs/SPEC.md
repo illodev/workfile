@@ -474,6 +474,9 @@ The protocol uses a deliberately restricted YAML-compatible subset:
 - simple single-quoted scalars may be read for compatibility;
 - block scalars (`|`, `>`) and block sequences may be read, and are written back in the
   style they were read in;
+- a scalar list written as a flow sequence spread over several lines — which is what a
+  formatter produces from `[a, b]` when the line exceeds its print width — MUST be read as
+  the list it is, for any key declared a list;
 - nesting goes exactly one level deep, in one of two shapes — a mapping of scalars and
   inline lists, or a sequence of such mappings;
 - no anchors, aliases or tags, and no nesting past that one level;
@@ -487,6 +490,12 @@ The parser and serializer MUST be exact inverses for supported values. Repeated 
 not cause textual drift. A nested value's list-ness is determined by how it is written —
 `[a, b]` — and not by the name of its key, since key-level list declarations apply only to
 the top level.
+
+A multi-line flow sequence is the single exception to style preservation, and MUST be
+written back on one line. Reproducing the way it was read would mean re-deriving a
+formatter's line breaks from a print width the codec does not know, and it is only ever
+rewritten as part of a write to that key. Drift is bounded rather than absent: the shape
+converges on the canonical one in a single save and is stable from there.
 
 ## 11. Module: Work cards
 
@@ -1617,6 +1626,8 @@ The doctor validates at least:
 - stale managed documentation heuristics;
 - orphaned asset directories;
 - generated agent instructions out of sync;
+- frontmatter keys whose shape the codec cannot rewrite, on any kind of record, so that
+  a header a write would be refused on is found by looking rather than by the refusal;
 - uncommitted schema migrations where detectable.
 
 Duplicate identity has a repair contract, because sequential IDs are allocated by scanning

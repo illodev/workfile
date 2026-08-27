@@ -37,6 +37,8 @@ export { containedPath, readMarkdownTree } from "./paths.js";
 export type { ReadMarkdownTreeOptions } from "./paths.js";
 export {
     DEFAULT_LIST_KEYS,
+    opaqueFrontmatterKeys,
+    opaqueRepairHint,
     parseFrontmatter,
     parseValue,
     patchFrontmatter,

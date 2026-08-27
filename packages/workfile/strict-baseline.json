@@ -5,7 +5,6 @@
     "scripts/bench.ts": 1,
     "scripts/build-demo-data.ts": 13,
     "scripts/strict-ratchet.ts": 8,
-    "src/core/frontmatter.ts": 25,
     "src/core/glob.ts": 3,
     "src/core/watcher.ts": 3,
     "src/modules/agents/agents.ts": 2,

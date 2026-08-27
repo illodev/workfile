@@ -22,6 +22,7 @@ import {
 } from "../../core/errors.js";
 import {
     DEFAULT_LIST_KEYS,
+    opaqueFrontmatterKeys,
     parseFrontmatter,
     patchFrontmatter,
     renderFrontmatterEntry,
@@ -99,6 +100,7 @@ function normalizeDocument({
 }) {
     const parsed = parseFrontmatter(content, { listKeys: DOC_LIST_KEYS });
     const metadata = parsed?.metadata || {};
+    const opaque = opaqueFrontmatterKeys(parsed);
     const body = parsed ? parsed.body.trim() : content.trim();
     return {
         id: metadata.id || derivedDocumentId(repoPath),
@@ -125,6 +127,7 @@ function normalizeDocument({
             : {}),
         modifiedAt,
         sizeBytes,
+        ...(opaque.length ? { frontmatterOpaque: opaque } : {}),
         revision: revisionForContent(content),
         metadata
     };
