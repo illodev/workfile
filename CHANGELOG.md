@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 — 2026-08-27
+
+### Fixed
+
+- A re-wrapped scope: no longer makes a card unclaimable (T-0225)
+
 ## 0.9.0 — 2026-08-08
 
 ### Added
