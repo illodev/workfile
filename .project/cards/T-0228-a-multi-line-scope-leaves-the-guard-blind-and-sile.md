@@ -6,6 +6,7 @@ type: bug
 priority: medium
 area: core
 raised: derived
+origin: [T-0225]
 created: 2026-09-02
 updated: 2026-09-02
 ---
@@ -45,3 +46,21 @@ two have drifted. Add the split-scope card as a bench case: today nothing pins i
 
 Cheap interim alternative, if the parser stays as it is: a `doctor` finding for any card whose
 `scope:` is not on one line — so the blindness at least becomes visible.
+
+## This is the half [[T-0225]] left behind
+
+`T-0225` is the same shape, one layer down, and it is already `review`: a re-wrapped flow sequence
+made a card **unclaimable**, because `scanEntries` called it `opaque` and `patchFrontmatter` refused
+to write `scope`. That was fixed in the **codec** — `readFlowSequence` joins the continuation lines
+and parses them through the same `splitListItems`/`unquote` path.
+
+The hook was not. `frontmatterOf` (`hooks.mjs:48-66`) is a **deliberate duplicate** — that file
+imports nothing from the package, by design — and it still only accepts a `[...]` that opens and
+closes on one line. So after T-0225 the card can be claimed again, and the guard still cannot see
+its scope.
+
+That makes this the more dangerous of the two: T-0225 failed **loudly**, on the first command of the
+protocol. This one fails silently, and looks like protection.
+
+The two parsers are already pinned to each other elsewhere by test; the reading of a list key should
+be pinned too, or the drift just recurs.
