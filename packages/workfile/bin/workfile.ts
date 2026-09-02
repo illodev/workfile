@@ -131,6 +131,7 @@ const USAGE: Record<string, string[]> = {
     doctor: [
         "workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]",
         "workfile doctor --fix   # heal duplicate IDs of any kind, stale filenames and misplaced trail entries",
+        "workfile doctor --fix --only T-0042,T-0043   # ...but only those records",
         "workfile doctor --new   # only what appeared since the baseline; exits 1 on anything new",
         "workfile doctor --accept-baseline   # record the current state as known"
     ],
@@ -535,6 +536,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "doctor": [
         "--rebuild-cache",
         "--fix",
+        "--only",
         "--actor",
         "--severity",
         "--max-issues",
@@ -2680,7 +2682,18 @@ async function main() {
             | null = null;
         if (has("--fix")) {
             const actor = option("--actor") || defaultActor();
-            const healed = await healDuplicateRecordIds(workspace, { actor });
+            // `--only` narrows all three repairs, not just the rename. The
+            // rename is the one that has caused damage — on 2026-08-27 a run
+            // launched for a single card moved 63 files belonging to other
+            // sessions, which had retitled them and not committed yet — but a
+            // flag that bounded one repair and not the other two would promise
+            // a scope it does not keep. Absent, every repair stays workspace
+            // wide, which is what an unattended maintenance pass wants.
+            const ids = listOption("--only") || null;
+            const healed = await healDuplicateRecordIds(workspace, {
+                actor,
+                ids
+            });
             // Renaming runs after the ID repair: a card that just moved to a
             // fresh ID keeps the old title slug, and this is what brings the
             // whole filename back in step.
@@ -2688,10 +2701,16 @@ async function main() {
             // unreleased changelog fragments derive their filenames from their
             // titles the same way and had neither the rule nor the repair
             // (T-0223).
-            const renamed = await reslugStaleRecordFiles(workspace, { actor });
+            const renamed = await reslugStaleRecordFiles(workspace, {
+                actor,
+                ids
+            });
             // Last, because both repairs above rewrite whole files and this one
             // reads the body it finds afterwards.
-            const trails = await healMisplacedTrailEntries(workspace, { actor });
+            const trails = await healMisplacedTrailEntries(workspace, {
+                actor,
+                ids
+            });
             // Kept as two shapes rather than one merged list: an ID collision
             // nothing can heal and a rename skipped for a name clash are
             // different problems with different repairs.

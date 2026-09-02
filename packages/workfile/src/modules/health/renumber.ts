@@ -438,7 +438,7 @@ export async function renumberCard(workspace, target, options: any = {}) {
  */
 export async function healDuplicateRecordIds(
     workspace,
-    { actor = null, now, kinds = null }: any = {}
+    { actor = null, now, kinds = null, ids = null }: any = {}
 ) {
     ensureWritable(workspace);
     const index = await buildProjectIndex(workspace);
@@ -465,6 +465,21 @@ export async function healDuplicateRecordIds(
                 paths: duplicate.paths,
                 reason: String(duplicate.reason),
                 reasonText: String(duplicate.reasonText)
+            });
+            continue;
+        }
+        if (ids && !ids.includes(duplicate.id)) {
+            // Reported rather than skipped in silence: a caller who narrowed the
+            // sweep still needs to learn that a duplicate exists outside it, or
+            // the narrow run reads as a clean workspace.
+            skipped.push({
+                id: duplicate.id,
+                kind: duplicate.kind,
+                paths: duplicate.paths,
+                reason: "out-of-scope",
+                reasonText:
+                    `this sweep is scoped to ${ids.join(", ")}; ` +
+                    "run `workfile doctor --fix` to heal it"
             });
             continue;
         }
@@ -540,11 +555,17 @@ export async function healDuplicateCardIds(workspace, options: any = {}) {
  */
 export async function reslugStaleRecordFiles(
     workspace,
-    { actor = null, now, kinds = null }: any = {}
+    { actor = null, now, kinds = null, ids = null }: any = {}
 ) {
     ensureWritable(workspace);
     const index = await buildProjectIndex(workspace);
     const wanted = kinds ? new Set(kinds) : null;
+    // `ids` narrows the sweep to the records the caller named. Absent, the sweep
+    // is the whole workspace, which is what it has always been and what a
+    // maintenance pass wants. Present, it is the difference between repairing
+    // the record you came for and renaming every file whose title moved —
+    // including the ones another session retitled and has not committed yet.
+    const onlyIds = ids ? new Set(ids) : null;
     const moves: Array<{ id: string; from: string; to: string }> = [];
     const skipped: Array<{ id: string; file: string; reason: string }> = [];
     // Every path the workspace already holds, so a rename cannot land on one.
@@ -556,6 +577,10 @@ export async function reslugStaleRecordFiles(
     for (const entry of staleFilenames(index.records)) {
         const record = entry.record;
         if (wanted && !wanted.has(record.kind)) continue;
+        // Silent like the `kinds` filter above, and for the same reason: with a
+        // narrow `ids` every other record in the workspace would land in
+        // `skipped`, burying the collisions that entry exists to report.
+        if (onlyIds && !onlyIds.has(record.id)) continue;
         const from = normalizeRepoPath(record.path);
         const directory = dirname(from);
         const to = `${directory}/${entry.expected}`;

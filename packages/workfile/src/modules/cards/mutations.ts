@@ -409,12 +409,18 @@ export function appendActivityLine(content, entry) {
  */
 export async function healMisplacedTrailEntries(
     workspace,
-    { actor = null, now }: any = {}
+    { actor = null, now, ids = null }: any = {}
 ) {
     ensureWritable(workspace);
     const loaded = await loadCards(workspace);
+    // Same narrowing as the two repairs in `health/renumber.ts`, so that one
+    // `--only` means one scope across the whole of `doctor --fix`. Scoping the
+    // rename alone would be worse than not scoping at all: the flag would
+    // promise a boundary that two of the three repairs ignore.
+    const onlyIds = ids ? new Set(ids) : null;
     const moved: Array<{ id: string; entries: number }> = [];
     for (const card of loaded.cards) {
+        if (onlyIds && !onlyIds.has(card.id)) continue;
         const stray = misplacedTrailEntries(card.body);
         if (!stray.length) continue;
         await mutateCard(workspace, card.id, {}, {
