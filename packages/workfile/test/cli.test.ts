@@ -2160,3 +2160,29 @@ test("doctor reports and repairs a trail written outside its section", async () 
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("card ac --json carries the digest each criterion is bound by", async () => {
+    const { criterionDigest } = await import("../dist/src/index.js");
+    const result = await run(["card", "ac", "T-0001", "--root", fixture, "--json"]);
+    const reading = JSON.parse(result.stdout);
+
+    assert.ok(reading.items.length > 0);
+    for (const item of reading.items) {
+        // The same value `verify[].criteria` binds by, computed the same way —
+        // asserted against the exported function rather than a literal so that
+        // a change to the normalisation breaks this in one obvious place
+        // instead of drifting apart in two.
+        assert.equal(item.digest, criterionDigest(item.text));
+        assert.match(item.digest, /^sha256:[0-9a-f]{64}$/);
+    }
+    // The unchecked view is the same criteria, so it carries the same digests.
+    for (const item of reading.unchecked) {
+        assert.equal(item.digest, criterionDigest(item.text));
+    }
+    // And orphans do NOT, on purpose: the reader says they are not criteria and
+    // `--check` will not touch them, so handing them a criterion digest would
+    // invite binding a command to something that can never be marked.
+    for (const orphan of reading.orphans ?? []) {
+        assert.equal("digest" in orphan, false);
+    }
+});

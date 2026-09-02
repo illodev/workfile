@@ -78,6 +78,7 @@ import {
     writeRenderedChangelog,
     applyInitialization,
     acceptanceSummary,
+    criterionDigest,
     parseAcceptance,
     resolveActor,
     runCardVerification,
@@ -1586,7 +1587,34 @@ async function cardCommand(workspace, action) {
                 throw new NotFoundError("CARD_NOT_FOUND", `Card not found: ${id}`);
             }
             const reading = parseAcceptance(card.body);
-            if (has("--json")) return print(reading);
+            if (has("--json")) {
+                // The digest each criterion would be bound by, so that tying one
+                // to a command is a read away instead of a hash computed
+                // outside. `verify[].criteria` binds by `sha256` of the
+                // normalised text (ADR-0016) and nothing exposed it: every
+                // caller had to import `criterionDigest` and reimplement the
+                // call, which is a barrier in front of the one feature that
+                // makes a criterion machine-checkable.
+                //
+                // On `items` and `unchecked`, and deliberately NOT on
+                // `orphans`: those are not criteria — the reader says so itself
+                // — and are not addressable by `--check`. Handing them a
+                // criterion digest would invite binding a command to something
+                // that can never be marked.
+                //
+                // Projected here rather than added to `parseAcceptance`, whose
+                // shape two tests pin on purpose and whose readers include
+                // writers that have no use for a hash.
+                const withDigest = (item) => ({
+                    ...item,
+                    digest: criterionDigest(item.text)
+                });
+                return print({
+                    ...reading,
+                    items: reading.items.map(withDigest),
+                    unchecked: reading.unchecked.map(withDigest)
+                });
+            }
             if (!reading.present) {
                 // Not "declares none": that is a claim about the card, and the
                 // reader has no basis for it when the body is carrying boxes.
