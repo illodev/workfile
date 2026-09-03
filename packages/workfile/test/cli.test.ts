@@ -1458,6 +1458,13 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
         assert.ok(drift, "doctor stayed quiet about the drift");
         assert.equal(drift.severity, "warning");
         assert.match(drift.message, /T-0001-something-else-entirely\.md/);
+        // The remedy the warning names has to be the SCOPED one. Plain `--fix`
+        // renames every stale filename in the workspace, and this line used to
+        // recommend it for a single record: on the reporting repository that
+        // moved 63 records belonging to other agents, some of them retitled and
+        // uncommitted. Pinned by name, because the whole value is in the flag.
+        assert.match(drift.message, /doctor --fix --only T-0001/);
+        assert.match(drift.message, /Plain `--fix` renames every stale filename/);
 
         const fixed = JSON.parse(
             (

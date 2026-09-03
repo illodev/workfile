@@ -118,7 +118,25 @@ export function staleFilenames(records: any[]): StaleFilename[] {
     return stale;
 }
 
-/** The diagnostic, worded once so all four kinds read alike. */
+/**
+ * The diagnostic, worded once so all four kinds read alike.
+ *
+ * **It names `--only`, and that is the whole point of this wording.** The
+ * message used to say "`doctor --fix` renames it to X", which reads as the
+ * remedy for the one record it is talking about and is not: `--fix` renames
+ * **every** record whose filename no longer matches its title, across the whole
+ * workspace. On the reporting repository, in a session where seven other agents
+ * were editing cards, somebody ran it because this line recommended it and it
+ * moved **63 records belonging to other people** — including cards they had
+ * retitled and not yet committed, which is the case where the rename is not
+ * recoverable from git.
+ *
+ * A warning that names a repository-wide rewrite as the fix for one record is
+ * not advice, it is a trap with a friendly voice. Since T-0233 gave `--fix` an
+ * `--only`, the scoped command exists and this is where it has to appear —
+ * whoever reads the warning is exactly the person who needs it, and they will
+ * not go looking in `--help` for a narrower form they have no reason to suspect.
+ */
 export function staleFilenameIssue(entry: StaleFilename) {
     return {
         severity: "warning" as const,
@@ -127,8 +145,10 @@ export function staleFilenameIssue(entry: StaleFilename) {
         id: entry.record.id,
         file: entry.record.path,
         message:
-            "Filename no longer matches the title; `doctor --fix` renames it to " +
-            entry.expected,
+            "Filename no longer matches the title; " +
+            `\`doctor --fix --only ${entry.record.id}\` renames it to ` +
+            `${entry.expected}. Plain \`--fix\` renames every stale filename in ` +
+            "the workspace, which is rarely what one warning calls for",
         details: { current: entry.current, expected: entry.expected }
     };
 }
