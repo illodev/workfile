@@ -101,6 +101,14 @@ export interface VerifyEntryResult {
     truncated: boolean;
     /** The criteria this entry proves, by index, as the card read them. */
     criteria: number[];
+    /** What exiting 0 was taken to mean for this entry. */
+    expect: "found" | "absent";
+    /**
+     * Whether the entry proved its criteria — which is NOT `outcome ===
+     * "passed"` when it expects an absence, because a search that finds nothing
+     * exits non-zero and that is the success. Read this, never the exit code.
+     */
+    satisfied: boolean;
     checked: number[];
     unchecked: number[];
     /**
@@ -329,6 +337,15 @@ function selectEntries(
 /** The phrase the trail carries, which says what happened and not what changed. */
 function outcomePhrase(entry: VerifyEntry, result: CommandResult): string {
     const command = formatCommand(entry.run);
+    // Under `expect: absent` the exit code and the verdict point opposite ways,
+    // so the phrase written into the card says what was PROVED rather than how
+    // the process ended. "grep X passed" on a criterion that claims X is gone
+    // would read as the opposite of what happened.
+    if (entry.expect === "absent") {
+        return result.outcome === "failed"
+            ? `${command} found nothing, as expected`
+            : `${command} still finds it (exit ${result.code ?? "none"})`;
+    }
     if (result.outcome === "passed") return `${command} passed`;
     return `${command} failed (exit ${result.code ?? "none"})`;
 }
@@ -421,7 +438,14 @@ export async function runCardVerification(
         // Only an exit status is a decision, so only an exit status writes.
         const decided = result.outcome === "passed" || result.outcome === "failed";
         const wanted = decided ? owned : [];
-        const checking = result.outcome === "passed";
+        // The one place the polarity lives. Everything downstream — what gets
+        // ticked, what the card says, whether the run is `ok` — reads this,
+        // rather than each of them re-deriving it from the exit code.
+        const satisfied =
+            entry.expect === "absent"
+                ? result.outcome === "failed"
+                : result.outcome === "passed";
+        const checking = satisfied;
 
         let changed: Array<{ index: number; checked: boolean }> = [];
         let writeError: VerifyEntryResult["writeError"] = null;
@@ -456,6 +480,8 @@ export async function runCardVerification(
             stderr: result.stderr,
             truncated: result.truncated,
             criteria: owned,
+            expect: entry.expect === "absent" ? "absent" : "found",
+            satisfied,
             checked: changed.filter((item) => item.checked).map((item) => item.index),
             unchecked: changed.filter((item) => !item.checked).map((item) => item.index),
             writeError
@@ -465,7 +491,10 @@ export async function runCardVerification(
     const final = await located();
     return {
         id,
-        ok: entries.every((entry) => entry.outcome === "passed" && !entry.writeError),
+        // `satisfied` and not `outcome === "passed"`: under `expect: absent` a
+        // non-zero exit is the success, and reading the raw outcome here would
+        // report a proved card as a failed run.
+        ok: entries.every((entry) => entry.satisfied && !entry.writeError),
         entries,
         acceptance: parseAcceptance(final.body || ""),
         timeoutSeconds: timeout

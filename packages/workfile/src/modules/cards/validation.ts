@@ -233,7 +233,8 @@ export function applyCardChanges(card, changes) {
     return result;
 }
 
-const VERIFY_KEYS = ["id", "run", "criteria"];
+const VERIFY_KEYS = ["id", "run", "criteria", "expect"];
+const VERIFY_EXPECT = ["found", "absent"];
 const VERIFY_ID = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
@@ -409,6 +410,19 @@ function validateVerify(workspace, candidate) {
             );
         }
         seen.add(entry.id);
+        // A typo here would not fail: an unknown value would read as "not
+        // absent" and the entry would quietly go back to proving presence,
+        // which is the exact inversion `expect` exists to remove.
+        if (
+            entry.expect != null &&
+            !VERIFY_EXPECT.includes(String(entry.expect))
+        ) {
+            fail(
+                "CARD_VERIFY_EXPECT_INVALID",
+                `A verify entry's expect must be one of ${VERIFY_EXPECT.join(", ")}; got: ${entry.expect}`,
+                { id: entry.id, expect: entry.expect }
+            );
+        }
         if (entry.run == null || (Array.isArray(entry.run) && !entry.run.length)) {
             fail(
                 "CARD_VERIFY_RUN_REQUIRED",

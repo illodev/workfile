@@ -114,6 +114,81 @@ const boxes = (body: string) =>
         .filter((line) => /^- \[[ x]\]/.test(line))
         .map((line) => line[3] === "x");
 
+test("an entry that expects an absence is proved by the command NOT finding it", async () => {
+    // The trap this removes, measured before it existed: a criterion asserting
+    // that a literal is gone was bound to a search, the literal was present in
+    // two files, and the gate answered `checked`. A search exits 0 when it
+    // FINDS, so the binding marked the criterion satisfied exactly while it was
+    // false — and there was no way to invert it, because the allowlist demands
+    // the command start with a search and it is spawned without a shell.
+    const { workspace, cleanup } = await workspaceAllowing([[NODE]]);
+    try {
+        const created = await createCard(workspace, {
+            title: "A card whose criterion claims something is gone",
+            type: "task",
+            area: "api",
+            body: BODY,
+            verify: [
+                // Stands for a search that finds nothing: exit 1 is the success.
+                {
+                    id: "gone",
+                    run: EXITS_ONE,
+                    expect: "absent",
+                    criteria: [criterionDigest(CRITERIA[0])]
+                },
+                // And its mirror: a search that still finds it is the failure,
+                // which under the old polarity would have been the pass.
+                {
+                    id: "still-there",
+                    run: EXITS_ZERO,
+                    expect: "absent",
+                    criteria: [criterionDigest(CRITERIA[2])]
+                }
+            ]
+        });
+
+        const report = await runCardVerification(workspace, created.id, {
+            actor: "runner@test"
+        });
+
+        const [gone, still] = report.entries;
+        // The exit codes are the opposite of the verdicts, which is the point.
+        assert.equal(gone.outcome, "failed");
+        assert.equal(gone.code, 1);
+        assert.equal(gone.satisfied, true, "finding nothing proves an absence");
+        assert.deepEqual(gone.checked, [1]);
+
+        assert.equal(still.outcome, "passed");
+        assert.equal(still.code, 0);
+        assert.equal(still.satisfied, false, "finding it disproves the absence");
+        assert.deepEqual(still.checked, []);
+
+        // `ok` reads `satisfied`, never the exit code: reading the outcome here
+        // would call a proved entry a failed run and a false one a pass.
+        assert.equal(report.ok, false, "one of the two absences is not true");
+
+        // And the card says what was proved, not how the process ended.
+        const trail = await verifyTrail(workspace, created.id);
+        assert.ok(
+            trail.some((line) => /found nothing, as expected/.test(line)),
+            `the trail does not say what the entry proved: ${trail.join(" | ")}`
+        );
+        // The disproved entry writes NO trail line, and that is right rather
+        // than missing: its criterion was already unchecked, so the write is a
+        // no-op and a no-op does not earn a line. What records the failure is
+        // `satisfied: false` above and the criterion staying unmarked below.
+        assert.doesNotMatch(trail.join(" | "), /still-there/);
+        // Criteria are 1-based, so `checked: [1]` is the first box.
+        assert.deepEqual(boxes(await cardBody(workspace, created.id)), [
+            true,
+            false,
+            false
+        ]);
+    } finally {
+        await cleanup();
+    }
+});
+
 test("a passing entry checks exactly the criteria bound to it, and no others", async () => {
     const { workspace, cleanup } = await workspaceAllowing([[NODE]]);
     try {

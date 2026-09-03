@@ -233,6 +233,26 @@ export interface VerifyEntry {
      */
     run: string[];
     criteria?: string[];
+    /**
+     * What the command exiting 0 is taken to mean. `found` by default.
+     *
+     * The allowlist a project can put behind a binding is made of searches, and
+     * **a search exits 0 when it FINDS**. So a criterion that asserts an absence
+     * — "the literal is gone", "no caller does this any more" — bound to one
+     * marks itself exactly backwards: satisfied while the thing is still there,
+     * and silently, which is the worst of the two directions.
+     *
+     * Measured before this existed: a criterion of that shape was bound to a
+     * search, the literal was present in two files, and the gate answered
+     * `checked`. There was no way to invert it either — the allowlist demands
+     * the command *start* with a search, and it is spawned without a shell, so
+     * there is no `!`, no `;` and no `test $?` to wrap it in.
+     *
+     * `expect: absent` says so in the one place that can act on it. The entry is
+     * satisfied when the command exits **non-zero**, which is a search finding
+     * nothing.
+     */
+    expect?: "found" | "absent";
 }
 
 /** The `verify` entries of a card, or an empty list when it declares none. */

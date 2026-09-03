@@ -109,7 +109,9 @@ This repository uses **Repository Workfile schema v${workspace.schema.schemaVers
 
 ### Binding a criterion to a command
 
-\`card verify\` marks a criterion when its command exits 0, and a search exits 0 **when it finds**. So a criterion phrased as an absence — "X no longer appears" — bound to a search for X marks itself **exactly backwards**: satisfied while the thing is still there, and silently. Phrase it as the end state a search can find, or leave it unbound and say so.
+\`card verify\` marks a criterion when its command exits 0, and a search exits 0 **when it finds**. So a criterion phrased as an absence — "X no longer appears" — bound to a search for X marks itself **exactly backwards**: satisfied while the thing is still there, and silently. There is no wrapping your way out of it either: the command is spawned without a shell, so there is no \`!\`, no \`;\` and no \`test $?\`.
+
+Say it in the entry instead: \`expect: absent\` makes the entry satisfied when the command exits **non-zero**, which is a search finding nothing. Otherwise phrase the criterion as the end state a search can find, or leave it unbound and say so.
 
 ## Finishing: two exits, not one
 

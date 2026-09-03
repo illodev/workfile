@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=canonical-agent-protocol version=0.9.2 digest=sha256:7ed161e7f9a0679fcaa122eb7dcf6613acf1c70b140b240a140410cefd97544b -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.9.2 digest=sha256:c5542afe3681ae7f748a4e8f5889be50d9e45fe76b201c7102d91c040fb4972e -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -44,7 +44,9 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 
 ### Binding a criterion to a command
 
-`card verify` marks a criterion when its command exits 0, and a search exits 0 **when it finds**. So a criterion phrased as an absence — "X no longer appears" — bound to a search for X marks itself **exactly backwards**: satisfied while the thing is still there, and silently. Phrase it as the end state a search can find, or leave it unbound and say so.
+`card verify` marks a criterion when its command exits 0, and a search exits 0 **when it finds**. So a criterion phrased as an absence — "X no longer appears" — bound to a search for X marks itself **exactly backwards**: satisfied while the thing is still there, and silently. There is no wrapping your way out of it either: the command is spawned without a shell, so there is no `!`, no `;` and no `test $?`.
+
+Say it in the entry instead: `expect: absent` makes the entry satisfied when the command exits **non-zero**, which is a search finding nothing. Otherwise phrase the criterion as the end state a search can find, or leave it unbound and say so.
 
 ## Finishing: two exits, not one
 
