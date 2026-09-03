@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0 — 2026-09-04
+
+### Added
+
+- A verify entry can prove an absence, instead of proving its opposite (T-0239)
+
+### Changed
+
+- The protocol names its two exits, and two guards make them observable (T-0237)
+
 ## 0.9.2 — 2026-09-03
 
 ### Changed
