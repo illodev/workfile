@@ -81,6 +81,91 @@ test("agent adapters preserve user content and detect stale managed blocks", asy
     }
 });
 
+test("the protocol keeps the rules an agent cannot infer from the board", async () => {
+    // These are not style. Each one is a shape the board CANNOT represent, so a
+    // refactor that drops the sentence loses the distinction silently and the
+    // loss only shows up as an audit months later.
+    //
+    // Asserted on the generated text rather than on the source string so that
+    // moving the prose between the protocol and a workflow keeps passing, and
+    // deleting it does not.
+    const root = await mkdtemp(join(tmpdir(), "workfile-protocol-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    try {
+        await syncAgentInstructions(workspace, { targets: ["agents-md"] });
+        const protocol = await readFile(workspace.paths.agentProtocol, "utf8");
+        const workflows = await Promise.all(
+            ["finish-work", "discovered-work"].map((name) =>
+                readFile(
+                    join(workspace.paths.agentWorkflows, `${name}.md`),
+                    "utf8"
+                )
+            )
+        );
+        const adapter = await readFile(join(root, "AGENTS.md"), "utf8");
+        const everywhere = [protocol, ...workflows, adapter].join("\n");
+
+        // The one that cost an audit: `review` and "my turn ended" are the same
+        // state to a board and different states to a reader.
+        assert.match(
+            protocol,
+            /two exits, not one/i,
+            "the protocol no longer names the two exits"
+        );
+        assert.match(
+            everywhere,
+            /review\` is not "my turn ended"|not "my turn ended"/i,
+            "nothing says review is not where a turn goes to end"
+        );
+
+        // `blocked` has to be reachable as advice, not just defined as a state:
+        // a card waiting on somebody else sits in `next` looking startable.
+        assert.match(
+            protocol,
+            /waiting on a hand that is not yours/i,
+            "blocked is defined but nothing routes work to it"
+        );
+
+        // The heading is load-bearing: `card ac` reads exactly one spelling, and
+        // a card that misses it can only be closed with --force, whose Activity
+        // line is indistinguishable from a clean close.
+        assert.match(
+            protocol,
+            /## Acceptance criteria/,
+            "the protocol never names the heading card ac reads"
+        );
+        assert.match(
+            everywhere,
+            /false.{0,40}rewritten with the measurement|premise turned false/i,
+            "nothing tells an agent what to do with a criterion whose premise died"
+        );
+
+        // The polarity trap: a search exits 0 when it FINDS, so an absence bound
+        // to one marks itself backwards, and silently.
+        assert.match(
+            protocol,
+            /exactly backwards/i,
+            "the verify polarity trap is undocumented"
+        );
+
+        // The counterweight to "create a card for discovered work", without
+        // which the board grows a card per batch instead of a number per card.
+        assert.match(
+            everywhere,
+            /Finish it before you card it/i,
+            "the counterweight to carding everything is gone"
+        );
+        assert.match(
+            protocol,
+            /batch that advances updates its own card/i,
+            "nothing stops a batch opening a card per remainder"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("the file's last byte is repaired without touching the prose around it", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-tail-"));
     await cp(fixture, root, { recursive: true });

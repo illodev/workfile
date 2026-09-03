@@ -708,7 +708,34 @@ function listGates(gates: string[]): string {
  * text that arrives over HTTP and MCP.
  */
 function requireForceReason(id: string, gates: string[], reason): string {
-    if (!gates.length) return "";
+    if (!gates.length) {
+        // A reason offered where nothing was waived is a reason nobody will
+        // ever read, and until now it was accepted and dropped in silence.
+        //
+        // That silence is worse than a missing field. `claim --reason` is
+        // required and persisted; the same flag on `transition`, `patch` and
+        // `release` is read only when `force` actually waived a gate. So an
+        // agent that learned the flag where it works carries the habit to the
+        // three doors where it does not, believes the card now says why, and
+        // the card says nothing — which is exactly the information the two
+        // exits depend on. Refused rather than warned: the caller's intent is
+        // unmet either way, and a refusal is the only version they can see.
+        //
+        // `card reap` is untouched: it forces past gates it never trips and
+        // passes no reason, so it never reaches this branch.
+        const offered = String(reason || "").trim();
+        if (offered) {
+            throw new ValidationError(
+                "CARD_REASON_NOT_RECORDED",
+                `${id} was given a reason but nothing was forced, and a reason ` +
+                    `is only recorded in place of a gate that was waived — so ` +
+                    `this one would be dropped without a trace. Put it where it ` +
+                    `keeps: \`card note ${id} --text "..."\`.`,
+                { id, reason: offered }
+            );
+        }
+        return "";
+    }
     const given = String(reason || "").trim().split(/\s+/).join(" ");
     if (!given) {
         throw new ValidationError(

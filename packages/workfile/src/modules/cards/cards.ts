@@ -613,6 +613,51 @@ export async function diagnoseCards({
                 )
             );
         }
+        // `review` reached with nothing proved.
+        //
+        // `review` means "finished, only runtime evidence missing". A turn that
+        // ends with work still inside the card is supposed to leave it in
+        // `next` or `blocked` with the reason written. Both exits write the
+        // same word today if nobody enforces the difference, and then the board
+        // cannot answer which one happened: measured in a consuming repository,
+        // 181 of 249 cards in `review` had been put there by automated agents
+        // with a seven-minute median between claim and review, and telling the
+        // finished ones from the abandoned ones cost an audit of the board.
+        //
+        // The discriminator is deliberately blunt: **not one** criterion met.
+        // A card that is genuinely waiting on runtime has its work ticked and
+        // one or two evidence boxes open; a card nobody worked has none. The
+        // blunt version is what keeps this off the flood list that T-0231 is
+        // about — measured over a real 245-card `review` column: 71% have every
+        // criterion met, 19% are partial, and **2% are zero**. Warning on the
+        // partials would have meant 21% of the column, most of it correct.
+        //
+        // A warning, not an error, and reported at `review` only. The card is
+        // not malformed; what is wrong is that its state claims something its
+        // own criteria contradict. Erroring would turn the pipeline red on a
+        // judgement call, and the judgement belongs to whoever reads it.
+        if (
+            card.status === "review" &&
+            !card.archived &&
+            reading.items.length > 0 &&
+            reading.items.every((item) => !item.checked)
+        ) {
+            issues.push(
+                issue(
+                    "warning",
+                    "review-with-nothing-met",
+                    card,
+                    `Card is in \`review\` with none of its ` +
+                        `${reading.items.length} acceptance ` +
+                        `${reading.items.length === 1 ? "criterion" : "criteria"} met. ` +
+                        `\`review\` means the work is finished and only runtime evidence ` +
+                        `is missing; a turn that ended with work still inside the card ` +
+                        `belongs in \`next\` or \`blocked\` with the reason in a note. ` +
+                        `Mark what is done, or move it back and say what is left.`,
+                    { criteria: reading.items.length }
+                )
+            );
+        }
         // A binding names the text it proves, so text that no longer exists
         // means the criterion was reworded or replaced after the command was
         // bound to it. Reported rather than repaired: the two look identical

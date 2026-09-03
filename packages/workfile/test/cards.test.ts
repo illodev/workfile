@@ -12,7 +12,9 @@ import {
     loadCards,
     loadWorkspace,
     parseCard,
-    patchCardBody
+    patchCard,
+    patchCardBody,
+    transitionCard
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -144,6 +146,107 @@ test("exclusive card creation resolves concurrent ID collisions", async () => {
 // open. It is a warning rather than an error on purpose: a card is allowed to
 // keep a checklist that was never a criterion, and failing `doctor` on a body
 // that is correct costs more than the false positive does.
+test("a reason that would be dropped is refused, and the ones that keep still work", async () => {
+    // The trap this closes: `claim --reason` is required and persisted, and the
+    // same flag on `transition`/`patch`/`release` was accepted and thrown away
+    // whenever nothing was forced. An agent that learned it where it works
+    // carries the habit to the doors where it does not, and the card ends up
+    // saying nothing about why a turn ended — which is the one thing the two
+    // exits depend on being written down.
+    const root = await mkdtemp(join(tmpdir(), "workfile-reason-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+
+        const card = await createCard(workspace, {
+            title: "A turn that ended early",
+            area: "api"
+        });
+
+        await assert.rejects(
+            () =>
+                transitionCard(workspace, card.id, "next", {
+                    reason: "ran out of turn"
+                }),
+            (error: any) => {
+                assert.equal(error.code, "CARD_REASON_NOT_RECORDED");
+                // The message has to name the door that keeps it, or the
+                // refusal just moves the problem.
+                assert.match(error.message, /card note/);
+                return true;
+            },
+            "a reason with nothing forced must be refused, not dropped"
+        );
+
+        // The same transition without the flag is untouched.
+        await transitionCard(workspace, card.id, "next", {});
+        const [moved] = (await loadCards(workspace)).cards.filter(
+            (entry: any) => entry.id === card.id
+        );
+        assert.equal(moved.status, "next");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("review with nothing proved is reported, and review waiting on runtime is not", async () => {
+    // The rule exists because `review` and "my turn ended" are the same word to
+    // a board. The discriminator is deliberately blunt — NOT ONE criterion met —
+    // and both halves of that bluntness are asserted here: the partial card must
+    // stay quiet, because warning on partials would have covered a fifth of a
+    // real review column, most of it correct.
+    const root = await mkdtemp(join(tmpdir(), "workfile-review-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+
+        // Nothing ticked. This is the shape the rule is for.
+        const abandoned = await createCard(workspace, {
+            title: "Moved to review with nothing done",
+            area: "api"
+        });
+        await patchCardBody(workspace, abandoned.id, {
+            body: "## Acceptance criteria\n\n- [ ] one\n- [ ] two"
+        });
+        await patchCard(workspace, abandoned.id, { status: "review" });
+
+        // The honest case: the work is ticked and one runtime box is open. This
+        // is what most of a review column looks like and it must stay silent.
+        const waiting = await createCard(workspace, {
+            title: "Finished, waiting on runtime",
+            area: "api"
+        });
+        await patchCardBody(workspace, waiting.id, {
+            body: "## Acceptance criteria\n\n- [x] built\n- [ ] seen running in production"
+        });
+        await patchCard(workspace, waiting.id, { status: "review" });
+
+        // Same emptiness, but not in `review`: `next` is where a turn that ended
+        // with work inside is supposed to leave it, so there is nothing to say.
+        const parked = await createCard(workspace, {
+            title: "Parked in next with the reason written",
+            area: "api"
+        });
+        await patchCardBody(workspace, parked.id, {
+            body: "## Acceptance criteria\n\n- [ ] one"
+        });
+
+        const loaded = await loadCards(workspace);
+        const report = await diagnoseCards({ ...loaded, workspace, checkPaths: false });
+        const found = report.issues.filter(
+            (entry: any) => entry.code === "review-with-nothing-met"
+        );
+        assert.equal(found.length, 1, "exactly the abandoned card should report");
+        assert.equal(found[0].id, abandoned.id);
+        assert.equal(found[0].severity, "warning");
+        assert.match(found[0].message, /none of its 2 acceptance criteria/);
+        assert.match(found[0].message, /\`next\` or \`blocked\`/);
+        assert.equal(report.counts.error, 0);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("doctor reports a checklist no acceptance heading claimed", async () => {
     const root = await mkdtemp(join(tmpdir(), "workfile-unreadable-"));
     try {
