@@ -217,30 +217,45 @@ const actorFor = (input) => {
  * discriminator into the tail, so for every pairing this guard can see, actor
  * equality *is* session equality:
  *
- * - both tails present and equal, or both absent with the same actor → one
- *   process, or `unproven` and deliberately not prompted on. A configured
- *   `WORKFILE_ACTOR` is somebody declaring an identity, and interrupting them
- *   about their own claim is how a guard rail gets switched off.
- * - tails differing, or one present and one absent → two processes.
- * - no tails and different actors → two people.
+ * - both sessions seen and equal, or the same actor with at most one session
+ *   seen → one process, or `unproven` and deliberately not prompted on. A
+ *   configured `WORKFILE_ACTOR` is somebody declaring an identity, and
+ *   interrupting them about their own claim is how a guard rail gets switched
+ *   off.
+ * - both sessions seen and differing → two processes.
+ * - different actors → two people.
  *
- * So this stays a string comparison, and the pinning test in
- * `test/claude-surface.test.ts` drives both derivations over every case rather
- * than trusting the paragraph above. What the guard cannot see is a session that
- * exists only in a session file — `claimed_by` written from an explicit
- * `--actor` carries no tail — and the snapshot can. That residual is LRN-0030.
+ * **The middle case used to be the first test and not the last, and that was
+ * T-0229.** The order was: two sessions, then *one* session either side, then
+ * actors. The second test read `null` on the board as "that claim has no
+ * session", but `null` means the board could not **find** one — a `claimed_by`
+ * written from an explicit `--actor` has no tail and matches no session file —
+ * while `mySession` comes off `input.session_id`, which a Claude Code hook
+ * **always** supplies. So the two sides never resolved the same way: the second
+ * test fired on every single call, and the actor comparison below it was
+ * unreachable. The guard prompted agents about their own cards, which is the
+ * interruption the paragraph above says it exists to avoid. Measured on the
+ * consuming repository: 7 of 7 live claims carried `session: null`, and every
+ * in-repo `Edit` inside a claimed scope prompted.
+ *
+ * With the test removed the two branches below say the whole rule, and they are
+ * `claimSeparation` verbatim — which is what makes the pinning test in
+ * `test/claude-surface.test.ts` able to drive both derivations over every case
+ * rather than trusting this paragraph.
+ *
+ * What it takes to be quiet is now what it always claimed: **declare the same
+ * identity you claimed with** (`WORKFILE_ACTOR`, or an actor the tail can
+ * carry). Two processes handed the *same* explicit actor stay indistinguishable
+ * — that residual is LRN-0030 and it is unchanged.
  */
 function separatesFromMe(claim, mine, mySession) {
     const theirs = claim.session || null;
     // Two sessions, seen. The strongest answer, and the one the board could not
     // give before T-0219 put `session` on the entry.
     if (theirs && mySession) return theirs !== mySession;
-    // One side has a session and the other does not, so they are not the same
-    // process — the same call `claimSeparation` makes.
-    if (theirs || mySession) return true;
-    // Neither has one. Different actors are two people; the same actor is
-    // `unproven`, and the guard stays quiet on a guess rather than interrupting
-    // somebody about their own card.
+    // At most one seen, so the actors are the only evidence there is. Different
+    // actors are two people; the same actor is `unproven`, and the guard stays
+    // quiet on a guess rather than interrupting somebody about their own card.
     return claim.claimedBy !== mine;
 }
 

@@ -369,6 +369,32 @@ test("what separates two claims is the session, and it names its own evidence", 
         ),
         "unproven"
     );
+
+    // T-0229: one side is a live process and the other a board row, and only
+    // the live side ever resolves a session. Reading the row's `null` as "has
+    // no session" made this `sessions-differ` — a verdict over two identities
+    // the workspace cannot tell apart, and the reason the scope guard prompted
+    // agents about their own cards. The actors are the only evidence, so the
+    // actors decide.
+    assert.equal(
+        claimSeparation(
+            { by: "drain-web-tools", sessionId: null },
+            { by: "drain-web-tools", sessionId: "5e16bd6e-1111-4222-8333-4444" }
+        ),
+        "unproven",
+        "the same declared actor with one session seen is a guess, not a verdict"
+    );
+    // A different declared actor still separates, and keeps the stronger label:
+    // one side resolved a session, so these are two processes and not merely two
+    // names. That is why the fix reorders the tests instead of dropping one.
+    assert.equal(
+        claimSeparation(
+            { by: "drain-client-import", sessionId: null },
+            { by: "drain-web-tools", sessionId: "5e16bd6e-1111-4222-8333-4444" }
+        ),
+        "sessions-differ",
+        "a different declared actor still separates"
+    );
 });
 
 test("two terminals sharing one actor are reported, marked as unproven", async () => {

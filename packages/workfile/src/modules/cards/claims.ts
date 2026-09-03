@@ -161,8 +161,11 @@ export function claimBoardEntry(card, sessions: any[] = []) {
          * their own and the guard stayed silent. That is the residual ADR-0020
          * left open, and LRN-0030 records it.
          *
-         * `null` when there is none to find, which the guard has to treat as
-         * "unproven" rather than as "the same process".
+         * `null` when there is none to find — **unknown, not absent**, which
+         * is the distinction T-0229 turned on. The guard has to treat it as
+         * "unproven": neither as "the same process" nor as proof of a
+         * different one. `claimSeparation` decides which, and does it by
+         * comparing actors.
          */
         session: sessionForClaim(card, sessions),
         scope: Array.isArray(card.scope)
@@ -339,11 +342,38 @@ export function claimSession(claim: {
  * So the question is not "same actor" but "provably the same process", and the
  * answer names its own evidence, because the three cases are not equally strong:
  *
- * - `sessions-differ` — two sessions, seen. Two processes.
- * - `actors-differ` — no session either side, different actors. Two people.
- * - `unproven` — no session either side and the same actor. One person holding
+ * - `sessions-differ` — two sessions, seen, and they differ. Two processes.
+ * - `actors-differ` — different actors and at most one session seen. Two people.
+ * - `unproven` — the same actor and at most one session seen. One person holding
  *   two overlapping cards and two terminals racing each other are the same
  *   record; nothing in the workspace distinguishes them.
+ *
+ * **The actor comparison runs before the one-sided-session test, and that order
+ * is the whole of the T-0229 fix.** It used to be the other way round: a
+ * session on one side and none on the other returned `sessions-differ`
+ * outright, on the argument that "one has a session and the other does not, so
+ * they are not the same process". That argument holds when the actors differ —
+ * and that case still returns `sessions-differ`, which is why the label
+ * survives. It does *not* hold when the actors are the same, because then the
+ * two sides did not resolve a session the same way. `session` is `null` when the board could not *find* one —
+ * a `claimed_by` written from an explicit `--actor` carries no tail and matches
+ * no session file — so `null` means **unknown**, not **absent**, and reading it
+ * as absent turns a guess into a verdict.
+ *
+ * Where that cost something is the scope guard, which compares a board row
+ * against a live process rather than two rows: the live side takes its session
+ * off the hook payload, so it **always** has one, and the board side never did
+ * for a declared actor. The one-sided branch therefore fired on every call, the
+ * actor comparison was unreachable dead code, and the guard prompted agents
+ * about their own cards — the exact interruption its own comment says it exists
+ * to avoid. Measured on the consuming repository: **7 of 7 live claims carried
+ * `session: null`**, and every in-repo edit inside a claimed scope prompted.
+ *
+ * The residual is the one LRN-0030 already names and it is unchanged in kind:
+ * two processes handed the *same* explicit actor are indistinguishable. They are
+ * `unproven` now instead of being called `sessions-differ` by accident — still
+ * reported in `conflicts`, where nobody is interrupted, and no longer a verdict
+ * the workspace has no evidence for.
  *
  * `unproven` is reported rather than dropped, and that is the decision T-0206
  * had to make. Silence is the bug — it is what let two terminals collide with
@@ -358,8 +388,12 @@ export function claimSeparation(
     const left = claimSession(a);
     const right = claimSession(b);
     if (left && right) return left === right ? null : "sessions-differ";
+    // At most one session seen, so the actors are all the evidence there is —
+    // and the same actor is not enough to call it either way.
+    if (a.by === b.by) return "unproven";
+    // Different actors, and one side did resolve a session: two processes, seen.
     if (left || right) return "sessions-differ";
-    return a.by === b.by ? "unproven" : "actors-differ";
+    return "actors-differ";
 }
 
 /**

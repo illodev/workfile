@@ -1,13 +1,13 @@
 ---
 id: T-0229
 title: claim.session is never populated, so the guard prompts about your own card
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 raised: derived
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 `separatesFromMe` asks "is this claim another process?" and, with `claim.session === null`, the only
@@ -67,3 +67,79 @@ Writing `cardId` from `card claim` looks obvious and is not safe as-is:
 Changing the fallback to actor-vs-actor instead is not a fix either: with a declared actor and no
 `WORKFILE_ACTOR`, `mine` and `claimed_by` still differ, so it keeps prompting; and it would
 desynchronise the guard from `claimSeparation`, which the surface test pins to one shared rule.
+
+## Notes
+
+- 2026-09-03 14:21Z illodev@local#062a7c97 — Fixed — and **this card's own dismissal of the fix was half right, so both halves are worth
+recording.**
+
+The card wrote off "changing the fallback to actor-vs-actor" with two objections:
+
+1. *"with a declared actor and no `WORKFILE_ACTOR`, `mine` and `claimed_by` still differ, so it
+   keeps prompting"* — **correct, and unchanged.** That is the price of the fix and it is now
+   documented rather than discovered: to be left alone you have to **declare the identity you
+   claimed with**. Measured: bench case 3 (`session: null`, own `claimed_by`, no `WORKFILE_ACTOR`)
+   still asks, and it should — nothing links the pseudonym to the editing process.
+2. *"it would desynchronise the guard from `claimSeparation`, which the surface test pins to one
+   shared rule"* — **avoided, by fixing the rule instead of diverging from it.** The asymmetry was
+   never in the guard: it was in `claimSeparation` itself. `if (left || right) return
+   "sessions-differ"` reads a `null` as "that side has no session", but `null` means the workspace
+   could not **find** one. For two board rows resolved the same way that inference is fine; for the
+   guard, where one side is a live payload that **always** carries a session and the other is a row
+   that never does for a declared actor, it fires on every call and makes the actor comparison dead
+   code.
+
+So the reorder is one line in each place, and the labels all survive:
+
+```ts
+if (left && right) return left === right ? null : "sessions-differ";
+if (a.by === b.by) return "unproven";        // at most one session seen: not evidence
+if (left || right) return "sessions-differ"; // different actors, one session seen
+return "actors-differ";
+```
+
+`separatesFromMe` mirrors it exactly, which is what the pinning test needs: the one-sided test goes
+and `return claim.claimedBy !== mine` covers both remaining outcomes. Suite: **500 pass, 0 fail**,
+including `the scope guard and the activity snapshot apply one separation rule` and `two agents
+sharing an explicit actor do not look like one process`.
+- 2026-09-03 14:22Z illodev@local#062a7c97 — **Salida: `review`, no `done`.** El arreglo esta hecho y probado (500 pass, 0 fail, incluido el test que ata el guard a `claimSeparation`). Falta correrlo publicado, y falta la mitad del consumidor —exportar `WORKFILE_ACTOR` antes de que la sesion reclame—, que esta medida arriba y no aplicada en ningun sitio.
+
+## The measurement that reframes the card, and it is not in the card
+
+**`session` is not "never populated". It is populated by the claim itself — if the session file
+carries the same actor.** `claimCard` → `updateClaimBoard` → `claimBoardEntry` → `sessionForClaim`
+runs over the session files **already on disk**, and `session-start` wrote one before the claim
+happened. So the card's case-4c conclusion — *"the panel starts before it claims, so at the moment
+that matters the board does not have the card"* — is **false**: the board does not need to be
+rebuilt, because the claim updates its own entry.
+
+Measured on the reporting repository's installed 0.9.1, disposable workspace, real CLI, real hook,
+in the drain's order (session-start → claim → edit):
+
+| `WORKFILE_ACTOR` exported before session-start | session file `actor` | board `session` | guard on own scope |
+| --- | --- | ---: | --- |
+| yes (`drain-probe`) | `drain-probe` | `"aaaa1111"` | **silent** |
+| no | `illodev@local#aaaa1111` | `null` | **asks** |
+| no, but exported for the edit only | `illodev@local#aaaa1111` | `null` | **asks** (this fix makes it silent) |
+
+Row 1 is the one that matters: **the noise is fixable in the consumer today, on 0.9.1, with no
+package change** — export `WORKFILE_ACTOR=<the actor you claim with>` before the session starts.
+This fix earns row 3: declaring the identity works even when the session file was written before
+the identity was declared, which is the delegated-claim case and the panel-exports-late case.
+
+The three design objections to writing `cardId` from `card claim` stand and are untouched: none of
+this binds a card to the session that typed its claim.
+
+## The residual, unchanged
+
+Two processes handed the **same** explicit actor are indistinguishable — LRN-0030. They are
+`unproven` now instead of being called `sessions-differ` by accident: still reported in the
+snapshot's `conflicts`, where nobody is interrupted, and no longer a verdict the workspace has no
+evidence for.
+
+Nothing here touches T-0227 (the guard does not see edits made through Bash), which remains the
+larger half.
+
+## Activity
+
+- 2026-09-03 14:22Z illodev@local#062a7c97 · backlog → review
