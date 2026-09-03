@@ -1,13 +1,18 @@
 ---
 id: T-0232
 title: The doc link checker cuts the destination at the first parenthesis
-status: review
+status: done
 type: bug
 priority: medium
 area: core
 raised: reported
 created: 2026-09-02
 updated: 2026-09-03
+verified:
+  at: "2026-09-03T22:41:21.985Z"
+  method: manual
+  commit: 5d8a167842743c87193ab6f036666662e3d0703b
+  digest: "sha256:6d1108539c97ea77dfbfc41ddddb5aa58477e86b105f68a10c1259d2f04bb3f4"
 ---
 
 The doc link extractor cuts the destination at the first `)`, so any link into a path that contains
@@ -63,6 +68,7 @@ normalisation**, so this defect was reported once and had to be fixed twice. A l
 group was validated against a path nobody wrote *and* recorded as a relationship to a path nobody
 wrote.
 - 2026-09-03 14:22Z illodev@local#062a7c97 — **Salida: `review`, no `done`.** Los cuatro criterios estan cumplidos y medidos; lo que falta es que alguien lo corra publicado. Nada de esto esta en npm todavia, asi que ningun consumidor lo ejecuta: eso es exactamente lo que `review` significa.
+- 2026-09-03 22:41Z illodev@local#5c0f3978 — manual verification: Shipped in 0.9.2, published to npm (npm view @illodev/workfile version -> 0.9.2) and exercised against a real workspace: fube-v2 runs 0.9.2 and this behaviour was used there on 2026-09-03. The doc link checker no longer truncates at the first parenthesis; fube-v2's doctor run over 2373 cards and its docs tree reports 0 errors and no false link findings.
 
 ## Measured on the reported case, end to end
 
@@ -114,3 +120,4 @@ masks. That asymmetry is not a decision, it is what the two copies already did �
 ## Activity
 
 - 2026-09-03 14:22Z illodev@local#062a7c97 · backlog → review
+- 2026-09-03 22:41Z illodev@local#5c0f3978 · review → done

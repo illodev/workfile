@@ -1,14 +1,15 @@
 ---
 id: T-0133
 title: Workfile is in the MCP Registry but in none of the directories that mirror it
-status: next
+status: blocked
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
-updated: 2026-08-03
+updated: 2026-09-03
 scope: [.project/cards]
 ---
+
 [[T-0114]] shipped the half a repository can own: `v0.4.0` published
 `server.json` from CI and `io.github.illodev/workfile` is active in the
 official MCP Registry. Everything below is a browser session with an account
@@ -91,6 +92,7 @@ This is the only listing left with a review queue behind it.
 - 2026-08-02 22:14Z illodev@local#bd44efc7 · released
 - 2026-08-03 09:32Z illodev@local#bd44efc7 · claimed
 - 2026-08-03 09:33Z illodev@local#bd44efc7 · released
+- 2026-09-03 22:42Z illodev@local#5c0f3978 · next → blocked
 
 ## Notes
 
@@ -111,3 +113,4 @@ The page renders this repository's README rather than the submitted copy, so the
 - 2026-08-03 09:33Z illodev@local#bd44efc7 — Two rows moved without anyone filing anything. Glama verified the listing from the committed `glama.json` alone — see [[T-0136]] and [[LRN-0015]] — and mcpservers.org approved the submission, so `https://mcpservers.org/servers/illodev/workfile` now answers 200. The registry row is refreshed to 0.5.0, read with `?version=latest` because the search endpoint returns every published version and its first element is not the current one.
 
 What is left on this card is entirely other people: the punkpeye merge and the Claude Code marketplace review. Neither has a next action here.
+- 2026-09-03 22:42Z illodev@local#5c0f3978 — Moved from `next` to `blocked` on 2026-09-03. The two open criteria are not work: #1 is a pull request sitting in `punkpeye/awesome-mcp-servers` and #4 is Glama computing a score. Both wait on somebody else's hand, and a card that waits in `next` looks pickable — an agent draining the board will open it, find nothing to do, and put it back. `blocked` is the state that says so. Re-open when either directory answers.

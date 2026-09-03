@@ -1,15 +1,20 @@
 ---
 id: T-0225
 title: "A re-wrapped scope: makes a card unclaimable"
-status: review
+status: done
 type: bug
 priority: high
 area: core
 tags: [frontmatter, codec, doctor, prettier]
 effort: S
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-09-03
 raised: derived
+verified:
+  at: "2026-09-03T22:41:21.524Z"
+  method: manual
+  commit: 5d8a167842743c87193ab6f036666662e3d0703b
+  digest: "sha256:c75b7d3eae3ef743b0975f0dd7add6497c2e9841fb8a30ae73470c3a8440a587"
 ---
 
 A formatter reformats the YAML header along with the Markdown around it, and a flow
@@ -62,3 +67,8 @@ Still `review`, not `done`: nothing is published, and the consuming repository i
 
 - 2026-08-27 12:35Z fube-v2-3a · backlog → review
 - 2026-08-27 12:37Z fube-v2-3a · renumbered from T-0215
+- 2026-09-03 22:41Z illodev@local#5c0f3978 · review → done
+
+## Notes
+
+- 2026-09-03 22:41Z illodev@local#5c0f3978 — manual verification: Shipped in 0.9.2, published to npm (npm view @illodev/workfile version -> 0.9.2) and exercised against a real workspace: fube-v2 runs 0.9.2 and this behaviour was used there on 2026-09-03. A re-wrapped scope no longer blocks a claim: cards carrying multi-line scope in fube-v2 were claimed all session without RECORD_FRONTMATTER_OPAQUE, and doctor reports the shape as frontmatter-opaque before claim fails.

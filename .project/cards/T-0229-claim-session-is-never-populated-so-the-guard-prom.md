@@ -103,6 +103,7 @@ and `return claim.claimedBy !== mine` covers both remaining outcomes. Suite: **5
 including `the scope guard and the activity snapshot apply one separation rule` and `two agents
 sharing an explicit actor do not look like one process`.
 - 2026-09-03 14:22Z illodev@local#062a7c97 — **Salida: `review`, no `done`.** El arreglo esta hecho y probado (500 pass, 0 fail, incluido el test que ata el guard a `claimSeparation`). Falta correrlo publicado, y falta la mitad del consumidor —exportar `WORKFILE_ACTOR` antes de que la sesion reclame—, que esta medida arriba y no aplicada en ningun sitio.
+- 2026-09-03 22:42Z illodev@local#5c0f3978 — Acceptance criteria written on 2026-09-03 by the session that has been using 0.9.2 all day. The card sat in `review` declaring none, so `card ac` answered "declares no acceptance criteria" and closing it would have needed `--force` — which leaves an Activity line identical to a clean close. That is the anti-pattern this repository is about to name in its own shipped protocol, so it should not be in its own board. Three of the four are met by the fix in 0.9.2; the fourth is runtime and stays open.
 
 ## The measurement that reframes the card, and it is not in the card
 
@@ -139,6 +140,28 @@ evidence for.
 
 Nothing here touches T-0227 (the guard does not see edits made through Bash), which remains the
 larger half.
+
+## Acceptance criteria
+
+*(Written 2026-09-03, after the fix shipped. The card had none, which is why it could not be closed
+without `--force` — the exact shape this repository is about to name in its own protocol.)*
+
+- [x] `claimSeparation` treats a null `session` as **unknown** rather than as a differing side, so a claim written with an explicit `--actor` no longer produces a `sessions-differ` verdict the workspace has no evidence for.
+- [x] The unproven case is still reported in the snapshot's `conflicts`, where nobody is interrupted, rather than being dropped.
+- [x] The card's own claim that `session` is "never populated" is corrected in place with the measurement that killed it: it **is** populated by the claim itself when the session file carries the same actor.
+- [ ] Runtime: an agent that claims with an explicit `--actor` and then edits inside that scope is not prompted by the guard about its own card.
+
+## What is NOT in this card, said so it is not assumed
+
+The three design objections to writing `cardId` from `card claim` **stand and are untouched**: none
+of this binds a card to the session that typed its claim, which is what `--actor` exists to allow.
+
+The residual is unchanged and is [[LRN-0030]]: two processes handed the **same** explicit actor are
+indistinguishable. They are now `unproven` instead of being called `sessions-differ` by accident —
+which is the whole point, a verdict the workspace has no evidence for is worse than no verdict.
+
+And [[T-0227]] — the guard does not see edits made through Bash — is untouched and is **the larger
+half**. Closing this card does not close that hole.
 
 ## Activity
 

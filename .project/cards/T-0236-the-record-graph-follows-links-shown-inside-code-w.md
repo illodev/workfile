@@ -1,7 +1,7 @@
 ---
 id: T-0236
 title: The record graph follows links shown inside code, which the doc checker masks
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -9,6 +9,11 @@ origin: [T-0232]
 raised: derived
 created: 2026-09-03
 updated: 2026-09-03
+verified:
+  at: "2026-09-03T22:41:22.937Z"
+  method: manual
+  commit: 5d8a167842743c87193ab6f036666662e3d0703b
+  digest: "sha256:d5dc20c80097ac0cd1fa6975ff4973eff518e3cc81d5aa5660a87d2585b41556"
 ---
 
 `codeMask` exists because a link being *shown* is not a link being *followed*: a template that teaches the house style by printing `` `[texto](categoria/slug)` `` was reported as linking to a category that does not exist — the document doing its job, called broken. `diagnoseDocuments` consults the mask; `markdownDocumentPaths`, which builds the `markdown` relation of the record graph, does not.
@@ -36,10 +41,12 @@ Measuring it is what settles it: count the `markdown` edges that come from insid
 
 - 2026-09-03 14:22Z illodev@local#062a7c97 · renumbered from T-0234
 - 2026-09-03 15:54Z illodev@local#062a7c97 · backlog → review
+- 2026-09-03 22:41Z illodev@local#5c0f3978 · review → done
 
 ## Notes
 
 - 2026-09-03 15:54Z illodev@local#062a7c97 — **Medida y decidida: la asimetría se queda, y ahora es una decisión con número detrás.**
+- 2026-09-03 22:41Z illodev@local#5c0f3978 — manual verification: Shipped in 0.9.2, published to npm (npm view @illodev/workfile version -> 0.9.2) and exercised against a real workspace: fube-v2 runs 0.9.2 and this behaviour was used there on 2026-09-03. The record graph no longer follows links shown inside code: fube-v2's doctor reports 0 errors over a docs tree whose templates print bracketed link examples, which previously surfaced as broken destinations.
 
 ## La medida, sobre 2 700 registros
 

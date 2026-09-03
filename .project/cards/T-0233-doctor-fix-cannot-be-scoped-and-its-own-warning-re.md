@@ -1,13 +1,18 @@
 ---
 id: T-0233
 title: doctor --fix cannot be scoped, and its own warning recommends it
-status: review
+status: done
 type: bug
 priority: medium
 area: core
 raised: reported
 created: 2026-09-02
 updated: 2026-09-03
+verified:
+  at: "2026-09-03T22:41:22.486Z"
+  method: manual
+  commit: 5d8a167842743c87193ab6f036666662e3d0703b
+  digest: "sha256:303469c0d279f249fdaad327281fe40edc78dbe5c8903a9c1bc181b1a6f46f7d"
 ---
 
 `doctor --fix` renames every record whose filename no longer matches its title, across the whole
@@ -86,6 +91,7 @@ Y hubo que meterlo en `DRY_RUN_COMMANDS`: el guard `assertDryRunSupported` **rec
 **#3 referencias antes de renombrar.** `pathReferrersOf` saca los enlaces entrantes con relación `markdown` — los que nombran un **fichero** y por tanto se rompen; un wiki-link o una arista de frontmatter nombra un **id** y sobrevive. Se leen de `relations` y no de `relation`, porque el segundo es el ganador del ranking y una ficha que además te liste en `related:` mostraría `related` y se perdería. Y si `incoming` venía recortado por `maxBacklinks`, la entrada trae `referencesPartial` en vez de un número que parece completo.
 
 Se imprimen en las dos rutas: en la previa («would break») y en el `--fix` de verdad («are now broken»). El motivo de imprimirlas también en el real: `doctor` reportará esos enlaces muertos en alguna tirada posterior, bajo otra regla, **y nunca dirá qué renombrado los produjo**.
+- 2026-09-03 22:41Z illodev@local#5c0f3978 — manual verification: Shipped in 0.9.2, published to npm (npm view @illodev/workfile version -> 0.9.2) and exercised against a real workspace: fube-v2 runs 0.9.2 and this behaviour was used there on 2026-09-03. doctor --fix is scopeable and its warning names the scoped repair: the fube-v2 run on 2026-09-03 printed the per-record fix rather than recommending the repository-wide one, which is what the card asked for.
 
 ## Medido sobre el repositorio que lo reportó
 
@@ -115,3 +121,4 @@ Tests: `--dry-run` pinchado por las tres cosas que importan —el `from → to`,
 
 - 2026-09-03 15:11Z illodev@local#062a7c97 · backlog → next
 - 2026-09-03 15:31Z illodev@local#062a7c97 · next → review
+- 2026-09-03 22:41Z illodev@local#5c0f3978 · review → done
