@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.2 — 2026-09-03
+
+### Changed
+
+- The record graph keeps following links quoted in code, and now says why
+
+### Fixed
+
+- Doc links read balanced parentheses and the angle-bracket form
+- The scope guard stops prompting you about your own claim
+- The stale-filename warning names the scoped fix, not the workspace-wide one
+
 ## 0.9.1 — 2026-08-27
 
 ### Fixed
