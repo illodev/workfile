@@ -133,6 +133,7 @@ const USAGE: Record<string, string[]> = {
         "workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]",
         "workfile doctor --fix   # heal duplicate IDs of any kind, stale filenames and misplaced trail entries",
         "workfile doctor --fix --only T-0042,T-0043   # ...but only those records",
+        "workfile doctor --fix --dry-run   # preview the renames, and who links to the old names, writing nothing",
         "workfile doctor --new   # only what appeared since the baseline; exits 1 on anything new",
         "workfile doctor --accept-baseline   # record the current state as known"
     ],
@@ -537,6 +538,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "doctor": [
         "--rebuild-cache",
         "--fix",
+        "--dry-run",
         "--only",
         "--actor",
         "--severity",
@@ -685,7 +687,12 @@ const DRY_RUN_COMMANDS = new Set([
     "claude install",
     "claude sync",
     "migrate schema",
-    "migrate apply"
+    "migrate apply",
+    // Previews the rename only, and its own output says the other two repairs
+    // were not previewed. Listed here so the guard above lets it through: the
+    // guard refuses `--dry-run` on anything that would have written anyway,
+    // which is exactly the failure this flag exists to prevent (T-0233).
+    "doctor"
 ]);
 
 const DRY_RUN_ALTERNATIVE = {
@@ -2710,6 +2717,23 @@ async function main() {
             | null = null;
         if (has("--fix")) {
             const actor = option("--actor") || defaultActor();
+            /**
+             * A preview that writes nothing, and says exactly what it covers.
+             *
+             * It previews the **rename** and runs neither of the other two
+             * repairs. That is a deliberately narrow promise rather than a wide
+             * one it could not keep: the ID repair delegates its writes to
+             * `renumberRecord`, which rewrites bodies and moves files, and a
+             * `--dry-run` that quietly skipped it would report "nothing to do"
+             * for a repair it never looked at. The rename is also the one that
+             * has caused damage — 63 files belonging to other sessions on
+             * 2026-08-27 — so it is the one worth seeing first (T-0233).
+             *
+             * The output names the two repairs it did not run, because a
+             * preview that is silent about its own blind spot is how somebody
+             * concludes `--fix` is safe and it is not.
+             */
+            const dryRun = has("--dry-run");
             // `--only` narrows all three repairs, not just the rename. The
             // rename is the one that has caused damage — on 2026-08-27 a run
             // launched for a single card moved 63 files belonging to other
@@ -2718,6 +2742,39 @@ async function main() {
             // a scope it does not keep. Absent, every repair stays workspace
             // wide, which is what an unattended maintenance pass wants.
             const ids = listOption("--only") || null;
+            if (dryRun) {
+                const preview = await reslugStaleRecordFiles(workspace, {
+                    actor,
+                    ids,
+                    dryRun: true
+                });
+                const payload = {
+                    dryRun: true,
+                    wouldRename: preview.moves,
+                    renameSkipped: preview.skipped,
+                    notPreviewed: ["duplicate-ids", "trail-entries"]
+                };
+                if (has("--json")) return print(payload);
+                for (const move of preview.moves) {
+                    console.log(`would rename: ${move.from} → ${move.to}`);
+                    if (move.references.length) {
+                        console.log(
+                            `              referenced by ${move.references.join(", ")}` +
+                                `${move.referencesPartial ? " (and more)" : ""}` +
+                                " — those links name the old filename and would break"
+                        );
+                    }
+                }
+                for (const skip of preview.skipped) {
+                    console.log(`would skip: ${skip.id} — ${skip.reason}`);
+                }
+                console.log(
+                    `${preview.moves.length} rename(s) previewed, nothing written. ` +
+                        "Duplicate ids and misplaced trail entries were NOT previewed; " +
+                        "`--fix` without `--dry-run` repairs those too."
+                );
+                return;
+            }
             const healed = await healDuplicateRecordIds(workspace, {
                 actor,
                 ids
@@ -2762,6 +2819,17 @@ async function main() {
                 }
                 for (const move of renamed.moves) {
                     console.log(`renamed: ${move.from} → ${move.to}`);
+                    // Printed after the fact because that is when it is
+                    // actionable: `doctor` will report these as dead links on
+                    // some later run under a different rule, and never say which
+                    // rename produced them.
+                    if (move.references.length) {
+                        console.log(
+                            `         referenced by ${move.references.join(", ")}` +
+                                `${move.referencesPartial ? " (and more)" : ""}` +
+                                " — those links named the old filename and are now broken"
+                        );
+                    }
                 }
                 for (const repair of trails.moved) {
                     console.log(

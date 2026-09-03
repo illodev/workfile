@@ -1,7 +1,7 @@
 ---
 id: T-0233
 title: doctor --fix cannot be scoped, and its own warning recommends it
-status: next
+status: review
 type: bug
 priority: medium
 area: core
@@ -49,8 +49,8 @@ with `git mv`. That it had to be written outside is the report.
 ## Acceptance criteria
 
 - [x] `doctor --fix` can be limited to one or more ids
-- [ ] `doctor --fix --dry-run` prints the `from → to` list without writing
-- [ ] Before renaming, references to the old filename are reported
+- [x] `doctor --fix --dry-run` prints the `from → to` list without writing
+- [x] Before renaming, references to the old filename are reported
 - [x] The `filename-stale` message does not recommend a repository-wide rewrite as the only remedy
 
 ## Notes
@@ -77,7 +77,41 @@ Y va **pinchado por nombre** en `cli.test.ts` —`/doctor --fix --only T-0001/` 
 - **#3 referencias al nombre viejo reportadas antes de renombrar** — sin empezar. Es el que evita el daño real: renombrar un fichero al que apuntan enlaces deja los enlaces rotos y el `doctor` no los relaciona con el renombrado que los rompió.
 
 **Salida: `next`, no `review`.** Dos criterios cumplidos de cuatro, y los dos que faltan son trabajo dentro de la ficha, no evidencia de runtime.
+- 2026-09-03 15:31Z illodev@local#062a7c97 — **Los cuatro criterios cerrados. Terminada, no cardeada** — se arreglaba en los mismos dos ficheros y lo probaba la misma tirada.
+
+**#2 `--fix --dry-run`.** Y hay una decisión de alcance dentro: **previsualiza el renombrado y NO corre los otros dos arreglos.** Es una promesa deliberadamente estrecha en vez de una ancha que no podría cumplir — el arreglo de ids delega sus escrituras en `renumberRecord`, que reescribe cuerpos y mueve ficheros, y un `--dry-run` que se lo saltara en silencio informaría «nada que hacer» de un arreglo que no miró. La salida **nombra los dos que no previsualizó**, porque una vista previa callada sobre su propio punto ciego es como alguien concluye que `--fix` es seguro y no lo es.
+
+Y hubo que meterlo en `DRY_RUN_COMMANDS`: el guard `assertDryRunSupported` **rechazó el flag** con `CLI_FLAG_UNSUPPORTED: does not implement --dry-run, and would have made the change anyway`. Ese guard es exactamente lo correcto y merece quedar dicho: se negó en vez de escribir.
+
+**#3 referencias antes de renombrar.** `pathReferrersOf` saca los enlaces entrantes con relación `markdown` — los que nombran un **fichero** y por tanto se rompen; un wiki-link o una arista de frontmatter nombra un **id** y sobrevive. Se leen de `relations` y no de `relation`, porque el segundo es el ganador del ranking y una ficha que además te liste en `related:` mostraría `related` y se perdería. Y si `incoming` venía recortado por `maxBacklinks`, la entrada trae `referencesPartial` en vez de un número que parece completo.
+
+Se imprimen en las dos rutas: en la previa («would break») y en el `--fix` de verdad («are now broken»). El motivo de imprimirlas también en el real: `doctor` reportará esos enlaces muertos en alguna tirada posterior, bajo otra regla, **y nunca dirá qué renombrado los produjo**.
+
+## Medido sobre el repositorio que lo reportó
+
+```
+63 rename(s) previewed, nothing written.
+Duplicate ids and misplaced trail entries were NOT previewed; `--fix` without `--dry-run` repairs those too.
+```
+
+**63 renombrados, 34 de ellos con referencias que se romperían, y cero escrituras** — comprobado leyendo `git status` después: 0 ficheros renombrados. Es el incidente del 2026-08-27 mostrado **antes** de ocurrir, y el número coincide con el que se midió entonces.
+
+Ejemplo de la salida:
+
+```
+would rename: ADR-0001-enterprise-ai-usage-refactor.md → ADR-0001-refactor-de-….md
+              referenced by DOC-0039, DOC-0120, ADR-0005 — those links name the old filename and would break
+```
+
+## Un fallo propio, porque explica un número que aparece en el historial
+
+La primera tirada del `--dry-run` imprimió **0 renombrados** y estuve a punto de darlo por roto. No lo estaba: `… | tee fichero | head -8` cierra la tubería a las ocho líneas, node recibe EPIPE y muere antes de la mitad. **Un `head` puede convertir una medición correcta en un cero**, y es la misma familia que «un pipe devuelve el código de `tail`».
+
+Tests: `--dry-run` pinchado por las tres cosas que importan —el `from → to`, el `notPreviewed`, y **que el fichero siga donde estaba**, leído del disco y no creído del informe—, más un tercer registro en el fixture que enlaza a T-0001 **por nombre de fichero**, porque sin él la lista de referencias se habría aseverado vacía y no probaría nada. Suite: **500 pass, 0 fail**; ratchet `strict` aguantado.
+
+**Salida: `review`.** 4 de 4 criterios, nada pendiente dentro. Falta verlo correr publicado.
 
 ## Activity
 
 - 2026-09-03 15:11Z illodev@local#062a7c97 · backlog → next
+- 2026-09-03 15:31Z illodev@local#062a7c97 · next → review

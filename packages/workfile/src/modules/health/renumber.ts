@@ -553,11 +553,45 @@ export async function healDuplicateCardIds(workspace, options: any = {}) {
  * Which kinds are in scope, and why the others are not, is stated once in
  * `filenames.ts` — the same function that decides what to report.
  */
+/**
+ * Who links to this record **by path**, and therefore breaks when it is renamed.
+ *
+ * A wiki-link or a frontmatter edge names an id and survives any rename; a
+ * Markdown link names a file and does not. So the referrers that matter here
+ * are exactly the `markdown` ones, and reporting them is the difference
+ * between "renamed" and "renamed, and here is what now points at nothing"
+ * (T-0233). `doctor` does report the dead links afterwards, on a later run and
+ * under a different rule — it never connects them to the rename that caused
+ * them, which is what makes them expensive to chase.
+ *
+ * `relations` rather than `relation`: the latter is the ranked winner, so a
+ * record that both lists this one in `related:` and links to its file shows
+ * `related` and would be missed.
+ */
+function pathReferrersOf(record) {
+    const links = record.incoming || [];
+    const ids = links
+        .filter((link) =>
+            (link.relations || [link.relation]).includes("markdown")
+        )
+        .map((link) => link.id);
+    return {
+        ids,
+        // `incoming` is capped at `maxBacklinks`, so on a hub record this list
+        // is a sample. Saying so beats a number that looks complete.
+        partial: (record.incomingTotal || links.length) > links.length
+    };
+}
+
 export async function reslugStaleRecordFiles(
     workspace,
-    { actor = null, now, kinds = null, ids = null }: any = {}
+    { actor = null, now, kinds = null, ids = null, dryRun = false }: any = {}
 ) {
-    ensureWritable(workspace);
+    // Not for a dry run: `ensureWritable` is about whether writes are allowed,
+    // and a preview performs none. Refusing it here would make the flag useless
+    // exactly where it is most wanted — a read-only checkout, or a caller that
+    // wants to see the damage before deciding to permit any.
+    if (!dryRun) ensureWritable(workspace);
     const index = await buildProjectIndex(workspace);
     const wanted = kinds ? new Set(kinds) : null;
     // `ids` narrows the sweep to the records the caller named. Absent, the sweep
@@ -566,7 +600,13 @@ export async function reslugStaleRecordFiles(
     // the record you came for and renaming every file whose title moved —
     // including the ones another session retitled and has not committed yet.
     const onlyIds = ids ? new Set(ids) : null;
-    const moves: Array<{ id: string; from: string; to: string }> = [];
+    const moves: Array<{
+        id: string;
+        from: string;
+        to: string;
+        references: string[];
+        referencesPartial?: true;
+    }> = [];
     const skipped: Array<{ id: string; file: string; reason: string }> = [];
     // Every path the workspace already holds, so a rename cannot land on one.
     // Read once and kept current as moves happen, which is what makes two records
@@ -586,6 +626,22 @@ export async function reslugStaleRecordFiles(
         const to = `${directory}/${entry.expected}`;
         if (taken.has(to)) {
             skipped.push({ id: record.id, file: entry.current, reason: "name-taken" });
+            continue;
+        }
+        const referrers = pathReferrersOf(record);
+        const entryMove = {
+            id: record.id,
+            from: entry.current,
+            to: entry.expected,
+            references: referrers.ids,
+            ...(referrers.partial ? { referencesPartial: true as const } : {})
+        };
+        // Nothing is written and nothing is claimed: `taken` stays as it was, so
+        // two records wanting one slug both appear in the preview rather than
+        // the second being reported as a collision that a real run would not
+        // have had in that order.
+        if (dryRun) {
+            moves.push(entryMove);
             continue;
         }
         const absoluteFrom = join(workspace.root, from);
@@ -611,7 +667,7 @@ export async function reslugStaleRecordFiles(
         await rm(absoluteFrom, { force: true });
         taken.delete(from);
         taken.add(to);
-        moves.push({ id: record.id, from: entry.current, to: entry.expected });
+        moves.push(entryMove);
     }
     return { moves, skipped };
 }

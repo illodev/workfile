@@ -1451,6 +1451,29 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
         );
         await run(["card", "patch", "T-0001", "--root", root, "--json-input", changes]);
 
+        // A card that links to T-0001 BY FILENAME. This is the reference a
+        // rename breaks and an id-based one does not, so without it the
+        // reference report would be asserted empty and prove nothing.
+        await writeFile(
+            join(root, ".project/cards/T-0003-referrer.md"),
+            [
+                "---",
+                "id: T-0003",
+                "title: Referrer",
+                "status: next",
+                "type: task",
+                "priority: medium",
+                "area: general",
+                "created: 2026-09-03",
+                "updated: 2026-09-03",
+                "raised: derived",
+                "---",
+                "",
+                "See [the example](T-0001-example.md).",
+                ""
+            ].join("\n")
+        );
+
         const stale = JSON.parse(
             (await outcome(["doctor", "--root", root, "--json"])).stdout
         );
@@ -1465,6 +1488,49 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
         // uncommitted. Pinned by name, because the whole value is in the flag.
         assert.match(drift.message, /doctor --fix --only T-0001/);
         assert.match(drift.message, /Plain `--fix` renames every stale filename/);
+
+        // T-0233 #2 and #3, driven together because they answer one question:
+        // "what would this do, and what does it break?". The preview writes
+        // nothing — asserted by reading the directory back, not by trusting the
+        // report — and names the records whose Markdown links point at the file
+        // about to move. Those are the links a rename breaks; a wiki-link or a
+        // frontmatter edge names an id and survives.
+        const preview = JSON.parse(
+            (
+                await outcome([
+                    "doctor",
+                    "--root",
+                    root,
+                    "--fix",
+                    "--dry-run",
+                    "--json"
+                ])
+            ).stdout
+        );
+        assert.equal(preview.dryRun, true);
+        assert.deepEqual(
+            preview.wouldRename.map((move: any) => `${move.from} → ${move.to}`),
+            [
+                "T-0001-example.md → T-0001-something-else-entirely.md",
+                "T-0002-completed.md → T-0002-completed-task.md"
+            ]
+        );
+        assert.deepEqual(
+            preview.wouldRename.find((move: any) => move.id === "T-0001")
+                ?.references,
+            ["T-0003"],
+            "the preview did not name the card that links to the old filename"
+        );
+        // The preview has to say what it did NOT look at, or somebody reads a
+        // clean run as "`--fix` is safe here" for repairs it never previewed.
+        assert.deepEqual(preview.notPreviewed, ["duplicate-ids", "trail-entries"]);
+        // The file is still where it was. This is the assertion that matters:
+        // a dry run that reports correctly and writes anyway is the exact bug
+        // the flag exists to prevent.
+        assert.ok(
+            await readFile(join(root, ".project/cards/T-0001-example.md"), "utf8"),
+            "the dry run moved the file it was only supposed to describe"
+        );
 
         const fixed = JSON.parse(
             (
@@ -1488,12 +1554,16 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
             {
                 id: "T-0001",
                 from: "T-0001-example.md",
-                to: "T-0001-something-else-entirely.md"
+                to: "T-0001-something-else-entirely.md",
+                // Always present, empty or not: a caller that has to test for
+                // the key's existence before reading it will forget to.
+                references: ["T-0003"]
             },
             {
                 id: "T-0002",
                 from: "T-0002-completed.md",
-                to: "T-0002-completed-task.md"
+                to: "T-0002-completed-task.md",
+                references: []
             }
         ]);
 
