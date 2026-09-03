@@ -768,3 +768,160 @@ test("an unclosed fence swallows the rest of the document, as a renderer would",
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * A parenthesised directory is a path, and half a framework is laid out that way.
+ *
+ * The extractor used to end the destination at the **first** `)`, so
+ * `[x](../a/(private)/b.tsx)` was validated as `../a/(private` — a path nobody
+ * wrote. Either the checker reported that invention or it dropped the link as
+ * unverifiable; either way the real link stayed broken and `doctor` was green.
+ * Next.js App Router route groups are exactly this shape (`(private)`,
+ * `(portal)`, `(app)`), and one consuming repository had **182 links whose
+ * destination holds parentheses, none of them validated** (T-0232).
+ *
+ * The last case is the one that made the report unactionable rather than just
+ * wrong: `[locale]` in front of the route group. Segment brackets close the
+ * label pattern early, so the scanner did not recognise the link at all — no
+ * warning of any kind, which is how the two links that started this went
+ * unseen through a whole sweep of the tree.
+ */
+test("a destination with balanced parentheses is read whole", async () => {
+    const root = await makeWorkspace();
+    try {
+        await mkdir(join(root, "src", "app", "[locale]", "(private)", "feedback"), {
+            recursive: true
+        });
+        await writeFile(
+            join(root, "src", "app", "[locale]", "(private)", "feedback", "page.tsx"),
+            "export default function Page() {}\n"
+        );
+        await writeFile(
+            join(root, "docs", "guides", "routes.md"),
+            [
+                "# Route groups",
+                "",
+                "Real: [feedback](../../src/app/[locale]/(private)/feedback/page.tsx)",
+                "",
+                "Also real, wrapped: [same](<../../src/app/[locale]/(private)/feedback/page.tsx>)",
+                "",
+                "Broken: [gone](../../src/app/[locale]/(private)/gone/page.tsx)",
+                ""
+            ].join("\n")
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        const broken = index.reports.docs.issues
+            .filter((issue) => issue.code === "doc-broken-local-link")
+            .map((issue) => issue.details.target);
+        assert.deepEqual(
+            broken,
+            ["../../src/app/[locale]/(private)/gone/page.tsx"],
+            "the two that exist must resolve, and the report must name the whole path"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * What the scan refuses, so that counting parentheses does not swallow prose.
+ *
+ * A destination does not cross a line and an unbalanced `)` closes it: those
+ * two together are what keep `](` in ordinary text from eating the rest of a
+ * paragraph. `\)` is an escape, so a paren can still be part of a path that
+ * has an odd number of them.
+ */
+test("an unterminated or line-crossing destination is not a link", async () => {
+    const root = await makeWorkspace();
+    try {
+        await writeFile(join(root, "docs", "guides", "real.md"), "# Real\n");
+        await writeFile(
+            join(root, "docs", "guides", "prose.md"),
+            [
+                "# Prose",
+                "",
+                "A shape that never closes: see [this](and-then-nothing",
+                "",
+                "and the next line mentions real.md but is not a link.",
+                "",
+                "Balanced and closed: [ok](real.md)",
+                ""
+            ].join("\n")
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace, { diagnose: true });
+        assert.deepEqual(
+            index.reports.docs.issues
+                .filter((issue) => issue.code === "doc-broken-local-link")
+                .map((issue) => issue.details.target),
+            [],
+            "an unterminated destination is text, and real.md exists"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The bound survived the move from a pattern to a scan — and the first version
+ * of this test proved something else entirely, which is why it says what it
+ * says now.
+ *
+ * Written as a wall clock over `buildProjectIndex`, it failed at 43.9s and its
+ * message blamed the link scan. **It was not the link scan.** A CPU profile put
+ * 37.6s of those 43.9 inside `/\[[^\]]*\]\(([^)]+)\)/` — a *second*,
+ * unbounded copy of this extractor in `modules/records/index.ts`, with the same
+ * truncation bug and none of the bound — against 350ms for the scan itself over
+ * the same body. An assertion whose message names the wrong cause is worse than
+ * no assertion: it sends the next person to the wrong file. Both copies are now
+ * one module, and this measures that module rather than a pipeline that
+ * contains it.
+ *
+ * The threshold asserts a complexity class, not a machine: unbounded was 37.6s
+ * over this input, bounded is under half a second.
+ */
+test("the link scan is linear in the body, whatever the body is", async () => {
+    const { markdownLinks } = await import("../dist/src/core/markdown.js");
+    const body = `# Pathological\n\n${"[a](".repeat(128_000)}\n`;
+    const started = Date.now();
+    let found = 0;
+    for (const _ of markdownLinks(body)) found += 1;
+    const elapsed = Date.now() - started;
+    assert.equal(found, 0, "none of these links closes, so none is a link");
+    assert.ok(
+        elapsed < 5_000,
+        `the scan took ${elapsed}ms; the unbounded pattern took 37.6s here`
+    );
+});
+
+/**
+ * What the scan reads, stated as a table, because prose about parentheses is
+ * how the first version of this got written wrong.
+ */
+test("a destination is read as CommonMark defines it", async () => {
+    const { localLinkTarget, markdownLinks } = await import(
+        "../dist/src/core/markdown.js"
+    );
+    const read = (text: string) =>
+        [...markdownLinks(text)].map((link) => link.target);
+
+    assert.deepEqual(read("[x](a/(private)/b.tsx)"), ["a/(private)/b.tsx"]);
+    assert.deepEqual(read("[x](a/(p)/(q)/b.tsx)"), ["a/(p)/(q)/b.tsx"]);
+    assert.deepEqual(read("[x](<a/(private)/b.tsx>)"), ["a/(private)/b.tsx"]);
+    assert.deepEqual(read("[`code`](a/(p)/b.tsx)"), ["a/(p)/b.tsx"]);
+    // An odd parenthesis is written escaped, which is also CommonMark.
+    assert.deepEqual(read("[x](a/half\\).tsx)"), ["a/half\\).tsx"]);
+    // And the refusals: unbalanced, unterminated, across a line, empty.
+    assert.deepEqual(read("[x](a/(private/b.tsx)"), []);
+    assert.deepEqual(read("[x](never-closes"), []);
+    assert.deepEqual(read("[x](a/\nb.tsx)"), []);
+    assert.deepEqual(read("[x]()"), []);
+    // The angle form must close on the `)`, or it is prose.
+    assert.deepEqual(read("[x](<a/b.tsx> title)"), []);
+
+    assert.equal(localLinkTarget("  ./a/(p)/b.tsx?v=1#L2  "), "./a/(p)/b.tsx");
+    assert.equal(localLinkTarget("https://example.com/x"), null);
+    assert.equal(localLinkTarget("#section"), null);
+    assert.equal(localLinkTarget("%zz"), "%zz", "a bad escape stays literal");
+});

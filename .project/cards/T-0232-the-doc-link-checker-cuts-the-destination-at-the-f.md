@@ -1,13 +1,13 @@
 ---
 id: T-0232
 title: The doc link checker cuts the destination at the first parenthesis
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 raised: reported
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 The doc link extractor cuts the destination at the first `)`, so any link into a path that contains
@@ -46,7 +46,71 @@ entirely. Supporting either would close this.
 
 ## Acceptance criteria
 
-- [ ] A broken link whose destination contains balanced parentheses is reported
-- [ ] A link with `<…>` around the destination is read as the whole destination
-- [ ] A link that resolves and contains parentheses is not reported
-- [ ] A test uses a Next route-group path, which is the real case
+- [x] A broken link whose destination contains balanced parentheses is reported
+- [x] A link with `<…>` around the destination is read as the whole destination
+- [x] A link that resolves and contains parentheses is not reported
+- [x] A test uses a Next route-group path, which is the real case
+
+## Notes
+
+- 2026-09-03 14:20Z illodev@local#062a7c97 — Fixed, and the interesting part is that there were **two** extractors, not one.
+
+`core/markdown.ts` now reads a destination the way CommonMark defines it — depth-counted balanced
+parentheses, the `<…>` form, and `\)` as an escape — and both callers use it:
+`modules/docs/validation.ts` (the checker) and `modules/records/index.ts` (the `markdown` relation
+between records). The second one was a near-verbatim copy of the same pattern **and the same target
+normalisation**, so this defect was reported once and had to be fixed twice. A link into a route
+group was validated against a path nobody wrote *and* recorded as a relationship to a path nobody
+wrote.
+- 2026-09-03 14:22Z illodev@local#062a7c97 — **Salida: `review`, no `done`.** Los cuatro criterios estan cumplidos y medidos; lo que falta es que alguien lo corra publicado. Nada de esto esta en npm todavia, asi que ningun consumidor lo ejecuta: eso es exactamente lo que `review` significa.
+
+## Measured on the reported case, end to end
+
+The two links from the reporting repository's `DOC-0137`, in a disposable workspace with the
+`(private)` target present on disk and the `(portal)` one absent:
+
+| | reports |
+| --- | --- |
+| 0.9.1 | **2** broken: `…/[locale]/(private` and `…/[locale]/(portal` |
+| this build | **1** broken: `…/[locale]/(portal)/portal/[slug]/onboarding/page.tsx` |
+
+So 0.9.1 got it wrong in both directions at once: it reported the link that **resolves** and it
+named a path that **nobody wrote**, truncated at the first `)`. The angle-bracketed twin was
+invisible. Now the two that exist resolve, the broken one is reported, and the report names the
+whole path — which is what makes it actionable.
+
+And on the reporting repository itself, `doctor --json` returns **538 issues before and 538 after**,
+same codes and same counts. The fix adds no warning there; what it closes is the blind spot.
+
+## The second copy was also quadratic, and that is how it was found
+
+The first version of the new test was a wall clock over `buildProjectIndex` and it failed at 43.9s
+with a message blaming the link scan. It was not the link scan. A CPU profile put **37.6s of those
+43.9 inside `/\[[^\]]*\]\(([^)]+)\)/`** — the `records` copy, which never got the bound
+`validation.ts` grew in T-0224's neighbourhood. Over the same body the new scan takes **350ms**, and
+`buildProjectIndex` over the pathological document went **39.3s → 951ms**.
+
+Two lessons worth keeping. An assertion whose message names the wrong cause is worse than no
+assertion, because it sends the next person to the wrong file — the test now drives
+`markdownLinks` directly and says what the profile said. And fixing one copy of a duplicated
+extractor leaves the bug and adds a disagreement about what a link is, which is the argument for
+`core/markdown.ts` rather than a second patch.
+
+## Tests
+
+- `a destination with balanced parentheses is read whole` — the real App Router shape, `[locale]`
+  in front of `(private)`, bare and angle-bracketed, plus a genuinely broken sibling.
+- `an unterminated or line-crossing destination is not a link` — what keeps `](` in prose from
+  eating a paragraph.
+- `a destination is read as CommonMark defines it` — the table: nested groups, escapes, and the
+  four refusals.
+- `the link scan is linear in the body, whatever the body is` — 128,000 unterminated links.
+
+Suite: **500 pass, 0 fail**; `strict` ratchet held (449 known, none new).
+
+Left open on purpose: `records` still follows links shown inside code fences, which the checker
+masks. That asymmetry is not a decision, it is what the two copies already did — [[T-0236]].
+
+## Activity
+
+- 2026-09-03 14:22Z illodev@local#062a7c97 · backlog → review

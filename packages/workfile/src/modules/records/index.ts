@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 import { discoverFiles, normalizeRepoPath } from "../../core/glob.js";
+import { localLinkTarget, markdownLinks } from "../../core/markdown.js";
 import { mapWithConcurrency } from "../../core/concurrency.js";
 import { axisNames, loadCards } from "../cards/index.js";
 import { diagnoseChangelog, loadChangelog } from "../changelog/index.js";
@@ -199,24 +200,24 @@ function rankRelations(relations: string[]): string[] {
     );
 }
 
+/**
+ * The document paths a record's body links to.
+ *
+ * The extractor is `core/markdown.ts`, shared with the doc link checker, and it
+ * used to be a second copy of it here — with the same first-`)` truncation
+ * (T-0232) and without the bound the other copy had grown. So a link into a
+ * route-group directory produced a `markdown` relation to a path nobody wrote,
+ * silently, and a body of unterminated links cost 37.6s in this function.
+ *
+ * Links shown inside code are still followed here, unlike in the checker, which
+ * masks them. That asymmetry is not a decision, it is what the two copies
+ * already did; T-0236 is where it gets settled.
+ */
 function markdownDocumentPaths(record) {
     const links = [];
-    const pattern = /\[[^\]]*\]\(([^)]+)\)/g;
-    for (const match of String(record.body || "").matchAll(pattern)) {
-        let target = match[1].trim().replace(/^<|>$/g, "");
-        if (
-            !target ||
-            target.startsWith("#") ||
-            /^[a-z][a-z0-9+.-]*:/i.test(target)
-        ) {
-            continue;
-        }
-        target = target.split(/[?#]/, 1)[0];
-        try {
-            target = decodeURIComponent(target);
-        } catch {
-            // Keep malformed percent escapes as a literal path.
-        }
+    for (const link of markdownLinks(String(record.body || ""))) {
+        const target = localLinkTarget(link.target);
+        if (!target) continue;
         const resolved = target.startsWith("/")
             ? target.slice(1)
             : posix.normalize(posix.join(posix.dirname(record.path), target));
