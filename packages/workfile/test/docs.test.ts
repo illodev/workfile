@@ -925,3 +925,72 @@ test("a destination is read as CommonMark defines it", async () => {
     assert.equal(localLinkTarget("#section"), null);
     assert.equal(localLinkTarget("%zz"), "%zz", "a bad escape stays literal");
 });
+
+/**
+ * A link quoted inside code still makes an edge, and that is the decision.
+ *
+ * The doc checker masks code before following links, because a template
+ * teaching `` `[texto](categoria/slug)` `` was reported as linking to a
+ * category that does not exist. The record graph does not mask, and T-0236
+ * asked whether that asymmetry was an oversight. Measured over a 2 700-record
+ * repository: 1 863 Markdown links, 17 of them inside a code span or fence,
+ * and **0 of those 17 produce an edge**.
+ *
+ * The reason is that the two consumers filter differently. An edge needs the
+ * target to resolve to a record the index already knows; what people write
+ * inside a fence is a placeholder or a path into source code, and neither is a
+ * record. The checker resolves against files on disk, where a placeholder can
+ * land on a real path.
+ *
+ * So masking here would change nothing measurable and would cost the one case
+ * it cannot tell apart: a record documenting a relationship by quoting the
+ * other's path. This pins that, so a future change has to argue with the
+ * number rather than with the symmetry.
+ */
+test("a link quoted inside code still relates two records", async () => {
+    const root = await makeWorkspace();
+    try {
+        await writeFile(
+            join(root, "docs", "guides", "quoting.md"),
+            [
+                "---",
+                "id: DOC-0090",
+                "kind: guide",
+                "title: Quoting",
+                "status: active",
+                "owner: tester",
+                "created: 2026-09-03",
+                "updated: 2026-09-03",
+                "---",
+                "",
+                "The house style, shown rather than followed:",
+                "",
+                "```markdown",
+                "[billing](billing.md)",
+                "```",
+                ""
+            ].join("\n")
+        );
+        const workspace = await loadWorkspace({ root });
+        const index = await buildProjectIndex(workspace);
+        const quoting = index.records.find(
+            (record) => record.path === "docs/guides/quoting.md"
+        );
+        const billing = index.records.find(
+            (record) => record.path === "docs/guides/billing.md"
+        );
+        assert.ok(quoting, "the fixture document was not indexed");
+        assert.ok(billing, "the link target was not indexed");
+        assert.deepEqual(
+            quoting.outgoing
+                .filter((link: any) =>
+                    (link.relations || [link.relation]).includes("markdown")
+                )
+                .map((link: any) => link.id),
+            [billing.id],
+            "the quoted link stopped producing an edge; T-0236 decided it should"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

@@ -209,9 +209,25 @@ function rankRelations(relations: string[]): string[] {
  * route-group directory produced a `markdown` relation to a path nobody wrote,
  * silently, and a body of unterminated links cost 37.6s in this function.
  *
- * Links shown inside code are still followed here, unlike in the checker, which
- * masks them. That asymmetry is not a decision, it is what the two copies
- * already did; T-0236 is where it gets settled.
+ * **Links shown inside code are followed here, unlike in the doc checker, which
+ * masks them — and that asymmetry is now a decision rather than an accident
+ * (T-0236).** Measured over a 2 700-record repository: 1 863 Markdown links, of
+ * which 17 sit inside a code span or fence, and **0 of those 17 produce an
+ * edge**. The mask would change nothing.
+ *
+ * The mechanism, because a zero without one is just a number waiting to change:
+ * an edge exists only when the target resolves to **a record this index already
+ * knows**. What people write inside a fence is a template placeholder
+ * (`categoria/sub/nombre-doc`, `slug-canonical-1`) or a path into source code —
+ * neither is a record. The checker resolves against **files on disk** instead,
+ * so a template teaching `` `[texto](categoria/slug)` `` can land on a real
+ * path, which is exactly the false report that put the mask there.
+ *
+ * So the two consumers filter differently and that filter is what makes the
+ * mask redundant here. Adding it anyway would cost the case it cannot
+ * distinguish: a record that documents a relationship by quoting the other's
+ * path in a fence would silently lose its edge. Pinned by a test, so a future
+ * change to masking has to argue with the measurement.
  */
 function markdownDocumentPaths(record) {
     const links = [];

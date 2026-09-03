@@ -1,7 +1,7 @@
 ---
 id: T-0236
 title: The record graph follows links shown inside code, which the doc checker masks
-status: backlog
+status: review
 type: bug
 priority: low
 area: core
@@ -28,10 +28,55 @@ Measuring it is what settles it: count the `markdown` edges that come from insid
 
 ## Acceptance criteria
 
-- [ ] Measured how many `markdown` edges originate inside code, on a real corpus
-- [ ] One of the two readings chosen, with the count next to it
-- [ ] The two extractors' treatment of code is the same, or the difference is written down where both are
+- [x] Measured how many `markdown` edges originate inside code, on a real corpus
+- [x] One of the two readings chosen, with the count next to it
+- [x] The two extractors' treatment of code is the same, or the difference is written down where both are
 
 ## Activity
 
 - 2026-09-03 14:22Z illodev@local#062a7c97 · renumbered from T-0234
+- 2026-09-03 15:54Z illodev@local#062a7c97 · backlog → review
+
+## Notes
+
+- 2026-09-03 15:54Z illodev@local#062a7c97 — **Medida y decidida: la asimetría se queda, y ahora es una decisión con número detrás.**
+
+## La medida, sobre 2 700 registros
+
+| | |
+| --- | ---: |
+| enlaces markdown en total | **1 863** |
+| ...dentro de un span o una valla | **17** |
+| ...de esos 17, cuántos producen una arista | **0** |
+
+La máscara aquí no cambiaría nada. Cero.
+
+## Y el mecanismo, porque un cero sin explicación es un número esperando a cambiar
+
+Comprobé primero que **la máscara dispara** en este corpus —17, no 0—, porque un cero producido por
+un detector apagado se lee igual que un cero real y es el modo de fallo que más veces ha mordido
+hoy.
+
+La razón de que ninguno llegue a arista es que **los dos consumidores filtran distinto**:
+
+- una **arista** existe sólo cuando el destino resuelve a **un registro que el índice ya conoce**;
+- lo que la gente escribe dentro de una valla es un **placeholder de plantilla**
+  (`categoria/sub/nombre-doc`, `slug-canonical-1`, `…`) o una **ruta a código fuente**
+  (`../../../apps/api/src/.../LimitReset…`). Ninguna de las dos es un registro.
+
+El **chequeo de enlaces**, en cambio, resuelve contra **ficheros en disco**, así que el
+`` `[texto](categoria/slug)` `` de una plantilla sí puede caer sobre una ruta real — que es
+exactamente el falso positivo que puso la máscara allí.
+
+## La decisión: opción 2 de la ficha — se queda, y se escribe
+
+Añadir la máscara aquí cambiaría **cero** aristas medidas y costaría el único caso que no sabe
+distinguir: un registro que documenta una relación **citando la ruta del otro** en una valla
+perdería su arista, en silencio. Cambiar algo por simetría, sin beneficio medido y con un coste
+real, es lo contrario de lo que pedía esta ficha.
+
+Queda escrito en el docblock de `markdownDocumentPaths` —con los tres números— y **pinchado por un
+test**: `a link quoted inside code still relates two records`. Así, quien quiera unificarlo tiene
+que discutir con la medición y no con la simetría. Suite: **501 pass, 0 fail**.
+
+**Salida: `review`.** Los tres criterios cumplidos; falta verlo correr publicado.
