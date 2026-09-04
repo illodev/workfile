@@ -7,6 +7,7 @@ import {
     mkdir,
     mkdtemp,
     readFile,
+    readdir,
     rm,
     writeFile
 } from "node:fs/promises";
@@ -1830,6 +1831,79 @@ test("the scope guard and the activity snapshot apply one separation rule", asyn
                 `${scenario.label}: claimSeparation said ${basis ?? "one process"}, the guard ${
                     prompted ? "prompted" : "stayed silent"
                 }`
+            );
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    }
+});
+
+/**
+ * The shape of a `scope:` is a formatter's business, and it was the guard's.
+ *
+ * The hook's frontmatter parser understood a flow sequence closed on the line
+ * that opened it, and nothing else. Both other shapes are what a formatter
+ * leaves behind, so a pass by one turned a protected card into an unprotected
+ * one — silently, which is the part that matters: a block sequence arrived as
+ * an empty scope, and a re-wrapped flow sequence as a single entry `[` that
+ * matches nothing while still looking like a scope.
+ */
+test("a scope survives every shape a formatter can leave it in", async () => {
+    const shapes = {
+        "block sequence": "scope:\n    - src/api\n    - src/billing\n",
+        "re-wrapped flow sequence": 'scope:\n    [\n        "src/api",\n        "src/billing"\n    ]\n'
+    };
+    for (const [shape, written] of Object.entries(shapes)) {
+        const root = await mkdtemp(join(tmpdir(), "workfile-scope-shape-"));
+        try {
+            await cp(fixture, root, { recursive: true });
+            const workspace = await loadWorkspace({ root });
+            const card = await createCard(workspace, {
+                title: `Owned elsewhere, ${shape}`,
+                area: "api"
+            });
+            await claimCard(workspace, card.id, {
+                actor: "agent-other",
+                scope: ["src/api", "src/billing"]
+            });
+
+            // Rewrite the one line the claim wrote into the shape under test,
+            // which is exactly what a format-on-save would have done to it.
+            const [file] = (await readdir(join(root, ".project/cards"))).filter(
+                (name) => name.startsWith(`${card.id}-`)
+            );
+            const path = join(root, ".project/cards", file);
+            const body = await readFile(path, "utf8");
+            assert.match(body, /^scope: \[.*\]$/m, "the claim writes it on one line");
+            await writeFile(path, body.replace(/^scope: \[.*\]$/m, written.trimEnd()));
+
+            await runHook("session-start", { session_id: "s1" }, root);
+            const board = JSON.parse(
+                await readFile(join(root, ".project/.cache/activity/board.json"), "utf8")
+            );
+            const claim = board.claims.find((entry) => entry.id === card.id);
+            assert.ok(claim, `${shape}: the claim reaches the board`);
+            assert.deepEqual(
+                claim.scope,
+                ["src/api", "src/billing"],
+                `${shape}: the scope arrives whole, not empty and not as a stray bracket`
+            );
+
+            // And the guard, which is the only reason the parser exists, acts
+            // on it: an edit inside that scope by another session asks.
+            const guarded = await runHook(
+                "pre-tool-use",
+                {
+                    session_id: "s2",
+                    tool_name: "Edit",
+                    tool_input: { file_path: join(root, "src/billing/invoice.ts") }
+                },
+                root
+            );
+            assert.equal(
+                JSON.parse(guarded.stdout).hookSpecificOutput?.permissionDecision,
+                "ask",
+                `${shape}: the guard is not blind`
             );
         } finally {
             await rm(root, { recursive: true, force: true });

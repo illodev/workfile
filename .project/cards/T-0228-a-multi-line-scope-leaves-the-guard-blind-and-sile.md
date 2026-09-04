@@ -1,14 +1,15 @@
 ---
 id: T-0228
 title: A multi-line scope leaves the guard blind and silent
-status: backlog
+status: review
 type: bug
 priority: medium
 area: core
 raised: derived
 origin: [T-0225]
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-04
+scope: [packages/workfile/src/runtime/claude, packages/workfile/test]
 ---
 
 `frontmatterOf` in the Claude hook runtime splits frontmatter line by line with
@@ -64,3 +65,49 @@ protocol. This one fails silently, and looks like protection.
 
 The two parsers are already pinned to each other elsewhere by test; the reading of a list key should
 be pinned too, or the drift just recurs.
+
+## Acceptance criteria
+
+- [x] A `scope` written as a block sequence reaches the guard whole
+- [x] A `scope` a formatter re-wrapped across lines reaches it whole, with the bracket opening on the key's line or on its own
+- [x] A sequence that never closes leaves the key unset rather than one entry matching nothing, and every key written after it is still read
+- [x] A `verify` block under the key is not swallowed, because it is a list of mappings and eating it would hide the keys inside
+- [x] A test drives the real hook end to end for each shape and asserts the guard asks on an edit inside the recovered scope
+
+## Activity
+
+- 2026-09-04 00:19Z illodev@local#2a219b74 · claimed
+- 2026-09-04 00:23Z illodev@local#2a219b74 · doing → review
+
+## Notes
+
+- 2026-09-04 00:23Z illodev@local#2a219b74 — 2026-09-04 — **Arreglado en el parser, no con un aviso del doctor.**
+
+La ficha proponía como alternativa barata un hallazgo del `doctor` para cualquier `scope:` que no estuviera en una línea. No hacía falta: enseñarle las formas al parser es del mismo tamaño y **elimina** el problema en vez de hacerlo visible.
+
+## Las cuatro formas, medidas una a una
+
+| cómo está escrito el `scope:` | antes | ahora |
+| --- | --- | --- |
+| secuencia de flujo en una línea | `["src/api","src/billing"]` | igual |
+| secuencia de bloque (`- item` debajo) | `[]` — **guard ciego** | `["src/api","src/billing"]` |
+| flujo repartido, corchete en la línea de la clave | `["["]` — **peor: parece un scope** | `["src/api","src/billing"]` |
+| flujo repartido, corchete en su propia línea | `""` → `[]` | `["src/api","src/billing"]` |
+
+La cuarta forma **no estaba en la ficha** y apareció al escribir el test: mi primera versión del arreglo la seguía leyendo mal, porque sólo miraba el corchete en la línea de la clave. Es la que produce prettier con `printWidth` corto.
+
+## Dos cosas que el arreglo hace a propósito
+
+**Una secuencia sin cerrar deja la clave sin poner**, en vez de darle una entrada que no casa con nada. Es peor un scope falso que ninguno: cualquiera que lo lea se lo cree. Y el cursor no avanza, así que **las claves escritas después se siguen leyendo** — comprobado: con un `scope:` roto, `status` sigue llegando.
+
+**Un `verify:` debajo no se lo traga.** Es una lista de mapas, y comerse sus `- id: …` habría consumido las claves de dentro y ocultado lo que viniera detrás. El parser exige que los ítems de una secuencia de bloque sean escalares planos.
+
+## Prueba
+
+`packages/workfile/test/claude-surface.test.ts` — un caso que, por cada forma, monta un workspace, reclama con `scope` en una línea, **lo reescribe a la forma bajo prueba como haría un format-on-save**, corre el `session-start` real y comprueba dos cosas: que el scope llega entero al `board.json` y que el guard **pregunta** en una edición dentro de él. No basta con parsear: hace falta que el guard actúe.
+
+Suite entera: **517 tests, 0 fallos**. Y el plugin regenerado (`node scripts/build-plugin.ts`), porque lleva una segunda copia del runtime y su test lo pilló.
+
+**Lo que queda fuera y es de Fube, no de aquí:** añadir la forma nueva —el corchete en su propia línea— al banco `scripts/workfile-guard-cases.mjs`. Allí los casos 14b y 14c ya cubren las otras dos.
+
+Queda en `review`: está en el árbol y probado, pero no publicado.

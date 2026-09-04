@@ -44,23 +44,86 @@ async function readJson(path, fallback) {
     }
 }
 
-/** Frontmatter only, and only the handful of keys the hooks care about. */
+/**
+ * Frontmatter only, and only the handful of keys the hooks care about.
+ *
+ * A sequence is read in all three shapes a formatter can leave behind, and that
+ * is not tidiness: the guard reads `scope` from here, so a shape this does not
+ * understand makes it blind for that card **without saying so**. Measured on a
+ * consuming board: a block sequence arrived as `[]` and a re-wrapped flow
+ * sequence as `["["]` — a scope that looks like a scope and matches nothing,
+ * which is the worse of the two, because anything reading it believes it.
+ *
+ * This parser is duplicated from the package codec on purpose — the hook
+ * imports nothing, so that it stays off the module graph — and the two had
+ * drifted.
+ */
 function frontmatterOf(text) {
     const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!match) return null;
     const fields = {};
-    for (const line of match[1].split(/\r?\n/)) {
-        const pair = line.match(/^([A-Za-z_][\w.-]*):\s*(.*)$/);
+    const lines = match[1].split(/\r?\n/);
+    const scalar = (value) => value.trim().replace(/^["']|["']$/g, "");
+    const flow = (value) => value.slice(1, -1).split(",").map(scalar).filter(Boolean);
+    for (let index = 0; index < lines.length; index += 1) {
+        const pair = lines[index].match(/^([A-Za-z_][\w.-]*):\s*(.*)$/);
         if (!pair) continue;
-        const value = pair[2].trim();
-        fields[pair[1]] =
-            value.startsWith("[") && value.endsWith("]")
-                ? value
-                      .slice(1, -1)
-                      .split(",")
-                      .map((item) => item.trim().replace(/^["']|["']$/g, ""))
-                      .filter(Boolean)
-                : value.replace(/^["']|["']$/g, "");
+        const key = pair[1];
+        let value = pair[2].trim();
+        // A formatter can also put the opening bracket on its own line, which
+        // leaves the key looking scalar and empty. Adopt it, so the one branch
+        // below covers both wrappings instead of two nearly-identical ones.
+        if (!value && lines[index + 1]?.trim().startsWith("[")) {
+            index += 1;
+            value = lines[index].trim();
+        }
+
+        if (value.startsWith("[")) {
+            if (value.endsWith("]")) {
+                fields[key] = flow(value);
+                continue;
+            }
+            // A flow sequence a formatter re-wrapped: `[` opens it here and a
+            // later line closes it. If it never closes, the key is left unset
+            // rather than given one entry that matches nothing — and the cursor
+            // does not move, so every key after it is still read.
+            let joined = value;
+            let cursor = index + 1;
+            while (cursor < lines.length && !joined.endsWith("]")) {
+                joined += ` ${lines[cursor].trim()}`;
+                cursor += 1;
+            }
+            if (joined.endsWith("]")) {
+                fields[key] = flow(joined);
+                index = cursor - 1;
+            }
+            continue;
+        }
+
+        if (!value) {
+            // A block sequence. Every item has to be a plain scalar: `verify`
+            // is a list of mappings, and swallowing one here would consume the
+            // keys written inside it and hide whatever came after.
+            const items = [];
+            let mapping = false;
+            let cursor = index + 1;
+            for (; cursor < lines.length; cursor += 1) {
+                const item = lines[cursor].match(/^\s+-\s+(.+)$/);
+                if (!item) break;
+                if (/^[A-Za-z_][\w.-]*:\s/.test(item[1].trim())) {
+                    mapping = true;
+                    break;
+                }
+                items.push(scalar(item[1]));
+            }
+            if (!mapping && items.length) {
+                fields[key] = items.filter(Boolean);
+                index = cursor - 1;
+                continue;
+            }
+        }
+
+        fields[key] = scalar(value);
     }
     return fields;
 }
