@@ -2263,3 +2263,90 @@ test("card ac --json carries the digest each criterion is bound by", async () =>
         assert.equal("digest" in orphan, false);
     }
 });
+
+test("card verify reports what an entry proved, not how its process ended", async () => {
+    const { criterionDigest } = await import("../dist/src/index.js");
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-verify-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        // The fixture declares no allowlist, and `card verify` refuses to run a
+        // command a project has not permitted — which is the behaviour, not an
+        // obstacle, so the allowlist is added here rather than to the fixture.
+        await writeFile(
+            join(root, "project.config.mjs"),
+            `export default {
+    schemaVersion: 2,
+    name: "Golden workspace",
+    language: "es",
+    cards: {
+        areas: ["api", "web", "infra", "docs"],
+        verification: { commands: [["grep"]] }
+    }
+};
+`
+        );
+        await mkdir(join(root, "sample"), { recursive: true });
+        await writeFile(join(root, "sample", "data.txt"), "here is PRESENT and nothing else\n");
+
+        const created = await run(["card", "create", "--root", root, "--title", "Both polarities", "--area", "api"]);
+        const id = created.stdout.trim().split(/\s+/)[0];
+        const [file] = (await readdir(join(root, ".project", "cards"))).filter((name) =>
+            name.startsWith(`${id}-`)
+        );
+        const path = join(root, ".project", "cards", file);
+
+        const found = "The literal PRESENT is in the sample file";
+        const absent = "The literal ABSENT is no longer in the sample file";
+        const body = await readFile(path, "utf8");
+        // The verify block goes in the frontmatter and the criteria in the body,
+        // bound by the same digest `card ac --json` publishes.
+        const withVerify = body.replace(
+            /\n---\n/,
+            `\nverify:
+  - id: present
+    run: [grep, -q, PRESENT, sample/data.txt]
+    criteria: ["${criterionDigest(found)}"]
+  - id: absent
+    run: [grep, -q, ABSENT, sample/data.txt]
+    expect: absent
+    criteria: ["${criterionDigest(absent)}"]
+---\n`
+        );
+        await writeFile(
+            path,
+            `${withVerify}\n## Acceptance criteria\n\n- [ ] ${found}\n- [ ] ${absent}\n`
+        );
+
+        const verified = await outcome(["card", "verify", id, "--root", root]);
+
+        // Both entries proved their criterion, so the run is whole and says so.
+        // Before this, the header counted `outcome === "passed"` and announced
+        // "1 of 2 entries passed" on a run where nothing had gone wrong.
+        assert.equal(verified.code, 0);
+        assert.match(verified.stdout, /2 of 2 entries proved/);
+        assert.match(verified.stdout, new RegExp(`${id} — 2 of 2 met`));
+
+        // And the per-entry line agrees with the criterion it just ticked. The
+        // bug this covers printed `FAILED` and `checked #2` on the same line,
+        // because it read the exit code where the record reads `satisfied`.
+        const line = verified.stdout
+            .split("\n")
+            .find((text) => text.includes("grep -q ABSENT"));
+        assert.ok(line, "the absent entry has a line");
+        assert.doesNotMatch(line as string, /FAILED/);
+        assert.match(line as string, /PASSED/);
+        // The non-zero exit is explained rather than presented as the problem,
+        // so a reader who runs the grep by hand and gets 1 is not left
+        // doubting the line that told them it passed.
+        assert.match(line as string, /found nothing, as expected/);
+        assert.match(line as string, /checked #2/);
+
+        // The card agrees, which is the half that already worked and must not
+        // regress while the console is being brought in line with it.
+        const written = await readFile(path, "utf8");
+        assert.match(written, /- \[x\] The literal ABSENT is no longer in the sample file/);
+        assert.match(written, /verify absent: .*found nothing, as expected/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

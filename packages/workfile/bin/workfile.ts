@@ -1426,17 +1426,33 @@ function describeVerifyEntry(entry) {
             `unchecked ${entry.unchecked.map((n) => `#${n}`).join(", ")}`,
         entry.writeError && `write refused: ${entry.writeError.code}`
     ].filter(Boolean);
+    const decided = entry.outcome === "passed" || entry.outcome === "failed";
     const quiet = !entry.criteria.length
         ? "binds no criteria"
-        : entry.outcome === "passed" || entry.outcome === "failed"
+        : decided
           ? "criteria already agree"
           : "no verdict, so nothing written";
-    const why =
-        entry.outcome === "failed"
-            ? `exit ${entry.code ?? "none"}`
-            : entry.reason || null;
+    // The verdict is what the entry PROVED, never how the process ended.
+    // `expect: absent` makes a non-zero exit the success, so reading the raw
+    // outcome here printed `FAILED` on the same line as `checked #2` — the
+    // record and the console disagreeing about the same run. `satisfied` says
+    // it in one field, and its own docblock says to read it and never the
+    // exit code.
+    const verdict = decided ? (entry.satisfied ? "PASSED" : "FAILED") : entry.outcome;
+    // The exit code then has to be explained rather than presented as the
+    // problem: a reader who runs the `grep` by hand and gets 1 stops believing
+    // the line that just told them it passed.
+    const why = !decided
+        ? entry.reason || null
+        : entry.expect === "absent"
+          ? entry.satisfied
+              ? "found nothing, as expected"
+              : `still finds it, exit ${entry.code ?? "none"}`
+          : entry.satisfied
+            ? null
+            : `exit ${entry.code ?? "none"}`;
     return [
-        entry.outcome.toUpperCase().padEnd(9),
+        verdict.toUpperCase().padEnd(9),
         entry.id,
         `(${(entry.durationMs / 1000).toFixed(1)}s${why ? `, ${why}` : ""})`,
         entry.run.join(" "),
@@ -1712,10 +1728,14 @@ async function cardCommand(workspace, action) {
         // the card to record what they proved, and it does not.
         process.exitCode = report.ok ? 0 : 1;
         if (has("--json")) return print(report);
-        const passed = report.entries.filter((entry) => entry.outcome === "passed");
+        // `satisfied` and not `outcome`, for the same reason the report's `ok`
+        // reads it: an entry expecting an absence proves itself by exiting
+        // non-zero, so counting outcomes announced a run that proved
+        // everything it set out to prove as a partial failure.
+        const proved = report.entries.filter((entry) => entry.satisfied);
         console.log(
-            `${id} — ${passed.length} of ${report.entries.length} ` +
-                `${report.entries.length === 1 ? "entry" : "entries"} passed`
+            `${id} — ${proved.length} of ${report.entries.length} ` +
+                `${report.entries.length === 1 ? "entry" : "entries"} proved`
         );
         for (const entry of report.entries) {
             console.log(`  ${describeVerifyEntry(entry)}`);
@@ -1725,7 +1745,7 @@ async function cardCommand(workspace, action) {
         // the command by hand to see why would be a report worth less than the
         // command.
         for (const entry of report.entries) {
-            if (entry.outcome === "passed") continue;
+            if (entry.satisfied) continue;
             const lines = `${entry.stdout}${entry.stderr}`.split("\n").filter(Boolean);
             if (!lines.length) continue;
             const shown = Math.min(lines.length, 20);
