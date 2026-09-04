@@ -1,5 +1,5 @@
 ---
-# workfile kind=claude-command-claim version=0.9.1 digest=sha256:1a5ad0b0ff6e21b7d2d15a371a32232196365a8ce0d1d36a7bccde2e1e19d185
+# workfile kind=claude-command-claim version=0.10.0 digest=sha256:1a5ad0b0ff6e21b7d2d15a371a32232196365a8ce0d1d36a7bccde2e1e19d185
 description: "Claim a card before working on it"
 argument-hint: "[T-0042] [scope,paths]"
 allowed-tools: "Bash(pnpm workfile card claim *)"
