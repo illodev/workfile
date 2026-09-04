@@ -161,6 +161,56 @@ test("the protocol keeps the rules an agent cannot infer from the board", async 
             /batch that advances updates its own card/i,
             "nothing stops a batch opening a card per remainder"
         );
+
+        // The four a drain measured agents getting wrong, which were not what
+        // the protocol says but what it did not say. Each is pinned by the
+        // phrase that carries it, because a rewrite that drops the rule while
+        // keeping the section would otherwise pass.
+
+        // Claiming reads as a fence, so the fix in the next file becomes a card
+        // instead of a wider claim — the behaviour `Finish it` exists to stop,
+        // arriving through the door beside it.
+        assert.match(
+            protocol,
+            /scope is not a fence/i,
+            "nothing tells an agent it may widen its own claim"
+        );
+        // And the one exception, or the rule swallows work that ships apart.
+        assert.match(
+            protocol,
+            /different \*\*release\*\* is a reason to split|closeable against the thing that shipped/i,
+            "nothing says a card must stay closeable against what shipped"
+        );
+
+        // A question moved into a card loses the context that could have got it
+        // answered, and lands on someone who has to rebuild it first.
+        assert.match(
+            protocol,
+            /missing decision is a question, not a card/i,
+            "nothing stops a decision becoming a card"
+        );
+
+        // Without a source, seven cards that are one job look like seven jobs.
+        assert.match(
+            protocol,
+            /raised: derived.{0,120}source|source.{0,60}naming the card or document/is,
+            "a derived card is not asked where it came from"
+        );
+
+        // Six of six, and the other side of the contract did not compile.
+        assert.match(
+            protocol,
+            /crosses a contract needs a criterion on each side/i,
+            "nothing asks for a criterion on the far side of a contract"
+        );
+
+        // Read absolutely, `done` cannot close a card whose product is a
+        // measurement, so it closes with --force and leaves no trace.
+        assert.match(
+            protocol,
+            /no runtime to point at/i,
+            "done admits no card whose product is a measured conclusion"
+        );
     } finally {
         await rm(root, { recursive: true, force: true });
     }

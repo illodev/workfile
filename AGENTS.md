@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=adapter-agents-md version=0.9.2 digest=sha256:06c49f6643fd97c0098443121774ad0b8334694faff2545a731efaae9c976827 -->
+<!-- workfile:begin kind=adapter-agents-md version=0.10.0 digest=sha256:06c49f6643fd97c0098443121774ad0b8334694faff2545a731efaae9c976827 -->
 # Workfile for AGENTS.md
 
 Before substantial changes, read `.project/agents/protocol.md` and the relevant workflow under `.project/agents/workflows`.

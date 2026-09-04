@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=workflow-start-work version=0.9.2 digest=sha256:083b468ad449da55976d344b793321791208ab4b5fee3cff3b58666777eb5417 -->
+<!-- workfile:begin kind=workflow-start-work version=0.10.0 digest=sha256:083b468ad449da55976d344b793321791208ab4b5fee3cff3b58666777eb5417 -->
 # Start work
 
 1. Run `pnpm workfile agents context --card <ID>`.

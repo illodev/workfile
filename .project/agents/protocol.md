@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=canonical-agent-protocol version=0.9.2 digest=sha256:c5542afe3681ae7f748a4e8f5889be50d9e45fe76b201c7102d91c040fb4972e -->
+<!-- workfile:begin kind=canonical-agent-protocol version=0.10.0 digest=sha256:48fee552589dd79b618f364fff4e6ce8c60ec9e37239fbd9eefb9d66230cd3b5 -->
 # Repository operating protocol
 
 This repository uses **Repository Workfile schema v2**. Repository Markdown files are canonical. The UI, CLI and every agent adapter must use the same services and rules.
@@ -14,8 +14,10 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 ## While working
 
 - Keep the card current when scope, state or blockers change.
-- Create cards in the same session for actionable pending work you discover — but see the next two rules first, because the default is to finish it.
+- Create cards in the same session for actionable pending work you discover — but see the next rules first, because the default is to finish it. When you do open one, say where it came from: `raised: derived` and a `source` naming the card or document it came out of. Measured on a consuming board: **318 derived cards and not one `source`**, so the chain that shows seven cards are one job lived in a sentence of prose, when it lived at all.
 - **Finish it before you card it.** You have the files open, the run done and the failure understood; whoever picks the card up starts from nothing, so it is paid for twice and the second time costs more. If it is fixed in the same file and proved by the same run, it is not another card — it is this one. Carding is what you do when you **cannot**: another subject, another owner, an environment you do not have.
+- **The scope is not a fence.** Claiming before you touch is how you say what you are working on, not permission you have to be granted. When the fix needs a neighbouring file, check nobody else holds it, **widen your own claim**, and add the criteria for what you widened. Measured on the same board: of 31 cards a drain opened, **9 name a scope boundary as the reason** — the behaviour the rule above exists to prevent, arriving through the door beside it. A different **release** is a reason to split, though: a card has to stay closeable against the thing that shipped.
+- **A missing decision is a question, not a card.** When what blocks you is somebody's answer, ask for it, and write the answer where the work is. A card opened to hold a question moves it out of the only turn that had the context to ask it well, and hands it to someone who must rebuild that context before they can even phrase it. **11 of those 31 cards were opened for a decision while the person who owned it was at the keyboard.** If nobody is there to answer, the card goes to `blocked` naming the decision and whose it is — never to `next`, which says startable.
 - **A batch that advances updates its own card.** Finishing a batch does not open a new card for the remainder: the remainder has not changed subject, owner or file, it is only smaller, and that is a number inside the card. A board showing seven open cards where there is one number does not tell anyone what to read.
 - Record decisions, incidents, conventions or learnings when they change future behavior.
 - Add a changelog fragment for user-visible changes or whenever project policy requires one.
@@ -30,7 +32,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 - `review`: the work is finished and the only thing missing is seeing it run. Not "my turn ended".
 - `blocked`: waiting on a hand that is not yours — a decision, a third party, a deployment. Record what it waits on. A card that waits in `next` looks startable, so the next agent opens it, finds nothing to do and puts it back.
 - `deferred`: deliberately postponed; record why.
-- `done`: verified in an environment where it actually runs. A commit or merge is insufficient.
+- `done`: verified in an environment where it actually runs. A commit or merge is insufficient. Where there is no runtime to point at — a card whose product is a measured conclusion rather than code — the measurement **is** the evidence; say so in `--evidence` rather than forcing the close, which leaves no trace.
 - `discarded`: will not be done; record why.
 
 ## Acceptance criteria
@@ -40,6 +42,7 @@ This repository uses **Repository Workfile schema v2**. Repository Markdown file
 - **Checkboxes are only for criteria.** Pending items written as `- [ ]` under "what is left" are read as criteria the gate cannot interpret. Pending items take plain bullets.
 - **One criterion, one claim.** "If X do A, otherwise B" can never be marked whole; the branch not taken moves to prose with its reason.
 - **A criterion whose premise turns out false is rewritten with the measurement beside it**, or retired with it. Left as `- [ ]` it makes the card uncloseable and hides that the finding was wrong. Keep the original where it can still be read, so nobody re-derives it.
+- **A change that crosses a contract needs a criterion on each side.** A card closed **6 of 6** while the client it fed did not compile: nothing was wrong with any of the six, they all described the server. Ask what the change reaches, and write a criterion there too.
 - **Write the criterion you can check.** If no command answers it, say that in the card instead of leaving it implied.
 
 ### Binding a criterion to a command
