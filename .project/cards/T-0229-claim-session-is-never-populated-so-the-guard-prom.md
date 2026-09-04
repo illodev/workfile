@@ -1,13 +1,18 @@
 ---
 id: T-0229
 title: claim.session is never populated, so the guard prompts about your own card
-status: review
+status: done
 type: bug
 priority: medium
 area: core
 raised: derived
 created: 2026-09-02
-updated: 2026-09-03
+updated: 2026-09-04
+verified:
+  at: "2026-09-04T00:09:58.717Z"
+  method: manual
+  commit: bb54ef2a554c921781bef5fe98e4c2533ac44c65
+  digest: "sha256:61f3d83d6d49835ba5644f589631a127b1123edef4734b39865bb2b654069ecf"
 ---
 
 `separatesFromMe` asks "is this claim another process?" and, with `claim.session === null`, the only
@@ -104,6 +109,22 @@ including `the scope guard and the activity snapshot apply one separation rule` 
 sharing an explicit actor do not look like one process`.
 - 2026-09-03 14:22Z illodev@local#062a7c97 — **Salida: `review`, no `done`.** El arreglo esta hecho y probado (500 pass, 0 fail, incluido el test que ata el guard a `claimSeparation`). Falta correrlo publicado, y falta la mitad del consumidor —exportar `WORKFILE_ACTOR` antes de que la sesion reclame—, que esta medida arriba y no aplicada en ningun sitio.
 - 2026-09-03 22:42Z illodev@local#5c0f3978 — Acceptance criteria written on 2026-09-03 by the session that has been using 0.9.2 all day. The card sat in `review` declaring none, so `card ac` answered "declares no acceptance criteria" and closing it would have needed `--force` — which leaves an Activity line identical to a clean close. That is the anti-pattern this repository is about to name in its own shipped protocol, so it should not be in its own board. Three of the four are met by the fix in 0.9.2; the fourth is runtime and stays open.
+- 2026-09-04 00:09Z illodev@local#2a219b74 — 2026-09-04 — **Criterio 4 verificado en runtime, en un repositorio consumidor de verdad.**
+
+El banco de casos de Fube (`scripts/workfile-guard-cases.mjs`, 21 casos) corrido **sin** `WORKFILE_GUARD_HOOK` contra `@illodev/workfile@0.9.2` instalada allí:
+
+```
+#4    [silencio]  session null + WORKFILE_ACTOR == claimed_by, dentro del scope
+#15a  [silencio]  camino REAL: WORKFILE_ACTOR exportado ANTES del session-start, claim por CLI
+#15b  [ask]       el mismo camino SIN exportar WORKFILE_ACTOR
+```
+
+El caso 4 es exactamente el criterio: un agente que reclama con `--actor` explícito y luego edita dentro de ese scope **ya no recibe la pregunta del guard sobre su propia ficha**. Antes daba `ask`.
+
+El banco lo marca `FALLO` **y eso es la señal buena, no un problema**: su expectativa sigue escrita contra el comportamiento viejo. Los otros veinte casos no se mueven — 20 de 21 casan, y el único que no es éste. Los tres marcados `ok(!)` (el matcher que no ve Bash, y el `scope:` multilínea) siguen igual, o sea que el arreglo no tocó nada más.
+
+Queda actualizar la expectativa del caso 4 en el banco, que es de Fube y no de aquí.
+- 2026-09-04 00:09Z illodev@local#2a219b74 — manual verification: Banco de 21 casos del guard en el repositorio Fube con 0.9.2 instalada: el caso 4 pasa de ask a silencio y los otros veinte no se mueven; el 15a confirma el camino real con WORKFILE_ACTOR exportado
 
 ## The measurement that reframes the card, and it is not in the card
 
@@ -149,7 +170,7 @@ without `--force` — the exact shape this repository is about to name in its ow
 - [x] `claimSeparation` treats a null `session` as **unknown** rather than as a differing side, so a claim written with an explicit `--actor` no longer produces a `sessions-differ` verdict the workspace has no evidence for.
 - [x] The unproven case is still reported in the snapshot's `conflicts`, where nobody is interrupted, rather than being dropped.
 - [x] The card's own claim that `session` is "never populated" is corrected in place with the measurement that killed it: it **is** populated by the claim itself when the session file carries the same actor.
-- [ ] Runtime: an agent that claims with an explicit `--actor` and then edits inside that scope is not prompted by the guard about its own card.
+- [x] Runtime: an agent that claims with an explicit `--actor` and then edits inside that scope is not prompted by the guard about its own card.
 
 ## What is NOT in this card, said so it is not assumed
 
@@ -166,3 +187,4 @@ half**. Closing this card does not close that hole.
 ## Activity
 
 - 2026-09-03 14:22Z illodev@local#062a7c97 · backlog → review
+- 2026-09-04 00:09Z illodev@local#2a219b74 · review → done

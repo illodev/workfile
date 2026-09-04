@@ -1,13 +1,18 @@
 ---
 id: T-0237
 title: The protocol never says what to do when a turn ends with work still inside
-status: review
+status: done
 type: task
 priority: high
 area: core
 raised: reported
 created: 2026-09-03
-updated: 2026-09-03
+updated: 2026-09-04
+verified:
+  at: "2026-09-04T00:09:28.777Z"
+  method: manual
+  commit: bb54ef2a554c921781bef5fe98e4c2533ac44c65
+  digest: "sha256:921b10de8d2727e37dbb4d33ea5447d5fd9376624a3f0a39aa4e9423c5ddeede"
 ---
 
 The shipped protocol defines `review` as "implementation finished, awaiting verification, deployment or approval" and tells an agent to keep the card there "if verification or deployment is pending". **It never says what to do when the turn ends with work still inside the card**, so both outcomes are written with the same word.
@@ -39,3 +44,15 @@ Six more gaps came out of the same session, all of them shapes an agent cannot i
 ## Activity
 
 - 2026-09-03 22:50Z illodev@local#5c0f3978 · backlog → review
+- 2026-09-04 00:09Z illodev@local#2a219b74 · review → done
+
+## Notes
+
+- 2026-09-04 00:09Z illodev@local#2a219b74 — 2026-09-04 — **Verificado en un consumidor real con el paquete publicado.** Instalado `@illodev/workfile@0.10.0` desde el registro en un directorio limpio, `workfile init`, y comprobado sobre lo que renderiza:
+
+- El protocolo sale con `version=0.10.0` en el marcador y trae las cinco reglas: las dos salidas, `review` no significa «se me acabó el turno», la tanda que avanza actualiza su ficha, terminarlo antes de cardearlo, y `blocked` descrito como esperar una mano que no es la tuya.
+- **#7 medido en sus dos mitades**: una ficha en `review` con 0 de 2 criterios dispara `review-with-nothing-met` con el texto entero; al marcar 1 de 2, el doctor **se calla** (0 avisos de esa clase). Las dos direcciones, no sólo la que salta.
+- **#8 medido**: `card transition T-0001 next --reason "…"` sin `--force` responde `CARD_REASON_NOT_RECORDED` y nombra la puerta que sí guarda: `card note`.
+
+Consumidor: instalación limpia desde npm, no el árbol de desarrollo.
+- 2026-09-04 00:09Z illodev@local#2a219b74 — manual verification: Consumidor limpio con @illodev/workfile@0.10.0 de npm: protocolo renderizado con las cinco reglas y version=0.10.0; review-with-nothing-met salta con 0 de 2 y calla con 1 de 2; CARD_REASON_NOT_RECORDED nombra card note
