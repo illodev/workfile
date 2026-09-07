@@ -1,12 +1,12 @@
 ---
 id: T-0133
 title: Workfile is in the MCP Registry but in none of the directories that mirror it
-status: blocked
+status: next
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
-updated: 2026-09-03
+updated: 2026-09-07
 scope: [.project/cards]
 ---
 
@@ -24,7 +24,7 @@ card holds the state.
 | Registry | State |
 | --- | --- |
 | Official MCP Registry | Listed, `active`, `isLatest`, 0.5.0 |
-| `punkpeye/awesome-mcp-servers` | PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) open |
+| `punkpeye/awesome-mcp-servers` | PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) open, rebased, `CLEAN`, awaiting merge |
 | mcpservers.org | Live at [`/servers/illodev/workfile`](https://mcpservers.org/servers/illodev/workfile) |
 | Glama | Claimed and verified, two grades A, quality still ungraded — [[T-0141]] |
 | Claude Code community marketplace | Submitted, awaiting review |
@@ -33,9 +33,20 @@ card holds the state.
 
 ## The punkpeye pull request
 
-Open, mergeable, and the repository's bots have labelled it `has-emoji`,
-`valid-name` and `has-glama` — all three positive. One bot comment asks for
-something the pull request cannot supply on its own:
+Open, `MERGEABLE` and `CLEAN`, with the repository's bots holding `has-emoji`,
+`valid-name` and `has-glama` — all three positive, and all three kept across the
+rebase because the entry text did not change.
+
+It did not stay mergeable on its own. Filed clean on 2026-08-02, it began
+conflicting on 2026-08-10, when `gonnagetapower/kelvia-mcp` was appended to
+Product Management at the same anchor and merged: one hunk, one file, three
+markers at `README.md:3096`. It sat that way for 28 days, because the only
+signal anyone here was reading was `check-submission`, which stayed green
+throughout and says nothing about mergeability. The rebase on 2026-09-07 took
+`mergeable` back from `CONFLICTING` to `MERGEABLE` and `mergeStateStatus` from
+`DIRTY` to `CLEAN`.
+
+One bot comment still asks for something the pull request cannot supply on its own:
 
 > Thank you for adding the Glama badge! Please make sure the server has been
 > evaluated by Glama and has a quality score.
@@ -93,6 +104,10 @@ This is the only listing left with a review queue behind it.
 - 2026-08-03 09:32Z illodev@local#bd44efc7 · claimed
 - 2026-08-03 09:33Z illodev@local#bd44efc7 · released
 - 2026-09-03 22:42Z illodev@local#5c0f3978 · next → blocked
+- 2026-09-07 14:34Z illodev@local#8dca5ed1 · claimed
+- 2026-09-07 14:57Z illodev@local#8dca5ed1 · released
+- 2026-09-07 15:04Z illodev@local#8dca5ed1 · claimed
+- 2026-09-07 15:05Z illodev@local#8dca5ed1 · released
 
 ## Notes
 
@@ -114,3 +129,25 @@ The page renders this repository's README rather than the submitted copy, so the
 
 What is left on this card is entirely other people: the punkpeye merge and the Claude Code marketplace review. Neither has a next action here.
 - 2026-09-03 22:42Z illodev@local#5c0f3978 — Moved from `next` to `blocked` on 2026-09-03. The two open criteria are not work: #1 is a pull request sitting in `punkpeye/awesome-mcp-servers` and #4 is Glama computing a score. Both wait on somebody else's hand, and a card that waits in `next` looks pickable — an agent draining the board will open it, find nothing to do, and put it back. `blocked` is the state that says so. Re-open when either directory answers.
+- 2026-09-07 14:56Z illodev@local#8dca5ed1 — The card said this row waited on somebody else's hand. It does not, and has not since 2026-08-10.
+
+#11406 stopped being mergeable without anyone touching it. `gonnagetapower/kelvia-mcp` was appended to Product Management at the same anchor and merged on 2026-08-10, so the branch, still based on `375407c7`, now conflicts: one file, one hunk, three markers at `README.md:3096`. The 2026-09-07 nudge says "the entry looks correct and all checks pass", which is true and beside the point — `check-submission` is green and `mergeStateStatus` is `DIRTY`. The bot that nudges and the bot that flags conflicts are different templates (`triage-nudge` vs `triage-conflict`), and this pull request drew the wrong one, so the comment names inactivity as the problem and never mentions the conflict.
+
+What the nudge is worth, measured rather than assumed. Over eight weeks of that repository's comments: 2,465 `triage-nudge`, 1,517 `triage-close-inactive`, 179 `triage-conflict`, 786 merges. Of 80 nudged pull requests with known outcomes, 0/65 merged where the author never replied and 3/15 where they did. Cross-tabbed against pushing a commit after the nudge: 2/7 merged where the author pushed, 1/73 where they did not. Of 180 conflict-flagged pull requests, 41 merged, and 41 of 41 were resolved by the author — no case of the maintainer resolving one himself. Median lag from the resolving push to the merge: 0.9 hours.
+
+So the reply is necessary and the push is what merges. Ordering matters: push first, then comment, so the comment describes a branch that is already green.
+
+The rebase is prepared and verified in a throwaway clone, nothing pushed: `git rebase upstream/main`, keep both lines with kelvia first, and the result is `README.md | 1 +` against `upstream/main` with the entry still last under Product Management. The entry text is byte-identical to the one the bots already labelled `has-emoji`, `valid-name` and `has-glama`, so the rebase cannot cost those labels. "30 tools" in the line still measures true: `grep -cE '^\s+name: "project_' packages/workfile/src/modules/mcp/tools.ts` answers 30 at 0.10.0.
+
+One thing to know before reading the timing as urgent. A sweep was running on 2026-09-07 — 248 merges and 493 inactivity-closes that day — but the median nudge-to-close gap is 47 days, so the threat is the next sweep rather than this one. And replying is not sufficient on its own: #8187 got "I'll proceed with merging as soon as I hear back", was answered the same day, and was still open unmerged 47 days later.
+
+CONTRIBUTING.md says "maintain alphabetical order within each category" and the file disagrees — Product Management is arrival-ordered across all fourteen entries, and every merged pull request inspected appended. The pull request body's claim was right, and appending stays right.
+- 2026-09-07 15:05Z illodev@local#8dca5ed1 — Pushed and commented on 2026-09-07, in that order, because the measurement in the previous note says the push is what merges and the reply on its own is worth 1 in 73.
+
+The rebase landed as `1b99ee7a` → `4ec90394`, a forced update of one commit on `illodev/awesome-mcp-servers@add-workfile`. GitHub agreed within seconds: `mergeable` went `CONFLICTING` → `MERGEABLE`, and `mergeStateStatus` `DIRTY` → `UNSTABLE` → `CLEAN` once the checks re-ran. `check-submission` is `success` at 2026-09-07T15:04:52Z against the new commit, replacing the 2026-08-02T21:10:20Z result the nudge had been reading. `has-emoji`, `valid-name` and `has-glama` all survived, which is what the byte-identical entry text was for. The pull request diff is still `+1/-0` at `README.md:3095`.
+
+Comment: https://github.com/punkpeye/awesome-mcp-servers/pull/11406#issuecomment-5572541490
+
+The comment names the conflict rather than only confirming interest, because the nudge asserted "all checks pass" from a run that predated the conflict by eight days. Nothing here can close the criterion: the merge is still the maintainer's hand, and the branch is now in the state where his own history says that hand lands within about an hour of the resolving push.
+
+One thing this leaves standing. The green `check-submission` was never evidence about mergeability, and reading it as such is what made the row look like it had no next action for 28 days. The signal that mattered was `mergeStateStatus`, which no bot on that repository surfaced for this pull request and which nothing here was watching.
