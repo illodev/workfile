@@ -825,3 +825,69 @@ test("no doc hangs a module repository off the workspace", async () => {
         await cleanup();
     }
 });
+
+/**
+ * The README states the MCP inventory as a sentence — "exposes N tools, four
+ * resources and three prompts" — and the landing page repeats the tool count
+ * as a headline. 0.11.0 added two tools and both kept saying 30: nothing read
+ * the sentence, and the number had quietly become a date. Glama's Overview and
+ * every aggregator that mirrors the README then repeat the stale figure.
+ *
+ * Compare the stated counts with what the server actually lists, so the next
+ * tool added fails here instead of on a registry page.
+ */
+test("the README's stated MCP inventory matches the server's", async () => {
+    const { inspectMcpServer, listMcpPrompts, listMcpTools } = await import(
+        "../dist/src/index.js"
+    );
+    const { workspace, cleanup } = await createTestWorkspace();
+    try {
+        const actual = {
+            tools: listMcpTools().length,
+            resources: inspectMcpServer(workspace).resources.length,
+            prompts: listMcpPrompts().prompts.length
+        };
+        assert.ok(
+            actual.tools > 20 && actual.resources > 0 && actual.prompts > 0,
+            `read ${JSON.stringify(actual)} from the server; the extraction broke`
+        );
+
+        const words: Record<string, number> = {
+            one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+            eight: 8, nine: 9, ten: 10
+        };
+        const count = (token: string) =>
+            /^\d+$/.test(token) ? Number(token) : words[token];
+
+        const readme = (await readFile(new URL("README.md", repoRoot), "utf8"))
+            .replaceAll("\r\n", "\n")
+            .replaceAll("\n", " ");
+        const stated = readme.match(
+            /exposes (\w+) tools, (\w+) resources and (\w+) prompts/
+        );
+        assert.ok(stated, "README.md no longer states the MCP inventory");
+        assert.deepEqual(
+            {
+                tools: count(stated[1]),
+                resources: count(stated[2]),
+                prompts: count(stated[3])
+            },
+            actual,
+            "README.md states an MCP inventory the server does not have"
+        );
+
+        const landing = await readFile(
+            new URL("site/index.html", repoRoot),
+            "utf8"
+        );
+        const headline = landing.match(/<span class="k">(\d+) tools<\/span>/);
+        assert.ok(headline, "site/index.html no longer headlines the tool count");
+        assert.equal(
+            Number(headline[1]),
+            actual.tools,
+            "site/index.html headlines a tool count the server does not have"
+        );
+    } finally {
+        await cleanup();
+    }
+});

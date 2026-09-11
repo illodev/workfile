@@ -429,7 +429,7 @@ unresolved incidents and non-expired context instead of loading all workfile mem
 Workfile includes a local, dependency-free MCP server using UTF-8,
 newline-delimited JSON-RPC over stdio. It delegates every operation to the same core
 services used by the CLI and HTTP API, speaks both the modern (`2026-07-28`) and legacy
-(`2025-11-25`) protocol revisions, and exposes 30 tools, four resources and three
+(`2025-11-25`) protocol revisions, and exposes 32 tools, four resources and three
 prompts. Mutation tools disappear entirely in `--read-only` mode.
 
 Point a client at it without installing anything. This is the invocation the

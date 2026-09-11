@@ -233,6 +233,20 @@ Scoring is the part that is not cheap, so expect the badge to render its grades
 with the quality slot still empty, and only embed it once the other slots say
 something.
 
+Measured on `punkpeye/awesome-mcp-servers` over one pull request, [[T-0133]]:
+filed 2026-08-02 clean; conflicting from 2026-08-10, because the category
+appends at one anchor and somebody else's line landed there first. The green
+`check-submission` never said so — `mergeStateStatus` was the only signal that
+did, and nothing was reading it, so the row sat 28 days. Rebased, pushed and
+answered on 2026-09-07 at 15:04Z; merged the same day at 22:27Z, 7 h 23 min
+later, against a 0.9 h median for author-resolved conflicts in that
+repository's own history. Push first, then reply: the reply alone merged 1
+pull request in 73.
+
+Leave counts out of the line. The merged entry says "30 tools" and cannot be
+changed without another pull request; two releases later the server exposes
+32. A number in listing copy is a date that does not say it is one.
+
 ## The copy to reuse
 
 Keeping these identical across submissions is what makes the listings look

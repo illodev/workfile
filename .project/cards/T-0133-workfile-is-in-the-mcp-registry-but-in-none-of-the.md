@@ -1,13 +1,18 @@
 ---
 id: T-0133
 title: Workfile is in the MCP Registry but in none of the directories that mirror it
-status: next
+status: done
 type: task
 priority: medium
 area: infra
 created: 2026-08-02
-updated: 2026-09-07
-scope: [.project/cards]
+updated: 2026-09-11
+scope: [.project/cards, README.md, site/index.html, packages/workfile/test/documentation.test.ts]
+verified:
+  at: "2026-09-11T16:25:29.698Z"
+  method: manual
+  commit: 58da3283766a384f3cfa2c9ba2f664a0d52021e0
+  digest: "sha256:cc8715e3f45cdbad5b02139b2fa65bc9e2a22f6d450f457c221d1420f7085ca1"
 ---
 
 [[T-0114]] shipped the half a repository can own: `v0.4.0` published
@@ -23,17 +28,24 @@ card holds the state.
 
 | Registry | State |
 | --- | --- |
-| Official MCP Registry | Listed, `active`, `isLatest`, 0.5.0 |
-| `punkpeye/awesome-mcp-servers` | PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406) open, rebased, `CLEAN`, awaiting merge |
+| Official MCP Registry | Listed, `active`, `isLatest`, 0.11.0 |
+| `punkpeye/awesome-mcp-servers` | Merged 2026-09-07 — PR [#11406](https://github.com/punkpeye/awesome-mcp-servers/pull/11406), entry on `main` |
 | mcpservers.org | Live at [`/servers/illodev/workfile`](https://mcpservers.org/servers/illodev/workfile) |
-| Glama | Claimed and verified, two grades A, quality still ungraded — [[T-0141]] |
-| Claude Code community marketplace | Submitted, awaiting review |
+| Glama | Claimed, verified, three grades A; quality 4/5.0 scored 2026-08-03 — [[T-0141]] |
+| Claude Code community marketplace | Filed 2026-08-02; not in the catalog on 2026-09-11 |
 | mcp.so | Charges for a listing — decision below |
 | Smithery | Dropped |
 
 ## The punkpeye pull request
 
-Open, `MERGEABLE` and `CLEAN`, with the repository's bots holding `has-emoji`,
+Merged on 2026-09-07 at 22:27Z by the maintainer, as `faa8797`, 7 h 23 min
+after the resolving push and the reply that named the conflict. The line is on
+`main` at `README.md:3198` — filed at 3095, the file grew around it — and is
+byte-identical to the one kept below. The merge bot's welcome comment offers a
+server-author role on the MCP Discord in exchange for a Discord username; that
+is the maintainer's account and not a step here.
+
+Until then it was open, `MERGEABLE` and `CLEAN`, with the repository's bots holding `has-emoji`,
 `valid-name` and `has-glama` — all three positive, and all three kept across the
 rebase because the entry text did not change.
 
@@ -53,9 +65,10 @@ One bot comment still asks for something the pull request cannot supply on its o
 
 It is a request, not a failing check, and nothing marks the pull request
 blocked. The badge has since stopped being an empty promise: [[T-0136]] claimed
-the listing and two of its three slots now render A, with the quality score
-still ungraded because that one needs a container the card declined to build.
-The bot's ask is unmet and stays unmet; the line is no longer misleading.
+the listing, and [[T-0141]] published the Glama release the quality grade
+needs, so the badge renders three A's and the Score tab reads 4/5.0 across 30
+tools, scored 2026-08-03. The bot's ask was met the day after it was made; this
+card was not told until 2026-09-11.
 
 The line as filed, kept here because the working copy that produced it is
 disposable:
@@ -63,6 +76,11 @@ disposable:
 ```
 - [illodev/workfile](https://github.com/illodev/workfile) [![illodev/workfile MCP server](https://glama.ai/mcp/servers/illodev/workfile/badges/score.svg)](https://glama.ai/mcp/servers/illodev/workfile) 🎖️ 📇 🏠 🍎 🪟 🐧 - Work, Docs, History and durable Memory as Markdown inside the repository, so the backlog reviews, branches and merges with the code that answers it. Cards carry a lifecycle and a claim, so parallel agents refuse to edit a card another actor holds. 30 tools, plus a CLI, a Claude Code plugin and a local UI. `npx -y @illodev/workfile mcp`
 ```
+
+The line says 30 tools, and so does Glama's score. Both were true at 0.5.x;
+0.11.0 exposes 32. Neither is worth a pull request or a re-release over a
+number, and the next entry filed anywhere should not carry one — the reason is
+written in [[DOC-0004]].
 
 ## The two that cost something
 
@@ -76,19 +94,23 @@ bundle, which nothing here builds, so it is an artifact to design and maintain
 in exchange for one listing. Reopen it if the bundle becomes worth having for
 its own sake.
 
-## Still to file
+## Still in someone else's queue
 
-The Claude Code community marketplace, at
-<https://platform.claude.com/plugins/submit> for an individual author. It was
-blocked on [[T-0134]] and is not any more: `claude plugin validate` passes.
-This is the only listing left with a review queue behind it.
+The Claude Code community marketplace, filed on 2026-08-02 at
+<https://platform.claude.com/plugins/submit> as an individual author once
+[[T-0134]] made `claude plugin validate` pass. Measured 2026-09-11, 40 days
+later: `anthropics/claude-plugins-community` has no `workfile` in
+`.claude-plugin/marketplace.json`, no pull request or issue naming it, and its
+last push is 2026-08-25. There is no status page to poll; the check stays the
+plugin's name in that file. The criterion on this card is that the submission
+is filed, which it is, so the wait does not hold the card open.
 
 ## Acceptance criteria
 
-- [ ] `punkpeye/awesome-mcp-servers` lists Workfile
+- [x] `punkpeye/awesome-mcp-servers` lists Workfile
 - [x] mcpservers.org lists Workfile
 - [x] The Claude Code community marketplace submission is filed
-- [ ] Glama shows a real score rather than `–`
+- [x] Glama shows a real score rather than `–`
 - [x] mcp.so and Smithery are decided rather than pending
 
 ## Activity
@@ -108,6 +130,8 @@ This is the only listing left with a review queue behind it.
 - 2026-09-07 14:57Z illodev@local#8dca5ed1 · released
 - 2026-09-07 15:04Z illodev@local#8dca5ed1 · claimed
 - 2026-09-07 15:05Z illodev@local#8dca5ed1 · released
+- 2026-09-11 16:21Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 16:25Z illodev@local#597ecdc9 · doing → done
 
 ## Notes
 
@@ -151,3 +175,5 @@ Comment: https://github.com/punkpeye/awesome-mcp-servers/pull/11406#issuecomment
 The comment names the conflict rather than only confirming interest, because the nudge asserted "all checks pass" from a run that predated the conflict by eight days. Nothing here can close the criterion: the merge is still the maintainer's hand, and the branch is now in the state where his own history says that hand lands within about an hour of the resolving push.
 
 One thing this leaves standing. The green `check-submission` was never evidence about mergeability, and reading it as such is what made the row look like it had no next action for 28 days. The signal that mattered was `mergeStateStatus`, which no bot on that repository surfaced for this pull request and which nothing here was watching.
+- 2026-09-11 16:24Z illodev@local#597ecdc9 — Closed on 2026-09-11 against the two places the criteria point at. punkpeye: #11406 merged 2026-09-07T22:27:18Z by the maintainer as faa8797, 7 h 23 min after the 15:04Z force-push — the previous note predicted a 0.9 h median and this one took eight times that, still the same day. The line is on main at README.md:3198, fetched raw and byte-identical to the one filed. Glama: the badge SVG's own title reads 'rated A on Glama' with three green slots, and the Score tab reads 4/5.0 across 30 tools, scored 2026-08-03 21:25 — T-0141's release did it five weeks ago and this card kept saying 'two grades A, quality ungraded'. Registry row refreshed to 0.11.0 (active, isLatest, published 2026-09-11T15:53Z). Community marketplace: filed, still absent from marketplace.json after 40 days, recorded as a wait rather than work. Discovered in the same pass: README.md and site/index.html said 30 tools while 0.11.0 exposes 32; both corrected and pinned by a documentation test that compares the stated inventory with listMcpTools, listMcpPrompts and inspectMcpServer. The merged punkpeye line and Glama's score also say 30 — left as they are, and DOC-0004 now says why counts stay out of listing copy.
+- 2026-09-11 16:25Z illodev@local#597ecdc9 — manual verification: punkpeye/awesome-mcp-servers main README.md:3198 carries the Workfile line (raw fetch 2026-09-11; PR #11406 merged 2026-09-07T22:27:18Z as faa8797). glama.ai/mcp/servers/illodev/workfile badge title reads 'rated A on Glama', Score tab 4/5.0 across 30 tools scored 2026-08-03. mcpservers.org/servers/illodev/workfile answers 200. MCP Registry io.github.illodev/workfile is active, isLatest, 0.11.0. Community marketplace filed 2026-08-02, absent from anthropics/claude-plugins-community marketplace.json on 2026-09-11 — the criterion is that it is filed.
