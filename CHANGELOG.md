@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.0 — 2026-09-11
+
+Four things a board holds and nobody sees until they cost a turn: a parent whose last child closed and that nobody will ever move; two open cards for one job under different wording; a doctor flooded by one axis on a board where most open work belongs to no sweep; and a card whose photograph of the repository has aged. Each one was measured on a 2 550-card consuming board before it shipped, and each ships as a warning that puts the decision in front of somebody rather than taking it.
+
+### Added
+
+- An axis can be declared without being required (T-0231)
+- card claim runs the card's verify entries and says which way each one moved (T-0234)
+- doctor names an open parent whose whole subtree has come to rest (T-0226)
+- doctor names two open cards whose titles claim the same job (T-0238)
+
+### Fixed
+
+- The README and the landing page state the MCP inventory the server has (T-0133)
+
 ## 0.11.0 — 2026-09-11
 
 ### Added
