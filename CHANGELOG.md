@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.1 — 2026-09-11
+
+Three silences in the protocol, each measured before it was named. An edit made through `sed` inside another actor's scope was asked nothing — the PostToolUse hook now reports it after the fact, with the card and its holder, and never joins the guard's hot path. Nothing said a newer Workfile existed while every check stayed green — `upgrade` and the footer now ask the registry once a day, and the security model states exactly what is sent and to whom. The trail said who closed a card and never what closed it — `produced_by` now rides beside the actor, self-reported and labelled so, on the trail line and as a countable field. Around them: every `--json` answer has a written shape, with the MCP envelope one variable away ahead of 0.13.0; `show --fields` reads one key of any record; and the stills and the Workflow picture show the shell that ships.
+
+### Added
+
+- A card records what produced each write, beside who made it (T-0209)
+- show --fields reads one key of any record without the body (T-0247)
+- workfile upgrade and the footer say when a newer Workfile is published (T-0208)
+
+### Changed
+
+- Every --json answer has a documented shape, and the MCP envelope is one variable away (T-0246)
+- Every published still shows the shell that ships, and one run writes all of them (T-0205)
+- The Workflow picture draws the four collections as one graph (T-0165)
+
+### Fixed
+
+- The scope guard now reports edits made through Bash after the fact (T-0227)
+
 ## 0.12.0 — 2026-09-11
 
 Four things a board holds and nobody sees until they cost a turn: a parent whose last child closed and that nobody will ever move; two open cards for one job under different wording; a doctor flooded by one axis on a board where most open work belongs to no sweep; and a card whose photograph of the repository has aged. Each one was measured on a 2 550-card consuming board before it shipped, and each ships as a warning that puts the decision in front of somebody rather than taking it.
