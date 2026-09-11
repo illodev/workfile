@@ -870,6 +870,9 @@ const SUMMARY_FIELDS = Object.freeze([
     "version",
     "claimed_by",
     "claimed_at",
+    // Countable from a listing, which is the whole reason it is a field and
+    // not only a trail token (T-0209).
+    "produced_by",
     "created",
     "updated",
     "revision",

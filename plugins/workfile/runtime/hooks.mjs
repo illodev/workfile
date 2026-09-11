@@ -334,6 +334,17 @@ function separatesFromMe(claim, mine, mySession) {
 const SESSIONS = `${CACHE}/sessions`;
 
 /**
+ * A model or effort name as the CLI will accept it — `PRODUCER_TOKEN` in
+ * `modules/cards/producer.ts`, duplicated for the reason the header gives. A
+ * value that is not a label is dropped here rather than written and refused
+ * later, so the session file never carries anything but a name.
+ */
+const labelOf = (value) =>
+    typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$/.test(value.trim())
+        ? value.trim()
+        : null;
+
+/**
  * The live half of a claim.
  *
  * Mirrors `recordAgentSignal` in `modules/cards/claims.ts`, deliberately
@@ -364,6 +375,13 @@ async function signal(root, input, files = []) {
                 sessionId: String(id),
                 actor: actorFor(input) || previous.actor || null,
                 cardId: previous.cardId ?? null,
+                // What the host says is doing the work, kept for the CLI to
+                // read back as `produced_by` (T-0209). `model` arrives on a
+                // SessionStart payload when the host includes it — it does not
+                // always — and `effort.level` on every tool-use event. Both
+                // are the host's word and are recorded as self-reported.
+                model: labelOf(input.model) || previous.model || null,
+                effort: labelOf(input.effort?.level) || previous.effort || null,
                 pid: process.pid,
                 startedAt: previous.startedAt || now,
                 lastSignalAt: now,

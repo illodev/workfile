@@ -44,6 +44,7 @@ import {
     CARD_STATUSES,
     CARD_TYPES
 } from "../../config/defaults.js";
+import { producerProblems } from "./producer.js";
 
 /**
  * The first day `raised` could be answered, so the rule below can be quiet about
@@ -268,7 +269,8 @@ const DEDUP_HINT = /duplica|dedup|supersed/i;
  * optional because `appendCardNote` omits it when none was resolved, and a
  * note without one is still a judgement somebody wrote.
  */
-const NOTE_ENTRY = /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z)(?: \S+)? — /;
+// The optional second token is the producer (`via:MODEL/REASONING`, T-0209).
+const NOTE_ENTRY = /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z)(?: \S+)?(?: via:\S+)? — /;
 
 function resting(card) {
     return card.archived || RESTING_STATUSES.has(card.status);
@@ -680,6 +682,24 @@ export async function diagnoseCards({
                     `Hierarchy depth is ${hierarchy.depth}; maximum is ${workspace.config.cards.maxHierarchyDepth}`
                 )
             );
+        }
+        // A `produced_by` block the protocol did not write. Nothing in the
+        // protocol can write a malformed one, so it means a hand edit — and a
+        // block that does not read as a producer defeats the one thing the
+        // field exists for, which is being counted over (T-0209).
+        if (card.produced_by !== undefined) {
+            const problems = producerProblems(card.produced_by);
+            if (problems.length) {
+                issues.push(
+                    issue(
+                        "warning",
+                        "produced-by-invalid",
+                        card,
+                        `The produced_by block does not read as a producer: ${problems.join("; ")}.`,
+                        { problems }
+                    )
+                );
+            }
         }
         const hasClaim = Boolean(card.claimed_by);
         const hasClaimDate = Boolean(card.claimed_at);

@@ -11,7 +11,8 @@ import {
     rankNextCards,
     releaseCard,
     reopenCard,
-    transitionCard
+    transitionCard,
+    resolveProducer
 } from "../cards/index.js";
 import {
     createChangeFragment,
@@ -313,6 +314,18 @@ function actorFor(context, provided) {
         provided: optionalString(provided),
         clientName: context.clientInfo?.name
     }).actor;
+}
+
+/**
+ * What produced the write, beside the actor (T-0209).
+ *
+ * The server's environment is the host's — Claude Code hands its MCP servers
+ * `CLAUDE_EFFORT` like any other child — so this is the same self-declared
+ * label the CLI records, and no tool argument can set it: an argument would be
+ * a route into a committed record for whatever a caller typed.
+ */
+async function producerFor(context) {
+    return (await resolveProducer(context.workspace)).producer;
 }
 
 function recordResult(record, extra: any = {}) {
@@ -964,6 +977,7 @@ const TOOL_DEFINITIONS = [
             ensureMutable(context);
             const result = await claimCard(context.workspace, requiredString(args.id, "id"), {
                 actor: actorFor(context, args.actor),
+                producer: await producerFor(context),
                 scope: stringList(args.scope, "scope"),
                 force: Boolean(args.force),
                 reason: optionalString(args.reason),
@@ -1013,6 +1027,7 @@ const TOOL_DEFINITIONS = [
                 requiredString(args.id, "id"),
                 {
                     actor: actorFor(context, args.actor),
+                    producer: await producerFor(context),
                     status: optionalString(args.status),
                     force: args.force === true,
                     reason: optionalString(args.reason),
@@ -1092,7 +1107,8 @@ const TOOL_DEFINITIONS = [
                 {
                     text: requiredString(args.text, "text"),
                     section: optionalString(args.section) || "Notes",
-                    actor: actorFor(context, args.actor)
+                    actor: actorFor(context, args.actor),
+                    producer: await producerFor(context)
                 }
             );
             invalidate(context);
@@ -1133,6 +1149,7 @@ const TOOL_DEFINITIONS = [
                 requiredString(args.status, "status"),
                 {
                     actor: actorFor(context, args.actor),
+                    producer: await producerFor(context),
                     scope: stringList(args.scope, "scope"),
                     method: optionalString(args.method),
                     run: optionalString(args.run),
@@ -1178,6 +1195,7 @@ const TOOL_DEFINITIONS = [
                 {
                     expectedRevision: optionalString(args.expectedRevision),
                     actor: actorFor(context, args.actor),
+                    producer: await producerFor(context),
                     force: args.force === true,
                     method: optionalString(args.method),
                     run: optionalString(args.run),
@@ -1208,6 +1226,7 @@ const TOOL_DEFINITIONS = [
             ensureMutable(context);
             const result = await archiveCard(context.workspace, requiredString(args.id, "id"), {
                 actor: actorFor(context, args.actor),
+                producer: await producerFor(context),
                 expectedRevision: optionalString(args.expectedRevision)
             });
             invalidate(context);
@@ -1238,6 +1257,7 @@ const TOOL_DEFINITIONS = [
             const result = await reopenCard(context.workspace, requiredString(args.id, "id"), {
                 status: optionalString(args.status) || "backlog",
                 actor: actorFor(context, args.actor),
+                producer: await producerFor(context),
                 expectedRevision: optionalString(args.expectedRevision)
             });
             invalidate(context);
@@ -1424,6 +1444,7 @@ const TOOL_DEFINITIONS = [
                     text: requiredString(args.text, "text"),
                     section: optionalString(args.section) || "Notes",
                     actor: actorFor(context, args.actor),
+                    producer: await producerFor(context),
                     expectedRevision: optionalString(args.expectedRevision)
                 }
             );

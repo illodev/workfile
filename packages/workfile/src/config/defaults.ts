@@ -80,6 +80,7 @@ export const CARD_RESERVED_KEYS = Object.freeze([
     "origin",
     "parent",
     "priority",
+    "produced_by",
     "raised",
     "related",
     "revision",

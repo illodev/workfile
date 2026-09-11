@@ -19,7 +19,7 @@ function sessionsDirectory(workspace) {
     return join(workspace.paths.cache, "activity", "sessions");
 }
 
-function sessionPath(workspace, sessionId) {
+export function sessionPath(workspace, sessionId) {
     const safe = String(sessionId).replace(/[^\w.-]+/g, "_");
     return join(sessionsDirectory(workspace), `${safe}.json`);
 }

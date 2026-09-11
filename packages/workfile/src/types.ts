@@ -373,6 +373,23 @@ export interface CardRecord extends BaseProjectRecord {
     verify?: CardVerifyEntry[];
     /** Written by the gate when the card reaches `done`, cleared when it leaves. */
     verified?: CardVerification;
+    /**
+     * What produced the last protocol write, beside the actor who made it.
+     *
+     * Self-declared from the writer's environment and labelled so: an agent can
+     * set `WORKFILE_MODEL` to anything, and the record must not read as
+     * attested. Last writer only — the trail line carries the history as a
+     * `via:MODEL/REASONING` token. Absent when nothing declared a producer.
+     */
+    produced_by?: CardProducer;
+}
+
+export interface CardProducer {
+    /** The model, or `undeclared`. */
+    model: string;
+    /** The reasoning budget or effort level, or `undeclared`. */
+    reasoning: string;
+    basis: "self-reported";
 }
 
 export interface CardVerifyEntry {

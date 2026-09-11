@@ -547,7 +547,7 @@ The submission endpoint can create duplicate records after a network retry.
 ## Activity
 
 - 2026-07-28 09:32Z alice@studio · claimed
-- 2026-07-28 11:04Z alice@studio · backlog → doing
+- 2026-07-28 11:04Z alice@studio via:claude-opus-4-1/high · backlog → doing
 
 ## Notes
 
@@ -1004,6 +1004,49 @@ the current policy no longer accepts is reported as the warning
 `verification-method-unaccepted` and never re-gated: tightening a policy must
 not invalidate closed work, and there is nothing to do about a shipped card
 except decide it is acceptable, which is what the doctor baseline is for.
+
+### 11.15 What produced a write
+
+The trail records an actor — which human, which session — and nothing about
+what did the work. A writer MAY declare what produced its writes, and when it
+does the protocol records it in two places: on the trail line as a second token
+after the actor, `via:MODEL/REASONING`, and in frontmatter as `produced_by`.
+
+```yaml
+produced_by:
+    model: claude-opus-4-1
+    reasoning: high
+    basis: self-reported
+```
+
+Rules:
+
+1. **Beside the actor, never inside it.** `claimed_by` and the actor segment
+   of a trail line are unchanged by a declared producer. Every comparison of
+   actors — the claim guard, `claimSeparation`, the edit hook — reads the same
+   string it read before.
+2. **Self-reported, and the record says so.** The declaration comes from the
+   writer's environment (`WORKFILE_MODEL`, `WORKFILE_REASONING`, the host's own
+   effort variable, or what the host's hook copied into the session file), and
+   an agent can set an environment variable to anything. Every block carries
+   `basis: self-reported` and MUST NOT be read as attested.
+3. **Both halves, or the absence stated.** `model` and `reasoning` are each a
+   label or the word `undeclared`; the trail token drops an undeclared
+   reasoning and keeps an undeclared model, so the line still says a producer
+   was declared and what was not.
+4. **A label, not a payload.** A declared value is at most 64 characters of
+   `[A-Za-z0-9._:+-]`. Anything else is refused and reported to the caller,
+   never written. This is what keeps the field from carrying a prompt, a key
+   or a path into a committed record.
+5. **Last writer, plus history.** The frontmatter block holds the newest
+   writer, so it can be counted over without parsing prose; the trail keeps
+   every earlier one. It is not patchable and cannot be declared as an axis.
+6. **Nothing declared, nothing written.** A workspace where no writer declares
+   a producer produces records byte-identical to those of a protocol without
+   this section.
+
+`doctor` reports `produced-by-invalid`, a warning, for a block that does not
+read as a producer: the protocol cannot write one, so it is a hand edit.
 
 ## 12. Module: Documentation
 

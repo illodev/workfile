@@ -106,3 +106,13 @@ export {
     validateCardCandidate,
     verifyTimeoutSeconds
 } from "./validation.js";
+export {
+    PRODUCER_TOKEN,
+    UNDECLARED,
+    producerProblems,
+    producerTag,
+    producerToken,
+    resolveProducer,
+    type Producer,
+    type ResolvedProducer
+} from "./producer.js";

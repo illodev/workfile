@@ -49,6 +49,7 @@ import {
     validateCardCandidate,
     verificationRefusal
 } from "./validation.js";
+import { producerTag } from "./producer.js";
 
 function nowTimestamp(now) {
     return (now ? new Date(now) : new Date()).toISOString();
@@ -225,6 +226,31 @@ function applyVerification(content, id, current, candidate, verification) {
 }
 
 /**
+ * The `produced_by` block: what made this write, as the writer declared it.
+ *
+ * Applied at the one door every write goes through, after the trail line and
+ * the verification, so a card's field always names the writer of its newest
+ * trail token. Last writer only, by design — the history is the trail, where
+ * `activityEntry` puts the same producer as a `via:` token. Not patchable:
+ * `CARD_PATCHABLE_FIELDS` leaves it out so nobody can hand one in, and
+ * `CARD_RESERVED_KEYS` keeps an axis from taking the name. Self-reported, and
+ * the block says so — see `modules/cards/producer.ts`.
+ */
+function applyProducer(content, producer) {
+    return patchFrontmatter(
+        content,
+        {
+            produced_by: {
+                model: producer.model,
+                reasoning: producer.reasoning,
+                basis: producer.basis
+            }
+        },
+        { listKeys: CARD_LIST_KEYS, touchUpdated: false }
+    );
+}
+
+/**
  * HEAD, resolved before the card lock is taken.
  *
  * `mutateCard`'s whole body is the lock callback, so probing git from inside it
@@ -259,7 +285,8 @@ async function mutateCard(
         guard,
         snapshot,
         bodyOnly = false,
-        verification
+        verification,
+        producer = null
     }: any = {}
 ) {
     ensureWritable(workspace);
@@ -339,6 +366,7 @@ async function mutateCard(
             // be on disk — see `applyVerification`. Still before the write, so
             // every refusal it raises leaves the file exactly as it was.
             next = applyVerification(next, id, current, candidate, verification);
+            if (producer) next = applyProducer(next, producer);
             await writeFileAtomic(sourcePath, next);
 
             let archived = current.archived;
@@ -478,9 +506,13 @@ export async function healMisplacedTrailEntries(
     return { moved };
 }
 
-export function activityEntry(actor, text, now) {
+export function activityEntry(actor, text, now, producer = null) {
     const stamp = nowTimestamp(now).slice(0, 16).replace("T", " ");
-    return `${stamp}Z ${actor || "unknown"} · ${text}`;
+    // Beside the actor, never inside it: the guard compares actors for
+    // equality, and `TRAIL_ENTRY` reads everything before the separator as
+    // the actor segment, so a second token there costs no parser anything.
+    const tag = producerTag(producer);
+    return `${stamp}Z ${actor || "unknown"}${tag ? ` ${tag}` : ""} · ${text}`;
 }
 
 /** Whether the durable trail is enabled for this workspace. */
@@ -513,9 +545,9 @@ function trailEnabled(workspace) {
  * inferred: a redundant claim rewrites `claimed_at`, so the candidate differs
  * from the current card even though no protocol event occurred.
  */
-function appendMilestone(workspace, content, { actor, text, redundant, now }) {
+function appendMilestone(workspace, content, { actor, text, redundant, now, producer = null }) {
     if (!trailEnabled(workspace) || redundant) return content;
-    return appendActivityLine(content, activityEntry(actor, text, now));
+    return appendActivityLine(content, activityEntry(actor, text, now, producer));
 }
 
 /**
@@ -765,7 +797,11 @@ function forcedBy(gates: Array<string | null>, reason: string): string {
 /** The frontmatter a patch must hold a claim to touch. */
 const CLAIM_GUARDED_FIELDS = ["status", "claimed_by", "claimed_at"];
 
-export async function createCard(workspace, input, { maxRetries = 32, now }: any = {}) {
+export async function createCard(
+    workspace,
+    input,
+    { maxRetries = 32, now, producer = null }: any = {}
+) {
     ensureWritable(workspace);
     if (!input?.title?.trim()) {
         throw new ValidationError("CARD_TITLE_REQUIRED", "title is required.");
@@ -808,6 +844,15 @@ export async function createCard(workspace, input, { maxRetries = 32, now }: any
         ...(input.claimed_by ? { claimed_by: input.claimed_by } : {}),
         ...(input.claimed_at ? { claimed_at: input.claimed_at } : {}),
         ...(input.verify?.length ? { verify: input.verify } : {}),
+        ...(producer
+            ? {
+                  produced_by: {
+                      model: producer.model,
+                      reasoning: producer.reasoning,
+                      basis: producer.basis
+                  }
+              }
+            : {}),
         created: date,
         updated: date
     };
@@ -890,6 +935,7 @@ export async function patchCard(
     id,
     changes,
     {
+        producer = null,
         actor,
         force = false,
         reason,
@@ -919,6 +965,7 @@ export async function patchCard(
     const head = await commitForClose(workspace, wanted, commit);
     return mutateCard(workspace, id, changes, {
         ...options,
+        producer,
         verification: {
             method,
             run,
@@ -973,6 +1020,7 @@ export async function patchCard(
                 ? transformContent(content, current, candidate)
                 : content;
             const moved = appendMilestone(workspace, next, {
+                producer,
                 actor,
                 text: `${current.status} → ${wanted}${forcedMove}`,
                 redundant: !wanted || wanted === current.status,
@@ -982,6 +1030,7 @@ export async function patchCard(
             // and `release` both record and this door did not — so the trail
             // depended on which command you used rather than on what happened.
             return appendMilestone(workspace, moved, {
+                producer,
                 actor,
                 text: `${candidate.claimed_by ? "claimed" : "released"}${forcedClaim}`,
                 redundant:
@@ -1013,6 +1062,7 @@ export async function claimCard(
     workspace,
     id,
     {
+        producer = null,
         actor,
         scope,
         force = false,
@@ -1055,6 +1105,7 @@ export async function claimCard(
             scope: requestedScope
         },
         {
+            producer,
             expectedRevision,
             // The listing is already in hand; `mutateCard` re-reads the whole
             // directory when it is not passed one, which doubled every claim.
@@ -1106,6 +1157,7 @@ export async function claimCard(
                           )
                         : content;
                 return appendMilestone(workspace, next, {
+                    producer,
                     actor,
                     text: "claimed",
                     // Already yours and already doing: re-running the command
@@ -1136,6 +1188,7 @@ export async function releaseCard(
     workspace,
     id,
     {
+        producer = null,
         actor,
         status,
         force = false,
@@ -1180,6 +1233,7 @@ export async function releaseCard(
             claimed_at: null
         }),
         {
+            producer,
             expectedRevision,
             snapshot: loaded,
             verification: {
@@ -1193,6 +1247,7 @@ export async function releaseCard(
             },
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
+                    producer,
                     actor: actor || current.claimed_by,
                     text: `released${forced}`,
                     // No claim to drop and nowhere to move: the command
@@ -1243,6 +1298,7 @@ export async function transitionCard(
     id,
     status,
     {
+        producer = null,
         actor,
         scope,
         force = false,
@@ -1284,6 +1340,7 @@ export async function transitionCard(
             claimed_at: null
         },
         {
+            producer,
             expectedRevision,
             moveToArchived,
             snapshot: loaded,
@@ -1298,6 +1355,7 @@ export async function transitionCard(
             },
             transformContent: (content, current) =>
                 appendMilestone(workspace, content, {
+                    producer,
                     actor,
                     // When the status did not move, the only reason this line
                     // exists is the card coming back out of the archive — so
@@ -1376,7 +1434,7 @@ export async function transitionCard(
  * still ignored there — but no longer silently: the headings whose content did
  * not survive come back as `ignored`.
  */
-export async function patchCardBody(workspace, id, { body, expectedRevision }: any = {}) {
+export async function patchCardBody(workspace, id, { producer = null, body, expectedRevision }: any = {}) {
     if (typeof body !== "string") {
         throw new ValidationError(
             "CARD_BODY_REQUIRED",
@@ -1385,6 +1443,7 @@ export async function patchCardBody(workspace, id, { body, expectedRevision }: a
     }
     let ignored: string[] = [];
     const result = await mutateCard(workspace, id, {}, {
+        producer,
         expectedRevision,
         bodyOnly: true,
         transformContent: (content) => {
@@ -1460,6 +1519,7 @@ export async function setCardAcceptance(
     workspace,
     id,
     {
+        producer = null,
         check = [],
         uncheck = [],
         expectedRevision,
@@ -1477,6 +1537,7 @@ export async function setCardAcceptance(
     }
     let changed = [];
     const result = await mutateCard(workspace, id, {}, {
+        producer,
         expectedRevision,
         bodyOnly: true,
         transformContent: (content) => {
@@ -1518,6 +1579,7 @@ export async function setCardAcceptance(
             changed = applied.changed;
             const written = `${content.slice(0, parsed.prefixLength)}${applied.body}`;
             return appendMilestone(workspace, written, {
+                producer,
                 actor,
                 text: `verify ${runner}: ${outcome}, ${describeChanges(applied.changed)}`,
                 // A run that found the boxes already saying what it proves has
@@ -1564,15 +1626,17 @@ function describeChanges(changed): string {
 export async function appendCardNote(
     workspace,
     id,
-    { text, actor, section = "Notes", expectedRevision, now }: any = {}
+    { producer = null, text, actor, section = "Notes", expectedRevision, now }: any = {}
 ) {
     const line = String(text || "").trim();
     if (!line) {
         throw new ValidationError("CARD_NOTE_REQUIRED", "text must not be empty.");
     }
     const stamp = nowTimestamp(now).slice(0, 16).replace("T", " ");
-    const entry = `- ${stamp}Z${actor ? ` ${actor}` : ""} — ${line}`;
+    const tag = producerTag(producer);
+    const entry = `- ${stamp}Z${actor ? ` ${actor}` : ""}${tag ? ` ${tag}` : ""} — ${line}`;
     return mutateCard(workspace, id, {}, {
+        producer,
         expectedRevision,
         bodyOnly: true,
         transformContent: (content) => {
@@ -1609,7 +1673,7 @@ export async function appendCardNote(
 export async function archiveCard(
     workspace,
     id,
-    { actor, expectedRevision, now }: any = {}
+    { producer = null, actor, expectedRevision, now }: any = {}
 ) {
     const loaded = await loadCards(workspace);
     const snapshot = locateUniqueCard(loaded.cards, id);
@@ -1635,11 +1699,13 @@ export async function archiveCard(
         id,
         (current) => ({ status: current.status }),
         {
+            producer,
             expectedRevision,
             moveToArchived: true,
             snapshot: loaded,
             transformContent: (content) =>
                 appendMilestone(workspace, content, {
+                    producer,
                     actor,
                     text: "archived",
                     redundant: false,
@@ -1676,7 +1742,7 @@ export async function archiveCard(
 export async function reopenCard(
     workspace,
     id,
-    { status = "backlog", actor, expectedRevision }: any = {}
+    { producer = null, status = "backlog", actor, expectedRevision }: any = {}
 ) {
     if (["done", "discarded"].includes(status)) {
         throw new ValidationError(
@@ -1684,14 +1750,14 @@ export async function reopenCard(
             "A reopened card must use an open status."
         );
     }
-    return transitionCard(workspace, id, status, { actor, expectedRevision });
+    return transitionCard(workspace, id, status, { actor, expectedRevision, producer });
 }
 
 export async function bulkPatchCards(
     workspace,
     ids,
     changes,
-    { expectedRevisions = {}, method, run, evidence }: any = {}
+    { producer = null, expectedRevisions = {}, method, run, evidence }: any = {}
 ) {
     const unique = [...new Set<string>(ids || [])];
     if (!unique.length) {
@@ -1716,6 +1782,7 @@ export async function bulkPatchCards(
     for (const id of unique) {
         try {
             const result = await patchCard(workspace, id, changes, {
+                producer,
                 expectedRevision: expectedRevisions[id],
                 snapshot,
                 commit,

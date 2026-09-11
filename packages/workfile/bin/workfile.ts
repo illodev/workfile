@@ -93,7 +93,8 @@ import {
     CARD_TITLE_MAX_LENGTH,
     DOC_TITLE_MAX_LENGTH,
     checkedAgo,
-    upgradeHint
+    upgradeHint,
+    resolveProducer
 } from "../src/index.js";
 import { detectPackageManager } from "../src/core/package-manager.js";
 
@@ -1357,6 +1358,29 @@ function defaultActor() {
 }
 
 /**
+ * What produced this process's writes, resolved once per process (T-0209).
+ *
+ * Self-declared, beside the actor: `WORKFILE_MODEL` and `WORKFILE_REASONING`,
+ * the host's `CLAUDE_EFFORT`, or what the Claude hook copied into the session
+ * file. A value that is not a label is refused and said so once — dropping it
+ * quietly would leave a record reading `undeclared` for a reason nobody can
+ * see. With nothing declared, `undefined`, and the record is as it always was.
+ */
+let producerResolved: Promise<any> | null = null;
+function currentProducer(workspace) {
+    producerResolved ??= resolveProducer(workspace).then(({ producer, ignored }) => {
+        if (ignored.length) {
+            console.error(
+                `note: ${ignored.join(", ")} ignored — a producer label is at most ` +
+                    "64 characters of [A-Za-z0-9._:+-]; the record says undeclared."
+            );
+        }
+        return producer;
+    });
+    return producerResolved;
+}
+
+/**
  * A claim taken under a name this session does not answer to.
  *
  * `--actor` outranks every other rung, and that is right: CI claims as a bot,
@@ -1722,7 +1746,9 @@ async function cardCommand(workspace, action) {
                 : {}),
             ...(axisOptions("--axis") ? { axes: axisOptions("--axis") } : {})
         };
-        const result = await createCard(workspace, input);
+        const result = await createCard(workspace, input, {
+            producer: await currentProducer(workspace)
+        });
         return print(has("--json") ? recordAnswer(result.card) : `${result.id} ${result.file}`);
     }
     // Two card actions name no record, and each says so with a flag.
@@ -1804,6 +1830,7 @@ async function cardCommand(workspace, action) {
             return;
         }
         const result = await setCardAcceptance(workspace, id, {
+            producer: await currentProducer(workspace),
             check,
             uncheck,
             expectedRevision: option("--expected-revision") || undefined
@@ -1901,6 +1928,7 @@ async function cardCommand(workspace, action) {
     }
     if (action === "note") {
         const result = await appendCardNote(workspace, id, {
+            producer: await currentProducer(workspace),
             text: option("--text"),
             section: option("--section") || "Notes",
             actor: option("--actor") || defaultActor(),
@@ -1949,6 +1977,7 @@ async function cardCommand(workspace, action) {
             ? await readFile(resolve(option("--body-file")), "utf8")
             : await readAllStdin();
         const result = await patchCardBody(workspace, id, {
+            producer: await currentProducer(workspace),
             body,
             expectedRevision: option("--expected-revision") || undefined
         });
@@ -1980,6 +2009,7 @@ async function cardCommand(workspace, action) {
             );
         }
         const result = await patchCard(workspace, id, changes, {
+            producer: await currentProducer(workspace),
             expectedRevision: option("--expected-revision") || undefined,
             actor: option("--actor") || defaultActor(),
             force: has("--force"),
@@ -1997,6 +2027,7 @@ async function cardCommand(workspace, action) {
     if (action === "claim") {
         warnActorMismatch(option("--actor"));
         const result = await claimCard(workspace, id, {
+            producer: await currentProducer(workspace),
             actor: option("--actor") || defaultActor(),
             scope: listOption("--scope"),
             force: has("--force"),
@@ -2027,6 +2058,7 @@ async function cardCommand(workspace, action) {
     }
     if (action === "release") {
         const result = await releaseCard(workspace, id, {
+            producer: await currentProducer(workspace),
             actor: option("--actor") || defaultActor(),
             status: option("--status"),
             force: has("--force"),
@@ -2049,6 +2081,7 @@ async function cardCommand(workspace, action) {
             );
         }
         const result = await transitionCard(workspace, id, status, {
+            producer: await currentProducer(workspace),
             actor: option("--actor") || defaultActor(),
             scope: listOption("--scope"),
             // Wired together with the actor default on purpose. The default
@@ -2072,6 +2105,7 @@ async function cardCommand(workspace, action) {
     }
     if (action === "archive") {
         const result = await archiveCard(workspace, id, {
+            producer: await currentProducer(workspace),
             // Resolved, never demanded — the same rung `reopen` uses, so the
             // way in and the way out of the archive are attributed alike.
             actor: option("--actor") || defaultActor(),
@@ -2081,6 +2115,7 @@ async function cardCommand(workspace, action) {
     }
     if (action === "reopen") {
         const result = await reopenCard(workspace, id, {
+            producer: await currentProducer(workspace),
             status: option("--status") || "backlog",
             // Reopening into `doing` takes a claim, and a claim takes an
             // actor. Resolved rather than demanded: a hand-typed one is what

@@ -1193,6 +1193,66 @@ test("the hook produces the live half of a claim", async () => {
 });
 
 /**
+ * The session file is the last rung `resolveProducer` reads (T-0209): what the
+ * host says is doing the work, copied off the payloads the hook already sees.
+ * `model` arrives on `SessionStart` when the host includes it — it does not
+ * always — and `effort.level` on every tool-use event, so the file follows an
+ * `/effort` change and keeps a model across calls that do not name one. A
+ * value that is not a label is not written: the file must never carry
+ * anything but a name into a record.
+ */
+test("the hook copies the host's model and effort into the session file, as labels only", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-producer-hook-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    const sessionFile = join(root, ".project/.cache/activity/sessions/prod-1.json");
+    const read = async () => JSON.parse(await readFile(sessionFile, "utf8"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        await runHook("session-start", { session_id: "prod-1", model: "claude-opus-4-1" }, root, env);
+        assert.equal((await read()).model, "claude-opus-4-1");
+        assert.equal((await read()).effort, null, "SessionStart carries no effort");
+
+        await runHook(
+            "post-tool-use",
+            { session_id: "prod-1", tool_name: "Bash", effort: { level: "high" } },
+            root,
+            env
+        );
+        let session = await read();
+        assert.equal(session.model, "claude-opus-4-1", "kept across a call that names no model");
+        assert.equal(session.effort, "high");
+
+        await runHook(
+            "post-tool-use",
+            { session_id: "prod-1", tool_name: "Read", effort: { level: "xhigh" } },
+            root,
+            env
+        );
+        assert.equal((await read()).effort, "xhigh", "follows the host's effort as it changes");
+
+        await runHook(
+            "post-tool-use",
+            { session_id: "prod-1", tool_name: "Bash", effort: { level: "a prompt; not a level" } },
+            root,
+            env
+        );
+        session = await read();
+        assert.equal(session.effort, "xhigh", "not a label, not written; the previous one stays");
+
+        // A session that never saw a model: the field is null, not absent, so
+        // a reader can tell "not declared" from "old file".
+        await runHook("session-start", { session_id: "prod-2" }, root, env);
+        const bare = JSON.parse(
+            await readFile(join(root, ".project/.cache/activity/sessions/prod-2.json"), "utf8")
+        );
+        assert.equal(bare.model, null);
+        assert.equal(bare.effort, null);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
  * The guard reads `file_path`, and a `Bash` payload has none.
  *
  * So an edit made with `sed`, a heredoc or `tee` inside another actor's scope

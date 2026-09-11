@@ -209,6 +209,11 @@ board, exact titles found nothing and this found five pairs, all of them real.
 Closed cards are out on both sides, because a new card repeating a finished one's
 title is a reopen, and that is a different question.
 
+`produced-by-invalid` (warning) reports a `produced_by` block that does not read
+as a producer: the protocol writes only well-formed ones, so it is a hand edit,
+and a malformed block defeats the one thing the field is for, which is being
+counted over.
+
 That file is committed on purpose. A baseline under the cache would be
 per-clone and missing in CI, which is the one place a "nothing new" verdict has
 to hold, and keeping it in the tree puts newly accepted debt in the diff where a
@@ -696,6 +701,32 @@ therefore outside git, because a heartbeat written into frontmatter would leave
 the working tree permanently dirty. `doctor` reports `card-claim-stale` past
 `cards.claimLeaseHours` and `card-claim-orphaned` when a session stops
 signalling, and `workfile card reap` releases them.
+
+### What produced a write
+
+The trail says who and when; `produced_by` says what. Declare it and every card
+write records it beside the actor — as a `via:MODEL/REASONING` token on the
+trail line and as a `produced_by` block in frontmatter, so `card list --json`
+can be counted over by model without parsing prose:
+
+```sh
+WORKFILE_MODEL=claude-opus-4-1 WORKFILE_REASONING=high workfile card transition T-0042 review
+# - 2026-09-11 18:40Z alvaro@local#597ecdc9 via:claude-opus-4-1/high · doing → review
+```
+
+It is **self-reported** and the block says so (`basis: self-reported`): an
+agent can set an environment variable to anything, so read it as a label the
+writer chose, never as an attestation. The halves come from, in order,
+`WORKFILE_MODEL` then `ANTHROPIC_MODEL`; `WORKFILE_REASONING` then
+`CLAUDE_EFFORT` (which Claude Code exports to the Bash tool and to hooks) then
+`CLAUDE_CODE_EFFORT_LEVEL`; and last the session file the Claude hook writes,
+which carries `model` when a `SessionStart` payload included it and
+`effort.level` from every tool call. A half nobody declared is written as
+`undeclared`. A value that is not a label — more than 64 characters, or outside
+`[A-Za-z0-9._:+-]` — is refused with a note on stderr rather than written,
+which is what keeps the field from carrying anything but a name. With nothing
+declared the record is byte-identical to today. `claimed_by` and the guard's
+actor comparison are untouched either way.
 
 ## Docs
 
