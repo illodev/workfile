@@ -1,4 +1,4 @@
-<!-- workfile:begin kind=workflow-discovered-work version=0.12.0 digest=sha256:6dee75ebc985d935096f1dd86eae701f7e366fdfec05fd134ec23a4e8acedd1d -->
+<!-- workfile:begin kind=workflow-discovered-work version=0.12.1 digest=sha256:6dee75ebc985d935096f1dd86eae701f7e366fdfec05fd134ec23a4e8acedd1d -->
 # Discovered work
 
 When actionable pending work appears during another task:
