@@ -144,8 +144,10 @@ package being a dependency of the repository at all.
 The server is only half of it; the rest is session-side:
 
 - **Slash commands** — `/claim` (claim a card with an honest scope),
-  `/context` (the bounded context bundle for a card), `/next` (unclaimed
-  candidates worth starting) and `/done` (verify, record, release).
+  `/card-context` (the bounded context bundle for a card), `/next` (unclaimed
+  candidates worth starting) and `/done` (verify, record, release). The
+  context command was `/context` until 0.10.0, where it shadowed Claude Code's
+  own `/context`; `claude install` retires a generated `context.md` it finds.
 - **A skill** that teaches the session the one non-negotiable rule: records
   under `.project/` change through the CLI or MCP tools, never through a raw
   file edit that would skip the lock, the revision check and validation.

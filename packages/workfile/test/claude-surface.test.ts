@@ -473,7 +473,7 @@ test("every generated frontmatter value parses back to the string meant", () => 
         command("done"),
         /^description: "Finish a card: verify, record, release"$/m
     );
-    assert.match(command("context"), /^argument-hint: "\[T-0042\]"$/m);
+    assert.match(command("card-context"), /^argument-hint: "\[T-0042\]"$/m);
 
     // No value carries a quote today, because nothing user-supplied reaches
     // frontmatter. `cli` is the one that could, so drive the escape through it
@@ -503,7 +503,7 @@ test("an installed command opens with its frontmatter, not with a marker", async
             ".claude/commands/next.md",
             ".claude/commands/claim.md",
             ".claude/commands/done.md",
-            ".claude/commands/context.md",
+            ".claude/commands/card-context.md",
             ".claude/skills/workfile/SKILL.md"
         ];
 
@@ -910,7 +910,7 @@ test("a generated file that lost its last byte can be given it back", async () =
             ".claude/commands/next.md",
             ".claude/commands/claim.md",
             ".claude/commands/done.md",
-            ".claude/commands/context.md",
+            ".claude/commands/card-context.md",
             ".claude/skills/workfile/SKILL.md"
         ];
         for (const relative of installed) {
@@ -1908,5 +1908,76 @@ test("a scope survives every shape a formatter can leave it in", async () => {
         } finally {
             await rm(root, { recursive: true, force: true });
         }
+    }
+});
+
+// The command file 0.10.0 installed, byte for byte. Its name is the finding:
+// Claude Code has a built-in `/context`, and this file shadowed it.
+const CONTEXT_MD_0_10_0 = `---
+# workfile kind=claude-command-context version=0.10.0 digest=sha256:4db7ba53833f4d5886cf8ddbc9173df7ab795773d719f5cafdf1e177616d7ee3
+description: "Load the protocol context for a card"
+argument-hint: "[T-0042]"
+allowed-tools: "Bash(pnpm workfile agents context *)"
+---
+
+!\`pnpm workfile agents context --card $1 --limit 20\`
+
+The bundle above is the relevant slice of the workspace: the card,
+its direct relations, active conventions, open incidents and
+unexpired context. Read it before touching anything.
+`;
+
+// A rename in the generator is not a rename on disk. The sync writes what it
+// plans and removed nothing, so every workspace that had installed the surface
+// would have kept `context.md` — marker and all — shadowing the built-in the
+// rename was meant to stop shadowing (T-0248).
+test("a retired command is removed when it carries the marker, and kept when it does not", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-retired-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        await mkdir(join(root, ".claude/commands"), { recursive: true });
+        const old = join(root, ".claude/commands/context.md");
+        await writeFile(old, CONTEXT_MD_0_10_0);
+
+        const before = await checkClaudeSurface(workspace);
+        const reported = before.files.find(
+            (file) => file.path === ".claude/commands/context.md"
+        );
+        assert.ok(reported, "the retired file has to be reported while it is there");
+        assert.equal(reported.status, "stale");
+        assert.match(reported.reason, /retired, renamed to \.claude\/commands\/card-context\.md/);
+        assert.equal(reported.version, "0.10.0");
+
+        const result = await syncClaudeSurface(workspace);
+        assert.deepEqual(
+            result.files.find((file) => file.path === ".claude/commands/context.md"),
+            { path: ".claude/commands/context.md", status: "removed" }
+        );
+        await assert.rejects(access(old), "the marked file is gone");
+        await access(join(root, ".claude/commands/card-context.md"));
+
+        const after = await checkClaudeSurface(workspace);
+        assert.equal(after.ok, true, JSON.stringify(after.files));
+        assert.ok(
+            !after.files.some((file) => file.path === ".claude/commands/context.md"),
+            "nothing left to report"
+        );
+
+        // Somebody's own /context command carries no marker and is not ours to
+        // remove — or to report.
+        await writeFile(old, "---\ndescription: mine\n---\n\nMy own context command.\n");
+        const theirs = await checkClaudeSurface(workspace);
+        assert.ok(
+            !theirs.files.some((file) => file.path === ".claude/commands/context.md")
+        );
+        const kept = await syncClaudeSurface(workspace);
+        assert.ok(!kept.files.some((file) => file.status === "removed"));
+        assert.equal(
+            await readFile(old, "utf8"),
+            "---\ndescription: mine\n---\n\nMy own context command.\n"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
     }
 });

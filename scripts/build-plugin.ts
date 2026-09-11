@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -52,11 +52,21 @@ await writeFile(
 );
 
 await mkdir(new URL("commands/", plugin), { recursive: true });
-for (const command of claudeCommandFiles()) {
+const commands = claudeCommandFiles();
+for (const command of commands) {
     await writeFile(
         new URL(`commands/${command.name}.md`, plugin),
         command.content
     );
+}
+// A command renamed in the generator would otherwise keep shipping under its
+// old name beside the new one: writing only adds. `context.md` stayed in the
+// plugin that way until T-0248.
+const generated = new Set(commands.map((command) => `${command.name}.md`));
+for (const file of await readdir(new URL("commands/", plugin))) {
+    if (file.endsWith(".md") && !generated.has(file)) {
+        await unlink(new URL(`commands/${file}`, plugin));
+    }
 }
 
 await mkdir(new URL("skills/workfile/", plugin), { recursive: true });

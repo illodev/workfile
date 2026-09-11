@@ -4,8 +4,9 @@ title: "Registry listings: what each one needs and who can file it"
 kind: reference
 status: current
 created: 2026-08-02
-updated: 2026-08-03
+updated: 2026-09-11
 ---
+
 Workfile ships three artifacts people search for by capability rather than by
 name: an MCP server, a Claude Code plugin and an npm package. This is the list
 of places that index them, what each one verifies, and which of them this
@@ -271,7 +272,7 @@ fresh improvisation.
 > `review`. `review` means the code is written; `done` requires runtime
 > evidence — a test that passed, a command whose output you saw — not a merge.
 >
-> **Ejemplo 4:** `/context T-0042` loads the relevant slice of the project —
+> **Ejemplo 4:** `/card-context T-0042` loads the relevant slice of the project —
 > the card, its relations, the active conventions and any open incident —
 > instead of reading the whole repository into the window to answer one
 > question.

@@ -463,7 +463,7 @@ workfile mcp config --read-only --json
 ```
 
 For Claude Code the same surface ships as a plugin — the MCP server plus
-`/claim`, `/context`, `/next` and `/done` commands, a skill, and hooks that
+`/claim`, `/card-context`, `/next` and `/done` commands, a skill, and hooks that
 turn card claims into an executable guard rail — with no generated files
 committed to the repository:
 

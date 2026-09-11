@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -10,6 +10,7 @@ import {
     cliInvocation
 } from "../../core/package-manager.js";
 import {
+    findManagedBlock,
     inspectManagedFile,
     type ManagedFileReport,
     renderManagedBlock,
@@ -89,7 +90,15 @@ function commandDefinitions(cli) {
         ]
     },
     {
-        name: "context",
+        // `card-context`, not `context`: Claude Code has a built-in `/context`
+        // that shows what is in the window, and a generated file of that name
+        // in `.claude/commands` shadows it — the owner could not run the
+        // built-in from this repository (T-0248). The plugin form is
+        // namespaced and never collided; the installed form is not, and it is
+        // the one every consumer that ran `claude install` has. The old file
+        // is retired by RETIRED_COMMANDS below, because a rename here does not
+        // remove anything from anyone's disk.
+        name: "card-context",
         frontmatter: {
             description: "Load the protocol context for a card",
             "argument-hint": "[T-0042]",
@@ -104,6 +113,27 @@ function commandDefinitions(cli) {
         ]
     }
     ];
+}
+
+/**
+ * Command files this generator used to write and no longer does.
+ *
+ * `syncManagedFile` writes what is planned and removes nothing, so a command
+ * renamed in `commandDefinitions` leaves its old file — marker and all — in
+ * every workspace that installed it, doing exactly what the rename was meant
+ * to stop. Each entry names the marker kind the old file carries, which is
+ * what makes removing it safe: a file of the same name without our marker is
+ * somebody's own command and is left alone. `claude check` reports the marked
+ * file as stale until `claude install` removes it.
+ */
+const RETIRED_COMMANDS = [
+    { name: "context", kind: "claude-command-context", replacedBy: "card-context" }
+];
+
+/** The retired file's marker, if the file exists and carries one. */
+async function retiredBlock(path, kind) {
+    if (!(await exists(path))) return null;
+    return findManagedBlock(await readFile(path, "utf8"), kind);
 }
 
 /**
@@ -599,7 +629,15 @@ export async function planClaudeSurface(workspace) {
         }
     ];
 
-    return { files, json, local, runtime, version: PACKAGE_VERSION };
+    const retired = RETIRED_COMMANDS.map((command) => ({
+        id: `command:${command.name}`,
+        path: join(workspace.root, ".claude", "commands", `${command.name}.md`),
+        label: `.claude/commands/${command.name}.md`,
+        kind: command.kind,
+        replacedBy: `.claude/commands/${command.replacedBy}.md`
+    }));
+
+    return { files, json, retired, local, runtime, version: PACKAGE_VERSION };
 }
 
 export async function syncClaudeSurface(workspace, options: any = {}) {
@@ -615,6 +653,12 @@ export async function syncClaudeSurface(workspace, options: any = {}) {
                 dryRun: Boolean(options.dryRun)
             })
         );
+    }
+
+    for (const old of plan.retired) {
+        if (!(await retiredBlock(old.path, old.kind))) continue;
+        if (!options.dryRun) await unlink(old.path);
+        results.push({ path: old.label, status: "removed" });
     }
 
     const ledger = await readLedger(workspace);
@@ -648,6 +692,16 @@ export async function checkClaudeSurface(workspace) {
     const files: ManagedFileReport[] = [];
     for (const file of plan.files) {
         files.push(await inspectManagedFile(file));
+    }
+    for (const old of plan.retired) {
+        const block = await retiredBlock(old.path, old.kind);
+        if (!block) continue;
+        files.push({
+            path: old.label,
+            status: "stale",
+            reason: `retired, renamed to ${old.replacedBy}; claude install removes it`,
+            version: block.metadata.version || null
+        });
     }
     for (const entry of plan.json) {
         if (!(await exists(entry.path))) {
