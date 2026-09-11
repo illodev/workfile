@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url";
 import { createTestWorkspace } from "./support/workspace.ts";
 
 import {
+    checkClaimedCard,
     createCard,
+    createMcpProtocolServer,
     criterionDigest,
     loadCards,
     loadWorkspace,
@@ -640,6 +642,170 @@ test("the CLI reports each entry, exits non-zero on a failure, and refuses --dry
         assert.equal(dry.code, 1);
         assert.match(`${dry.stdout}${dry.stderr}`, /CLI_FLAG_UNSUPPORTED/);
         assert.match(`${dry.stdout}${dry.stderr}`, /card show/);
+    } finally {
+        await cleanup();
+    }
+});
+
+
+/**
+ * The claim is the step on the path. Nobody ran `card verify` before picking a
+ * card up — the board this was measured on had 2 700 cards and two verify
+ * blocks — so the runner now runs at `card claim`, says which way each entry
+ * moved against what the card recorded, and writes nothing.
+ */
+test("card claim runs the verify entries and names the direction each one moved", async () => {
+    const { workspace, root, cleanup } = await workspaceAllowing([[NODE]]);
+    try {
+        const bound = (index: number) => [criterionDigest(CRITERIA[index])];
+        // Criteria 1 and 3 recorded as met, 2 not; the commands now say the
+        // opposite for the first two and agree on the third.
+        const body = [
+            "## Acceptance criteria",
+            "",
+            `- [x] ${CRITERIA[0]}`,
+            `- [ ] ${CRITERIA[1]}`,
+            `- [x] ${CRITERIA[2]}`,
+            ""
+        ].join("\n");
+        const stale = await createCard(workspace, {
+            title: "A card whose photograph has aged",
+            area: "api",
+            body,
+            verify: [
+                { id: "regressed", run: EXITS_ONE, criteria: bound(0) },
+                // `expect: absent` and exit 1: the search found nothing, which
+                // is the success, and the criterion it proves is unchecked.
+                { id: "already", run: EXITS_ONE, expect: "absent", criteria: bound(1) },
+                { id: "steady", run: EXITS_ZERO, criteria: bound(2) },
+                { id: "free", run: EXITS_ONE }
+            ]
+        });
+
+        const { cards } = await loadCards(workspace);
+        const report = await checkClaimedCard(
+            workspace,
+            cards.find((card) => card.id === stale.id)
+        );
+        assert.ok(report, "a card with verify entries must produce a report");
+        assert.deepEqual(
+            report.entries.map((entry) => [entry.id, entry.direction]),
+            [
+                ["regressed", "regressed"],
+                ["already", "already-holds"],
+                ["steady", "unchanged"],
+                ["free", "unbound"]
+            ]
+        );
+        // The polarity is stated, never left to the exit code: the `absent`
+        // entry exited 1 and that is reported as the proof it is.
+        assert.equal(report.entries[1].code, 1);
+        assert.equal(report.entries[1].satisfied, true);
+        assert.equal(report.warnings.length, 2, "steady and free have nothing to say");
+        assert.match(report.warnings[0], /^verify entry `regressed` no longer holds: .* failed \(exit 1\), and criterion #1 is marked met/);
+        assert.match(report.warnings[0], /re-read it before working/);
+        assert.match(report.warnings[1], /^verify entry `already` already holds: .* found nothing, as expected, and criterion #2 is still unchecked/);
+        assert.match(report.warnings[1], /may already be done/);
+
+        // Nothing was written: the boxes stand as the card had them.
+        const after = (await loadCards(workspace)).cards.find((card) => card.id === stale.id);
+        assert.deepEqual(boxes(after.body), [true, false, true]);
+        assert.equal(after.claimed_by, undefined, "the check alone claims nothing");
+
+        // Through the binary: the claim lands, exit 0, and the warnings go to
+        // stderr so `claimed by` on stdout stays the one line it was.
+        const claimed = await execute(
+            process.execPath,
+            [cli, "card", "claim", stale.id, "--actor", "reader@test", "--root", root],
+            { encoding: "utf8" }
+        );
+        assert.match(claimed.stdout.trim(), new RegExp(`^${stale.id} claimed by reader@test$`));
+        const warned = claimed.stderr.split("\n").filter((line) => line.startsWith("warning: verify entry"));
+        assert.equal(warned.length, 2, claimed.stderr);
+        assert.match(warned[0], /`regressed` no longer holds/);
+        assert.match(warned[1], /`already` already holds/);
+
+        // The same run under `--json`, on the reply rather than beside it.
+        const plain = await createCard(workspace, {
+            title: "Claimed through --json",
+            area: "api",
+            body,
+            verify: [{ id: "regressed", run: EXITS_ONE, criteria: bound(0) }]
+        });
+        const asJson = JSON.parse(
+            (
+                await execute(
+                    process.execPath,
+                    [cli, "card", "claim", plain.id, "--actor", "reader@test", "--json", "--root", root],
+                    { encoding: "utf8" }
+                )
+            ).stdout
+        );
+        assert.equal(asJson.record.claimed_by, "reader@test");
+        assert.equal(asJson.verify.entries[0].direction, "regressed");
+        assert.equal(asJson.verify.warnings.length, 1);
+    } finally {
+        await cleanup();
+    }
+});
+
+test("a card with no verify block claims exactly as before, and the MCP claim carries the warnings", async () => {
+    const { workspace, root, cleanup } = await workspaceAllowing([[NODE]]);
+    try {
+        const quiet = await createCard(workspace, { title: "Nothing declared", area: "api", body: BODY });
+        const loaded = (await loadCards(workspace)).cards.find((card) => card.id === quiet.id);
+        assert.equal(await checkClaimedCard(workspace, loaded), null, "no entries, no report, no spawn");
+        const claimed = await execute(
+            process.execPath,
+            [cli, "card", "claim", quiet.id, "--actor", "reader@test", "--root", root],
+            { encoding: "utf8" }
+        );
+        assert.equal(claimed.stdout.trim(), `${quiet.id} claimed by reader@test`);
+        // stderr may carry the actor-mismatch notice `--actor` always earns;
+        // what it must not carry is a verify line, because nothing ran.
+        assert.deepEqual(
+            claimed.stderr.split("\n").filter((line) => line.includes("verify entry")),
+            []
+        );
+        const asJson = JSON.parse(
+            (
+                await execute(
+                    process.execPath,
+                    [cli, "card", "show", quiet.id, "--json", "--root", root],
+                    { encoding: "utf8" }
+                )
+            ).stdout
+        );
+        assert.equal(asJson.verify, undefined);
+
+        // The MCP door runs the same check and puts the lines where an agent
+        // reads them: on the claim's own reply, beside the scope warnings.
+        const stale = await createCard(workspace, {
+            title: "Claimed over MCP",
+            area: "api",
+            body: BODY.replace(`- [ ] ${CRITERIA[0]}`, `- [x] ${CRITERIA[0]}`),
+            verify: [{ id: "gate", run: EXITS_ONE, criteria: [criterionDigest(CRITERIA[0])] }]
+        });
+        const server = createMcpProtocolServer(workspace, { version: "0.0.0" });
+        const rpc = async (id: number, method: string, params: any = {}) => {
+            const response = await server.handle({ jsonrpc: "2.0", id, method, params });
+            assert.ok("result" in response, `${method} answered with an error`);
+            return response.result;
+        };
+        await rpc(1, "initialize", {
+            protocolVersion: "2025-03-26",
+            capabilities: {},
+            clientInfo: { name: "test", version: "0" }
+        });
+        await server.handle({ jsonrpc: "2.0", method: "notifications/initialized" });
+        const result = await rpc(2, "tools/call", {
+            name: "project_card_claim",
+            arguments: { id: stale.id, actor: "agent@test" }
+        });
+        assert.equal(result.isError, undefined);
+        assert.equal(result.structuredContent.record.claimed_by, "agent@test");
+        assert.equal(result.structuredContent.warnings.length, 1);
+        assert.match(result.structuredContent.warnings[0], /`gate` no longer holds/);
     } finally {
         await cleanup();
     }

@@ -288,6 +288,16 @@ what it let through, so a `--force` that nothing refused records nothing and ask
 nothing. Taking another actor's claim is the other waivable gate, and it is written the
 same way.
 
+`card claim` also runs the card's declared `verify` entries once the claim is written,
+and warns — never refuses — when a verdict disagrees with the card: a criterion marked
+met whose command no longer holds, or one still unchecked whose command already does.
+The line says which way it moved and what was proved, because a search exits 0 when it
+**finds** and "failed" on an `expect: absent` entry is the success. Nothing is written
+— `card verify` is the only caller that may move a bound box — and a card with no
+`verify` block never reaches the runner, so its claim costs what it did before. The
+commands are bounded by `cards.verification.timeoutSeconds`; `--json` carries the run
+under `verify`.
+
 Reaching `done` also writes a `verified` block into the card's frontmatter — when,
 how, at which commit, and a digest of the criteria it was proved against. `--method`
 says which tier it was:

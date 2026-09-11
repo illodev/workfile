@@ -83,6 +83,7 @@ import {
     criterionDigest,
     parseAcceptance,
     resolveActor,
+    checkClaimedCard,
     runCardVerification,
     verifyChangedCards,
     setCardAcceptance,
@@ -1922,15 +1923,27 @@ async function cardCommand(workspace, action) {
             reason: option("--reason"),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(
-            has("--json")
-                ? { record: result.card, warnings: result.warnings }
-                : `${id} claimed by ${result.card.claimed_by}${
-                      result.warnings.length
-                          ? ` (${result.warnings.length} scope warnings)`
-                          : ""
-                  }`
+        // After the claim, never instead of it. The card's declared commands
+        // run here because this is the moment their answer saves a turn — a
+        // criterion marked met that no longer holds, or one unchecked that
+        // already does, is the card telling the reader it is stale before they
+        // start. Nothing is written and nothing is refused; a card that
+        // declares no `verify` entries never reaches the runner (T-0234).
+        const check = await checkClaimedCard(workspace, result.card);
+        if (has("--json")) {
+            return print({
+                record: result.card,
+                warnings: result.warnings,
+                ...(check ? { verify: check } : {})
+            });
+        }
+        console.log(
+            `${id} claimed by ${result.card.claimed_by}${
+                result.warnings.length ? ` (${result.warnings.length} scope warnings)` : ""
+            }`
         );
+        for (const line of check?.warnings || []) console.error(`warning: ${line}`);
+        return;
     }
     if (action === "release") {
         const result = await releaseCard(workspace, id, {

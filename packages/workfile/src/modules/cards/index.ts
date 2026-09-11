@@ -43,7 +43,7 @@ export {
 // `runVerifyCommand` is deliberately not re-exported. It is the spawn half with
 // no allowlist in front of it, and publishing it on the package's public API
 // would offer "run any argv" beside the gate that exists to stop exactly that.
-export { runCardVerification } from "./runner.js";
+export { checkClaimedCard, runCardVerification } from "./runner.js";
 export { verifyChangedCards } from "./changed.js";
 export type {
     ChangedCardResult,

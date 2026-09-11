@@ -500,3 +500,167 @@ export async function runCardVerification(
         timeoutSeconds: timeout
     };
 }
+
+/**
+ * What a claim-time run of an entry saw, against what the card had recorded.
+ *
+ * `recorded` is the state of the criteria the entry binds — the only place a
+ * card writes down what its command last decided. An entry that binds nothing
+ * has no record to disagree with, so it reports `unbound` and never warns.
+ */
+export interface ClaimCheckEntry {
+    id: string;
+    run: string[];
+    outcome: VerifyOutcome | "not-allowed";
+    code: number | null;
+    reason: string | null;
+    expect: "found" | "absent";
+    /** What the command proved now, or `null` when it reached no verdict. */
+    satisfied: boolean | null;
+    /** The criteria this entry binds, by index, and how the card has them. */
+    criteria: Array<{ index: number; checked: boolean }>;
+    direction:
+        | "regressed"
+        | "already-holds"
+        | "unchanged"
+        | "unbound"
+        | "undecided"
+        | "not-allowed";
+}
+
+export interface ClaimCheckReport {
+    id: string;
+    entries: ClaimCheckEntry[];
+    /** One line per entry whose verdict disagrees with the card, ready to print. */
+    warnings: string[];
+    timeoutSeconds: number;
+}
+
+/**
+ * Runs a card's declared commands at the moment somebody picks it up, and says
+ * which way each one moved — without writing a criterion.
+ *
+ * A card is a photograph of a repository that moves. With several sessions in
+ * one tree, what one fixes in passing leaves another's card obsolete, and
+ * nobody finds out until somebody claims it and discovers the work is already
+ * done, or that a criterion marked met no longer holds. `card verify` could
+ * always tell them; nobody runs it before claiming, because a step off the
+ * path is a step not taken — the board this was measured on had 2 700 cards
+ * and two verify blocks. The claim is the step on the path (T-0234).
+ *
+ * Two things this deliberately does not do. It does not write: `card verify`
+ * is the one caller allowed to move a machine-owned box, and a claim that
+ * silently unchecked a criterion would be a state change nobody asked for. And
+ * it does not refuse: a card whose claim expired and a card that is *about*
+ * the thing the command finds look identical from an exit code, and refusing
+ * would make the second one unstartable.
+ *
+ * The warning names the direction, because the polarity is a trap: a search
+ * exits 0 when it FINDS, so "failed" on an `expect: absent` entry is the
+ * success. The line says what was proved and what the card had written, never
+ * the exit code on its own.
+ *
+ * Returns `null` for a card that declares no entries, before touching anything
+ * — a claim on such a card costs exactly what it did before.
+ */
+export async function checkClaimedCard(
+    workspace,
+    card,
+    { now }: { now?: string | number | Date } = {}
+): Promise<ClaimCheckReport | null> {
+    void now;
+    const declared = verifyEntries(card?.verify);
+    if (!declared.length) return null;
+
+    const allowed = allowedCommands(workspace);
+    const timeout = verifyTimeoutSeconds(workspace);
+    const reading = parseAcceptance(card.body || "");
+    const entries: ClaimCheckEntry[] = [];
+    const warnings: string[] = [];
+    const hint = `(\`workfile card verify ${card.id}\` for the output.)`;
+
+    for (const entry of declared) {
+        const owned = [...criterionOwners(reading, [entry]).keys()]
+            .sort((left, right) => left - right)
+            .map((index) => {
+                const item = reading.items.find((candidate) => candidate.index === index);
+                return { index, checked: Boolean(item?.checked) };
+            });
+        const expect = entry.expect === "absent" ? "absent" : "found";
+        const argv = argvElements(entry.run);
+        if (!argv || !commandAllowed(allowed, argv)) {
+            entries.push({
+                id: entry.id,
+                run: Array.isArray(entry.run) ? [...entry.run] : [],
+                outcome: "not-allowed",
+                code: null,
+                reason: argv ? "command not allowed by cards.verification.commands" : "run is not an argument vector",
+                expect,
+                satisfied: null,
+                criteria: owned,
+                direction: "not-allowed"
+            });
+            warnings.push(
+                `verify entry \`${entry.id}\` names a command this project does not ` +
+                    `allow, so it did not run; \`doctor\` reports it.`
+            );
+            continue;
+        }
+
+        const result = await runVerifyCommand(argv, { cwd: workspace.root, timeoutSeconds: timeout });
+        const decided = result.outcome === "passed" || result.outcome === "failed";
+        const satisfied = !decided
+            ? null
+            : expect === "absent"
+              ? result.outcome === "failed"
+              : result.outcome === "passed";
+        const phrase = outcomePhrase(entry, result);
+        const names = (items: Array<{ index: number }>) =>
+            items.map((item) => `#${item.index}`).join(", ");
+
+        let direction: ClaimCheckEntry["direction"];
+        if (!decided) {
+            direction = "undecided";
+            warnings.push(
+                `verify entry \`${entry.id}\` reached no verdict: ${result.reason || result.outcome}. ` +
+                    `Nothing about the card can be read from it.`
+            );
+        } else if (!owned.length) {
+            direction = "unbound";
+        } else if (satisfied && owned.some((item) => !item.checked)) {
+            direction = "already-holds";
+            const open = owned.filter((item) => !item.checked);
+            warnings.push(
+                `verify entry \`${entry.id}\` already holds: ${phrase}, and ` +
+                    `${open.length === 1 ? "criterion" : "criteria"} ${names(open)} ` +
+                    `${open.length === 1 ? "is" : "are"} still unchecked. The work this card ` +
+                    `describes may already be done; re-read it before working. ${hint}`
+            );
+        } else if (!satisfied && owned.some((item) => item.checked)) {
+            direction = "regressed";
+            const met = owned.filter((item) => item.checked);
+            warnings.push(
+                `verify entry \`${entry.id}\` no longer holds: ${phrase}, and ` +
+                    `${met.length === 1 ? "criterion" : "criteria"} ${names(met)} ` +
+                    `${met.length === 1 ? "is" : "are"} marked met. This card's central claim ` +
+                    `may be stale; re-read it before working. ${hint}`
+            );
+        } else {
+            direction = "unchanged";
+        }
+
+        entries.push({
+            id: entry.id,
+            run: [...argv],
+            outcome: result.outcome,
+            code: result.code,
+            reason: result.reason,
+            expect,
+            satisfied,
+            criteria: owned,
+            direction
+        });
+    }
+
+    return { id: card.id, entries, warnings, timeoutSeconds: timeout };
+}

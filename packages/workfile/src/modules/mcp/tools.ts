@@ -1,4 +1,5 @@
 import {
+    checkClaimedCard,
     NEXT_DEFAULT_LIMIT,
     NEXT_MAXIMUM_LIMIT,
     appendCardNote,
@@ -928,7 +929,7 @@ const TOOL_DEFINITIONS = [
         name: "project_card_claim",
         title: "Claim a work card",
         description:
-            "Claim a card for an actor, move it to doing and optionally declare the filesystem scope that will be changed. Claim before editing anything the card covers; another actor's claim is refused unless forced.",
+            "Claim a card for an actor, move it to doing and optionally declare the filesystem scope that will be changed. Claim before editing anything the card covers; another actor's claim is refused unless forced. Once the claim is written the card's verify entries run, and an entry whose verdict disagrees with the card — a criterion marked met that no longer holds, or one unchecked that already does — comes back in warnings, naming the direction; nothing is written and nothing is refused.",
         inputSchema: schema(
             {
                 id: identifier("Card to claim, e.g. T-0042."),
@@ -969,8 +970,13 @@ const TOOL_DEFINITIONS = [
                 expectedRevision: optionalString(args.expectedRevision)
             });
             invalidate(context);
+            // The card's declared commands, run once the claim is written, so
+            // an entry whose verdict disagrees with the card reaches the agent
+            // as a warning on the same reply. Nothing written, nothing refused;
+            // a card with no `verify` block skips this entirely (T-0234).
+            const check = await checkClaimedCard(context.workspace, result.card);
             return recordResult(recordFromCard(context.workspace, result.card), {
-                warnings: result.warnings
+                warnings: [...result.warnings, ...(check?.warnings || [])]
             });
         }
     }),
