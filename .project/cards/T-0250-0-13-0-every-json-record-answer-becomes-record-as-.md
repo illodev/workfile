@@ -1,7 +1,7 @@
 ---
 id: T-0250
 title: "0.13.0: every --json record answer becomes { record }, as the MCP tools answer"
-status: doing
+status: done
 type: task
 priority: medium
 area: core
@@ -12,12 +12,15 @@ raised: reported
 created: 2026-09-11
 updated: 2026-09-11
 produced_by:
-  model: claude-fable-5-1
+  model: undeclared
   reasoning: xhigh
   basis: self-reported
-claimed_by: "illodev@local#597ecdc9"
-claimed_at: "2026-09-11T19:13:58.579Z"
 scope: [packages/workfile/bin/workfile.ts, packages/workfile/docs/cli.md, packages/workfile/test/cli.test.ts]
+verified:
+  at: "2026-09-11T19:33:48.352Z"
+  method: manual
+  commit: dc7bc273eddd7705a2a4df06897d3f8030d2b868
+  digest: "sha256:bc50152c9edb53b3b7cd217203d683bc6ac7f55602f0cdc08eaa327ab704f501"
 ---
 
 The owner decided on 2026-09-11 ([[T-0246]]) that the CLI converges on the MCP envelope in 0.13.0. 0.12.x ships the table of shapes in `docs/cli.md`, a stderr line on every **record** answer naming the version and the new shape, and `WORKFILE_JSON_ENVELOPE=1` to opt into the envelope early. This card is the cut itself, and it is a separate card because it is a separate release: a card has to stay closeable against the thing that shipped, and 0.12.x cannot ship a breaking default.
@@ -32,7 +35,7 @@ Who has to be told: the changelog entry is `changed` and says **breaking** in it
 
 - [x] Every command the `docs/cli.md` table marks **record** answers `{ record }` by default, and the table's Today column is collapsed into one
 - [x] The pinned shape test runs against the default and passes with the envelope expected
-- [ ] The stderr note is gone; `WORKFILE_JSON_ENVELOPE=1` is accepted and ignored for 0.13.x and the release notes say when it is refused
+- [x] The stderr note is gone; `WORKFILE_JSON_ENVELOPE=1` is accepted and ignored for 0.13.x and the release notes say when it is refused
 - [x] The 0.13.0 changelog entry opens with the word breaking and names the one-line fix for a caller
 - [x] Fube's scripts that parse `--json` are found by grep and updated, or the note on this card says which ones were left and why
 
@@ -40,7 +43,10 @@ Who has to be told: the changelog entry is `changed` and says **breaking** in it
 
 - 2026-09-11 18:47Z illodev@local#597ecdc9 via:claude-fable-5-1/xhigh — Order, recorded on 2026-09-11 after T-0227, T-0208 and T-0209 closed: this card must not start before a 0.12.x release ships what T-0246 promised for 0.12.x (the shape table, the stderr note, the WORKFILE_JSON_ENVELOPE opt-in) together with the additive work now on main — otherwise the 0.12.x half of the decision never reaches a consumer and the four cards in review (T-0246, T-0247, T-0249, T-0214) have no published package to close against. Cutting that release is the owner's call; the flip is the release after it.
 - 2026-09-11 19:22Z illodev@local#597ecdc9 via:claude-fable-5-1/xhigh — Fube's scripts, grepped on 2026-09-11: eighteen '--json' mentions under scripts/, seventeen of them the scripts' own output flags; the one Workfile parser is scripts/workfile-criterion-digest.mjs, which reads 'card show --json'. Updated in place to read both shapes (answer.record ?? answer) so it works on 0.12.x and 0.13.x alike; left uncommitted in the Fube checkout for the owner to commit with Fube's own workflow. The bench scripts/workfile-guard-cases.mjs drives the hook, not --json.
+- 2026-09-11 19:31Z illodev@local#597ecdc9 via:claude-fable-5-1/xhigh — Built on 2026-09-11 as commit 4b81eaa and cut as 0.13.0 (REL-0029, tag v0.13.0 at dc7bc27). recordAnswer answers { record, …extras } unconditionally and WORKFILE_JSON_ENVELOPE is no longer read — the shape test pins that with a source assertion, and runs the 24 record commands against the default plus one with the variable set, byte-identical and silent. The table in docs/cli.md is one Shape column. Readers moved in this repo: cli.test.ts (23 sites), actor.test.ts (3), axes.test.ts (5), record-ids.test.ts (1) and test/package-smoke.ts (4) — the smoke was the one the release gate caught. Live here: 'card show T-0250 --json --fields id,status' answers { record: { id, status } } with 0 bytes on stderr, identical with the variable set; 'card list --json' keeps offset,records,total,truncated. Tarball consumer script (20 checks) green; the registry run follows once the Release workflow publishes.
+- 2026-09-11 19:33Z illodev@local#597ecdc9 — manual verification: Published as @illodev/workfile@0.13.0 (npm dist-tag latest, GitHub Release v0.13.0 at 2026-09-11 19:32Z, tag on dc7bc27). Consumer verification from the registry, 20/20: create, show, note, transition, patch, discard, archive and reopen on cards, doc show/note, changelog add and memory add all answer { record } with 0 bytes on stderr; card claim keeps { record, warnings }; --fields projects inside the envelope; WORKFILE_JSON_ENVELOPE=1 gives byte-identical output and says nothing; card list and doc list keep their shapes; doctor keeps its report; d["record"] works as documented. Release notes open with Breaking, name .record as the one-line fix and say 0.14.0 refuses the variable. Fube's one parser reads both shapes. Suite 531/531, release gate green, doctor clean.
 
 ## Activity
 
 - 2026-09-11 19:13Z illodev@local#597ecdc9 via:undeclared/xhigh · claimed
+- 2026-09-11 19:33Z illodev@local#597ecdc9 via:claude-fable-5-1/xhigh · doing → done
