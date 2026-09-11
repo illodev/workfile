@@ -449,6 +449,11 @@ test("a verification that would say nothing is refused", async () => {
                 transitionCard(workspace, open, "review", { actor: "tester", ...options })
             );
             assert.equal(dropped.code, "CARD_VERIFICATION_NOT_APPLICABLE", where);
+            // The refusal names where the evidence goes instead (T-0244): a
+            // caller moving to review is holding exactly the local evidence
+            // this flag will not take.
+            assert.match(dropped.message, new RegExp(`card note ${open} --text`), where);
+            assert.match(dropped.message, /project_card_note/, where);
         }
         const claiming = await errorOf(
             transitionCard(workspace, open, "doing", { actor: "tester", method: "ci", run: "https://ci.example/7" })

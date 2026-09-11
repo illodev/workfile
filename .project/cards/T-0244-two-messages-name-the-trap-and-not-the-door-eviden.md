@@ -1,7 +1,7 @@
 ---
 id: T-0244
 title: "Two messages name the trap and not the door: --evidence and --actor"
-status: next
+status: review
 type: bug
 priority: low
 area: core
@@ -24,6 +24,15 @@ Whether `review` should accept `--evidence` and file it as a note is a design de
 
 ## Acceptance criteria
 
-- [ ] `CARD_VERIFICATION_NOT_APPLICABLE` on a move that is not a close names `card note ID --text` as where local evidence goes.
-- [ ] The `--actor` mismatch warning says that omitting `--actor` claims as this session, before it says what the flag costs.
-- [ ] Both messages are pinned by a test that reads them.
+- [x] `CARD_VERIFICATION_NOT_APPLICABLE` on a move that is not a close names `card note ID --text` as where local evidence goes.
+- [x] The `--actor` mismatch warning says that omitting `--actor` claims as this session, before it says what the flag costs.
+- [x] Both messages are pinned by a test that reads them.
+
+## Activity
+
+- 2026-09-11 15:25Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 15:27Z illodev@local#597ecdc9 · doing → review
+
+## Notes
+
+- 2026-09-11 15:27Z illodev@local#597ecdc9 — Fixed: CARD_VERIFICATION_NOT_APPLICABLE names 'card note ID --text' and project_card_note as where evidence on a non-closing move goes; warnActorMismatch opens with 'Omit --actor to claim as this session' before the cost. Pinned in verification.test.ts (message) and cli.test.ts (warning order, and silence without the flag). Local evidence: both observed on the built binary against a scratch workspace. Whether review should accept --evidence as a note is left to the owner on DOC-0006. Missing: the published package in a consumer.

@@ -2470,3 +2470,29 @@ test("the title cap is stated before it is met, and the refusal says by how much
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a claim under another name is told to omit the flag, before what the flag costs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-actor-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        // The warning used to name the guard prompts and the release lock the
+        // flag arms, and never the one-word repair (T-0244). A consumer whose
+        // instructions still taught `--actor <session-id>` read it on every
+        // claim without learning the flag was the problem.
+        const claimed = await run([
+            "card", "claim", "T-0001", "--actor", "probe-bot", "--root", root
+        ]);
+        assert.match(claimed.stderr, /claimed as "probe-bot"/);
+        const omit = claimed.stderr.indexOf("Omit --actor to claim as this session.");
+        const cost = claimed.stderr.indexOf("the edit guard");
+        assert.ok(omit !== -1, claimed.stderr);
+        assert.ok(cost !== -1 && omit < cost, "the repair is stated before the cost");
+
+        // Without the flag there is nothing to warn about.
+        await run(["card", "release", "T-0001", "--actor", "probe-bot", "--root", root]);
+        const own = await run(["card", "claim", "T-0001", "--root", root]);
+        assert.equal(own.stderr, "");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

@@ -191,11 +191,18 @@ export function resolveVerification({
             prose && "evidence"
         ].filter(Boolean) as string[];
         if (supplied.length) {
+            // The door, not only the wall. A move to `review` is exactly when
+            // there is local evidence to record and runtime evidence is
+            // missing, and the caller refused here was holding it with no
+            // named place to put it (T-0244). The protocol names one: a note
+            // is the only place that always keeps it.
             fail(
                 "CARD_VERIFICATION_NOT_APPLICABLE",
                 `${supplied.join(", ")} ${supplied.length === 1 ? "describes" : "describe"} ` +
                     `how a card was proved, and this write does not move ${id} into done. ` +
-                    `A card that is already done keeps the verification the write that closed it recorded.`,
+                    `What you have seen so far goes in a note on the card ` +
+                    `(\`card note ${id} --text "…"\`, or project_card_note); ` +
+                    `a card that is already done keeps the verification the write that closed it recorded.`,
                 { id, supplied }
             );
         }

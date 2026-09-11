@@ -1317,9 +1317,13 @@ function defaultActor() {
 function warnActorMismatch(claimed) {
     const resolved = resolveActor().actor;
     if (!resolved || !claimed || claimed === resolved) return;
+    // The repair first, then the cost. A consumer whose generated
+    // instructions still taught `--actor <session-id>` read the cost on
+    // every claim and could not learn from it that the flag was the problem.
     console.error(
         `Warning: claimed as "${claimed}", but this session is "${resolved}". ` +
-            `The edit guard will ask about this claim, and releasing it needs ` +
+            `Omit --actor to claim as this session. With it, the edit guard ` +
+            `will ask about this claim on every edit, and releasing it needs ` +
             `--actor "${claimed}". Run \`${INVOKED_AS} agents whoami\` to see ` +
             `which identity is yours.`
     );
