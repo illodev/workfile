@@ -1,7 +1,7 @@
 ---
 id: T-0234
 title: Claim never runs the card's verify block, so a stale claim costs a turn
-status: review
+status: done
 type: feature
 priority: medium
 area: core
@@ -9,6 +9,11 @@ raised: derived
 created: 2026-09-03
 updated: 2026-09-11
 scope: [packages/workfile/src/modules/cards/runner.ts, packages/workfile/bin/workfile.ts, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/test/verification.test.ts, packages/workfile/docs/cli.md, packages/workfile/docs/mcp.md]
+verified:
+  at: "2026-09-11T17:09:03.596Z"
+  method: manual
+  commit: 44b3a5d251865ba1e8737951bd341eded50255f3
+  digest: "sha256:07e39cd9d8f9b528092bc2c27530b91f0d169c908e54f5353d14b13de368c6aa"
 ---
 
 A card is a photograph of a repository that moves. It asserts things — "these two posts do not link to each other", "nothing consumes this field" — that were true the day they were written, and nothing checks them again. With several sessions in one tree, what one fixes in passing leaves another's card obsolete, and nobody finds out until somebody picks it up and discovers the work is already done. The cost is not the dead card: it is the turn of whoever takes it.
@@ -53,7 +58,9 @@ The consuming repository's T-2416, which measured the alternatives and discarded
 - 2026-09-03 14:22Z illodev@local#062a7c97 · renumbered from T-0237
 - 2026-09-11 16:48Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 16:55Z illodev@local#597ecdc9 · released
+- 2026-09-11 17:09Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 16:54Z illodev@local#597ecdc9 — Shipped as checkClaimedCard in cards/runner.ts, called by the CLI claim handler and by project_card_claim once the claim is written. It runs the declared entries under the project's allowlist and timeout, compares each verdict with the state of the criteria the entry binds — the only record a card keeps of what its command last decided — and returns one warning per disagreement: 'no longer holds' when a bound criterion is marked met and the command fails, 'already holds' when one is unchecked and the command passes, each phrased through the same outcomePhrase card verify writes so an expect: absent entry that exits 1 reads 'found nothing, as expected' and not 'failed'. Unbound entries run and say nothing, since there is nothing recorded to disagree with; an entry naming a disallowed command does not run and says so; a timeout or a missing binary is 'reached no verdict'. Nothing is written — card verify stays the one caller allowed to move a machine-owned box — and the claim never fails on it. A card with no verify block returns before touching the runner, which is criterion 3. Pinned by two verify-run.test.ts cases: four entries in four directions through the library, the binary (stdout stays the one 'claimed by' line, warnings on stderr, exit 0) and --json; and a quiet card plus the MCP door carrying the same line in warnings.
+- 2026-09-11 17:09Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.12.0 installed from npm into a clean consumer on 2026-09-11 (release run 34625743832: npm publish, MCP Registry io.github.illodev/workfile 0.12.0 active, GitHub Release v0.12.0). A card with [x] gone bound to grep -q AUSENTE (exit 1) and [ ] present bound to grep -q PRESENTE (exit 0): card claim prints the one 'claimed by' line on stdout, exit 0, and two stderr lines — 'verify entry `gone` no longer holds' and 'verify entry `present` already holds'; --json carries directions regressed and already-holds; the boxes are unchanged afterwards; a card with no verify block claims with no verify line at all.

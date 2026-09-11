@@ -1,7 +1,7 @@
 ---
 id: T-0226
 title: Nothing notices a parent whose children are all closed
-status: review
+status: done
 type: feature
 priority: medium
 area: core
@@ -9,6 +9,11 @@ raised: derived
 created: 2026-09-02
 updated: 2026-09-11
 scope: [packages/workfile/src/modules/cards/cards.ts, packages/workfile/test, packages/workfile/docs/cli.md]
+verified:
+  at: "2026-09-11T17:09:01.918Z"
+  method: manual
+  commit: 44b3a5d251865ba1e8737951bd341eded50255f3
+  digest: "sha256:8d5a59f3da0a28774ffc0c3e0c6671e1e3b780a9dda22592e57f2a22b5b04d8e"
 ---
 
 `diagnoseCards` validates every edge a card declares — `missing-parent`, `self-parent`,
@@ -85,7 +90,9 @@ lands.
 
 - 2026-09-11 16:27Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 16:38Z illodev@local#597ecdc9 · released
+- 2026-09-11 17:09Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 16:35Z illodev@local#597ecdc9 — Criterion 5 holds by construction, not by a test: doctor --fix dispatches exactly three repairs by name — the stale-filename reslug, duplicate IDs and misplaced trail entries (bin/workfile.ts, the --fix branch; its --dry-run payload lists the two it does not preview) — and never maps a finding code to a repair, so a new code cannot reach it. Criteria 1–4 are pinned by the cards.test.ts case 'doctor names an open parent whose whole subtree has come to rest' (stalled epic with a discarded child naming an open twin; near miss with an open grandchild; a parent already in review; a feature with review+deferred children). Criterion 6 is the 2026-09-11 run recorded in the body: 2 findings on 2 550 cards, identical to the Fube prototype's output that day, including the twin ids. Two things the prototype did not have and this one does: the actor in a note entry is optional (appendCardNote omits it when none resolved), and a '## Notes' heading at the very start of a body is found — the first draft searched for a newline before it and missed every parent whose body was nothing but notes.
+- 2026-09-11 17:09Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.12.0 installed from npm into a clean consumer on 2026-09-11 (release run 34625743832: npm publish, MCP Registry io.github.illodev/workfile 0.12.0 active, GitHub Release v0.12.0). doctor --json on the consumer reports parent-all-children-closed on the stalled epic — warning, delivered 1 of 2, the discarded child named with its still-open twin, lastNote stamped — and stays silent on an epic whose done child has an open grandchild. Same day, against the 2 550-card Fube board: 2 findings, identical to the local prototype.

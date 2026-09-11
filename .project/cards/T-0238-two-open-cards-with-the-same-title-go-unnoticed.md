@@ -1,7 +1,7 @@
 ---
 id: T-0238
 title: Two open cards with the same title go unnoticed
-status: review
+status: done
 type: idea
 priority: low
 area: core
@@ -10,6 +10,11 @@ raised: derived
 created: 2026-09-03
 updated: 2026-09-11
 scope: [packages/workfile/src/modules/cards/cards.ts, packages/workfile/test/cards.test.ts, packages/workfile/docs/cli.md]
+verified:
+  at: "2026-09-11T17:09:02.441Z"
+  method: manual
+  commit: 44b3a5d251865ba1e8737951bd341eded50255f3
+  digest: "sha256:0aa076e8fa781c690fe4f954f9d076044f7415fcd881d8f987cf4555a72ee7e2"
 ---
 
 `duplicates.ts` classifies duplicate record **ids**. Nothing looks at titles, so two open cards claiming the same thing sit on the board and the reader has to notice.
@@ -47,7 +52,9 @@ So the rule is the overlap, not exact matching: exact matching would have been s
 
 - 2026-09-11 16:34Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 16:38Z illodev@local#597ecdc9 · released
+- 2026-09-11 17:09Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 16:37Z illodev@local#597ecdc9 — Shipped as duplicate-title in diagnoseCards, next to parent-all-children-closed (T-0226): both read the board sideways where every earlier rule read one card. Pinned by the cards.test.ts case 'doctor names two open cards whose titles claim the same job' — the accent/quote/article pair reported once on the later card with overlap 1; a one-extra-word pair at 0.83; three of five words shared stays silent; a done twin is out on both sides. Run through doctor --root against the Fube board the same day: the five pairs the measurement found, each once, overlaps 1, 1, 0.88, 0.88, 0.83. Criterion 3 is decided as the overlap rule with the rate recorded in the body; exact matching is what the card originally proposed and it is what the measurement ruled out.
+- 2026-09-11 17:09Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.12.0 installed from npm into a clean consumer on 2026-09-11 (release run 34625743832: npm publish, MCP Registry io.github.illodev/workfile 0.12.0 active, GitHub Release v0.12.0). Two open cards titled 'Añadir acción de domiciliar en el menú de la factura' and 'Anadir accion "Domiciliar factura" al menu de la factura' produce one duplicate-title warning, on the later card naming the earlier, overlap 1. Same day, against the Fube board: the 5 measured pairs, once each.

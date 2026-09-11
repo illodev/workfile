@@ -1,7 +1,7 @@
 ---
 id: T-0231
 title: A required axis floods doctor when review is where work rests
-status: review
+status: done
 type: task
 priority: medium
 area: core
@@ -9,6 +9,11 @@ raised: reported
 created: 2026-09-02
 updated: 2026-09-11
 scope: [packages/workfile/src, packages/workfile/test, packages/workfile/docs]
+verified:
+  at: "2026-09-11T17:09:02.923Z"
+  method: manual
+  commit: 44b3a5d251865ba1e8737951bd341eded50255f3
+  digest: "sha256:4e715747dbf03e759b9a39a64f41dd875f11e85f589d657ad4632c27de8c2379"
 ---
 
 `missing-axis` warns on every open card that does not carry a declared axis. The rule is written
@@ -88,7 +93,9 @@ and `card list --axis goal=…` filtering as before.
 
 - 2026-09-11 16:39Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 16:47Z illodev@local#597ecdc9 · released
+- 2026-09-11 17:09Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 16:47Z illodev@local#597ecdc9 — Pinned by axes.test.ts: the config test accepts { values, required } and refuses an unknown key, a non-boolean required, an empty or missing values list and a bare string, each by its own code; 'an optional axis keeps its vocabulary and its error, and loses the warning' declares goal optional beside a required context and asserts invalid-axis on a typo, no missing-axis for goal, the same three missing-axis lines for context that a required axis emitted before, the write-path refusal and card list --axis goal=leaks. The existing doctor test for a required axis passes unchanged, which is criterion 3. Measured on a scratch copy of the Fube board with the shipped build: required → 1 485 missing-axis, optional → 0, invalid-axis 4 either way; the by-status split (1 127 backlog vs 261 review) is why the closed-set shape was not taken — it would have left 1 224 of the 1 485.
+- 2026-09-11 17:09Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.12.0 installed from npm into a clean consumer on 2026-09-11 (release run 34625743832: npm publish, MCP Registry io.github.illodev/workfile 0.12.0 active, GitHub Release v0.12.0). Consumer config declares goal as { values, required: false } beside a required ctx: schema --json lists optionalAxes [goal] with the goal vocabulary unchanged; doctor emits 0 missing-axis for goal and 6 for ctx; card create --axis goal=gaurds is refused CARD_AXIS_VALUE_INVALID; card list --axis goal=leaks filters. On a scratch copy of the Fube board: 1 485 missing-axis as a required array, 0 as optional, invalid-axis 4 either way.
