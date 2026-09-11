@@ -245,7 +245,7 @@ void provider;
                 consumer
             )
         ).stdout
-    );
+    ).record;
     const document = JSON.parse(
         (
             await run(
@@ -266,7 +266,7 @@ void provider;
                 consumer
             )
         ).stdout
-    );
+    ).record;
     const change = JSON.parse(
         (
             await run(
@@ -287,7 +287,7 @@ void provider;
                 consumer
             )
         ).stdout
-    );
+    ).record;
     const memory = JSON.parse(
         (
             await run(
@@ -307,7 +307,7 @@ void provider;
                 consumer
             )
         ).stdout
-    );
+    ).record;
 
     assert.match(card.id, /^T-/);
     assert.match(document.id, /^DOC-/);
