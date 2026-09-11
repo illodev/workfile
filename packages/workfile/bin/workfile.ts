@@ -839,6 +839,14 @@ function assertKnownFlags(command, action) {
         const token = argv[index];
         if (!token.startsWith("-") || token === "-") continue;
         const name = token.includes("=") ? token.split("=")[0] : token;
+        // A flag that takes no value cannot carry one. `has()` answers by
+        // name, so `--json=false` would otherwise read as `--json`.
+        if (BOOLEAN_FLAGS.has(name) && token.includes("=")) {
+            throw new ValidationError(
+                "CLI_ARGUMENT_INVALID",
+                `${name} takes no value; got "${token}".`
+            );
+        }
         if (!known.has(name)) {
             const elsewhere = Object.keys(COMMAND_FLAGS).filter(
                 (candidate) =>
@@ -889,7 +897,8 @@ const GLOBAL_OPTIONS = `Global options:
 
 Options a subcommand does not accept are refused with CLI_ARGUMENT_UNKNOWN, and
 an option given twice with CLI_ARGUMENT_CONFLICT, because only the first is
-read. Pass a list as one comma-separated value.`;
+read. Pass a list as one comma-separated value. A value follows its option as
+the next word or after "=": --limit 5 and --limit=5 read the same.`;
 
 const DOCUMENT_FOLDERS = `Document folders:
   Managed documents are read recursively, so folders can be created by hand.
@@ -996,13 +1005,49 @@ ${DOCUMENT_FOLDERS}
 ${GLOBAL_OPTIONS}`);
 }
 
-function option(name) {
-    const index = process.argv.indexOf(name);
-    return index === -1 ? null : process.argv[index + 1];
+/**
+ * Every value given for a flag, in either spelling.
+ *
+ * `--name value` and `--name=value` are both admitted by `assertKnownFlags`,
+ * which reads the part before `=` as the flag's name. Until T-0242 every
+ * reader below looked for the exact token instead, so `--expected-revision=REV`
+ * passed the guard and was never read: the patch ran with no revision check
+ * and exited 0, and a consumer reported it as "a truncated revision applied
+ * anyway". The same hole sat under every value-taking flag. One walk over
+ * argv, shared by every reader, so the two grammars cannot part again.
+ *
+ * A token that is exactly `name` takes the next token as its value, whatever
+ * it looks like — `--title --json` is a title of `--json`, which is what the
+ * caller wrote. A token of the form `name=value` carries its own, split at
+ * the first `=` so that `--axis=context=treasury` keeps the axis whole.
+ */
+function valuesOf(name: string): string[] {
+    const values: string[] = [];
+    const argv = process.argv;
+    for (let index = 2; index < argv.length; index += 1) {
+        const token = argv[index];
+        if (token === name) {
+            values.push(argv[index + 1] ?? "");
+            index += 1;
+        } else if (token.startsWith(`${name}=`)) {
+            values.push(token.slice(name.length + 1));
+        }
+    }
+    return values;
 }
 
+/** The first value of a flag, or null when it was not given. */
+function option(name) {
+    const values = valuesOf(name);
+    return values.length ? values[0] : null;
+}
+
+/** Whether a flag was given, with or without a value attached. */
 function has(name) {
-    return process.argv.includes(name);
+    return process.argv.some(
+        (token, index) =>
+            index >= 2 && (token === name || token.startsWith(`${name}=`))
+    );
 }
 
 /**
@@ -1133,9 +1178,8 @@ function projectCard(card) {
  */
 function repeatedNumbers(name) {
     const values: number[] = [];
-    for (let index = 0; index < process.argv.length; index += 1) {
-        if (process.argv[index] !== name) continue;
-        for (const part of String(process.argv[index + 1] || "").split(",")) {
+    for (const given of valuesOf(name)) {
+        for (const part of given.split(",")) {
             const value = Number(part.trim());
             if (!Number.isInteger(value) || value < 1) {
                 throw new ValidationError(
@@ -1158,9 +1202,8 @@ function repeatedNumbers(name) {
  */
 function repeatedOption(name) {
     const values: string[] = [];
-    for (let index = 0; index < process.argv.length; index += 1) {
-        if (process.argv[index] !== name) continue;
-        for (const part of String(process.argv[index + 1] || "").split(",")) {
+    for (const given of valuesOf(name)) {
+        for (const part of given.split(",")) {
             const value = part.trim();
             if (value) values.push(value);
         }
@@ -1182,9 +1225,7 @@ function repeatedOption(name) {
  */
 function axisOptions(flag) {
     const axes: Record<string, string> = {};
-    for (let index = 0; index < process.argv.length; index += 1) {
-        if (process.argv[index] !== flag) continue;
-        const raw = String(process.argv[index + 1] ?? "");
+    for (const raw of valuesOf(flag)) {
         const at = raw.indexOf("=");
         const name = (at === -1 ? raw : raw.slice(0, at)).trim();
         if (at === -1 || !name) {

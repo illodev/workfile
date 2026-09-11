@@ -31,6 +31,14 @@ An option a subcommand does not accept is refused with `CLI_ARGUMENT_UNKNOWN`,
 and one given twice with `CLI_ARGUMENT_CONFLICT`, because only the first is
 read. Pass a list as one comma-separated value.
 
+A value follows its option as the next word or after `=`: `--limit 5` and
+`--limit=5` read the same, on every option that takes a value. A flag that takes
+none refuses one — `--json=true` is `CLI_ARGUMENT_INVALID` — rather than being
+read as the bare flag. In 0.10.0 and earlier the `=` spelling passed the option
+check and was then never read, so `--expected-revision=REV` wrote with no revision check
+and exited 0; if a caller of yours learnt that spelling from a session where it
+seemed to work, it was not working.
+
 A word that branches answers for its own subcommand first: an unrecognised one
 with `CLI_COMMAND_UNKNOWN` and a missing one with `CLI_COMMAND_REQUIRED`, both
 listing what the word does accept. `workfile claude`, `workfile mcp` and

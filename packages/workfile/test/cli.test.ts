@@ -2350,3 +2350,75 @@ test("card verify reports what an entry proved, not how its process ended", asyn
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a --flag=value spelling is read, not only admitted", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-equals-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        // Every reader used to look for the exact token, so `=` passed the
+        // option check and was never read: a patch guarded by
+        // `--expected-revision=REV` ran with no revision check and exited 0,
+        // which a consumer reported as a truncated revision applying (T-0242).
+        await run(["doc", "create", "--title=Spelling probe", "--root", root]);
+        const created = JSON.parse(
+            (await run(["doc", "list", "--managed", "--json", "--root", root])).stdout
+        );
+        const id = created.records[0].id;
+        const changes = join(root, "changes.json");
+        await writeFile(changes, JSON.stringify({ body: "rewritten" }));
+
+        const stale = await outcome([
+            "doc",
+            "patch",
+            id,
+            "--json-input",
+            changes,
+            "--expected-revision=sha256:deadbeef",
+            "--root",
+            root
+        ]);
+        assert.equal(stale.code, 3, stale.stderr);
+        assert.match(stale.stderr, /DOC_WRITE_CONFLICT/);
+
+        const shown = JSON.parse(
+            (await run(["doc", "show", id, "--json", "--root", root])).stdout
+        );
+        const fresh = await run([
+            "doc",
+            "patch",
+            id,
+            "--json-input",
+            changes,
+            `--expected-revision=${shown.revision}`,
+            "--json",
+            "--root",
+            root
+        ]);
+        assert.match(JSON.parse(fresh.stdout).body, /rewritten/);
+
+        // Lists and numbers read through the same walk.
+        const listed = JSON.parse(
+            (
+                await run([
+                    "card",
+                    "list",
+                    "--json",
+                    "--limit=1",
+                    "--fields=id,status",
+                    "--root",
+                    root
+                ])
+            ).stdout
+        );
+        assert.equal(listed.records.length, 1);
+        assert.deepEqual(Object.keys(listed.records[0]).sort(), ["id", "status"]);
+
+        // A flag that takes no value refuses one instead of reading as bare.
+        const valued = await outcome(["card", "list", "--json=true", "--root", root]);
+        assert.notEqual(valued.code, 0);
+        assert.match(valued.stderr, /CLI_ARGUMENT_INVALID/);
+        assert.match(valued.stderr, /--json takes no value/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
