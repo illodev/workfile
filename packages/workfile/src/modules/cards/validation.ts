@@ -90,14 +90,49 @@ function fail(code: string, message: string, details: unknown = null): never {
 }
 
 /**
- * The axes this workspace declares, as `[name, vocabulary]` pairs.
+ * One declared axis, whichever shape the project wrote it in.
  *
+ * `cards.axes.context` is either the vocabulary itself — an array, which has
+ * always meant "declared and expected on every open card" — or
+ * `{ values, required }`. The object form exists for one measured reason: a
+ * consuming board where `review` is where work rests, not where it is in play,
+ * emitted 1 487 `missing-axis` warnings out of 2 018 — 74 % of its doctor
+ * output — for one axis, and every card reaching `review` added another for
+ * ever. The only lever the project had was to stop declaring the axis, which
+ * also threw away the vocabulary and `card list --axis`. `required: false`
+ * keeps both and drops the warning; a value outside the vocabulary is still an
+ * error, because that half catches real mistakes.
+ */
+export interface AxisDeclaration {
+    name: string;
+    values: string[];
+    required: boolean;
+}
+
+/**
  * Read through here rather than off `config.cards.axes` directly: a workspace
  * loaded from a config written before axes existed has no such key, and every
- * caller would otherwise need the same `|| {}`.
+ * caller would otherwise need the same `|| {}` — and now the same two shapes.
+ * Accepts anything carrying `config`, so the loader can call it before the
+ * workspace exists.
  */
+export function axisDeclarations(workspace): AxisDeclaration[] {
+    return Object.entries(workspace?.config?.cards?.axes || {}).map(([name, declared]) => {
+        if (Array.isArray(declared)) {
+            return { name, values: [...(declared as string[])], required: true };
+        }
+        const shape = (declared || {}) as { values?: string[]; required?: boolean };
+        return {
+            name,
+            values: [...(shape.values || [])],
+            required: shape.required !== false
+        };
+    });
+}
+
+/** The axes this workspace declares, as `[name, vocabulary]` pairs. */
 export function declaredAxes(workspace): Array<[string, string[]]> {
-    return Object.entries(workspace?.config?.cards?.axes || {});
+    return axisDeclarations(workspace).map(({ name, values }) => [name, values]);
 }
 
 export function axisNames(workspace): string[] {

@@ -1,13 +1,14 @@
 ---
 id: T-0231
 title: A required axis floods doctor when review is where work rests
-status: backlog
+status: review
 type: task
 priority: medium
 area: core
 raised: reported
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-11
+scope: [packages/workfile/src, packages/workfile/test, packages/workfile/docs]
 ---
 
 `missing-axis` warns on every open card that does not carry a declared axis. The rule is written
@@ -58,9 +59,36 @@ Either would do; the first is smaller.
    by `closed()`. This one reaches further than the axis — every "only on open work" rule inherits
    it — and it is the more honest fix for a project whose terminal state is not `done`.
 
+## Decided on 2026-09-11: the optional axis, and why not the closed set
+
+Shape 1 shipped. `cards.axes.NAME` takes `{ values: [...], required: false }` beside the array,
+and the array keeps meaning required. One reader, `axisDeclarations()`, normalises both shapes for
+everything downstream; `missing-axis` skips an optional axis; `invalid-axis` and the write-path
+refusal do not; `schema --json` lists `cards.optionalAxes` beside `cards.axes`, whose shape is
+unchanged so the UI and every other reader of name → values keep working.
+
+Shape 2 was measured before being left, on a scratch copy of the same board (2 550 cards) with
+`goal` re-declared as a required array: **1 485 `missing-axis` of 2 072 warnings, 71 %** — the
+2026-09-02 number reproduced. By status: 1 127 `backlog`, 261 `review`, 33 `next`, 32 `blocked`,
+31 `deferred`, 1 `doing`. A project-declared closed set that counted `review` as closed would have
+removed 261 and left 1 224. The flood was never mostly `review`: it was a vocabulary declared for a
+handful of sweeps on a board where most open cards belong to no sweep, and that is exactly what
+`required: false` says and a closed set cannot. The same copy with the axis declared optional:
+**0 `missing-axis`, the same 4 `invalid-axis`** (values outside the vocabulary the copy declared),
+and `card list --axis goal=…` filtering as before.
+
 ## Acceptance criteria
 
-- [ ] An axis can be declared without being required, or the project can declare which statuses
-      count as closed
-- [ ] `invalid-axis` still fires on a value outside the vocabulary
-- [ ] A project that declares an axis and requires it sees no change
+- [x] An axis can be declared `{ values, required: false }`: `missing-axis` then stays silent for it
+      while an axis declared as an array is unchanged
+- [x] `invalid-axis` still fires on a value outside the vocabulary
+- [x] A project that declares an axis and requires it sees no change
+
+## Activity
+
+- 2026-09-11 16:39Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 16:47Z illodev@local#597ecdc9 · released
+
+## Notes
+
+- 2026-09-11 16:47Z illodev@local#597ecdc9 — Pinned by axes.test.ts: the config test accepts { values, required } and refuses an unknown key, a non-boolean required, an empty or missing values list and a bare string, each by its own code; 'an optional axis keeps its vocabulary and its error, and loses the warning' declares goal optional beside a required context and asserts invalid-axis on a typo, no missing-axis for goal, the same three missing-axis lines for context that a required axis emitted before, the write-path refusal and card list --axis goal=leaks. The existing doctor test for a required axis passes unchanged, which is criterion 3. Measured on a scratch copy of the Fube board with the shipped build: required → 1 485 missing-axis, optional → 0, invalid-axis 4 either way; the by-status split (1 127 backlog vs 261 review) is why the closed-set shape was not taken — it would have left 1 224 of the 1 485.

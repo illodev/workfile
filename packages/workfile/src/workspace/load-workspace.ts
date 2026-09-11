@@ -16,7 +16,7 @@ import {
     MEMORY_DEFINITIONS,
     SCHEMA_VERSION
 } from "../config/defaults.js";
-import { verifyTimeoutSeconds } from "../modules/cards/validation.js";
+import { axisDeclarations, verifyTimeoutSeconds } from "../modules/cards/validation.js";
 import { discoverWorkspaceRoot, isWorkspaceRoot } from "./discover.js";
 import type {
     EffectiveProjectSchema,
@@ -140,11 +140,14 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
         // `context:` exists and what it accepts is to read the config file,
         // which the MCP surface deliberately does not expose.
         axes: Object.fromEntries(
-            Object.entries(config.cards.axes || {}).map(([name, values]) => [
-                name,
-                [...(values as string[])]
-            ])
+            axisDeclarations({ config }).map(({ name, values }) => [name, values])
         ),
+        // Which of those a card may leave blank without `doctor` saying so.
+        // Reported beside the vocabularies rather than folded into them, so a
+        // reader that only knows `axes` as name → values keeps working.
+        optionalAxes: axisDeclarations({ config })
+            .filter((axis) => !axis.required)
+            .map((axis) => axis.name),
         // Same argument, one step further: a policy an agent cannot read is a
         // policy it can only discover by being refused. An empty `methods` is
         // the honest report of a project with no opinion, and is what every

@@ -116,6 +116,28 @@ test("cards.axes declares a vocabulary, and refuses declarations that buy nothin
         configCode({ axes: { context: ["a", "a"] } }),
         "CONFIG_LIST_VALUE_DUPLICATE"
     );
+
+    // The object form keeps what the project wrote; the readers normalise.
+    // `required` defaults to true so `{ values }` alone means what the array
+    // means, and the three ways to write the shape wrong are each refused by
+    // name — a misspelt `requried: false` would otherwise declare a required
+    // axis and say nothing.
+    assert.deepEqual(
+        project({ axes: { goal: { values: ["a", "b"], required: false } } }).cards.axes,
+        { goal: { values: ["a", "b"], required: false } }
+    );
+    assert.equal(configCode({ axes: { goal: { values: ["a"] } } }), null);
+    assert.equal(configCode({ axes: { goal: { values: [] } } }), "CONFIG_LIST_EMPTY");
+    assert.equal(configCode({ axes: { goal: { required: false } } }), "CONFIG_LIST_INVALID");
+    assert.equal(
+        configCode({ axes: { goal: { values: ["a"], requried: false } } }),
+        "CONFIG_CARDS_AXIS_KEY_UNKNOWN"
+    );
+    assert.equal(
+        configCode({ axes: { goal: { values: ["a"], required: "no" } } }),
+        "CONFIG_CARDS_AXIS_REQUIRED_INVALID"
+    );
+    assert.equal(configCode({ axes: { goal: "a,b" } }), "CONFIG_CARDS_AXIS_INVALID");
 });
 
 test("every field a card owns is reserved against being declared an axis", () => {
@@ -244,6 +266,71 @@ test("schema reports the declared axes, so an agent can discover them", async ()
         assert.deepEqual(JSON.parse(stdout).cards.axes, {
             context: ["treasury", "billing"]
         });
+        assert.deepEqual(JSON.parse(stdout).cards.optionalAxes, []);
+    } finally {
+        await cleanup();
+    }
+});
+
+test("an optional axis keeps its vocabulary and its error, and loses the warning", async () => {
+    const { workspace, root, cleanup } = await workspaceWithAxes({
+        goal: { values: ["guards", "leaks"], required: false },
+        context: ["treasury"]
+    });
+    try {
+        // The schema reports the vocabulary the way it always has, so a reader
+        // that knows `axes` as name → values keeps working, and says beside it
+        // which axis a card may leave blank.
+        assert.deepEqual(workspace.schema.cards.axes, {
+            goal: ["guards", "leaks"],
+            context: ["treasury"]
+        });
+        assert.deepEqual(workspace.schema.cards.optionalAxes, ["goal"]);
+
+        await writeFile(
+            join(root, ".project/cards/T-9001-typo.md"),
+            card("T-9001", { goal: "gaurds" })
+        );
+        await writeFile(join(root, ".project/cards/T-9002-blank.md"), card("T-9002"));
+        await writeFile(
+            join(root, ".project/cards/T-9003-fine.md"),
+            card("T-9003", { goal: "leaks", context: "treasury" })
+        );
+
+        const report = JSON.parse(await doctorJson(root));
+        const found = (code) => report.issues.filter((entry) => entry.code === code);
+        // A value outside the vocabulary is still the error it always was:
+        // that half is what catches real mistakes, and optional does not
+        // mean unvalidated.
+        assert.deepEqual(
+            found("invalid-axis").map((entry) => [entry.id, entry.details.axis]),
+            [["T-9001", "goal"]]
+        );
+        // No card is told it lacks a `goal`. The required axis beside it still
+        // warns on the same open cards it did before, which is the proof that
+        // declaring one optional changed nothing for the other.
+        assert.deepEqual(
+            found("missing-axis")
+                .map((entry) => `${entry.id}:${entry.details.axis}`)
+                .sort(),
+            ["T-0001:context", "T-9001:context", "T-9002:context"]
+        );
+
+        // The write path still refuses a value outside the vocabulary, and
+        // the filter still finds by it.
+        await assert.rejects(
+            createCard(workspace, { title: "Wrong goal", area: "api", axes: { goal: "gaurds" } }),
+            { code: "CARD_AXIS_VALUE_INVALID" }
+        );
+        const { stdout } = await execute(
+            process.execPath,
+            [cli, "card", "list", "--axis", "goal=leaks", "--json", "--root", root],
+            { encoding: "utf8" }
+        );
+        assert.deepEqual(
+            JSON.parse(stdout).records.map((entry) => entry.id),
+            ["T-9003"]
+        );
     } finally {
         await cleanup();
     }

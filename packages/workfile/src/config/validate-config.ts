@@ -108,7 +108,45 @@ function validateCardAxes(issues: ConfigIssue[], axes) {
                 )
             );
         }
-        validateStringList(issues, values, path);
+        if (Array.isArray(values)) {
+            validateStringList(issues, values, path);
+        } else if (!values || typeof values !== "object") {
+            issues.push(
+                issue(
+                    "CONFIG_CARDS_AXIS_INVALID",
+                    path,
+                    `${path} must be an array of values, or { values, required }`
+                )
+            );
+        } else {
+            // `{ values, required }`: the vocabulary plus whether an open card
+            // without a value is worth a doctor line. Anything else under the
+            // axis is refused by name, because a misspelt `requried: false`
+            // would otherwise declare a required axis and say nothing.
+            const shape = values as Record<string, unknown>;
+            const unknown = Object.keys(shape).filter(
+                (key) => key !== "values" && key !== "required"
+            );
+            if (unknown.length) {
+                issues.push(
+                    issue(
+                        "CONFIG_CARDS_AXIS_KEY_UNKNOWN",
+                        path,
+                        `${path} accepts values and required, not ${unknown.join(", ")}`
+                    )
+                );
+            }
+            validateStringList(issues, shape.values, `${path}.values`);
+            if (shape.required !== undefined && typeof shape.required !== "boolean") {
+                issues.push(
+                    issue(
+                        "CONFIG_CARDS_AXIS_REQUIRED_INVALID",
+                        `${path}.required`,
+                        `${path}.required must be true or false`
+                    )
+                );
+            }
+        }
     }
 }
 

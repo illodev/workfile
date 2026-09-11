@@ -638,10 +638,18 @@ Flat, not a nested `axes:` mapping, so the value stays greppable and the
 existing query grammar reads it without a second index: `search
 "context:treasury"` already filters on any frontmatter key.
 
+An axis is either its vocabulary, as above, or an object:
+
+```js
+axes: { goal: { values: ["guards-server", "fugas-cross-tenant"], required: false } }
+```
+
 Rules:
 
 - an axis name MUST NOT collide with a field a card already owns;
 - an axis MUST declare a non-empty vocabulary;
+- an axis declared as an array is required; `{ values, required: false }`
+  declares the vocabulary without expecting a value on every open card;
 - a card value outside the declared vocabulary is invalid, the way an unknown
   `area` is;
 - an axis is optional on a card unless a project rule says otherwise;
@@ -649,12 +657,16 @@ Rules:
   axis is what turns a free-text note into something that fails loudly.
 
 Health checks MUST report a card value outside the declared vocabulary as an
-error. A card carrying no value for a declared axis SHOULD be a warning, and
-only while the work is open: declaring an axis on an existing repository must
-not produce one diagnostic per finished record.
+error, whether or not the axis is required. A card carrying no value for a
+required axis SHOULD be a warning, and only while the work is open: declaring an
+axis on an existing repository must not produce one diagnostic per finished
+record. A card carrying no value for an axis declared `required: false` is not
+reported: the shape exists for boards whose resting state is not `done`, where
+the open-work exemption alone measured at three quarters of the doctor output.
 
-The schema surface reports the declared axes, so an agent discovers them the way
-it discovers areas rather than by reading the config file.
+The schema surface reports the declared axes and which of them are optional, so
+an agent discovers them the way it discovers areas rather than by reading the
+config file.
 
 ### 11.7 Hierarchy and relationships
 

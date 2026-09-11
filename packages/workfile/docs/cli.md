@@ -386,6 +386,15 @@ nothing, and an open card with no value at all is a **warning**. Cards that are
 on an existing repository must not emit one line per finished card, which is a
 flood nobody acts on rather than a signal.
 
+That exemption is written for a lifecycle where `done` is where work rests. On a
+board where `review` is — because `done` is reserved for runtime evidence an
+agent can rarely supply — every card that reaches `review` keeps warning for
+ever, and one axis measured at 74 % of a 2 018-warning doctor run. Declare the
+axis as `{ values: [...], required: false }` and the warning stops while the
+vocabulary, the error on a typo and `card list --axis` all stay. An array keeps
+meaning required. `schema --json` lists the optional ones under
+`cards.optionalAxes`.
+
 ### Card-declared commands
 
 A card may bind an acceptance criterion to a command that proves it, in a

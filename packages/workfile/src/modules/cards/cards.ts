@@ -25,7 +25,7 @@ import {
     argvElements,
     commandAllowed,
     commandNotAllowedMessage,
-    declaredAxes,
+    axisDeclarations,
     formatCommand,
     verificationRefusal
 } from "./validation.js";
@@ -440,7 +440,7 @@ export async function diagnoseCards({
         area: workspace.config.cards.areas,
         effort: CARD_EFFORTS
     };
-    const axes = declaredAxes(workspace);
+    const axes = axisDeclarations(workspace);
     const allowed = allowedCommands(workspace);
     const idRe = cardIdPattern(workspace.config.cards.idPrefix);
     for (const card of cards) {
@@ -523,7 +523,7 @@ export async function diagnoseCards({
                 );
             }
         }
-        for (const [axis, allowed] of axes) {
+        for (const { name: axis, values: allowed, required } of axes) {
             const value = card[axis];
             if (value && !allowed.includes(value)) {
                 // An error, because it is a typo that matches nothing: the
@@ -538,7 +538,7 @@ export async function diagnoseCards({
                         { axis, value, allowed }
                     )
                 );
-            } else if (!value && !closed(card)) {
+            } else if (!value && required && !closed(card)) {
                 // A warning, and only on work still in play. Declaring an axis
                 // on an existing repository must not turn it red — but a
                 // warning per record floods just as badly in yellow: this
@@ -546,6 +546,12 @@ export async function diagnoseCards({
                 // closed cards, and nobody classifies finished work
                 // retroactively. Doctor output that nobody can act on is
                 // output nobody reads.
+                //
+                // And only when the project asked for it. "Open" is this
+                // module's `closed()`, and on a board where `review` is where
+                // work rests that definition flooded: 1 487 of 2 018 warnings
+                // for one axis (T-0231). `required: false` is how such a
+                // project keeps the vocabulary and the filter without the line.
                 issues.push(
                     issue(
                         "warning",

@@ -50,7 +50,7 @@ export interface ProjectCardsConfig {
      * makes `context:` a validated flat frontmatter key on every card. Declared
      * here rather than named in the schema; see ADR-0008.
      */
-    axes: Record<string, string[]>;
+    axes: Record<string, string[] | { values: string[]; required?: boolean }>;
     tags: string[];
     /**
      * What this project will let a card's `verify` block run, and what it will
@@ -234,6 +234,8 @@ export interface EffectiveProjectSchema {
         areas: string[];
         /** Project-declared classification axes, name → vocabulary. */
         axes: Record<string, string[]>;
+        /** The axes an open card may leave blank without a doctor warning. */
+        optionalAxes: string[];
         /** What a card may run, and what counts as proof at `done`. */
         verification: ProjectVerificationConfig;
         /** Bounds a write is refused past, in characters. */
