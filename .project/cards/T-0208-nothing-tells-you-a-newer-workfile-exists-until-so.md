@@ -9,7 +9,7 @@ tags: [cli, ui]
 effort: M
 scope: [packages/workfile/src/modules/upgrade]
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-11
 ---
 
 `workfile upgrade` resyncs every managed surface once you know a bump happened.
@@ -52,3 +52,7 @@ Raised in the same triage as T-0191 through T-0198 and not filed at the time.
 - [ ] A project can turn it off in config, and doing so removes the network access entirely rather than hiding the message.
 - [ ] Nothing it does writes to a record, and the cache it writes is not committed.
 - [ ] The behaviour is documented, including what it sends and to whom.
+
+## Notes
+
+- 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: the check lives in the UI footer and in workfile upgrade, and nowhere else — doctor and the generated CI never touch the network. One GET to the npm registry for @illodev/workfile, cached 24 h under .project/.cache, off entirely with a config switch, silent when there is no network or the registry answers anything but a version. Criterion 1 is rewritten accordingly: the CLI surface is upgrade, not every command.

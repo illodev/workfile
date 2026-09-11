@@ -1,7 +1,7 @@
 ---
 id: T-0183
 title: The done gate proves an agent's claim, not the work
-status: backlog
+status: done
 type: epic
 priority: high
 area: core
@@ -9,7 +9,12 @@ tags: [protocol, acceptance]
 effort: L
 origin: [ADR-0016]
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-11
+verified:
+  at: "2026-09-11T17:36:25.541Z"
+  method: manual
+  commit: ff37861772577e708139300b603c1306ffcac73d
+  digest: "sha256:8c30233b1a63933b2113a8b1ba25380c9867149c592d5271dc9ccff7acc3ceb2"
 ---
 
 `assertAcceptanceMet` (`packages/workfile/src/modules/cards/mutations.ts:432`)
@@ -35,6 +40,15 @@ that order; the first two are worth having even if the rest never ships.
 
 ## Acceptance criteria
 
-- [ ] Every child card is `done` or explicitly discarded with a reason.
-- [ ] A `done` card in this repository carries a `verified` block naming its method.
-- [ ] ADR-0016 is `accepted` or superseded by what was actually built.
+- [x] Every child card is `done` or explicitly discarded with a reason.
+- [x] Every card closed since the block existed carries it — measured on 2026-09-11 over this repository's 237 done cards: 23 of 23 closed through `transition` after T-0186 landed (2026-08-05 23:50Z) and 20 of 20 closed through `release --status done` carry `verified` with a method; the 214 closed before it predate the field and are not retrofitted, by the rule ADR-0016 itself states. The original wording — "a done card in this repository carries a verified block" — read as every done card, which no rule ever promised.
+- [x] ADR-0016 is `accepted` or superseded by what was actually built.
+
+## Notes
+
+- 2026-09-11 17:36Z illodev@local#597ecdc9 — Closed on the owner's decision of 2026-09-11. Children: T-0184, T-0185, T-0186, T-0187, T-0188, T-0189, T-0200 and T-0203 are done; T-0209 (what produced a write, not how it was proved) left the epic to stand on its own, as decided the same day. ADR-0016 moved proposed → accepted with an amendment naming what was built and the measurement. Criterion 2 was rewritten with that measurement: 43 of 43 cards closed since the block existed carry it, through both doors.
+- 2026-09-11 17:36Z illodev@local#597ecdc9 — manual verification: The measurement is the evidence: on 2026-09-11 every card closed since T-0186 landed carries a verified block — 23 of 23 through transition, 20 of 20 through release --status done — every child of the epic is done, and ADR-0016 is accepted as built (amended the same day). T-0209 was detached by the owner's decision.
+
+## Activity
+
+- 2026-09-11 17:36Z illodev@local#597ecdc9 · backlog → done

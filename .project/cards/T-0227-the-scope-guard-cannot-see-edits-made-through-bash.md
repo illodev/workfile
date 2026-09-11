@@ -7,7 +7,7 @@ priority: medium
 area: core
 raised: derived
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-11
 ---
 
 The `PreToolUse` scope guard is installed with matcher `Edit|Write|NotebookEdit`, and `preToolUse`
@@ -47,3 +47,7 @@ fact instead of a guard that prevents them; or a per-panel watcher outside the p
 
 Related: the guard also asks about the editor's **own** card, because `claim.session` is never
 populated.
+
+## Notes
+
+- 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: a detector in PostToolUse, not a guard. After a Bash tool call it compares the files the command touched (git status / mtime under the workspace) with the scopes other actors hold, writes the collision as an event and returns an additional-context warning to the agent. It reports after the fact instead of preventing, and it never joins the PreToolUse matcher, whose hot-path budget stays as claude-surface.test.ts pins it.

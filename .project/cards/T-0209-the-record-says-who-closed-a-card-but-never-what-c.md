@@ -5,13 +5,12 @@ status: backlog
 type: feature
 priority: medium
 area: core
-parent: T-0183
 tags: [protocol, stats]
 effort: M
 scope: [packages/workfile/src/core/actor.ts]
 origin: [ADR-0016]
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-11
 ---
 
 The activity trail records an actor — `illodev@local#bf4c5f67` — which says which
@@ -66,3 +65,7 @@ Raised in the same triage as T-0191 through T-0198 and not filed at the time.
 - [ ] A workspace with nothing declaring it behaves exactly as today.
 - [ ] The stored shape can be counted over without parsing prose.
 - [ ] Nothing sensitive can reach the record through it.
+
+## Notes
+
+- 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: a produced_by field beside the actor, never inside it. Self-declared from the environment (WORKFILE_MODEL, WORKFILE_REASONING, or whatever the Claude hook can inject from its own session), written on the trail line and as a last-writer field in frontmatter, labelled self-reported. With nothing declared the record is byte-identical to today, and the claim guard keeps comparing actors alone. This card leaves the T-0183 epic and stands on its own.

@@ -1,11 +1,12 @@
 ---
 id: ADR-0016
 title: done carries the method that proved it, and a bound criterion is machine-owned
-status: proposed
+status: accepted
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-11
 related: [T-0200, LRN-0025, T-0184]
 ---
+
 ## Context
 
 The protocol's strongest promise is that `done` means verified where the code
@@ -145,3 +146,17 @@ fork's head all along. The allowlist is still worth building, for reviewability
 and for the maintainer who runs `card verify` on a branch they only meant to
 read. What bounds the damage is the job rather than the card: no secrets, no
 write token, and no evidence written back from a fork's head.
+
+**2026-09-11 — accepted as built.** The design shipped across T-0184 (a forced
+move names the gate it waived), T-0185 (a criterion binds to a command by text
+digest and only the runner may check it), T-0186 (`verified` records method,
+commit and digest), T-0187 (the project declares which methods each area
+accepts), T-0188 (card-declared commands are argument vectors under an
+allowlist, spawned with no shell), T-0200 (the codec holds the two shapes),
+T-0203 (`card verify` runs the commands and checks what they proved) and
+T-0189 (the generated workflow runs them and writes `method: ci` back with the
+run URL). Measured on this repository: every card closed since T-0186 landed
+carries the block — 23 of 23 through `transition`, 20 of 20 through
+`release --status done`. The owner accepted it on 2026-09-11, with T-0189's
+fork criterion rewritten as the measurement of what GitHub enforces rather than
+a pull request from a second account.

@@ -1,7 +1,7 @@
 ---
 id: T-0189
 title: CI runs a card's declared checks and writes back the evidence
-status: review
+status: done
 type: feature
 priority: medium
 area: infra
@@ -9,10 +9,16 @@ parent: T-0183
 tags: [protocol, acceptance]
 effort: L
 created: 2026-08-05
-updated: 2026-08-07
+updated: 2026-09-11
 origin: [ADR-0016]
 depends: [T-0188, T-0186]
 scope: [packages/workfile/src/modules/ci, packages/workfile/src/modules/cards/runner.ts, packages/workfile/bin/workfile.ts]
+verified:
+  at: "2026-09-11T17:35:05.106Z"
+  method: ci
+  commit: 7637b342ce7250a699cda98e9581b07cf08db343
+  run: "https://github.com/illodev/workfile/actions/runs/31220115910"
+  digest: "sha256:7ff410861c4fe56a7a9fa088739e833d7f9e6ba6c1ed3b282618ac93da73a104"
 ---
 
 The `ci` method from ADR-0016, and the only tier with a witness. The generated
@@ -36,13 +42,14 @@ Open questions to settle before implementing, not after:
 
 - [x] The generated GitHub workflow runs the declared checks for cards touched by the branch.
 - [x] A passing run writes `verified` with `method: ci`, the commit and the run URL.
-- [ ] A fork PR either records evidence safely or records none; it never fails open.
+- [x] A fork PR records no evidence, and the workflow says so rather than failing at the last step — measured on what GitHub enforces, not run from a second account: `pull_request` from a fork receives a read-only token, so the `record` job's push cannot land whatever the file says, and the job carries `if: github.event.pull_request.head.repo.full_name == github.repository` so it declines to start; the trigger is pinned as `pull_request` and never `pull_request_target` by ci-targets.test.ts. The original criterion — "either records evidence safely or records none; it never fails open" — asked for a fork PR that only a second account can open; the owner chose the measurement on 2026-09-11.
 - [x] The behaviour is documented in the CLI/CI reference, including what it does not do.
 
 ## Activity
 
 - 2026-08-07 20:49Z illodev@local#42eb42f5 · claimed
 - 2026-08-07 21:43Z illodev@local#42eb42f5 · doing → review
+- 2026-09-11 17:35Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
@@ -62,3 +69,4 @@ The first version of that second check was broken in the dangerous direction: a 
 And one thing the run corrected. The workflow comment claimed the push converges because the second run finds nothing to write. True, but not the operative reason: a push made with GITHUB_TOKEN does not start a workflow run at all. Observed as two runs created in action_required that never executed. Both reasons are stated now, first one first, because someone debugging a loop would otherwise look at the wrong one.
 
 Criterion 3 is argued and pinned rather than run: demonstrating it needs a pull request from a fork, which needs a second account. What GitHub enforces is that `pull_request` from a fork gets a read-only token, so the push cannot land; the job condition declines to start on top of that, and a test pins the condition.
+- 2026-09-11 17:35Z illodev@local#597ecdc9 — ci verification: Run 31220115910 on PR #36: the cards job found T-0161 as touched, ran its declared command, checked the four bound criteria, and the record job pushed 5b61847 as github-actions[bot] with only those boxes and a trail line. Criterion 3 is the measurement written into it: a fork gets a read-only token on pull_request and the record job declines to start on a non-same-repository head; the trigger pin lives in ci-targets.test.ts. Decided by the owner on 2026-09-11 instead of a second-account fork PR.

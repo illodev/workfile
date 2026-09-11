@@ -27,3 +27,7 @@ Options on the table, none chosen:
 
 - [ ] A decision is recorded on how a caller obtains a revision without reading the body.
 - [ ] A decision is recorded on whether an unguarded patch says so, and where.
+
+## Notes
+
+- 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: a caller obtains a revision without the body through show --fields id,revision on every record kind, and an unguarded patch does not announce itself — the flag is optional by design, a note on every write nobody asked to guard is noise, and the --json result of a patch already carries the new revision. No --if-unchanged-since.

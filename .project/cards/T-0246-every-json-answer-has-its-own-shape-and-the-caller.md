@@ -36,3 +36,7 @@ Not decided here: whether the CLI adopts the MCP envelope, what a compatibility 
 - [ ] `docs/cli.md` has a table of what every `--json` command returns, pinned by a test so it cannot drift.
 - [ ] A decision is recorded on whether the CLI converges on the MCP envelope and, if so, how existing callers are told.
 - [ ] `card transition --json` has a form that returns id, status and revision without the body, or the decision says why not.
+
+## Notes
+
+- 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: the CLI converges on the MCP envelope in 0.13.0 — every --json answer becomes { record } for one record and { records, total } for a list, the same shape project_* tools return — as a breaking change announced in the changelog and on stderr during 0.12.x. Criterion 3 rides the same change: transition/patch/release accept --fields id,status,revision so a caller gets the envelope without the body. Criterion 1 (the table in cli.md, pinned by a test) ships with it.
