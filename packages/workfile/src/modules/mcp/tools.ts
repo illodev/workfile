@@ -28,7 +28,9 @@ import {
     CARD_EFFORTS,
     CARD_PRIORITIES,
     CARD_STATUSES,
-    CARD_TYPES
+    CARD_TITLE_MAX_LENGTH,
+    CARD_TYPES,
+    DOC_TITLE_MAX_LENGTH
 } from "../../config/defaults.js";
 import { REQUESTABLE_VERIFICATION_METHODS } from "../cards/verification.js";
 import { dateBoundary } from "../../core/inputs.js";
@@ -857,7 +859,7 @@ const TOOL_DEFINITIONS = [
             {
                 title: text("What the card is about, in one line.", {
                     minLength: 1,
-                    maxLength: 80
+                    maxLength: CARD_TITLE_MAX_LENGTH
                 }),
                 status: choice(CARD_STATUSES, "Starting lifecycle status.", {
                     default: "backlog"
@@ -1241,7 +1243,10 @@ const TOOL_DEFINITIONS = [
             "Create a managed Markdown document with a stable DOC ID. Without an explicit folder the workspace docs.layout decides where it is written.",
         inputSchema: schema(
             {
-                title: identifier("What the document is about, in one line."),
+                title: text("What the document is about, in one line.", {
+                    minLength: 1,
+                    maxLength: DOC_TITLE_MAX_LENGTH
+                }),
                 kind: text(
                     `What sort of document this is — architecture, runbook, reference and so on. ${WORKSPACE_VOCABULARY}`
                 ),

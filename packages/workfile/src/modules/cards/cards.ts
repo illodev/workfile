@@ -1,6 +1,7 @@
 import { access, readdir, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
+import { CARD_TITLE_MAX_LENGTH } from "../../config/defaults.js";
 import { ValidationError } from "../../core/errors.js";
 import {
     opaqueFrontmatterKeys,
@@ -387,13 +388,13 @@ export async function diagnoseCards({
                 )
             );
         }
-        if ((card.title || "").length > 80) {
+        if ((card.title || "").length > CARD_TITLE_MAX_LENGTH) {
             issues.push(
                 issue(
                     "warning",
                     "long-title",
                     card,
-                    `Title has ${card.title.length} characters; maximum is 80`
+                    `Title has ${card.title.length} characters; the maximum is ${CARD_TITLE_MAX_LENGTH}`
                 )
             );
         }

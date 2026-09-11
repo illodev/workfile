@@ -236,6 +236,8 @@ export interface EffectiveProjectSchema {
         axes: Record<string, string[]>;
         /** What a card may run, and what counts as proof at `done`. */
         verification: ProjectVerificationConfig;
+        /** Bounds a write is refused past, in characters. */
+        limits: { title: number };
     };
     docs: {
         kinds: string[];
@@ -243,6 +245,7 @@ export interface EffectiveProjectSchema {
         layout: DocumentLayout;
         managedPath: string;
         defaults: { kind: string; status: string };
+        limits: { title: number };
     };
     memory: {
         collections: Array<{

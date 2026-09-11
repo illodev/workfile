@@ -32,6 +32,24 @@ export const CARD_PRIORITIES = Object.freeze([
 export const CARD_EFFORTS = Object.freeze(["S", "M", "L"] as const);
 
 /**
+ * The longest title a card or a document accepts, in characters.
+ *
+ * Two numbers, and they live here rather than beside the validators that
+ * refuse past them because refusal was the only place they lived: not in
+ * `--help`, not in `docs/cli.md`, not in `workfile schema` — the command the
+ * protocol sends agents to for valid values without guessing. A consumer's
+ * agent lost seven of eleven creations in one session to a limit it could
+ * not have read anywhere first (T-0243). The schema now reports them under
+ * `cards.limits.title` and `docs.limits.title`, the help states them on the
+ * `--title` line, the MCP input schemas carry them, and the refusals say how
+ * long the title was. Truncating instead was suggested and declined: the
+ * title is the line the board shows, and shortening it decides for the
+ * author what the card is about.
+ */
+export const CARD_TITLE_MAX_LENGTH = 80;
+export const DOC_TITLE_MAX_LENGTH = 120;
+
+/**
  * Frontmatter keys a card already owns, and which an axis therefore cannot be.
  *
  * A declared axis becomes a flat frontmatter key (ADR-0008), so declaring

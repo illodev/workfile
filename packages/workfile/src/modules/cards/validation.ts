@@ -3,6 +3,7 @@ import {
     CARD_EFFORTS,
     CARD_PRIORITIES,
     CARD_STATUSES,
+    CARD_TITLE_MAX_LENGTH,
     CARD_TYPES,
     VERIFICATION_POLICY_DEFAULT_AREA,
     VERIFY_TIMEOUT_SECONDS_DEFAULT
@@ -500,8 +501,13 @@ export function validateCardCandidate(workspace, candidate, cards, currentId = n
             fail("CARD_REQUIRED_FIELD", `${key} cannot be empty.`, { field: key });
         }
     }
-    if (String(candidate.title).trim().length > 80) {
-        fail("CARD_TITLE_TOO_LONG", "title must be at most 80 characters.");
+    const titleLength = String(candidate.title).trim().length;
+    if (titleLength > CARD_TITLE_MAX_LENGTH) {
+        fail(
+            "CARD_TITLE_TOO_LONG",
+            `title has ${titleLength} characters; the maximum is ${CARD_TITLE_MAX_LENGTH}.`,
+            { length: titleLength, maximum: CARD_TITLE_MAX_LENGTH }
+        );
     }
     const enums = {
         status: CARD_STATUSES,

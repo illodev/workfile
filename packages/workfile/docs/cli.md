@@ -217,7 +217,7 @@ workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent I
                   [--axis NAME=VALUE] [--limit N] [--offset N] [--fields a,b]
                   [--with-body] [--json]
 workfile card show ID [--json]
-workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]
+workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]   # TITLE up to 80 characters
 workfile card create --title TITLE --raised reported|derived
                     [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
                     [--depends ID,ID] [--related ID,ID] [--origin ID,ID]
@@ -590,11 +590,16 @@ signalling, and `workfile card reap` releases them.
 ```bash
 workfile doc list [--query TEXT] [--managed] [--json]
 workfile doc show ID [--json]
-workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]
+workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]   # TITLE up to 120 characters
 workfile doc create --json-input FILE   # recommended: body and metadata in one call
 workfile doc move ID --folder PATH [--expected-revision REV]
 workfile doc patch ID --json-input FILE [--expected-revision REV]
 ```
+
+A card title is refused past 80 characters and a document title past 120, before
+anything is written. `workfile schema --json` reports both under
+`cards.limits.title` and `docs.limits.title`, so a caller composing a record can
+read the bound instead of meeting it; the refusal says how long the title was.
 
 Indexed documents (from configured globs) get deterministic `PATH-*` IDs and are
 read-only; managed documents live in `.project/docs/` with `DOC-NNNN` IDs.

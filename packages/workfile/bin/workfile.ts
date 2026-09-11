@@ -86,7 +86,9 @@ import {
     setCardAcceptance,
     unreadableCriteria,
     ValidationError,
-    wholeNumber
+    wholeNumber,
+    CARD_TITLE_MAX_LENGTH,
+    DOC_TITLE_MAX_LENGTH
 } from "../src/index.js";
 
 const PACKAGE_VERSION = JSON.parse(
@@ -149,7 +151,7 @@ const USAGE: Record<string, string[]> = {
     card: [
         "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
         "workfile card show ID [--json]",
-        "workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]",
+        `workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]   # TITLE up to ${CARD_TITLE_MAX_LENGTH} characters`,
         "workfile card create --title TITLE --raised reported|derived   # a person asked, or you inferred it",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
         "workfile card create --title TITLE --axis context=treasury   # repeatable; see `workfile schema`",
@@ -174,7 +176,7 @@ const USAGE: Record<string, string[]> = {
     doc: [
         "workfile doc list [--query TEXT] [--managed] [--json]",
         "workfile doc show ID [--json]",
-        "workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]",
+        `workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]   # TITLE up to ${DOC_TITLE_MAX_LENGTH} characters`,
         "workfile doc create --json-input FILE   # recommended: body and metadata in one call",
         "workfile doc move ID --folder PATH [--expected-revision REV]",
         "workfile doc patch ID --json-input FILE [--expected-revision REV]"

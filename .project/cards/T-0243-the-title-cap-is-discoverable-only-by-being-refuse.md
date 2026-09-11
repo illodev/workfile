@@ -1,13 +1,13 @@
 ---
 id: T-0243
 title: The title cap is discoverable only by being refused
-status: next
+status: review
 type: bug
 priority: medium
 area: core
 source: .project/docs/research/DOC-0006-field-report-a-fube-agent-s-session-on-the-workfile-cli-rela.md
 tags: [cli, schema, help]
-scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/cards/validation.ts, packages/workfile/src/modules/docs/docs.ts, packages/workfile/src/workspace/load-workspace.ts, packages/workfile/src/types.ts, packages/workfile/test/cli.test.ts, packages/workfile/docs/cli.md]
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/cards/validation.ts, packages/workfile/src/modules/cards/cards.ts, packages/workfile/src/modules/docs/docs.ts, packages/workfile/src/workspace/load-workspace.ts, packages/workfile/src/types.ts, packages/workfile/src/modules/mcp/tools.ts, packages/workfile/test, packages/workfile/docs/cli.md]
 related: [DOC-0006]
 raised: reported
 created: 2026-09-11
@@ -22,7 +22,16 @@ Truncating with a warning was suggested. It is not taken: a title is the line th
 
 ## Acceptance criteria
 
-- [ ] `workfile schema --json` reports `cards.limits.title` = 80 and `docs.limits.title` = 120, read from the same constants the validators use.
-- [ ] `workfile card --help` and `workfile doc --help` state the title limit on the `--title` usage line.
-- [ ] `CARD_TITLE_TOO_LONG` and `DOC_TITLE_TOO_LONG` say how long the title was, not only what the maximum is.
-- [ ] `docs/cli.md` names both limits where it documents `card create` and `doc create`.
+- [x] `workfile schema --json` reports `cards.limits.title` = 80 and `docs.limits.title` = 120, read from the same constants the validators use.
+- [x] `workfile card --help` and `workfile doc --help` state the title limit on the `--title` usage line.
+- [x] `CARD_TITLE_TOO_LONG` and `DOC_TITLE_TOO_LONG` say how long the title was, not only what the maximum is.
+- [x] `docs/cli.md` names both limits where it documents `card create` and `doc create`.
+
+## Activity
+
+- 2026-09-11 15:22Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 15:25Z illodev@local#597ecdc9 · doing → review
+
+## Notes
+
+- 2026-09-11 15:25Z illodev@local#597ecdc9 — Fixed: CARD_TITLE_MAX_LENGTH (80) and DOC_TITLE_MAX_LENGTH (120) live in config/defaults.ts and are read by the validators, the doctor's long-title rule, effectiveSchema (cards.limits.title, docs.limits.title), the MCP card/doc create input schemas and the --title usage lines. Local evidence: cli.test.ts 'the title cap is stated before it is met' passes on the built binary; on a scratch workspace schema --json reports both limits and an 81-character title answers 'title has 81 characters; the maximum is 80'. Missing: the published package in a consumer.

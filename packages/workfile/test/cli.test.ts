@@ -61,6 +61,10 @@ test("CLI exposes machine-readable schema and cards", async () => {
     assert.deepEqual(schema.cards.areas, ["api", "web", "infra", "docs"]);
     assert.equal(schema.docs.layout, "kind");
     assert.equal(schema.docs.managedPath, ".project/docs");
+    // The bound a caller meets first, reported where it reads the rest of the
+    // vocabulary instead of only in the refusal (T-0243).
+    assert.equal(schema.cards.limits.title, 80);
+    assert.equal(schema.docs.limits.title, 120);
 
     const listResult = await run([
         "card",
@@ -2418,6 +2422,50 @@ test("a --flag=value spelling is read, not only admitted", async () => {
         assert.notEqual(valued.code, 0);
         assert.match(valued.stderr, /CLI_ARGUMENT_INVALID/);
         assert.match(valued.stderr, /--json takes no value/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("the title cap is stated before it is met, and the refusal says by how much", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-title-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        // A consumer's agent lost seven of eleven creations to a limit that
+        // lived only in the refusal (T-0243). The help states it on the line
+        // that takes the title, for both records that have one.
+        const cardHelp = await run(["card", "--help"]);
+        assert.match(cardHelp.stdout, /--title TITLE.*# TITLE up to 80 characters/);
+        const docHelp = await run(["doc", "--help"]);
+        assert.match(docHelp.stdout, /--title TITLE.*# TITLE up to 120 characters/);
+
+        const card = await outcome([
+            "card",
+            "create",
+            "--title",
+            "x".repeat(81),
+            "--area",
+            "api",
+            "--raised",
+            "derived",
+            "--root",
+            root
+        ]);
+        assert.notEqual(card.code, 0);
+        assert.match(card.stderr, /CARD_TITLE_TOO_LONG/);
+        assert.match(card.stderr, /81 characters; the maximum is 80/);
+
+        const doc = await outcome([
+            "doc",
+            "create",
+            "--title",
+            "y".repeat(121),
+            "--root",
+            root
+        ]);
+        assert.notEqual(doc.code, 0);
+        assert.match(doc.stderr, /DOC_TITLE_TOO_LONG/);
+        assert.match(doc.stderr, /121 characters; the maximum is 120/);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

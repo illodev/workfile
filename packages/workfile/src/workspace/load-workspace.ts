@@ -10,7 +10,9 @@ import {
     CARD_EFFORTS,
     CARD_PRIORITIES,
     CARD_STATUSES,
+    CARD_TITLE_MAX_LENGTH,
     CARD_TYPES,
+    DOC_TITLE_MAX_LENGTH,
     MEMORY_DEFINITIONS,
     SCHEMA_VERSION
 } from "../config/defaults.js";
@@ -147,7 +149,10 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
         // policy it can only discover by being refused. An empty `methods` is
         // the honest report of a project with no opinion, and is what every
         // existing workspace reports.
-        verification: verificationSchema(config)
+        verification: verificationSchema(config),
+        // The one bound a caller meets before any other — and met, until this
+        // was reported, only by being refused after the body was written.
+        limits: { title: CARD_TITLE_MAX_LENGTH }
     };
     return {
         schemaVersion: SCHEMA_VERSION,
@@ -169,7 +174,8 @@ export function effectiveSchema(config: ProjectConfig): EffectiveProjectSchema {
             defaults: {
                 kind: config.docs.defaultKind,
                 status: config.docs.defaultStatus
-            }
+            },
+            limits: { title: DOC_TITLE_MAX_LENGTH }
         },
         memory: {
             collections: config.memory.collections.map((id) => ({

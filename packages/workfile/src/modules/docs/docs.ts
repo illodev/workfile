@@ -32,6 +32,7 @@ import { withFileLock } from "../../core/locks.js";
 import { revisionForContent } from "../../core/revision.js";
 import { exists } from "../../core/fs-utils.js";
 import { ensureWritable } from "../../core/guards.js";
+import { DOC_TITLE_MAX_LENGTH } from "../../config/defaults.js";
 import {
     isResourceExhaustion,
     mapWithConcurrency
@@ -306,10 +307,12 @@ function validateManagedDocument(workspace, document, existing = [], currentId) 
         );
     }
 
-    if (String(document.title).length > 120) {
+    const titleLength = String(document.title).length;
+    if (titleLength > DOC_TITLE_MAX_LENGTH) {
         throw new ValidationError(
             "DOC_TITLE_TOO_LONG",
-            "Document title must be 120 characters or fewer."
+            `Document title has ${titleLength} characters; the maximum is ${DOC_TITLE_MAX_LENGTH}.`,
+            { length: titleLength, maximum: DOC_TITLE_MAX_LENGTH }
         );
     }
     if (
