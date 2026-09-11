@@ -173,36 +173,48 @@ const CARDS = [
     ["Public read-only board hosting", "backlog", "idea", "low", "infra", {}]
 ];
 
+/**
+ * Relations are declared in frontmatter, not only written into prose.
+ *
+ * The first corpus said "Tracked under T-0003" in a sentence and declared
+ * nothing, so the Workflow view — whose whole point is that a card, the
+ * decision behind it and the doc that tracks it are one object — drew 46
+ * card nodes and dropped every doc and memory record as isolated (T-0165).
+ * A relation lives in the field so the graph can draw it solid; the prose
+ * keeps the ID too, because that is how a reader follows it. References
+ * name a record by its title and are resolved to IDs when the corpus is
+ * written, so reordering a table does not silently re-point an edge.
+ */
 const DOCS = [
-    ["Spec — Repository Workfile", "reference", "The canonical data model: four domains, one frontmatter codec, stable IDs and revision tokens. Everything the CLI, UI, HTTP API and MCP server agree on lives here."],
+    ["Spec — Repository Workfile", "reference", "The canonical data model: four domains, one frontmatter codec, stable IDs and revision tokens. Everything the CLI, UI, HTTP API and MCP server agree on lives here.", { related: ["card:0.1.0 — repository-native Work, Docs, History and Memory", "memory:Markdown is canonical; there is no database"] }],
     ["Getting started", "guide", "From `npx @illodev/workfile init` to the first claimed card. Covers the scaffold, the local board and what an agent session reads before it touches anything."],
-    ["MCP integration contract", "reference", "The 30 tools, four resources and three prompts, with read-only, destructive and idempotency annotations. Tracked under T-0003."],
+    ["MCP integration contract", "reference", "The 30 tools, four resources and three prompts, with read-only, destructive and idempotency annotations. Tracked under T-0003.", { related: ["card:Agent coordination v2 — presence, leases, handoff"] }],
     ["HTTP API", "reference", "The v2 surface: runtime schema, conflict-aware mutations, SSE invalidations. The legacy task API delegates to the same services."],
     ["Security model", "architecture", "Unauthenticated local reads and writes are a feature with a boundary: entry guards refuse cross-origin writes, uploads never execute in the API origin."],
-    ["The claims design", "architecture", "Claims live in card frontmatter, heartbeats live in the cache, and the two together tell live work from an abandoned flag. Guard rails ask — they never deny."],
-    ["Watcher design notes", "architecture", "One non-recursive watch per directory instead of a recursive one: the recursive call blocks the event loop for most of a second on a large corpus."],
+    ["The claims design", "architecture", "Claims live in card frontmatter, heartbeats live in the cache, and the two together tell live work from an abandoned flag. Guard rails ask — they never deny.", { related: ["card:Releasing a claim keeps the status the card reached", "memory:Claims ask, never deny", "memory:Releasing a claim keeps the card's status"] }],
+    ["Watcher design notes", "architecture", "One non-recursive watch per directory instead of a recursive one: the recursive call blocks the event loop for most of a second on a large corpus.", { related: ["card:One non-recursive watch per directory", "card:The watcher resolves the canonical root before watching", "memory:Windows short paths abort libuv watchers"] }],
     ["CLI reference", "reference", "Every subcommand with its stable error codes and exit statuses. Flags the CLI reads are flags the CLI accepts — a test enforces it."],
-    ["Release runbook", "runbook", "Tag, verify, publish with provenance via OIDC. The tarball smoke installs the package in a clean consumer before anything reaches the registry."],
-    ["Search integrations", "guide", "The lexical index is always there; a semantic provider is a plug, not a dependency. Part of T-0002."],
-    ["The frontmatter codec", "architecture", "Flow lists, block sequences and block scalars round-trip byte-identically. A patch re-emits the key the way the author wrote it."],
-    ["Demo pipeline", "runbook", "The hosted demo replays this repository's own workspace: build-demo-data captures the API surface, and mutations stay per browser session."],
+    ["Release runbook", "runbook", "Tag, verify, publish with provenance via OIDC. The tarball smoke installs the package in a clean consumer before anything reaches the registry.", { related: ["card:Trusted publishing: OIDC release workflow, no stored tokens", "card:Package smoke: install, init, four domains, MCP, UI"] }],
+    ["Search integrations", "guide", "The lexical index is always there; a semantic provider is a plug, not a dependency. Part of T-0002.", { related: ["card:0.2.0 — search integrations GA"] }],
+    ["The frontmatter codec", "architecture", "Flow lists, block sequences and block scalars round-trip byte-identically. A patch re-emits the key the way the author wrote it.", { related: ["card:List-typed card fields accept the scalar clients send", "memory:A .length guard admits strings"] }],
+    ["Demo pipeline", "runbook", "The hosted demo replays this repository's own workspace: build-demo-data captures the API surface, and mutations stay per browser session.", { related: ["memory:Demo board crash on a scalar scope"] }],
     ["UI guide", "guide", "Explorer, Triage, Flow, Epics, Timeline, Docs, Memory, History and Health — nine views over one store, loaded on demand."],
-    ["Roadmap", "product", "0.2.0 concentrates on search (T-0002); agent coordination v2 follows (T-0003). Multi-workspace support is scoped but not committed (T-0004)."]
+    ["Roadmap", "product", "0.2.0 concentrates on search (T-0002); agent coordination v2 follows (T-0003). Multi-workspace support is scoped but not committed (T-0004).", { related: ["card:0.2.0 — search integrations GA", "card:Agent coordination v2 — presence, leases, handoff", "card:Multi-workspace and monorepo support"] }]
 ];
 
 const MEMORY = [
-    ["decisions", "Markdown is canonical; there is no database", "accepted", "Every record is a reviewable file. Indexes are caches, never sources of truth — a corrupted cache costs latency, not data."],
-    ["decisions", "Claims ask, never deny", "accepted", "A guard rail that blocks too much gets switched off, and then it protects nothing. Editing another actor's scope prompts a question instead of an error."],
-    ["decisions", "Releasing a claim keeps the card's status", "accepted", "The natural order of finishing — transition to done, then let go — must not demote the card it just closed. Only `doing` cannot survive a release."],
-    ["decisions", "One stylesheet, one pill", "accepted", "The audit found eight independent implementations of the same element. Each pattern is declared exactly once; no view carries a stylesheet of its own."],
-    ["learnings", "Windows short paths abort libuv watchers", "active", "A watched root reached through an 8.3 name (RUNNER~1) kills the process when an event arrives. Resolve the canonical root before placing watches."],
-    ["learnings", "A .length guard admits strings", "active", "A non-empty string passes `value?.length` and dies on `.join`. List-typed fields are normalized at every mutation boundary now."],
-    ["learnings", "npx inside the package's own repo resolves locally", "active", "`npx @illodev/workfile` in this checkout matches the local package.json and runs the unbuilt tree. The protocol workflow builds from source instead."],
-    ["incidents", "Demo board crash on a scalar scope", "resolved", "A task reached the client with `scope` as a string and the Flow board unmounted. Fixed by normalizing list keys and hardening the three renders that iterate scope."],
-    ["incidents", "Shared checkout: in-flight work swept into a push", "resolved", "A broad `git add` carried another actor's half-finished feature onto main. Commits now name explicit paths; claims exist for exactly this."],
-    ["conventions", "Protocol records change through the CLI or MCP", "active", "A raw write skips the lock, the revision check and validation, and silently corrupts the record for everyone else."],
-    ["conventions", "Protocol records are written in English", "active", "The hosted demo replays this repository's workspace, so record titles are public-facing content."],
-    ["context", "0.1.1 pending: unreleased fragments ride the next tag", "active", "Four fixes are sitting in unreleased/. Cut the release when the search work lands or sooner if a consumer hits the scalar-scope crash."]
+    ["decisions", "Markdown is canonical; there is no database", "accepted", "Every record is a reviewable file. Indexes are caches, never sources of truth — a corrupted cache costs latency, not data.", { related: ["card:0.1.0 — repository-native Work, Docs, History and Memory", "doc:Spec — Repository Workfile"] }],
+    ["decisions", "Claims ask, never deny", "accepted", "A guard rail that blocks too much gets switched off, and then it protects nothing. Editing another actor's scope prompts a question instead of an error.", { related: ["card:Agent coordination v2 — presence, leases, handoff", "doc:The claims design"] }],
+    ["decisions", "Releasing a claim keeps the card's status", "accepted", "The natural order of finishing — transition to done, then let go — must not demote the card it just closed. Only `doing` cannot survive a release.", { related: ["card:Releasing a claim keeps the status the card reached"] }],
+    ["decisions", "One stylesheet, one pill", "accepted", "The audit found eight independent implementations of the same element. Each pattern is declared exactly once; no view carries a stylesheet of its own.", { related: ["card:Keyboard-first navigation"] }],
+    ["learnings", "Windows short paths abort libuv watchers", "active", "A watched root reached through an 8.3 name (RUNNER~1) kills the process when an event arrives. Resolve the canonical root before placing watches.", { related: ["card:The watcher resolves the canonical root before watching", "doc:Watcher design notes"] }],
+    ["learnings", "A .length guard admits strings", "active", "A non-empty string passes `value?.length` and dies on `.join`. List-typed fields are normalized at every mutation boundary now.", { related: ["card:List-typed card fields accept the scalar clients send", "memory:Demo board crash on a scalar scope"] }],
+    ["learnings", "npx inside the package's own repo resolves locally", "active", "`npx @illodev/workfile` in this checkout matches the local package.json and runs the unbuilt tree. The protocol workflow builds from source instead.", { related: ["doc:Release runbook"] }],
+    ["incidents", "Demo board crash on a scalar scope", "resolved", "A task reached the client with `scope` as a string and the Flow board unmounted. Fixed by normalizing list keys and hardening the three renders that iterate scope.", { related: ["card:List-typed card fields accept the scalar clients send", "doc:Demo pipeline"] }],
+    ["incidents", "Shared checkout: in-flight work swept into a push", "resolved", "A broad `git add` carried another actor's half-finished feature onto main. Commits now name explicit paths; claims exist for exactly this.", { related: ["doc:The claims design"] }],
+    ["conventions", "Protocol records change through the CLI or MCP", "active", "A raw write skips the lock, the revision check and validation, and silently corrupts the record for everyone else.", { related: ["doc:Spec — Repository Workfile"] }],
+    ["conventions", "Protocol records are written in English", "active", "The hosted demo replays this repository's workspace, so record titles are public-facing content.", { related: ["doc:Demo pipeline"] }],
+    ["context", "0.1.1 pending: unreleased fragments ride the next tag", "active", "Four fixes are sitting in unreleased/. Cut the release when the search work lands or sooner if a consumer hits the scalar-scope crash.", { related: ["card:0.2.0 — search integrations GA"] }]
 ];
 
 const RELEASED = [
@@ -211,19 +223,19 @@ const RELEASED = [
     ["MCP server with 30 tools, resources and prompts", "added", "mcp"],
     ["Claude Code plugin: commands, skill and claim-aware guard rails", "added", "mcp"],
     ["Unified search with one query grammar across surfaces", "added", "search"],
-    ["Claims, session heartbeats and the activity snapshot", "added", "core"],
-    ["Trusted publishing: releases carry provenance", "added", "infra"],
+    ["Claims, session heartbeats and the activity snapshot", "added", "core", { decisions: ["Claims ask, never deny"] }],
+    ["Trusted publishing: releases carry provenance", "added", "infra", { cards: ["Trusted publishing: OIDC release workflow, no stored tokens"] }],
     ["Doctor: configuration-driven diagnosis with stable codes", "added", "core"]
 ];
 
 const UNRELEASED = [
-    ["The watcher survives Windows 8.3 short paths and idle processes", "fixed", "core"],
-    ["Releasing a claim keeps the card's status; only doing returns to next", "fixed", "core"],
-    ["A scalar scope no longer crashes the board", "fixed", "ui"],
+    ["The watcher survives Windows 8.3 short paths and idle processes", "fixed", "core", { cards: ["The watcher resolves the canonical root before watching", "One non-recursive watch per directory"] }],
+    ["Releasing a claim keeps the card's status; only doing returns to next", "fixed", "core", { cards: ["Releasing a claim keeps the status the card reached"], decisions: ["Releasing a claim keeps the card's status"] }],
+    ["A scalar scope no longer crashes the board", "fixed", "ui", { cards: ["List-typed card fields accept the scalar clients send"] }],
     ["The README documents the plugin and the full MCP inventory", "changed", "docs"],
     ["Incremental postings update behind a flag", "added", "core"],
-    ["Claim leases appear in doctor output with the takeover procedure", "added", "mcp"],
-    ["Query grammar: negated facets in preview", "added", "search"],
+    ["Claim leases appear in doctor output with the takeover procedure", "added", "mcp", { cards: ["Agent coordination v2 — presence, leases, handoff"] }],
+    ["Query grammar: negated facets in preview", "added", "search", { cards: ["0.2.0 — search integrations GA"] }],
     ["The inspector shows files touched by live sessions", "added", "ui"],
     ["Timeline: drag to reschedule (beta)", "added", "ui"],
     ["Getting started rewritten around the agent session", "changed", "docs"],
@@ -263,6 +275,44 @@ export async function buildScreenshotWorkspace(root) {
             `T-${String(index + 1).padStart(4, "0")}`
         ])
     );
+    const PREFIX = {
+        learnings: "LRN",
+        decisions: "ADR",
+        incidents: "INC",
+        conventions: "CONV",
+        context: "CTX"
+    };
+    // Every record's ID before anything is written, so a relation can point
+    // forwards in a table as well as backwards.
+    const docIdByTitle = new Map(
+        DOCS.map(([title], index) => [title, `DOC-${String(index + 1).padStart(4, "0")}`])
+    );
+    const memoryIdByTitle = new Map();
+    {
+        const seen = {};
+        for (const [collection, title] of MEMORY) {
+            seen[collection] = (seen[collection] || 0) + 1;
+            memoryIdByTitle.set(
+                title,
+                `${PREFIX[collection]}-${String(seen[collection]).padStart(4, "0")}`
+            );
+        }
+    }
+    /** `card:Title`, `doc:Title` or `memory:Title` → the ID the corpus gives it. */
+    const resolve = (reference) => {
+        const [kind, ...rest] = reference.split(":");
+        const title = rest.join(":");
+        const table = { card: idByTitle, doc: docIdByTitle, memory: memoryIdByTitle }[kind];
+        const id = table?.get(title);
+        if (!id) throw new Error(`screenshot corpus: unresolved reference ${reference}`);
+        return id;
+    };
+    const resolveTitles = (titles, table) =>
+        (titles || []).map((title) => {
+            const id = table.get(title);
+            if (!id) throw new Error(`screenshot corpus: unresolved title ${title}`);
+            return id;
+        });
     let signalCardId = "";
     let inspectCardId = "";
 
@@ -318,8 +368,18 @@ export async function buildScreenshotWorkspace(root) {
         );
     });
 
-    DOCS.forEach(([title, kind, text], index) => {
-        const id = `DOC-${String(index + 1).padStart(4, "0")}`;
+    // A card's `updated` in this corpus, by ID, so a doc that tracks a card can
+    // be dated after the card closed: `doc-related-card-newer` would otherwise
+    // warn on the fixture for a staleness the picture is not about.
+    const cardUpdatedById = new Map(
+        CARDS.map(([title], index) => [idByTitle.get(title), iso(-(index % 9))])
+    );
+    DOCS.forEach(([title, kind, text, extra = {}], index) => {
+        const id = docIdByTitle.get(title);
+        const related = (extra.related || []).map(resolve);
+        const updated = [iso(-(index % 21)), ...related.map((ref) => cardUpdatedById.get(ref) || "")]
+            .sort()
+            .at(-1);
         writes.push(
             writeFile(
                 join(root, ".project/docs/reference", `${id}-${slugify(title)}.md`),
@@ -329,8 +389,9 @@ export async function buildScreenshotWorkspace(root) {
                     `title: ${title}`,
                     `kind: ${kind}`,
                     "status: current",
+                    ...(related.length ? [`related: [${related.join(", ")}]`] : []),
                     `created: ${iso(-80 + index * 3)}`,
-                    `updated: ${iso(-(index % 21))}`,
+                    `updated: ${updated}`,
                     "---",
                     "",
                     text,
@@ -340,17 +401,9 @@ export async function buildScreenshotWorkspace(root) {
         );
     });
 
-    const PREFIX = {
-        learnings: "LRN",
-        decisions: "ADR",
-        incidents: "INC",
-        conventions: "CONV",
-        context: "CTX"
-    };
-    const counters = {};
-    MEMORY.forEach(([collection, title, status, text]) => {
-        counters[collection] = (counters[collection] || 0) + 1;
-        const id = `${PREFIX[collection]}-${String(counters[collection]).padStart(4, "0")}`;
+    MEMORY.forEach(([collection, title, status, text, extra = {}]) => {
+        const id = memoryIdByTitle.get(title);
+        const related = (extra.related || []).map(resolve);
         writes.push(
             writeFile(
                 join(root, ".project/memory", collection, `${id}-${slugify(title)}.md`),
@@ -359,6 +412,7 @@ export async function buildScreenshotWorkspace(root) {
                     `id: ${id}`,
                     `title: ${title}`,
                     `status: ${status}`,
+                    ...(related.length ? [`related: [${related.join(", ")}]`] : []),
                     ...(collection === "incidents"
                         ? ["severity: medium", `resolved_at: ${iso(-1)}`]
                         : []),
@@ -380,16 +434,23 @@ export async function buildScreenshotWorkspace(root) {
     // fragment moves, the release record, the rendered groups) is intricate
     // enough that a hand-written copy would drift from the real thing.
     const workspace = await loadWorkspace({ root });
-    for (const [title, type, area] of RELEASED) {
-        await createChangeFragment(workspace, { title, type, area });
+    const fragmentInput = ([title, type, area, extra = {}]) => ({
+        title,
+        type,
+        area,
+        cards: resolveTitles(extra.cards, idByTitle),
+        decisions: resolveTitles(extra.decisions, memoryIdByTitle)
+    });
+    for (const entry of RELEASED) {
+        await createChangeFragment(workspace, fragmentInput(entry));
     }
     await createRelease(workspace, {
         version: "0.1.0",
         date: iso(-12),
         title: "Workfile 0.1.0"
     });
-    for (const [title, type, area] of UNRELEASED) {
-        await createChangeFragment(workspace, { title, type, area });
+    for (const entry of UNRELEASED) {
+        await createChangeFragment(workspace, fragmentInput(entry));
     }
 
     return { root, signalCardId, inspectCardId };

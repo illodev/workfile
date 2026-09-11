@@ -1,12 +1,13 @@
 ---
 id: T-0165
 title: Workflow's graph has no cross-collection edges in the curated corpus
-status: backlog
+status: review
 type: task
 priority: medium
 area: docs
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-11
+scope: [scripts/screenshot-workspace.ts, scripts/screenshots.ts, scripts/demo-video.ts, .github/media, site/assets, README.md]
 ---
 
 `scripts/screenshot-workspace.ts` writes 14 docs and 12 memory records, and not one of them declares a frontmatter relation to a card. `DEFAULT_KINDS` is `["card", "memory", "doc"]`, so those nodes are admitted — and then dropped as isolated, because they have no edges. `mention` is off by default for a good reason (294 of 742 edges in this workspace), and prose is the only place the fixture links anything across a collection.
@@ -19,6 +20,15 @@ Giving a handful of fixture docs a `source` or `cards` relation, and a decision 
 
 ## Acceptance criteria
 
-- [ ] The curated corpus declares relations between cards, docs and memory
-- [ ] The Workflow capture shows nodes from more than one collection
-- [ ] The README and the tour describe what their picture shows
+- [x] The curated corpus declares relations between cards, docs and memory
+- [x] The Workflow capture shows nodes from more than one collection
+- [x] The README and the tour describe what their picture shows
+
+## Activity
+
+- 2026-09-11 17:11Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 17:18Z illodev@local#597ecdc9 · released
+
+## Notes
+
+- 2026-09-11 17:18Z illodev@local#597ecdc9 — The corpus now declares its relations in frontmatter: related on nine docs (the spec, the MCP contract, the claims design, the watcher notes, the release runbook, search, the codec, the demo pipeline, the roadmap) and on all twelve memory records, plus cards/decisions on six changelog fragments; references name a record by title and resolve to IDs at write time, so reordering a table cannot re-point an edge. Docs that track a done card are dated after it, otherwise doc-related-card-newer would have added four fixture warnings to the Overview tile (doctor on the corpus: 0 errors, 29 warnings, unchanged). Recaptured at 0.12.0: the Workflow still reads 67 nodes · 79 edges with DOC, LRN, ADR, INC, CONV and CTX nodes wired to cards — the previous capture was 46 nodes · 44 edges, all cards. README paragraph and the tour caption in scripts/demo-video.ts now describe that graph; the film itself has not been recut, so the published mp4 still shows the card-only caption until the next cut — a publishing decision, raised in the session rather than carded.

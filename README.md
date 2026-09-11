@@ -668,7 +668,10 @@ Workflow reads the collections into one graph instead of four lists: the first r
 toggles selects them, the second selects relation types. A relation declared in
 frontmatter draws a solid edge and an ID written into a sentence a dashed one, because a
 link in prose is a weaker claim than a field and should not look equally solid. Prose
-scanning is off by default — it is 294 of this workspace's 742 edges.
+scanning is off by default — it is 294 of this workspace's 742 edges. The picture above
+is the curated corpus with its relations declared: a doc `related` to the card it
+tracks, a learning to the incident that taught it, a decision to the card it settled —
+so a card, the decision behind it and the doc that describes it read as one object.
 
 ## Development
 

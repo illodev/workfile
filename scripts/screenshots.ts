@@ -1,4 +1,4 @@
-import { mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { buildScreenshotWorkspace } from "./screenshot-workspace.ts";
@@ -44,6 +44,27 @@ const VIEWS = [
 ];
 
 const outputDir = fileURLToPath(new URL("../artifacts/screenshots/", import.meta.url));
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
+
+/**
+ * The stills the repository publishes, and where each one lives.
+ *
+ * README and landing page used to be updated by hand from
+ * `artifacts/screenshots/`, and the three site copies were byte-identical to
+ * their `.github/media` twins only because somebody remembered to copy both.
+ * The shell then changed three times and every published still stayed two
+ * changes behind (T-0205). One run writes every copy, so the pictures of the
+ * product cannot drift from each other — only, together, from the product.
+ */
+const PUBLISHED: ReadonlyArray<[string, string[]]> = [
+    ["overview-light", [".github/media/overview.png", "site/assets/overview.png"]],
+    ["explorer-light", [".github/media/explorer.png"]],
+    ["flow-light", [".github/media/flow.png", "site/assets/flow.png"]],
+    ["timeline-light", [".github/media/timeline.png"]],
+    ["memory-dark", [".github/media/memory-dark.png"]],
+    ["workflow-light", [".github/media/workflow.png"]],
+    ["history-light", [".github/media/history.png", "site/assets/history.png"]]
+];
 
 let chromium;
 try {
@@ -127,3 +148,11 @@ try {
 }
 
 process.stdout.write(`\n${VIEWS.length * 2} screenshots in artifacts/screenshots/\n`);
+
+for (const [still, targets] of PUBLISHED) {
+    for (const target of targets) {
+        await copyFile(`${outputDir}${still}.png`, `${repoRoot}${target}`);
+        process.stdout.write(`  published ${target}\n`);
+    }
+}
+process.stdout.write(`${PUBLISHED.length} stills published to .github/media and site/assets\n`);

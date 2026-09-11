@@ -282,10 +282,13 @@ try {
     await punchIn(
         { x: 780, y: 470 },
         1.5,
-        // What the shot shows is a card graph: the curated corpus declares no
-        // frontmatter relation from a doc or a memory record to a card, so
-        // naming those collections here would caption something absent.
-        "Every record is a node, every typed relation an edge",
+        // The corpus declares its relations in frontmatter since T-0165 — a
+        // doc to the card it tracks, a learning to the incident, a decision to
+        // the card it settled — so the caption can name what the shot draws.
+        // An earlier cut captioned a card-only graph, because that was all the
+        // fixture declared; the film has to be recut for this line to be true
+        // on screen.
+        "A card, the decision behind it and the doc that tracks it — one graph",
         2700
     );
 
