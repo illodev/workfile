@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.11.0 — 2026-09-11
+
+### Added
+
+- A document body can be written from a file and a line appended, without sending the whole record back (T-0245)
+
+### Changed
+
+- The protocol says the four things a drain measured agents getting wrong
+- The title cap is stated where a caller reads, not only in the refusal (T-0243)
+- Two refusals now name where to go: a note for evidence on review, no flag for your own claim (T-0244)
+- The context command is /card-context, and the file that shadowed Claude Code's /context is retired (T-0248)
+
+### Fixed
+
+- An option written as --name=value is read, where it used to pass the check and vanish (T-0242)
+- card verify says what an entry proved, not how its process ended
+- The scope guard reads a scope in every shape a formatter can leave it in
+
 ## 0.10.0 — 2026-09-04
 
 ### Added
