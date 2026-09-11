@@ -1419,9 +1419,13 @@ function print(value) {
  */
 const JSON_ENVELOPE = process.env.WORKFILE_JSON_ENVELOPE === "1";
 let envelopeNoted = false;
-function recordAnswer(record, extras: Record<string, unknown> = {}) {
+// No `= {}` default in this signature on purpose: the flag-table test finds a
+// function's body as the first balanced `{…}` after its name, and a default
+// object parameter is exactly that — it read this helper as empty and reported
+// every caller's `--fields` as accepted but ignored.
+function recordAnswer(record, extras?: Record<string, unknown>) {
     const shown = projectShown(record);
-    if (JSON_ENVELOPE) return { record: shown, ...extras };
+    if (JSON_ENVELOPE) return { record: shown, ...(extras ?? {}) };
     if (!envelopeNoted) {
         envelopeNoted = true;
         console.error(
@@ -1430,7 +1434,7 @@ function recordAnswer(record, extras: Record<string, unknown> = {}) {
                 "to read the new shape now."
         );
     }
-    return { ...shown, ...extras };
+    return { ...shown, ...(extras ?? {}) };
 }
 
 async function askInitOptions(root) {
