@@ -94,7 +94,38 @@ function slugify(text) {
 // [title, status, type, priority, area, extra]
 // `parent` and `depends` reference other rows by title; IDs are assigned in
 // listed order, so the epics come first and stay T-0001..T-0005.
-const CARDS = [
+/** What a card row may carry beyond its five columns; indices point into CARDS. */
+interface CardExtra {
+    start?: number;
+    due?: number;
+    parent?: number;
+    depends?: string[];
+    tags?: string[];
+    /** `[actor, minutesAgo, scope]` — the claim the still shows as live. */
+    claim?: [string, number, string[]];
+}
+type CardRow = [
+    title: string,
+    status: string,
+    type: string,
+    priority: string,
+    area: string,
+    extra: CardExtra
+];
+/** `card:Title`, `doc:Title` or `memory:Title`, resolved to an ID when written. */
+interface Relations {
+    related?: string[];
+}
+type DocRow = [title: string, kind: string, text: string, extra?: Relations];
+type MemoryRow = [collection: string, title: string, status: string, text: string, extra?: Relations];
+/** Titles of the cards and decisions a fragment shipped or settled. */
+interface FragmentLinks {
+    cards?: string[];
+    decisions?: string[];
+}
+type FragmentRow = [title: string, type: string, area: string, extra?: FragmentLinks];
+
+const CARDS: CardRow[] = [
     ["0.1.0 — repository-native Work, Docs, History and Memory", "done", "epic", "critical", "core", { start: -75, due: -12 }],
     ["0.2.0 — search integrations GA", "doing", "epic", "high", "search", { start: -20, due: 45 }],
     ["Agent coordination v2 — presence, leases, handoff", "doing", "epic", "high", "mcp", { start: -10, due: 60 }],
@@ -185,7 +216,7 @@ const CARDS = [
  * name a record by its title and are resolved to IDs when the corpus is
  * written, so reordering a table does not silently re-point an edge.
  */
-const DOCS = [
+const DOCS: DocRow[] = [
     ["Spec — Repository Workfile", "reference", "The canonical data model: four domains, one frontmatter codec, stable IDs and revision tokens. Everything the CLI, UI, HTTP API and MCP server agree on lives here.", { related: ["card:0.1.0 — repository-native Work, Docs, History and Memory", "memory:Markdown is canonical; there is no database"] }],
     ["Getting started", "guide", "From `npx @illodev/workfile init` to the first claimed card. Covers the scaffold, the local board and what an agent session reads before it touches anything."],
     ["MCP integration contract", "reference", "The 30 tools, four resources and three prompts, with read-only, destructive and idempotency annotations. Tracked under T-0003.", { related: ["card:Agent coordination v2 — presence, leases, handoff"] }],
@@ -202,7 +233,7 @@ const DOCS = [
     ["Roadmap", "product", "0.2.0 concentrates on search (T-0002); agent coordination v2 follows (T-0003). Multi-workspace support is scoped but not committed (T-0004).", { related: ["card:0.2.0 — search integrations GA", "card:Agent coordination v2 — presence, leases, handoff", "card:Multi-workspace and monorepo support"] }]
 ];
 
-const MEMORY = [
+const MEMORY: MemoryRow[] = [
     ["decisions", "Markdown is canonical; there is no database", "accepted", "Every record is a reviewable file. Indexes are caches, never sources of truth — a corrupted cache costs latency, not data.", { related: ["card:0.1.0 — repository-native Work, Docs, History and Memory", "doc:Spec — Repository Workfile"] }],
     ["decisions", "Claims ask, never deny", "accepted", "A guard rail that blocks too much gets switched off, and then it protects nothing. Editing another actor's scope prompts a question instead of an error.", { related: ["card:Agent coordination v2 — presence, leases, handoff", "doc:The claims design"] }],
     ["decisions", "Releasing a claim keeps the card's status", "accepted", "The natural order of finishing — transition to done, then let go — must not demote the card it just closed. Only `doing` cannot survive a release.", { related: ["card:Releasing a claim keeps the status the card reached"] }],
@@ -217,7 +248,7 @@ const MEMORY = [
     ["context", "0.1.1 pending: unreleased fragments ride the next tag", "active", "Four fixes are sitting in unreleased/. Cut the release when the search work lands or sooner if a consumer hits the scalar-scope crash.", { related: ["card:0.2.0 — search integrations GA"] }]
 ];
 
-const RELEASED = [
+const RELEASED: FragmentRow[] = [
     ["The repository is the database: Work, Docs, History and Memory as Markdown", "added", "core"],
     ["Local UI over the live workspace, precompiled into the package", "added", "ui"],
     ["MCP server with 30 tools, resources and prompts", "added", "mcp"],
@@ -228,7 +259,7 @@ const RELEASED = [
     ["Doctor: configuration-driven diagnosis with stable codes", "added", "core"]
 ];
 
-const UNRELEASED = [
+const UNRELEASED: FragmentRow[] = [
     ["The watcher survives Windows 8.3 short paths and idle processes", "fixed", "core", { cards: ["The watcher resolves the canonical root before watching", "One non-recursive watch per directory"] }],
     ["Releasing a claim keeps the card's status; only doing returns to next", "fixed", "core", { cards: ["Releasing a claim keeps the status the card reached"], decisions: ["Releasing a claim keeps the card's status"] }],
     ["A scalar scope no longer crashes the board", "fixed", "ui", { cards: ["List-typed card fields accept the scalar clients send"] }],
@@ -269,13 +300,19 @@ export async function buildScreenshotWorkspace(root) {
         `${JSON.stringify({ schemaVersion: 2, createdWith: "screenshots" }, null, 2)}\n`
     );
 
-    const idByTitle = new Map(
+    const idByTitle = new Map<string, string>(
         CARDS.map(([title], index) => [
             title,
             `T-${String(index + 1).padStart(4, "0")}`
         ])
     );
-    const PREFIX = {
+    /** The ID a title maps to, or a loud failure: a silent miss would draw no edge. */
+    const must = (table: Map<string, string>, title: string, what: string) => {
+        const id = table.get(title);
+        if (!id) throw new Error(`screenshot corpus: unresolved ${what} ${title}`);
+        return id;
+    };
+    const PREFIX: Record<string, string> = {
         learnings: "LRN",
         decisions: "ADR",
         incidents: "INC",
@@ -284,12 +321,12 @@ export async function buildScreenshotWorkspace(root) {
     };
     // Every record's ID before anything is written, so a relation can point
     // forwards in a table as well as backwards.
-    const docIdByTitle = new Map(
+    const docIdByTitle = new Map<string, string>(
         DOCS.map(([title], index) => [title, `DOC-${String(index + 1).padStart(4, "0")}`])
     );
-    const memoryIdByTitle = new Map();
+    const memoryIdByTitle = new Map<string, string>();
     {
-        const seen = {};
+        const seen: Record<string, number> = {};
         for (const [collection, title] of MEMORY) {
             seen[collection] = (seen[collection] || 0) + 1;
             memoryIdByTitle.set(
@@ -299,24 +336,23 @@ export async function buildScreenshotWorkspace(root) {
         }
     }
     /** `card:Title`, `doc:Title` or `memory:Title` → the ID the corpus gives it. */
-    const resolve = (reference) => {
-        const [kind, ...rest] = reference.split(":");
-        const title = rest.join(":");
-        const table = { card: idByTitle, doc: docIdByTitle, memory: memoryIdByTitle }[kind];
-        const id = table?.get(title);
-        if (!id) throw new Error(`screenshot corpus: unresolved reference ${reference}`);
-        return id;
+    const tables: Record<string, Map<string, string>> = {
+        card: idByTitle,
+        doc: docIdByTitle,
+        memory: memoryIdByTitle
     };
-    const resolveTitles = (titles, table) =>
-        (titles || []).map((title) => {
-            const id = table.get(title);
-            if (!id) throw new Error(`screenshot corpus: unresolved title ${title}`);
-            return id;
-        });
+    const resolve = (reference: string) => {
+        const [kind, ...rest] = reference.split(":");
+        const table = tables[kind];
+        if (!table) throw new Error(`screenshot corpus: unknown reference kind in ${reference}`);
+        return must(table, rest.join(":"), "reference");
+    };
+    const resolveTitles = (titles: string[] | undefined, table: Map<string, string>) =>
+        (titles || []).map((title) => must(table, title, "title"));
     let signalCardId = "";
     let inspectCardId = "";
 
-    const writes = [];
+    const writes: Promise<void>[] = [];
     CARDS.forEach(([title, status, type, priority, area, extra], index) => {
         const id = `T-${String(index + 1).padStart(4, "0")}`;
         const created = iso(extra.start !== undefined ? Math.min(extra.start, -1) - 4 : -30 - (index % 40));
@@ -371,15 +407,16 @@ export async function buildScreenshotWorkspace(root) {
     // A card's `updated` in this corpus, by ID, so a doc that tracks a card can
     // be dated after the card closed: `doc-related-card-newer` would otherwise
     // warn on the fixture for a staleness the picture is not about.
-    const cardUpdatedById = new Map(
-        CARDS.map(([title], index) => [idByTitle.get(title), iso(-(index % 9))])
+    const cardUpdatedById = new Map<string, string>(
+        CARDS.map(([title], index) => [must(idByTitle, title, "card"), iso(-(index % 9))])
     );
     DOCS.forEach(([title, kind, text, extra = {}], index) => {
-        const id = docIdByTitle.get(title);
+        const id = must(docIdByTitle, title, "doc");
         const related = (extra.related || []).map(resolve);
-        const updated = [iso(-(index % 21)), ...related.map((ref) => cardUpdatedById.get(ref) || "")]
-            .sort()
-            .at(-1);
+        const updated =
+            [iso(-(index % 21)), ...related.map((ref) => cardUpdatedById.get(ref) || "")]
+                .sort()
+                .at(-1) ?? iso(-(index % 21));
         writes.push(
             writeFile(
                 join(root, ".project/docs/reference", `${id}-${slugify(title)}.md`),
@@ -402,7 +439,7 @@ export async function buildScreenshotWorkspace(root) {
     });
 
     MEMORY.forEach(([collection, title, status, text, extra = {}]) => {
-        const id = memoryIdByTitle.get(title);
+        const id = must(memoryIdByTitle, title, "memory record");
         const related = (extra.related || []).map(resolve);
         writes.push(
             writeFile(
@@ -434,7 +471,7 @@ export async function buildScreenshotWorkspace(root) {
     // fragment moves, the release record, the rendered groups) is intricate
     // enough that a hand-written copy would drift from the real thing.
     const workspace = await loadWorkspace({ root });
-    const fragmentInput = ([title, type, area, extra = {}]) => ({
+    const fragmentInput = ([title, type, area, extra = {}]: FragmentRow) => ({
         title,
         type,
         area,
