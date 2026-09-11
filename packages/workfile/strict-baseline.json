@@ -1,6 +1,6 @@
 {
     "../../scripts/screenshot-workspace.ts": 18,
-    "bin/workfile.ts": 14,
+    "bin/workfile.ts": 12,
     "scripts/bench-workspace.ts": 8,
     "scripts/bench.ts": 1,
     "scripts/build-demo-data.ts": 13,
@@ -14,7 +14,6 @@
     "src/modules/changelog/changelog.ts": 11,
     "src/modules/changelog/validation.ts": 2,
     "src/modules/ci/ci.ts": 2,
-    "src/modules/claude/surface.ts": 5,
     "src/modules/docs/docs.ts": 6,
     "src/modules/docs/validation.ts": 4,
     "src/modules/health/doctor.ts": 11,

@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+    appendManagedDocumentNote,
     buildProjectIndex,
     createManagedDocument,
     loadDocuments,
@@ -19,7 +20,8 @@ import {
     loadWorkspace,
     moveManagedDocument,
     patchManagedDocument,
-    searchProjectRecords
+    searchProjectRecords,
+    writeManagedDocumentBody
 } from "../dist/src/index.js";
 
 async function makeWorkspace(
@@ -989,6 +991,84 @@ test("a link quoted inside code still relates two records", async () => {
                 .map((link: any) => link.id),
             [billing.id],
             "the quoted link stopped producing an edge; T-0236 decided it should"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+// Cards have had a body write and a note for a long time; documents had only
+// `patch`, which takes the body as one field among the rest. A document edited
+// over hours in conversation therefore meant a working copy outside the
+// repository poured back in whole on every change (T-0245).
+test("a document body can be replaced alone, and a line appended under a heading", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        const { documents } = await loadManagedDocuments(workspace);
+        const existing = documents.find((document) => document.id === "DOC-0001");
+
+        const written = await writeManagedDocumentBody(workspace, "DOC-0001", {
+            body: "Rewritten from the conversation.",
+            expectedRevision: existing.revision
+        });
+        const afterWrite = await readFile(written.path, "utf8");
+        // The frontmatter survives, including the field this module does not
+        // know about; the body is the new one and nothing else.
+        assert.match(afterWrite, /audience: engineers/);
+        assert.match(afterWrite, /owners: \[billing\]/);
+        assert.doesNotMatch(afterWrite, /billing boundary/);
+        assert.match(afterWrite, /\n\nRewritten from the conversation\.\n$/);
+        assert.equal(written.document.updated, new Date().toISOString().slice(0, 10));
+
+        // A stale revision is refused, the same way `patch` refuses it.
+        await assert.rejects(
+            writeManagedDocumentBody(workspace, "DOC-0001", {
+                body: "lost",
+                expectedRevision: existing.revision
+            }),
+            { code: "DOC_WRITE_CONFLICT" }
+        );
+        await assert.rejects(
+            writeManagedDocumentBody(workspace, "DOC-0001", { body: 42 }),
+            { code: "DOC_BODY_REQUIRED" }
+        );
+
+        // A note creates its heading the first time and appends under it after.
+        const first = await appendManagedDocumentNote(workspace, "DOC-0001", {
+            text: "Read in the 2026-09 review; still accurate.",
+            actor: "alice@studio",
+            now: "2026-09-11T10:15:00.000Z"
+        });
+        const afterFirst = await readFile(first.path, "utf8");
+        assert.match(
+            afterFirst,
+            /Rewritten from the conversation\.\n\n## Notes\n\n- 2026-09-11 10:15Z alice@studio — Read in the 2026-09 review; still accurate\.\n$/
+        );
+        const second = await appendManagedDocumentNote(workspace, "DOC-0001", {
+            text: "Second observation.",
+            actor: "bob@studio",
+            now: "2026-09-11T10:16:00.000Z",
+            expectedRevision: first.revision
+        });
+        const afterSecond = await readFile(second.path, "utf8");
+        assert.match(
+            afterSecond,
+            /## Notes\n\n- 2026-09-11 10:15Z alice@studio — Read in the 2026-09 review; still accurate\.\n- 2026-09-11 10:16Z bob@studio — Second observation\.\n$/
+        );
+        // Another heading is its own section.
+        const third = await appendManagedDocumentNote(workspace, "DOC-0001", {
+            text: "Owner changed hands.",
+            section: "History",
+            now: "2026-09-11T10:17:00.000Z"
+        });
+        const afterThird = await readFile(third.path, "utf8");
+        assert.match(afterThird, /## History\n\n- 2026-09-11 10:17Z — Owner changed hands\.\n$/);
+        assert.match(afterThird, /## Notes\n\n- 2026-09-11 10:15Z/);
+
+        await assert.rejects(
+            appendManagedDocumentNote(workspace, "DOC-0001", { text: "   " }),
+            { code: "DOC_NOTE_REQUIRED" }
         );
     } finally {
         await rm(root, { recursive: true, force: true });

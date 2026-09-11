@@ -33,6 +33,7 @@ import { revisionForContent } from "../../core/revision.js";
 import { exists } from "../../core/fs-utils.js";
 import { ensureWritable } from "../../core/guards.js";
 import { DOC_TITLE_MAX_LENGTH } from "../../config/defaults.js";
+import { appendUnderHeading } from "../cards/body.js";
 import {
     isResourceExhaustion,
     mapWithConcurrency
@@ -548,7 +549,7 @@ export async function patchManagedDocument(
     workspace,
     id,
     changes,
-    { expectedRevision }: any = {}
+    { expectedRevision, transformBody }: any = {}
 ) {
     ensureWritable(workspace);
     return withFileLock(
@@ -607,7 +608,13 @@ export async function patchManagedDocument(
             let next = patchFrontmatter(content, metadataChanges, {
                 listKeys: DOC_LIST_KEYS
             });
-            if (nextBody !== undefined) {
+            if (transformBody) {
+                // Derived from the stored body under the same lock that will
+                // write it, so an append lands on what is there now rather than
+                // on what the caller read a moment ago.
+                const parsed = parseFrontmatter(content, { listKeys: DOC_LIST_KEYS });
+                next = replaceBody(next, transformBody(parsed ? parsed.body : ""));
+            } else if (nextBody !== undefined) {
                 next = replaceBody(next, String(nextBody));
             }
             await writeFileAtomic(path, next);
@@ -626,6 +633,63 @@ export async function patchManagedDocument(
     );
 }
 
+
+/**
+ * Replaces a managed document's body and nothing else.
+ *
+ * `patchManagedDocument` already does this when `body` is among the changes;
+ * this is that call with one field, named so the CLI and the MCP have a door
+ * that reads as what it does. Cards have had `card write` since ADR-0011 and
+ * documents had only `patch`, so a document edited over hours in conversation
+ * meant a working copy kept outside the repository and poured back in whole
+ * on every change (T-0245). A document has no protocol sections, so unlike
+ * `patchCardBody` there is nothing here to hold back.
+ */
+export async function writeManagedDocumentBody(
+    workspace,
+    id,
+    { body, expectedRevision }: any = {}
+) {
+    if (typeof body !== "string") {
+        throw new ValidationError("DOC_BODY_REQUIRED", "body must be a string.");
+    }
+    return patchManagedDocument(workspace, id, { body }, { expectedRevision });
+}
+
+/**
+ * Appends one timestamped, attributed line under a heading of a managed
+ * document, creating the heading when it is absent.
+ *
+ * The same shape as `appendCardNote`, for the same reason: an observation
+ * added to a document should cost one line, not a round trip of the whole
+ * body, and two writers appending at once should both land. `updated` moves
+ * the way it does for any patch.
+ */
+export async function appendManagedDocumentNote(
+    workspace,
+    id,
+    { text, actor, section = "Notes", expectedRevision, now }: any = {}
+) {
+    const line = String(text || "").trim();
+    if (!line) {
+        throw new ValidationError("DOC_NOTE_REQUIRED", "text must not be empty.");
+    }
+    const heading = String(section || "Notes").trim() || "Notes";
+    const stamp = (now ? new Date(now) : new Date())
+        .toISOString()
+        .slice(0, 16)
+        .replace("T", " ");
+    const entry = `- ${stamp}Z${actor ? ` ${actor}` : ""} — ${line}`;
+    return patchManagedDocument(
+        workspace,
+        id,
+        {},
+        {
+            expectedRevision,
+            transformBody: (body) => appendUnderHeading(body, `## ${heading}`, entry)
+        }
+    );
+}
 
 /**
  * Move a managed document to another folder below `docs.managedPath`.

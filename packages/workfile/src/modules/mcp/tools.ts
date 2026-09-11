@@ -19,9 +19,11 @@ import {
     previewRelease
 } from "../changelog/index.js";
 import {
+    appendManagedDocumentNote,
     createManagedDocument,
     moveManagedDocument,
-    patchManagedDocument
+    patchManagedDocument,
+    writeManagedDocumentBody
 } from "../docs/index.js";
 import { resolveActor } from "../../core/actor.js";
 import {
@@ -1349,6 +1351,75 @@ const TOOL_DEFINITIONS = [
                 requiredString(args.id, "id"),
                 plainObject(args.changes, "changes"),
                 { expectedRevision: optionalString(args.expectedRevision) }
+            );
+            invalidate(context);
+            return recordResult(recordFromDocument(result.document));
+        }
+    }),
+    tool({
+        name: "project_doc_write",
+        title: "Replace a managed document body",
+        description:
+            "Replace the Markdown body of a managed document under the protocol's lock and revision check, leaving its frontmatter as it is. Use project_doc_note to append instead.",
+        inputSchema: schema(
+            {
+                id: identifier("Managed document whose body is being replaced, e.g. DOC-0003."),
+                body: text(
+                    "The complete new Markdown body. This overwrites, so read the document first unless you intend to discard what is there."
+                ),
+                expectedRevision: EXPECTED_REVISION
+            },
+            ["id", "body"]
+        ),
+        outputSchema: RECORD_RESULT,
+        annotations: annotations({}),
+        readOnly: false,
+        async execute(args, context) {
+            ensureMutable(context);
+            const result = await writeManagedDocumentBody(
+                context.workspace,
+                requiredString(args.id, "id"),
+                {
+                    body: String(args.body ?? ""),
+                    expectedRevision: optionalString(args.expectedRevision)
+                }
+            );
+            invalidate(context);
+            return recordResult(recordFromDocument(result.document));
+        }
+    }),
+    tool({
+        name: "project_doc_note",
+        title: "Append a note to a managed document",
+        description:
+            "Append one timestamped line under a heading of a managed document, creating the heading if needed. Cheaper than rewriting the body and safe when two agents write at once.",
+        inputSchema: schema(
+            {
+                id: identifier("Managed document to append to, e.g. DOC-0003."),
+                text: identifier("The line to append. One observation, not a paragraph."),
+                section: text(
+                    "Heading to append under. Created if it does not exist yet.",
+                    { default: "Notes" }
+                ),
+                actor: ACTOR,
+                expectedRevision: EXPECTED_REVISION
+            },
+            ["id", "text"]
+        ),
+        outputSchema: RECORD_RESULT,
+        annotations: annotations({}),
+        readOnly: false,
+        async execute(args, context) {
+            ensureMutable(context);
+            const result = await appendManagedDocumentNote(
+                context.workspace,
+                requiredString(args.id, "id"),
+                {
+                    text: requiredString(args.text, "text"),
+                    section: optionalString(args.section) || "Notes",
+                    actor: actorFor(context, args.actor),
+                    expectedRevision: optionalString(args.expectedRevision)
+                }
             );
             invalidate(context);
             return recordResult(recordFromDocument(result.document));

@@ -1,6 +1,7 @@
 export {
     DOC_LIST_KEYS,
     DOC_REQUIRED_KEYS,
+    appendManagedDocumentNote,
     createManagedDocument,
     loadDocuments,
     loadIndexedDocuments,
@@ -8,6 +9,7 @@ export {
     moveManagedDocument,
     nextDocumentSequence,
     normalizeDocumentFolder,
-    patchManagedDocument
+    patchManagedDocument,
+    writeManagedDocumentBody
 } from "./docs.js";
 export { diagnoseDocuments } from "./validation.js";

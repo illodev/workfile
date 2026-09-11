@@ -57,7 +57,7 @@ one needs to find the correction where the mistake was.
 
 | Option | Subcommands that accept it |
 | --- | --- |
-| `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `changelog release`, `doc move`, `doc patch`, `memory graduate`, `memory patch`, `memory supersede` |
+| `--expected-revision REV` — reject the write when the file changed since it was read | `card ac`, `card archive`, `card claim`, `card note`, `card patch`, `card release`, `card reopen`, `card transition`, `card write`, `changelog patch`, `changelog release`, `doc move`, `doc note`, `doc patch`, `doc write`, `memory graduate`, `memory patch`, `memory supersede` |
 | `--force` — proceed past the check the command would otherwise fail | `agents sync`, `card claim`, `card patch`, `card release`, `card transition`, `ci sync`, `claude install`, `claude sync`, `init`, `migrate apply` |
 | `--reason TEXT` — why a check was waived; recorded on the card | `card claim`, `card patch`, `card release`, `card transition` |
 | `--read-only` — load the workspace read-only: every write answers `WORKSPACE_READ_ONLY` | `mcp config`, `mcp inspect`, `mcp serve`, `mcp stdio`, `ui` |
@@ -234,6 +234,8 @@ workfile card release ID --status done [--method ci --run URL]
 workfile card patch ID --json-input FILE [--method manual --evidence TEXT]
 workfile card archive ID [--actor ACTOR]
 workfile card reopen ID [--status backlog] [--actor ACTOR]
+workfile card write ID [--body-file FILE] [--expected-revision REV]   # or pipe the body on stdin
+workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]
 workfile card reap [--dry-run] [--older-than HOURS] [--json]
 workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
 workfile card renumber --duplicates [--actor ACTOR]
@@ -594,7 +596,16 @@ workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH
 workfile doc create --json-input FILE   # recommended: body and metadata in one call
 workfile doc move ID --folder PATH [--expected-revision REV]
 workfile doc patch ID --json-input FILE [--expected-revision REV]
+workfile doc write ID [--body-file FILE] [--expected-revision REV]   # or pipe the body on stdin
+workfile doc note ID --text TEXT [--section NAME] [--actor ACTOR]
 ```
+
+`doc write` replaces the body and leaves the frontmatter as it is; `doc note`
+appends one timestamped, attributed line under a heading, creating it when
+absent. They are the document forms of `card write` and `card note`, and exist
+because `doc patch` takes the body as one field among the rest — so before them
+the only way to change a paragraph of a document edited over hours was to keep a
+working copy outside the repository and send the whole body back each time.
 
 A card title is refused past 80 characters and a document title past 120, before
 anything is written. `workfile schema --json` reports both under

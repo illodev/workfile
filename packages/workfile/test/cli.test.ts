@@ -2496,3 +2496,62 @@ test("a claim under another name is told to omit the flag, before what the flag 
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("doc write and doc note reach a document the way card write and card note reach a card", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-doc-write-"));
+    await cp(fixture, root, { recursive: true });
+    try {
+        const created = JSON.parse(
+            (
+                await run([
+                    "doc", "create", "--title", "Edited in conversation", "--json", "--root", root
+                ])
+            ).stdout
+        );
+        const bodyFile = join(root, "body.md");
+        await writeFile(bodyFile, "# Draft\n\nFirst paragraph.\n");
+        const written = await run([
+            "doc", "write", created.id, "--body-file", bodyFile, "--json", "--root", root
+        ]);
+        const afterWrite = JSON.parse(written.stdout);
+        assert.match(afterWrite.body, /First paragraph\./);
+        assert.equal(afterWrite.title, "Edited in conversation");
+
+        // A stale revision is refused with the code `doc patch` uses, exit 3.
+        const stale = await outcome([
+            "doc", "write", created.id, "--body-file", bodyFile,
+            "--expected-revision", created.revision, "--root", root
+        ]);
+        assert.equal(stale.code, 3, stale.stderr);
+        assert.match(stale.stderr, /DOC_WRITE_CONFLICT/);
+
+        const noted = await run([
+            "doc", "note", created.id, "--text", "Reviewed with the owner.",
+            "--actor", "alice@studio", "--json", "--root", root
+        ]);
+        const afterNote = JSON.parse(noted.stdout);
+        assert.match(afterNote.body, /First paragraph\.\n\n## Notes\n\n- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z alice@studio — Reviewed with the owner\.$/);
+
+        const sectioned = await run([
+            "doc", "note", created.id, "--text", "Moved to runbooks.", "--section", "History",
+            "--root", root
+        ]);
+        assert.equal(sectioned.stdout.trim(), `${created.id} noted`);
+        const shown = JSON.parse(
+            (await run(["doc", "show", created.id, "--json", "--root", root])).stdout
+        );
+        assert.match(shown.body, /## History\n\n- .* — Moved to runbooks\./);
+
+        const empty = await outcome(["doc", "note", created.id, "--root", root]);
+        assert.notEqual(empty.code, 0);
+        assert.match(empty.stderr, /DOC_NOTE_REQUIRED/);
+
+        // An indexed document is read-only through every door.
+        const indexed = await outcome([
+            "doc", "write", "PATH-README", "--body-file", bodyFile, "--root", root
+        ]);
+        assert.notEqual(indexed.code, 0);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

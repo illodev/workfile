@@ -198,7 +198,7 @@ Mutations (absent in `--read-only` mode; rejected with `MCP_SERVER_READ_ONLY`):
 | Domain | Tools |
 | --- | --- |
 | Work | `project_card_create`, `project_card_patch`, `project_card_write`, `project_card_note`, `project_card_claim`, `project_card_release`, `project_card_transition`, `project_card_archive`, `project_card_reopen` |
-| Docs | `project_doc_create`, `project_doc_move`, `project_doc_patch` |
+| Docs | `project_doc_create`, `project_doc_move`, `project_doc_patch`, `project_doc_write`, `project_doc_note` |
 | History | `project_changelog_add`, `project_changelog_patch`, `project_changelog_preview`, `project_changelog_release` |
 | Memory | `project_memory_add`, `project_memory_patch`, `project_memory_graduate`, `project_memory_supersede` |
 

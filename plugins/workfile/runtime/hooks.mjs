@@ -486,7 +486,13 @@ const RECORD_TOOLS = {
     },
     docs: {
         cli: "doc",
-        tools: ["project_doc_patch", "project_doc_create", "project_doc_move"]
+        tools: [
+            "project_doc_patch",
+            "project_doc_write",
+            "project_doc_note",
+            "project_doc_create",
+            "project_doc_move"
+        ]
     },
     memory: {
         cli: "memory",

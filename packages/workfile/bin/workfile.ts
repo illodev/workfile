@@ -53,6 +53,8 @@ import {
     patchCardBody,
     patchChangeFragment,
     patchManagedDocument,
+    appendManagedDocumentNote,
+    writeManagedDocumentBody,
     patchMemoryRecord,
     planInitialization,
     planLegacyMigration,
@@ -179,7 +181,9 @@ const USAGE: Record<string, string[]> = {
         `workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]   # TITLE up to ${DOC_TITLE_MAX_LENGTH} characters`,
         "workfile doc create --json-input FILE   # recommended: body and metadata in one call",
         "workfile doc move ID --folder PATH [--expected-revision REV]",
-        "workfile doc patch ID --json-input FILE [--expected-revision REV]"
+        "workfile doc patch ID --json-input FILE [--expected-revision REV]",
+        "workfile doc write ID [--body-file FILE] [--expected-revision REV]   # or pipe the body on stdin",
+        "workfile doc note ID --text TEXT [--section NAME] [--actor ACTOR]"
     ],
     changelog: [
         "workfile changelog list [--unreleased] [--visibility public|internal] [--json]",
@@ -532,11 +536,21 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--expected-revision",
         "--folder"
     ],
+    "doc note": [
+        "--actor",
+        "--expected-revision",
+        "--section",
+        "--text"
+    ],
     "doc patch": [
         "--expected-revision",
         "--json-input"
     ],
     "doc show": [],
+    "doc write": [
+        "--body-file",
+        "--expected-revision"
+    ],
     "doctor": [
         "--rebuild-cache",
         "--fix",
@@ -2073,6 +2087,28 @@ async function documentCommand(workspace, action) {
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(has("--json") ? result.document : `${id} updated`);
+    }
+    if (action === "write") {
+        // The same door `card write` opens: a body from a file or stdin, never
+        // from an argument, and never the whole record's frontmatter with it.
+        const bodyFile = option("--body-file");
+        const body = bodyFile
+            ? await readFile(resolve(bodyFile), "utf8")
+            : await readAllStdin();
+        const result = await writeManagedDocumentBody(workspace, id, {
+            body,
+            expectedRevision: option("--expected-revision") || undefined
+        });
+        return print(has("--json") ? result.document : `${id} body written`);
+    }
+    if (action === "note") {
+        const result = await appendManagedDocumentNote(workspace, id, {
+            text: option("--text"),
+            section: option("--section") || "Notes",
+            actor: option("--actor") || defaultActor(),
+            expectedRevision: option("--expected-revision") || undefined
+        });
+        return print(has("--json") ? result.document : `${id} noted`);
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",
