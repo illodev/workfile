@@ -116,6 +116,26 @@ makes a claim `live` rather than merely `held`: a hook is the only thing that
 fires repeatedly for as long as an agent is working, and a one-shot CLI process
 that signalled once would decay into a false `orphaned` ninety seconds later.
 
+After a `Bash` call the same hook also looks at what the guard could not see. A
+`Bash` payload carries `command`, not `file_path`, so an edit made with `sed`, a
+heredoc or `tee` inside another actor's scope was asked nothing — measured on a
+consuming board with eight panels live, a file inside a held scope changed with
+zero events in the ledger. The hook walks the scopes *other* actors hold, bounded
+to 4000 entries and never into `.git`, `node_modules` or `.project`, and takes
+every file whose mtime falls after this session's previous signal and that no
+typed-tool edit in the ledger accounts for. Each one is appended to
+`events.jsonl` with a `collision` object naming the card and its holder, and the
+agent is told in `additionalContext`: the paths, the card, and whether the
+holder's session was signalling in that window — the window is the whole
+command, so a neighbour writing to their own scope through `Bash` at the same
+moment lands in it too, and the text says "changed while your command ran",
+never "you changed". It reports; it prevents nothing, and it never joins the
+`PreToolUse` matcher, whose budget is built on not spawning node for a `Bash`.
+The hook stays asynchronous, and Claude Code delivers an async hook's output
+with the *next* tool result: measured in a live session, each report arrived one
+call after the command it describes. That is what "after the fact" costs, and it
+is still before the agent's next edit lands.
+
 The hook runtime (`dist/src/runtime/claude/hooks.mjs`) imports nothing from this
 package. `src/index.js` re-exports thirteen modules and several read
 `package.json` at load, and `PreToolUse` runs before *every* tool call in the
@@ -157,7 +177,9 @@ The server is only half of it; the rest is session-side:
   edit that lands inside another actor's claimed scope or touches a protocol
   record directly; an async `PostToolUse` refreshes the session heartbeat under
   `.project/.cache/activity/sessions/`, which is what the UI's presence
-  indicators read, and appends the edit to `.project/.cache/activity/events.jsonl`.
+  indicators read, appends the edit to `.project/.cache/activity/events.jsonl`,
+  and after a `Bash` call reports any file that changed inside another actor's
+  scope while the command ran — the edit the guard cannot see.
 
 Both forms exist on purpose. A plugin's `settings.json` accepts only `agent` and
 `subagentStatusLine`, so anything else has to be generated locally; and a

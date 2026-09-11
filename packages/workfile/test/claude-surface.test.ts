@@ -12,7 +12,7 @@ import {
     writeFile
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -1186,6 +1186,202 @@ test("the hook produces the live half of a claim", async () => {
             gone.claims.find((entry) => entry.id === card.id)?.claim.state,
             "orphaned",
             "silence far past any pause is what orphaned means"
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The guard reads `file_path`, and a `Bash` payload has none.
+ *
+ * So an edit made with `sed`, a heredoc or `tee` inside another actor's scope
+ * was asked nothing — the editing style bypass mode recommends walked straight
+ * through the mechanism built to stop it. Measured on a consuming board with
+ * eight panels live (T-0227): a file inside a held scope changed and the
+ * ledger had zero events for it.
+ *
+ * `PreToolUse` must stay off `Bash` (the matcher test below pins it) and a
+ * shell string cannot be matched soundly, so the fix reports after the fact:
+ * `PostToolUse` on a `Bash` call looks at what changed inside foreign scopes
+ * since this session last signalled, discounts what the ledger already
+ * attributes to a typed tool, records the rest as a collision and tells the
+ * agent. Each branch of that sentence is one case here.
+ */
+test("an edit made through Bash inside another actor's scope is reported after the fact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-bash-edit-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const theirs = await createCard(workspace, { title: "Owned elsewhere", area: "api" });
+        await claimCard(workspace, theirs.id, { actor: "agent-other", scope: ["src/api"] });
+        const mine = await createCard(workspace, { title: "Mine", area: "web" });
+        await claimCard(workspace, mine.id, {
+            actor: "solo@box#feedface",
+            scope: ["src/web"]
+        });
+
+        // Everything that exists before the session starts is older than the
+        // window and must never appear in a report.
+        for (const path of [
+            "src/api/billing.ts",
+            "src/api/typed.ts",
+            "src/api/legacy/gone.ts",
+            "src/web/page.tsx",
+            "src/other/free.ts"
+        ]) {
+            await mkdir(join(root, dirname(path)), { recursive: true });
+            await writeFile(join(root, path), "before\n");
+        }
+        await runHook("session-start", { session_id: "feedface-0000" }, root, env);
+        await sleep(30);
+
+        // A neighbour edits through a typed tool: the guard saw it, the ledger
+        // records it, and the detector must not lay it at this session's door.
+        await writeFile(join(root, "src/api/typed.ts"), "theirs, through Edit\n");
+        await runHook(
+            "post-tool-use",
+            {
+                session_id: "cafe-1111",
+                tool_name: "Edit",
+                tool_input: { file_path: join(root, "src/api/typed.ts") }
+            },
+            root,
+            env
+        );
+
+        // The same neighbour *reads* the file this session is about to change.
+        // A `Read` carries a `file_path` and the ledger records it, but a read
+        // changes nothing and must not hide the edit.
+        await runHook(
+            "post-tool-use",
+            {
+                session_id: "cafe-1111",
+                tool_name: "Read",
+                tool_input: { file_path: join(root, "src/api/billing.ts") }
+            },
+            root,
+            env
+        );
+
+        // What "sed -i" leaves behind: a foreign file changed, a foreign entry
+        // gone, an own-scope file changed and a free file changed — with no
+        // `file_path` anywhere.
+        await writeFile(join(root, "src/api/billing.ts"), "after, through sed\n");
+        await rm(join(root, "src/api/legacy/gone.ts"));
+        await writeFile(join(root, "src/web/page.tsx"), "after, mine\n");
+        await writeFile(join(root, "src/other/free.ts"), "after, nobody's\n");
+
+        const reported = await runHook(
+            "post-tool-use",
+            {
+                session_id: "feedface-0000",
+                tool_name: "Bash",
+                tool_input: { command: "sed -i 's/before/after/' src/api/billing.ts" }
+            },
+            root,
+            env
+        );
+        assert.equal(reported.stderr, "", "the detector must not fail open in silence");
+        const output = JSON.parse(reported.stdout);
+        assert.equal(output.hookSpecificOutput.hookEventName, "PostToolUse");
+        const context: string = output.hookSpecificOutput.additionalContext;
+        assert.match(context, /src\/api\/billing\.ts — T-\d+, claimed by agent-other/);
+        assert.match(
+            context,
+            /src\/api\/legacy\/ \(an entry added, removed or renamed\)/,
+            "a deletion shows as the directory that lost the entry"
+        );
+        assert.match(context, /silent in that window/, "no session of the holder signalled");
+        assert.match(context, /Nothing was blocked/, "a report, not a guard");
+        assert.match(context, new RegExp(`/claim ${theirs.id}`));
+        for (const quiet of ["typed.ts", "page.tsx", "free.ts"]) {
+            assert.doesNotMatch(
+                context,
+                new RegExp(quiet),
+                `${quiet} is accounted for — by the ledger, by this session's own claim, or by no claim at all`
+            );
+        }
+
+        const ledger = (
+            await readFile(join(root, ".project/.cache/activity/events.jsonl"), "utf8")
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const collisions = ledger.filter((event) => event.collision);
+        assert.deepEqual(
+            collisions.map((event) => [event.path, event.collision.card, event.collision.kind]).sort(),
+            [
+                ["src/api/billing.ts", theirs.id, "file"],
+                ["src/api/legacy", theirs.id, "directory"]
+            ],
+            "the collision is in the ledger, which is what the board's forensics read"
+        );
+        assert.ok(
+            collisions.every(
+                (event) => event.sessionId === "feedface-0000" && event.tool === "Bash"
+            )
+        );
+        const session = JSON.parse(
+            await readFile(
+                join(root, ".project/.cache/activity/sessions/feedface-0000.json"),
+                "utf8"
+            )
+        );
+        assert.ok(
+            session.filesTouched.includes("src/api/billing.ts"),
+            "the presence view is no longer blind to exactly these edits"
+        );
+
+        // The window moved with the signal: the same change is not reported
+        // twice, and a command that changed nothing says nothing.
+        const again = await runHook(
+            "post-tool-use",
+            { session_id: "feedface-0000", tool_name: "Bash", tool_input: { command: "ls" } },
+            root,
+            env
+        );
+        assert.equal(again.stdout.trim(), "", "nothing changed in the new window");
+
+        // A change inside a read-only tool's window is somebody else's by
+        // construction, so the detector does not run — and does not charge the
+        // session a walk of every foreign scope on every `Read`.
+        await sleep(30);
+        await writeFile(join(root, "src/api/billing.ts"), "somebody else, during a Read\n");
+        const read = await runHook(
+            "post-tool-use",
+            {
+                session_id: "feedface-0000",
+                tool_name: "Read",
+                tool_input: { file_path: join(root, "README.md") }
+            },
+            root,
+            env
+        );
+        assert.equal(read.stdout.trim(), "", "a Read cannot have written it");
+
+        // When the holder was signalling, the report says so instead of
+        // assigning the change: their `Bash` edits are recorded by nobody.
+        await sleep(30);
+        await runHook(
+            "post-tool-use",
+            { session_id: "beef-2222", tool_name: "Bash", tool_input: { command: "ls" } },
+            root,
+            { ...env, WORKFILE_ACTOR: "agent-other" }
+        );
+        await writeFile(join(root, "src/api/billing.ts"), "whose?\n");
+        const ambiguous = await runHook(
+            "post-tool-use",
+            { session_id: "feedface-0000", tool_name: "Bash", tool_input: { command: "make" } },
+            root,
+            env
+        );
+        assert.match(
+            JSON.parse(ambiguous.stdout).hookSpecificOutput.additionalContext,
+            /agent-other's session was also signalling in that window, so the change may be theirs/
         );
     } finally {
         await rm(root, { recursive: true, force: true });

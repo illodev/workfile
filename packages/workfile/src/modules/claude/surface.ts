@@ -276,6 +276,16 @@ export async function hasLocalInstall(root) {
  * its claim abandoned while it was working. `SessionStart` never reads
  * `source`, so listing sources could only ever go stale: whether compaction
  * produces one is the host's business, and `*` is right either way.
+ *
+ * `PostToolUse` is also where the `Bash` path gets what `PreToolUse` cannot
+ * give it. A `Bash` payload has no `file_path`, so an edit made with `sed`
+ * inside another actor's scope is asked nothing; after the call, the runtime
+ * looks at what changed inside foreign scopes since this session last
+ * signalled and reports it (T-0227). After, not before, and here rather than
+ * on the guard: the detector walks directories, and `PreToolUse` fires
+ * before every call it matches. It stays `async`: a command's own latency is
+ * untouched, and the host delivers the output with the *next* tool result —
+ * measured live, each report arrived one call after the command it names.
  */
 export const NPM_HOOK_RUNTIME =
     "node node_modules/@illodev/workfile/dist/src/runtime/claude/hooks.mjs";

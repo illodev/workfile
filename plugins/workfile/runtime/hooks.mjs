@@ -11,7 +11,16 @@
  * Everything here is one small file read and some string work. The budget is
  * a p95 under 30 ms, pinned by a test.
  */
-import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+    appendFile,
+    lstat,
+    mkdir,
+    open,
+    readFile,
+    readdir,
+    rm,
+    writeFile
+} from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 const CACHE = ".project/.cache/activity";
@@ -337,11 +346,14 @@ const SESSIONS = `${CACHE}/sessions`;
  * A hook is the only thing in the system that fires repeatedly for as long as
  * an agent is actually working.
  */
+const sessionFile = (root, id) =>
+    join(root, SESSIONS, `${String(id).replace(/[^\w.-]+/g, "_")}.json`);
+
 async function signal(root, input, files = []) {
     const id = sessionId(input);
     if (!id) return;
-    const directory = join(root, SESSIONS);
-    const path = join(directory, `${String(id).replace(/[^\w.-]+/g, "_")}.json`);
+    const path = sessionFile(root, id);
+    const directory = dirname(path);
     const previous = await readJson(path, {});
     const now = new Date().toISOString();
     await mkdir(directory, { recursive: true });
@@ -586,29 +598,344 @@ async function preToolUse(input) {
     );
 }
 
+const repoPathOf = (root, path) =>
+    relative(root, resolve(root, path)).replaceAll("\\", "/");
+
+/**
+ * The path the guard cannot see, reported after the fact.
+ *
+ * `preToolUse` reads `tool_input.file_path`, and a `Bash` payload carries
+ * `command`. So an agent that writes with `sed`, a heredoc or `tee` inside a
+ * scope another actor holds is asked nothing — and that is the editing style
+ * bypass mode recommends. Measured on a consuming board on 2026-09-01 with
+ * eight panels live: a file inside a held scope changed at 21:17:53 and the
+ * ledger below has zero events for it. The collision the mechanism exists to
+ * prevent, and it happened in silence.
+ *
+ * Two fixes are refused, and both refusals are pinned elsewhere. Adding `Bash`
+ * to the `PreToolUse` matcher spawns node before every command in the session,
+ * and `claude-surface.test.ts` asserts `!covers(guard, "Bash")` by name. Reading
+ * paths out of the command string is unsound — `validation.ts` says why: over
+ * a shell string no prefix matcher is — and `find -exec sed` names no file at
+ * all. What is left is to look at the filesystem afterwards, which is what this
+ * does: a file inside a foreign scope whose mtime falls after this session's
+ * previous signal changed while the command ran, and if no typed-tool edit in
+ * the ledger accounts for it, nothing guarded it.
+ *
+ * It reports; it prevents nothing. The window is the whole tool call, so
+ * another actor writing to their own scope through `Bash` at the same moment
+ * lands in it too. The text therefore says "changed while your command ran",
+ * never "you changed", and says whether the holder's session signalled in that
+ * window — the one fact that tells the two apart. The hook is installed
+ * `async`, and the host hands an async hook's output to the model with the
+ * *next* tool result: measured live on 2026-09-11, each report arrived one
+ * call after the command it describes. One call late, still before the next
+ * edit.
+ *
+ * Only tools that can write are looked at. A change inside a `Read`'s window is
+ * somebody else's by construction, and `Read`, `Grep` and `Glob` are most of a
+ * session's calls: walking the foreign scopes after each of them is cost with
+ * nothing to find. Other writers the host may add (an MCP filesystem tool) are
+ * a known gap of the same shape, and this set is where they go.
+ */
+const REPORTED_TOOLS = new Set(["Bash"]);
+
+/**
+ * Entries stat'ed per call, all scopes together. A scope of `src` on a large
+ * tree is walked rather than read, and past this the report says it stopped
+ * rather than pretending the list is whole.
+ */
+const SCAN_BUDGET = 4000;
+
+/**
+ * Never descended. `.git` and `node_modules` for size; `.project` because its
+ * records change only through the CLI and MCP tools, which take a lock —
+ * and because this hook writes under `.project/.cache` itself.
+ */
+const UNSCANNED = new Set([".git", "node_modules", ".project"]);
+
+/**
+ * The ledger is read from its tail. It is append-only and the events that
+ * fall inside a window are at the end, so the whole file — 54 KB in this
+ * repository, more on a board that never prunes — is never parsed per call.
+ */
+const LEDGER_TAIL_BYTES = 262_144;
+
+/**
+ * The tools whose ledger line accounts for a changed file.
+ *
+ * The ledger also holds every `Read` that carried a `file_path` — presence is
+ * any tool call — and a read changes nothing. Counting it would let a
+ * neighbour's `Read` of a file hide this session's `sed` on it.
+ */
+const TYPED_WRITERS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit"]);
+
+/**
+ * Paths a typed tool edited since `since`, as the ledger recorded them.
+ *
+ * Every `Edit`, `Write` and `NotebookEdit` in any session leaves a line here
+ * through the branch in `postToolUse` below, after passing the guard. So a
+ * changed file that has one is accounted for, and one that has none was
+ * written by something the guard never saw. Collision lines are the report's
+ * own and account for nothing.
+ */
+async function ledgerPathsSince(root, since) {
+    const paths = new Set();
+    let handle;
+    try {
+        handle = await open(join(root, CACHE, "events.jsonl"), "r");
+    } catch {
+        return paths;
+    }
+    try {
+        const { size } = await handle.stat();
+        const length = Math.min(size, LEDGER_TAIL_BYTES);
+        if (!length) return paths;
+        const buffer = Buffer.alloc(length);
+        await handle.read(buffer, 0, length, size - length);
+        for (const line of buffer.toString("utf8").split("\n")) {
+            let event;
+            try {
+                event = JSON.parse(line);
+            } catch {
+                // The first line of a tail is usually cut, and a half-written
+                // last line is possible. Neither is an event.
+                continue;
+            }
+            if (event.collision || !event.path || !TYPED_WRITERS.has(event.tool)) continue;
+            if (Date.parse(event.at) >= since) paths.add(event.path);
+        }
+    } finally {
+        await handle.close();
+    }
+    return paths;
+}
+
+/**
+ * What changed under one claim's scope since `since`.
+ *
+ * Walks from each scope entry's static prefix — `src/*\/billing` starts at
+ * `src` and filters with `scopeCovers` — with `lstat`, so a symlinked
+ * directory is a symlink and not a loop. A directory whose mtime moved had an
+ * entry added, removed or renamed; it is reported only when no file hit and no
+ * ledger line lies directly inside it, so a deletion surfaces without every
+ * new file being reported twice.
+ */
+async function changedUnder(root, claim, since, ledger, budget) {
+    const files = [];
+    const directories = [];
+    const unscanned = [];
+    for (const entry of claim.scope) {
+        const base = withoutTrailingSlashes(entry.split("*")[0]);
+        if (!base) {
+            // `*` alone or a leading wildcard has no prefix to walk from, and
+            // walking the whole tree is what this must not cost.
+            unscanned.push(entry);
+            continue;
+        }
+        const stack = [base];
+        while (stack.length && budget.left > 0) {
+            const current = stack.pop();
+            let stat;
+            try {
+                stat = await lstat(join(root, current));
+            } catch {
+                continue;
+            }
+            budget.left -= 1;
+            const changed = stat.mtimeMs >= since;
+            const covered = scopeCovers(claim.scope, current);
+            if (stat.isDirectory()) {
+                if (changed && covered) directories.push(current);
+                let names;
+                try {
+                    names = await readdir(join(root, current));
+                } catch {
+                    continue;
+                }
+                for (const name of names) {
+                    if (!UNSCANNED.has(name)) stack.push(`${current}/${name}`);
+                }
+            } else if (stat.isFile() && changed && covered && !ledger.has(current)) {
+                files.push(current);
+            }
+        }
+    }
+    const explained = (directory) =>
+        files.some((path) => dirname(path) === directory) ||
+        [...ledger].some((path) => dirname(path) === directory);
+    return {
+        hits: [
+            ...files.map((path) => ({ path, kind: "file" })),
+            ...directories
+                .filter((directory) => !explained(directory))
+                .map((path) => ({ path, kind: "directory" }))
+        ],
+        unscanned
+    };
+}
+
+async function detectCollisions(root, input, since) {
+    // No previous signal, no window. `session-start` writes one, so this is a
+    // hook fired into a session the runtime never saw begin.
+    if (!Number.isFinite(since)) return null;
+    const board = await readBoard(root);
+    const mine = actorFor(input);
+    const mySession = discriminatorOf(sessionId(input));
+    const foreign = board.claims.filter(
+        (claim) =>
+            claim.status === "doing" &&
+            claim.scope.length &&
+            separatesFromMe(claim, mine, mySession)
+    );
+    if (!foreign.length) return null;
+
+    const ledger = await ledgerPathsSince(root, since);
+    const budget = { left: SCAN_BUDGET };
+    const hits = [];
+    const unscanned = [];
+    for (const claim of foreign) {
+        const found = await changedUnder(root, claim, since, ledger, budget);
+        for (const hit of found.hits) {
+            hits.push({ ...hit, card: claim.id, claimedBy: claim.claimedBy });
+        }
+        for (const entry of found.unscanned) unscanned.push({ card: claim.id, entry });
+    }
+    if (!hits.length) return null;
+
+    // Whether the holder was signalling in the window. Their typed edits are
+    // already discounted through the ledger; this is about their `Bash` ones,
+    // which nobody records — so it cannot settle the question, only inform it.
+    const sessions = await readSessions(root);
+    const active = new Set(
+        foreign
+            .filter((claim) =>
+                sessions.some(
+                    (session) =>
+                        (session.actor === claim.claimedBy ||
+                            (claim.session &&
+                                discriminatorOf(session.sessionId) === claim.session)) &&
+                        Date.parse(session.lastSignalAt || "") >= since
+                )
+            )
+            .map((claim) => claim.id)
+    );
+    return {
+        since: new Date(since).toISOString(),
+        hits,
+        active,
+        truncated: budget.left <= 0,
+        unscanned
+    };
+}
+
+const SHOWN_HITS = 10;
+
+function collisionContext(report) {
+    const cards = [...new Set(report.hits.map((hit) => hit.card))];
+    const lines = [
+        `While your last command ran, ${report.hits.length} ${
+            report.hits.length === 1 ? "path" : "paths"
+        } changed inside ${cards.length === 1 ? "a scope another actor holds" : "scopes other actors hold"}:`,
+        ...report.hits.slice(0, SHOWN_HITS).map(
+            (hit) =>
+                `- ${hit.path}${
+                    hit.kind === "directory" ? "/ (an entry added, removed or renamed)" : ""
+                } — ${hit.card}, claimed by ${hit.claimedBy}`
+        )
+    ];
+    if (report.hits.length > SHOWN_HITS) {
+        lines.push(`- and ${report.hits.length - SHOWN_HITS} more`);
+    }
+    for (const card of cards) {
+        const holder = report.hits.find((hit) => hit.card === card).claimedBy;
+        lines.push(
+            report.active.has(card)
+                ? `${holder}'s session was also signalling in that window, so the change may be theirs.`
+                : `${holder}'s session was silent in that window, so the change is most likely yours.`
+        );
+    }
+    lines.push(
+        "Nothing was blocked: the guard cannot see a shell command, so this is a report. " +
+            `If it was you, coordinate or claim the card first (/claim ${cards[0]}). ` +
+            "The collision is recorded in .project/.cache/activity/events.jsonl."
+    );
+    if (report.truncated) {
+        lines.push(
+            `The scan stopped at ${SCAN_BUDGET} entries, so the list may be incomplete.`
+        );
+    }
+    for (const { card, entry } of report.unscanned) {
+        lines.push(`Scope \`${entry}\` of ${card} has no static prefix and was not scanned.`);
+    }
+    return lines.join("\n");
+}
+
 async function postToolUse(input) {
     const root = projectDir(input);
     const filePath = input.tool_input?.file_path;
     const id = sessionId(input);
     if (!id) return;
+    const touched = filePath ? [repoPathOf(root, filePath)] : [];
+
+    // The window opens where this session last signalled, which is where its
+    // previous tool call ended. Read before `signal` moves it. Two hooks of one
+    // session running at once — a turn that issued two commands — race on this
+    // and one window can swallow the other's start; a rare miss, never a
+    // false report.
+    const since = Date.parse((await readJson(sessionFile(root, id), {})).lastSignalAt || "");
+    let report = null;
+    let failure = null;
+    if (!filePath && REPORTED_TOOLS.has(input.tool_name)) {
+        try {
+            report = await detectCollisions(root, input, since);
+        } catch (error) {
+            // The heartbeat below is owed regardless; the failure is re-thrown
+            // after it, so the top-level handler still names it on stderr.
+            failure = error;
+        }
+    }
+
     // Presence is refreshed by any tool call. Reading and running commands is
     // working; restricting the heartbeat to writes would report an agent that
-    // spent ten minutes investigating as gone.
-    const touched = filePath
-        ? [relative(root, resolve(root, filePath)).replaceAll("\\", "/")]
-        : [];
-    await signal(root, input, touched);
-    if (!filePath) return;
+    // spent ten minutes investigating as gone. What the detector found travels
+    // with it: it is what this session touched as far as anything can tell,
+    // and the presence view would otherwise be blind to exactly these edits.
+    await signal(root, input, [...touched, ...(report?.hits.map((hit) => hit.path) ?? [])]);
+    if (failure) throw failure;
+    if (!filePath && !report) return;
+
     await mkdir(join(root, CACHE), { recursive: true });
+    const at = new Date().toISOString();
     // Append-only and one line per event: a file per event would exhaust inodes
     // and make the directory impossible to coalesce.
+    const events = filePath
+        ? [{ at, sessionId: id, tool: input.tool_name, path: repoPathOf(root, filePath) }]
+        : report.hits.map((hit) => ({
+              at,
+              sessionId: id,
+              tool: input.tool_name,
+              path: hit.path,
+              collision: {
+                  card: hit.card,
+                  claimedBy: hit.claimedBy,
+                  kind: hit.kind,
+                  since: report.since,
+                  holderActive: report.active.has(hit.card)
+              }
+          }));
     await appendFile(
         join(root, CACHE, "events.jsonl"),
+        events.map((event) => `${JSON.stringify(event)}\n`).join("")
+    );
+    if (!report) return;
+
+    process.stdout.write(
         `${JSON.stringify({
-            at: new Date().toISOString(),
-            sessionId: id,
-            tool: input.tool_name,
-            path: relative(root, resolve(root, filePath)).replaceAll("\\", "/")
+            hookSpecificOutput: {
+                hookEventName: "PostToolUse",
+                additionalContext: collisionContext(report)
+            }
         })}\n`
     );
 }
