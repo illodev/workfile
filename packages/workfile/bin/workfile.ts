@@ -153,7 +153,7 @@ const USAGE: Record<string, string[]> = {
     ],
     card: [
         "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
-        "workfile card show ID [--json] [--fields a,b]",
+        "workfile card show ID [--json] [--fields a,b]   # --fields cuts any card answer that is a record",
         `workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]   # TITLE up to ${CARD_TITLE_MAX_LENGTH} characters`,
         "workfile card create --title TITLE --raised reported|derived   # a person asked, or you inferred it",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
@@ -333,28 +333,31 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card archive": [
         "--actor",
-        "--expected-revision"
+        "--expected-revision",
+        "--fields"
     ],
     "card claim": [
         "--actor",
         "--expected-revision",
+        "--fields",
         "--force",
         "--reason",
         "--scope"
     ],
     "card create": [
         "--area",
-        "--raised",
         "--axis",
         "--body",
         "--depends",
         "--due",
         "--effort",
+        "--fields",
         "--json-input",
         "--milestone",
         "--origin",
         "--parent",
         "--priority",
+        "--raised",
         "--related",
         "--scope",
         "--source",
@@ -383,6 +386,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "card note": [
         "--actor",
         "--expected-revision",
+        "--fields",
         "--section",
         "--text"
     ],
@@ -391,6 +395,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--axis",
         "--evidence",
         "--expected-revision",
+        "--fields",
         "--force",
         "--json-input",
         "--method",
@@ -404,6 +409,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--actor",
         "--evidence",
         "--expected-revision",
+        "--fields",
         "--force",
         "--method",
         "--reason",
@@ -418,6 +424,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     "card reopen": [
         "--actor",
         "--expected-revision",
+        "--fields",
         "--status"
     ],
     "card show": ["--fields"],
@@ -425,6 +432,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--actor",
         "--evidence",
         "--expected-revision",
+        "--fields",
         "--force",
         "--method",
         "--reason",
@@ -442,13 +450,15 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "card write": [
         "--body-file",
-        "--expected-revision"
+        "--expected-revision",
+        "--fields"
     ],
     "changelog add": [
         "--area",
         "--body",
         "--cards",
         "--decisions",
+        "--fields",
         "--issues",
         "--json-input",
         "--related",
@@ -476,6 +486,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "changelog patch": [
         "--expected-revision",
+        "--fields",
         "--json-input"
     ],
     "changelog preview": [
@@ -488,6 +499,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--commit",
         "--date",
         "--expected-revision",
+        "--fields",
         "--fragments",
         "--json-input",
         "--tags",
@@ -518,6 +530,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "doc create": [
         "--body",
+        "--fields",
         "--folder",
         "--json-input",
         "--kind",
@@ -535,22 +548,26 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "doc move": [
         "--expected-revision",
+        "--fields",
         "--folder"
     ],
     "doc note": [
         "--actor",
         "--expected-revision",
+        "--fields",
         "--section",
         "--text"
     ],
     "doc patch": [
         "--expected-revision",
+        "--fields",
         "--json-input"
     ],
     "doc show": ["--fields"],
     "doc write": [
         "--body-file",
-        "--expected-revision"
+        "--expected-revision",
+        "--fields"
     ],
     "doctor": [
         "--rebuild-cache",
@@ -592,6 +609,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--confidence",
         "--deciders",
         "--expires",
+        "--fields",
         "--json-input",
         "--occurrences",
         "--related",
@@ -627,6 +645,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "memory graduate": [
         "--expected-revision",
+        "--fields",
         "--to"
     ],
     "memory list": [
@@ -637,12 +656,14 @@ const COMMAND_FLAGS: Record<string, string[]> = {
     ],
     "memory patch": [
         "--expected-revision",
+        "--fields",
         "--json-input"
     ],
     "memory show": ["--fields"],
     "memory supersede": [
         "--by",
-        "--expected-revision"
+        "--expected-revision",
+        "--fields"
     ],
     "memory verify": [],
     "migrate apply": [
@@ -1379,6 +1400,39 @@ function print(value) {
     else console.log(JSON.stringify(value, null, 2));
 }
 
+/**
+ * One record, in the shape `--json` promises for it.
+ *
+ * Every MCP tool answers `{ record, …extras }`. The CLI grew a shape per
+ * command instead — the card itself here, `{ record, warnings }` on claim,
+ * `{ records, total }` on a list — so a caller ended up reading every answer
+ * with `d.get("record", d)`, which works until a command returns `{ records }`
+ * (DOC-0006, T-0246). The owner decided on 2026-09-11 that the CLI converges
+ * on the MCP envelope in 0.13.0.
+ *
+ * Until then this prints the legacy shape and says so on stderr, once per
+ * process, naming the version and the new shape. `WORKFILE_JSON_ENVELOPE=1`
+ * opts a caller into the envelope today, so a script can move ahead of the cut
+ * instead of breaking on it. `--fields` cuts the record down either way, which
+ * is what makes `transition --json --fields id,status,revision` an answer
+ * without the body.
+ */
+const JSON_ENVELOPE = process.env.WORKFILE_JSON_ENVELOPE === "1";
+let envelopeNoted = false;
+function recordAnswer(record, extras: Record<string, unknown> = {}) {
+    const shown = projectShown(record);
+    if (JSON_ENVELOPE) return { record: shown, ...extras };
+    if (!envelopeNoted) {
+        envelopeNoted = true;
+        console.error(
+            "note: this --json answer changes shape in 0.13.0 — it becomes " +
+                '{ "record": … } like the MCP tools. Set WORKFILE_JSON_ENVELOPE=1 ' +
+                "to read the new shape now."
+        );
+    }
+    return { ...shown, ...extras };
+}
+
 async function askInitOptions(root) {
     const detected = await inspectRepository(root);
     const defaults = {
@@ -1573,9 +1627,8 @@ async function cardCommand(workspace, action) {
         // than in the normalizer because `card list` would then pay to parse
         // every body to answer a question nobody asked of a listing.
         const acceptance = parseAcceptance(card.body);
-        return print(
-            projectShown(acceptance.present ? { ...card, acceptance } : card)
-        );
+        const shown = acceptance.present ? { ...card, acceptance } : card;
+        return print(has("--json") ? recordAnswer(shown) : projectShown(shown));
     }
     if (action === "reap") {
         // A claim held past its lease belongs to a process that is almost
@@ -1661,7 +1714,7 @@ async function cardCommand(workspace, action) {
             ...(axisOptions("--axis") ? { axes: axisOptions("--axis") } : {})
         };
         const result = await createCard(workspace, input);
-        return print(has("--json") ? result.card : `${result.id} ${result.file}`);
+        return print(has("--json") ? recordAnswer(result.card) : `${result.id} ${result.file}`);
     }
     // Two card actions name no record, and each says so with a flag.
     // `renumber --duplicates` sweeps the whole board; `verify --changed` takes
@@ -1844,7 +1897,7 @@ async function cardCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} noted`);
+        return print(has("--json") ? recordAnswer(result.card) : `${id} noted`);
     }
     if (action === "renumber") {
         const actor = option("--actor") || defaultActor();
@@ -1894,10 +1947,10 @@ async function cardCommand(workspace, action) {
         // replaces was a success message over a half-applied write.
         return print(
             has("--json")
-                ? {
-                      ...result.card,
-                      ...(result.ignored.length ? { ignored: result.ignored } : {})
-                  }
+                ? recordAnswer(
+                      result.card,
+                      result.ignored.length ? { ignored: result.ignored } : {}
+                  )
                 : `${id} body written${
                       result.ignored.length
                           ? `\nkept the stored copy of ${result.ignored.join(", ")} — those sections are append-only`
@@ -1930,7 +1983,7 @@ async function cardCommand(workspace, action) {
             run: option("--run"),
             evidence: option("--evidence")
         });
-        return print(has("--json") ? result.card : `${id} updated`);
+        return print(has("--json") ? recordAnswer(result.card) : `${id} updated`);
     }
     if (action === "claim") {
         warnActorMismatch(option("--actor"));
@@ -1950,7 +2003,7 @@ async function cardCommand(workspace, action) {
         const check = await checkClaimedCard(workspace, result.card);
         if (has("--json")) {
             return print({
-                record: result.card,
+                record: projectShown(result.card),
                 warnings: result.warnings,
                 ...(check ? { verify: check } : {})
             });
@@ -1974,7 +2027,9 @@ async function cardCommand(workspace, action) {
             evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} released to ${result.card.status}`);
+        return print(
+            has("--json") ? recordAnswer(result.card) : `${id} released to ${result.card.status}`
+        );
     }
     if (action === "transition") {
         const status = positional(5);
@@ -2004,7 +2059,7 @@ async function cardCommand(workspace, action) {
             evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} → ${result.card.status}`);
+        return print(has("--json") ? recordAnswer(result.card) : `${id} → ${result.card.status}`);
     }
     if (action === "archive") {
         const result = await archiveCard(workspace, id, {
@@ -2013,7 +2068,7 @@ async function cardCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} archived`);
+        return print(has("--json") ? recordAnswer(result.card) : `${id} archived`);
     }
     if (action === "reopen") {
         const result = await reopenCard(workspace, id, {
@@ -2024,7 +2079,7 @@ async function cardCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.card : `${id} reopened`);
+        return print(has("--json") ? recordAnswer(result.card) : `${id} reopened`);
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",
@@ -2060,7 +2115,7 @@ async function documentCommand(workspace, action) {
         if (!document) {
             throw new NotFoundError("DOC_NOT_FOUND", `Document not found: ${id}`);
         }
-        return print(projectShown(document));
+        return print(has("--json") ? recordAnswer(document) : projectShown(document));
     }
     if (action === "create") {
         const fileInput = (await jsonInput()) || {};
@@ -2079,7 +2134,7 @@ async function documentCommand(workspace, action) {
         const result = await createManagedDocument(workspace, input);
         return print(
             has("--json")
-                ? result.document
+                ? recordAnswer(result.document)
                 : `${result.id} ${result.file}`
         );
     }
@@ -2102,7 +2157,7 @@ async function documentCommand(workspace, action) {
         });
         return print(
             has("--json")
-                ? result.document
+                ? recordAnswer(result.document)
                 : `${id} moved to ${result.document.path}`
         );
     }
@@ -2117,7 +2172,7 @@ async function documentCommand(workspace, action) {
         const result = await patchManagedDocument(workspace, id, changes, {
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.document : `${id} updated`);
+        return print(has("--json") ? recordAnswer(result.document) : `${id} updated`);
     }
     if (action === "write") {
         // The same door `card write` opens: a body from a file or stdin, never
@@ -2130,7 +2185,7 @@ async function documentCommand(workspace, action) {
             body,
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.document : `${id} body written`);
+        return print(has("--json") ? recordAnswer(result.document) : `${id} body written`);
     }
     if (action === "note") {
         const result = await appendManagedDocumentNote(workspace, id, {
@@ -2139,7 +2194,7 @@ async function documentCommand(workspace, action) {
             actor: option("--actor") || defaultActor(),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.document : `${id} noted`);
+        return print(has("--json") ? recordAnswer(result.document) : `${id} noted`);
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",
@@ -2202,7 +2257,7 @@ async function changelogCommand(workspace, action) {
                 `Changelog record not found: ${id}`
             );
         }
-        return print(projectShown(record));
+        return print(has("--json") ? recordAnswer(record) : projectShown(record));
     }
     if (action === "add" || action === "create") {
         const fileInput = (await jsonInput()) || {};
@@ -2227,7 +2282,7 @@ async function changelogCommand(workspace, action) {
         };
         const result = await createChangeFragment(workspace, input);
         return print(
-            has("--json") ? result.fragment : `${result.id} ${result.file}`
+            has("--json") ? recordAnswer(result.fragment) : `${result.id} ${result.file}`
         );
     }
     if (action === "patch") {
@@ -2247,7 +2302,7 @@ async function changelogCommand(workspace, action) {
         const result = await patchChangeFragment(workspace, id, changes, {
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.fragment : `${id} updated`);
+        return print(has("--json") ? recordAnswer(result.fragment) : `${id} updated`);
     }
     if (action === "preview") {
         const result = await previewRelease(workspace, {
@@ -2284,7 +2339,7 @@ async function changelogCommand(workspace, action) {
             );
             return print(
                 has("--json")
-                    ? amended.release
+                    ? recordAnswer(amended.release)
                     : `${amended.id} amended (${amended.release.version})`
             );
         }
@@ -2303,7 +2358,7 @@ async function changelogCommand(workspace, action) {
         });
         return print(
             has("--json")
-                ? result.release
+                ? recordAnswer(result.release)
                 : `${result.release.id} released ${result.version} (${result.fragments.length} fragments)`
         );
     }
@@ -2382,7 +2437,7 @@ async function memoryCommand(workspace, action) {
                 `Memory record not found: ${argument}`
             );
         }
-        return print(projectShown(record));
+        return print(has("--json") ? recordAnswer(record) : projectShown(record));
     }
     if (action === "add" || action === "create") {
         const collection = memoryCollection(argument);
@@ -2433,7 +2488,7 @@ async function memoryCommand(workspace, action) {
         };
         const result = await createMemoryRecord(workspace, collection, input);
         return print(
-            has("--json") ? result.record : `${result.id} ${result.file}`
+            has("--json") ? recordAnswer(result.record) : `${result.id} ${result.file}`
         );
     }
     if (action === "patch") {
@@ -2453,7 +2508,7 @@ async function memoryCommand(workspace, action) {
         const result = await patchMemoryRecord(workspace, argument, changes, {
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? result.record : `${argument} updated`);
+        return print(has("--json") ? recordAnswer(result.record) : `${argument} updated`);
     }
     if (action === "graduate") {
         requireId("memory", action, argument);
@@ -2462,7 +2517,9 @@ async function memoryCommand(workspace, action) {
             expectedRevision: option("--expected-revision") || undefined
         });
         return print(
-            has("--json") ? result.record : `${argument} graduated to ${targets?.join(", ")}`
+            has("--json")
+                ? recordAnswer(result.record)
+                : `${argument} graduated to ${targets?.join(", ")}`
         );
     }
     if (action === "supersede") {
@@ -2481,7 +2538,7 @@ async function memoryCommand(workspace, action) {
         );
         return print(
             has("--json")
-                ? result.record
+                ? recordAnswer(result.record)
                 : `${argument} superseded by ${replacementId}`
         );
     }

@@ -1,7 +1,7 @@
 ---
 id: T-0246
 title: Every --json answer has its own shape, and the caller guesses the key
-status: backlog
+status: review
 type: idea
 priority: medium
 area: core
@@ -11,6 +11,7 @@ related: [DOC-0006]
 raised: reported
 created: 2026-09-11
 updated: 2026-09-11
+scope: [packages/workfile/bin/workfile.ts, packages/workfile/docs/cli.md, packages/workfile/test/cli.test.ts, packages/workfile/test/documentation.test.ts]
 ---
 
 Measured on 0.10.0:
@@ -33,10 +34,16 @@ Not decided here: whether the CLI adopts the MCP envelope, what a compatibility 
 
 ## Acceptance criteria
 
-- [ ] `docs/cli.md` has a table of what every `--json` command returns, pinned by a test so it cannot drift.
-- [ ] A decision is recorded on whether the CLI converges on the MCP envelope and, if so, how existing callers are told.
-- [ ] `card transition --json` has a form that returns id, status and revision without the body, or the decision says why not.
+- [x] `docs/cli.md` has a table of what every `--json` command returns, pinned by a test so it cannot drift.
+- [x] The decision is recorded — the CLI converges on the MCP envelope in 0.13.0 (owner, 2026-09-11) — and callers are told three ways today: the table in `docs/cli.md`, a stderr line once per process on every record answer naming the version and the new shape, and `WORKFILE_JSON_ENVELOPE=1` to opt into the envelope now
+- [x] `card transition --json --fields id,status,revision` answers with those keys and no body, in either shape, and every other record answer takes `--fields` the same way
 
 ## Notes
 
 - 2026-09-11 17:32Z illodev@local#597ecdc9 — Decided by the owner on 2026-09-11: the CLI converges on the MCP envelope in 0.13.0 — every --json answer becomes { record } for one record and { records, total } for a list, the same shape project_* tools return — as a breaking change announced in the changelog and on stderr during 0.12.x. Criterion 3 rides the same change: transition/patch/release accept --fields id,status,revision so a caller gets the envelope without the body. Criterion 1 (the table in cli.md, pinned by a test) ships with it.
+- 2026-09-11 17:46Z illodev@local#597ecdc9 — Shipped in three parts. (1) docs/cli.md has a 'Machine-readable answers' section with the four-shape vocabulary and a table of every --json subcommand, pinned by the cli.test.ts case that parses the table, checks every named command against the dispatcher and runs all 24 record-answering commands in both shapes on a fresh workspace. (2) recordAnswer() in bin/workfile.ts: the legacy shape prints with one stderr line per process naming 0.13.0 and the new shape; WORKFILE_JSON_ENVELOPE=1 opts into { record, …extras } today; claim and the listings do not change and say nothing. (3) --fields applies to every record answer through the same projection show got in T-0247, so transition --json --fields id,status,revision is the body-less form. The flip itself is T-0250, bound to 0.13.0, because a 0.12.x cannot ship a breaking default.
+
+## Activity
+
+- 2026-09-11 17:39Z illodev@local#597ecdc9 · claimed
+- 2026-09-11 17:46Z illodev@local#597ecdc9 · released
