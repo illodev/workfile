@@ -1,7 +1,7 @@
 ---
 id: T-0241
 title: The protocol does not say the four things a drain measured agents getting wrong
-status: review
+status: done
 type: task
 priority: high
 area: core
@@ -10,6 +10,11 @@ raised: reported
 created: 2026-09-04
 updated: 2026-09-11
 scope: [packages/workfile/src/modules/agents/agents.ts, packages/workfile/test/agents.test.ts, .project/agents]
+verified:
+  at: "2026-09-11T15:55:44.572Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:52bef42d9ba9e141314d2d0dc8caca014e112dd2f5ca6a70e2e17af2d21205de"
 ---
 
 T-0237 put the two exits into the shipped protocol, and a nine-hour drain of a consuming board on 2026-09-03 then ran eight agents against it. What they got wrong was not what the protocol says. It was four things it does not say, and one it says too absolutely.
@@ -53,6 +58,7 @@ A card closed **6 of 6** while the client it fed did not compile. All six criter
 
 - 2026-09-04 08:24Z illodev@local#2a219b74 · claimed
 - 2026-09-04 08:26Z illodev@local#2a219b74 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
@@ -60,6 +66,7 @@ A card closed **6 of 6** while the client it fed did not compile. All six criter
 
 Ese número es el coste real: el protocolo se carga entero en cada sesión de cada consumidor, así que cinco reglas por tres líneas sólo se justifica si cada una evita un fallo medido. Las cinco lo son, y la medición va **dentro de la regla**, no en la ficha — que es lo que hace que alguien que la lea dentro de seis meses sepa por qué está ahí.
 - 2026-09-11 15:40Z illodev@local#597ecdc9 — 2026-09-11: doctor reported .project/agents/protocol.md stale (body) — the generator carried this card's four additions and the repository's own copy had not been re-synced after 5fb85af/90c0a50. Ran agents sync (protocol.md updated, 6 insertions) and claude install so the skill embeds the same text. No text changed; only the repository caught up with its generator.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm: agents sync in a fresh consumer writes a protocol.md carrying 'The scope is not a fence', 'A missing decision is a question, not a card', the raised: derived + source rule, 'needs a criterion on each side' and 'the measurement is the evidence'. This repository's own copy was re-synced the same day after doctor reported it stale.
 
 ## Dónde cayó cada una
 

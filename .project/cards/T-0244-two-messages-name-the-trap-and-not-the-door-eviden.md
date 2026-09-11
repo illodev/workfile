@@ -1,7 +1,7 @@
 ---
 id: T-0244
 title: "Two messages name the trap and not the door: --evidence and --actor"
-status: review
+status: done
 type: bug
 priority: low
 area: core
@@ -12,6 +12,11 @@ related: [DOC-0006]
 raised: reported
 created: 2026-09-11
 updated: 2026-09-11
+verified:
+  at: "2026-09-11T15:55:43.498Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:fecbe3e24a4a823eeec1ef34068e69d99ceb42da222f5ea9d176f9e889be9df2"
 ---
 
 Two messages on the paths [[DOC-0006]] walked stop the caller and do not say where to go next.
@@ -32,7 +37,9 @@ Whether `review` should accept `--evidence` and file it as a note is a design de
 
 - 2026-09-11 15:25Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 15:27Z illodev@local#597ecdc9 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 15:27Z illodev@local#597ecdc9 — Fixed: CARD_VERIFICATION_NOT_APPLICABLE names 'card note ID --text' and project_card_note as where evidence on a non-closing move goes; warnActorMismatch opens with 'Omit --actor to claim as this session' before the cost. Pinned in verification.test.ts (message) and cli.test.ts (warning order, and silence without the flag). Local evidence: both observed on the built binary against a scratch workspace. Whether review should accept --evidence as a note is left to the owner on DOC-0006. Missing: the published package in a consumer.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm: transition ID review --evidence is refused naming 'card note ID --text'; card claim ID --actor probe-bot warns 'Omit --actor to claim as this session' before the cost.

@@ -1,7 +1,7 @@
 ---
 id: T-0240
 title: The CLI reports how the process ended where the card reports what it proved
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -10,8 +10,13 @@ tags: [verify, cli, polarity]
 origin: [T-0239]
 raised: derived
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-09-11
 scope: [packages/workfile/bin/workfile.ts, packages/workfile/src/modules/cards/changed.ts, packages/workfile/test]
+verified:
+  at: "2026-09-11T15:55:44.156Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:3bbaf6e50fa3e354ceaf82885aa30d213e08be0e803e7c4a8b8dbb66e1828497"
 ---
 
 T-0239 gave a verify entry `expect: absent`, and decided the polarity in one place so that what gets ticked and what the trail says both read it instead of re-deriving it from the exit code. **The trail obeys. The console does not.**
@@ -68,6 +73,7 @@ T-0239's six criteria **shipped in 0.10.0** and were verified there. A card has 
 
 - 2026-09-04 00:10Z illodev@local#2a219b74 · claimed
 - 2026-09-04 00:14Z illodev@local#2a219b74 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
@@ -81,6 +87,7 @@ ahora  T-0002 — 2 of 2 entries proved
 ```
 
 El «antes» no es una reconstrucción: es la salida de `@illodev/workfile@0.10.0` instalada desde npm en un consumidor limpio, que es donde apareció el defecto.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm, cards.verification.commands [[grep]], two criteria bound to grep with the second expect: absent: card verify prints '2 of 2 entries proved', both lines PASSED, the absent one '(found nothing, as expected) — checked #2'; no FAILED on a satisfied entry. Same recipe that produced the 0.10.0 defect on the card.
 
 ## Los tres sitios
 

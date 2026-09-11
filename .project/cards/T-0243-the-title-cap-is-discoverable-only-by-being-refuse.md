@@ -1,7 +1,7 @@
 ---
 id: T-0243
 title: The title cap is discoverable only by being refused
-status: review
+status: done
 type: bug
 priority: medium
 area: core
@@ -12,6 +12,11 @@ related: [DOC-0006]
 raised: reported
 created: 2026-09-11
 updated: 2026-09-11
+verified:
+  at: "2026-09-11T15:55:43.277Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:3bedd55a766f516ad27bee04610538d77ba073d58734d24e673da8ca73ca02f2"
 ---
 
 `CARD_TITLE_TOO_LONG` refuses a card title past 80 characters and `DOC_TITLE_TOO_LONG` a document title past 120. Neither number is anywhere a caller looks before writing: not in `--help`, not in `docs/cli.md`, not in `workfile schema --json` — the command the protocol sends agents to for valid values without guessing. The MCP `project_card_create` input schema carries `maxLength: 80` and is the only surface that does.
@@ -31,7 +36,9 @@ Truncating with a warning was suggested. It is not taken: a title is the line th
 
 - 2026-09-11 15:22Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 15:25Z illodev@local#597ecdc9 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 15:25Z illodev@local#597ecdc9 — Fixed: CARD_TITLE_MAX_LENGTH (80) and DOC_TITLE_MAX_LENGTH (120) live in config/defaults.ts and are read by the validators, the doctor's long-title rule, effectiveSchema (cards.limits.title, docs.limits.title), the MCP card/doc create input schemas and the --title usage lines. Local evidence: cli.test.ts 'the title cap is stated before it is met' passes on the built binary; on a scratch workspace schema --json reports both limits and an 81-character title answers 'title has 81 characters; the maximum is 80'. Missing: the published package in a consumer.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm: schema --json reports cards.limits.title 80 and docs.limits.title 120; card --help states 'TITLE up to 80 characters'; an 81-character title is refused with 'title has 81 characters; the maximum is 80'.

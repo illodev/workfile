@@ -1,7 +1,7 @@
 ---
 id: T-0245
 title: "A document body can only be replaced whole: no doc write, no doc note"
-status: review
+status: done
 type: feature
 priority: medium
 area: core
@@ -12,6 +12,11 @@ related: [DOC-0006]
 raised: reported
 created: 2026-09-11
 updated: 2026-09-11
+verified:
+  at: "2026-09-11T15:55:43.744Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:e98ddc8945ddba0b9693794ad5a850d629258ace484acc34d946e9d71ec9a0fa"
 ---
 
 Cards have `card write --body-file` and `card note`; documents have `doc patch` only, on the CLI and on the MCP. `doc patch` takes `body` as one field among the frontmatter fields, so the only way to change a paragraph is to send the whole body back.
@@ -32,7 +37,9 @@ Documents have no protocol sections, so `doc write` is the simpler of the two: r
 
 - 2026-09-11 15:31Z illodev@local#597ecdc9 · claimed
 - 2026-09-11 15:38Z illodev@local#597ecdc9 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-11 15:38Z illodev@local#597ecdc9 — Implemented: writeManagedDocumentBody and appendManagedDocumentNote in docs.ts (the note derives its body under the same lock via a transformBody option on patchManagedDocument); CLI doc write [--body-file|stdin] and doc note --text [--section] [--actor]; MCP project_doc_write and project_doc_note; the hook's RECORD_TOOLS names them for docs; docs/cli.md and docs/mcp.md updated. Local evidence: docs.test.ts, cli.test.ts and mcp.test.ts pass on the built binary; on a scratch workspace doc write from a file and from stdin replaced the body and kept the frontmatter, doc note created ## Notes and ## History with timestamped attributed lines, and mcp inspect lists both tools. Not done: HTTP routes for the two, which cards do not have either. Missing: the published package in a consumer.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm: doc write --body-file and doc write from stdin replaced the body and kept the frontmatter; doc note wrote timestamped attributed lines under ## Notes and under --section History; mcp inspect lists project_doc_write and project_doc_note.

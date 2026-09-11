@@ -1,15 +1,20 @@
 ---
 id: T-0228
 title: A multi-line scope leaves the guard blind and silent
-status: review
+status: done
 type: bug
 priority: medium
 area: core
 raised: derived
 origin: [T-0225]
 created: 2026-09-02
-updated: 2026-09-04
+updated: 2026-09-11
 scope: [packages/workfile/src/runtime/claude, packages/workfile/test]
+verified:
+  at: "2026-09-11T15:55:44.365Z"
+  method: manual
+  commit: c25eaef13be31118d86459bc6cad1ba990ddeb30
+  digest: "sha256:25101a0424c34d7e2eef1815f5fdd32fcd2fcf2abbfa3efd7d6bcf816da459de"
 ---
 
 `frontmatterOf` in the Claude hook runtime splits frontmatter line by line with
@@ -78,12 +83,14 @@ be pinned too, or the drift just recurs.
 
 - 2026-09-04 00:19Z illodev@local#2a219b74 · claimed
 - 2026-09-04 00:23Z illodev@local#2a219b74 · doing → review
+- 2026-09-11 15:55Z illodev@local#597ecdc9 · review → done
 
 ## Notes
 
 - 2026-09-04 00:23Z illodev@local#2a219b74 — 2026-09-04 — **Arreglado en el parser, no con un aviso del doctor.**
 
 La ficha proponía como alternativa barata un hallazgo del `doctor` para cualquier `scope:` que no estuviera en una línea. No hacía falta: enseñarle las formas al parser es del mismo tamaño y **elimina** el problema en vez de hacerlo visible.
+- 2026-09-11 15:55Z illodev@local#597ecdc9 — manual verification: @illodev/workfile@0.11.0 from npm: a claim's scope rewritten as a block sequence (scope:\n - src/api\n - src/billing), session-start rebuilt the board, and pre-tool-use on src/billing/invoice.ts from another session answered permissionDecision ask naming agent-other. The real hook runtime from node_modules, not the test double.
 
 ## Las cuatro formas, medidas una a una
 
