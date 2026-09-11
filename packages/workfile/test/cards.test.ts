@@ -288,3 +288,165 @@ test("doctor reports a checklist no acceptance heading claimed", async () => {
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("doctor names an open parent whose whole subtree has come to rest", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-parents-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const { appendCardNote } = await import("../dist/src/index.js");
+        const under = (parent, title, status = "backlog") =>
+            createCard(workspace, { title, area: "api", parent, status });
+
+        // The finding. One child done, one discarded whose own note says the
+        // work went to a card that is still open: the count says "finished",
+        // the note says "moved", and the finding has to carry the second.
+        const stalled = await createCard(workspace, {
+            title: "Stalled epic",
+            area: "api",
+            type: "epic"
+        });
+        await under(stalled.id, "Shipped", "done");
+        const duplicate = await under(stalled.id, "Folded into another card");
+        const twin = await createCard(workspace, { title: "Where the work went", area: "api" });
+        await appendCardNote(workspace, duplicate.id, {
+            text: `Discarded as a duplicate of ${twin.id}.`,
+            now: new Date("2026-09-01T10:00:00Z")
+        });
+        await patchCard(workspace, duplicate.id, { status: "discarded" });
+        await appendCardNote(workspace, stalled.id, {
+            text: "Read it: waiting on the twin.",
+            now: new Date("2026-09-02T09:30:00Z")
+        });
+        // `updated` moves after the note, and must not be what the finding reads.
+        await patchCard(workspace, stalled.id, { priority: "high" });
+
+        // The near miss. Every direct child is at rest and a grandchild is
+        // open; a one-level rule would report this parent, and it must not.
+        const deeper = await createCard(workspace, {
+            title: "Grandchild still open",
+            area: "api",
+            type: "epic"
+        });
+        const middle = await under(deeper.id, "Middle, done", "done");
+        await under(middle.id, "Still open below");
+
+        // A parent that has itself come to rest: `review` is a judgement
+        // already made, so there is nothing to put in front of anybody.
+        const judged = await createCard(workspace, {
+            title: "Already in review",
+            area: "api",
+            type: "epic"
+        });
+        await under(judged.id, "Done child", "done");
+        await patchCard(workspace, judged.id, { status: "review" });
+
+        // Not delivered is not the same as not at rest: `review` and
+        // `deferred` children keep the parent from ever moving, and the
+        // finding says how many of them actually delivered.
+        const parked = await createCard(workspace, {
+            title: "Parked, not epic",
+            area: "api",
+            type: "feature"
+        });
+        await under(parked.id, "In review", "review");
+        await under(parked.id, "Deferred", "deferred");
+
+        const loaded = await loadCards(workspace);
+        const report = await diagnoseCards({ ...loaded, workspace, checkPaths: false });
+        const found = report.issues.filter(
+            (entry: any) => entry.code === "parent-all-children-closed"
+        );
+        assert.deepEqual(
+            found.map((entry: any) => entry.id).sort(),
+            [stalled.id, parked.id].sort(),
+            "the stalled epic and the parked feature, and neither the near miss nor the judged one"
+        );
+        assert.ok(found.every((entry: any) => entry.severity === "warning"));
+        assert.equal(report.counts.error, 0);
+
+        const first = found.find((entry: any) => entry.id === stalled.id);
+        assert.ok(first, "the stalled epic was not reported");
+        assert.match(first.message, /2 descendants and none open/);
+        assert.match(first.message, /1 of 2 delivered/);
+        assert.match(
+            first.message,
+            new RegExp(`${duplicate.id} was discarded as a duplicate of ${twin.id}, still open`)
+        );
+        assert.match(first.message, /Last note 2026-09-02 09:30Z/);
+        assert.match(first.message, /`doctor --fix` will not/);
+        assert.ok(first.details, "the finding carries no details");
+        assert.deepEqual(first.details.moved, [{ child: duplicate.id, twins: [twin.id] }]);
+        assert.equal(first.details.delivered, 1);
+        assert.equal(first.details.lastNote, "2026-09-02 09:30Z");
+
+        const second = found.find((entry: any) => entry.id === parked.id);
+        assert.ok(second, "the parked feature was not reported");
+        assert.match(second.message, /^Open feature with 2 descendants/);
+        assert.match(second.message, /1 of 2 delivered/);
+        assert.match(second.message, /No note has ever judged it/);
+        assert.ok(second.details, "the finding carries no details");
+        assert.deepEqual(second.details.statuses, { review: 1, deferred: 1 });
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("doctor names two open cards whose titles claim the same job", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-titles-"));
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const titled = (title, extra = {}) => createCard(workspace, { title, area: "api", ...extra });
+
+        // The pair the rule was measured on: accents, quotes and articles
+        // differ, the content words do not. Reported once, on the later card.
+        const earlier = await titled("Añadir acción de domiciliar en el menú de la factura");
+        const later = await titled("Anadir accion 'Domiciliar factura' al menu de la factura");
+
+        // One extra word on one side is still the same claim.
+        const short = await titled("Convertir una factura emitida en plantilla recurrente");
+        const long = await titled("Convertir una factura emitida en plantilla recurrente con un clic");
+
+        // Three of five words shared is a different job, and stays silent.
+        await titled("Preseleccionar IGIC según el domicilio fiscal");
+        await titled("Preseleccionar la moneda según el domicilio del cliente");
+
+        // A closed twin is a reopen, not a duplicate, and is out on both sides.
+        const finished = await titled("Exportar el libro de facturas a CSV", { status: "done" });
+        await titled("Exportar el libro de facturas a CSV");
+
+        const loaded = await loadCards(workspace);
+        const report = await diagnoseCards({ ...loaded, workspace, checkPaths: false });
+        const found = report.issues.filter((entry: any) => entry.code === "duplicate-title");
+        assert.deepEqual(
+            found.map((entry: any) => [entry.id, entry.details.other]).sort(),
+            [
+                [later.id, earlier.id],
+                [long.id, short.id]
+            ].sort(),
+            "exactly the two pairs, each once, on the later card"
+        );
+        assert.ok(found.every((entry: any) => entry.severity === "warning"));
+        assert.ok(
+            found.every((entry: any) => entry.id !== finished.id && entry.details.other !== finished.id),
+            "a done card must not appear on either side"
+        );
+        assert.equal(report.counts.error, 0);
+
+        const accents = found.find((entry: any) => entry.id === later.id);
+        assert.ok(accents, "the accent-stripped pair was not reported");
+        assert.match(accents.message, /the same words/);
+        assert.match(accents.message, /Añadir acción de domiciliar en el menú de la factura/);
+        assert.ok(accents.details, "the finding carries no details");
+        assert.equal(accents.details.overlap, 1);
+
+        const extra = found.find((entry: any) => entry.id === long.id);
+        assert.ok(extra, "the one-extra-word pair was not reported");
+        assert.match(extra.message, /5 words shared/);
+        assert.ok(extra.details, "the finding carries no details");
+        assert.equal(extra.details.overlap, 0.83);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

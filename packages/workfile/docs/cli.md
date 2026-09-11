@@ -144,6 +144,27 @@ card's title, and protocol trail entries written outside `## Activity`. It never
 invents content, and it never hides what it did not do — a collision it cannot
 heal is printed as `cannot fix:` with the reason, and the run still fails on it.
 
+One finding `--fix` will never touch is `parent-all-children-closed`: an open card
+whose every descendant has come to rest — `done`, `review`, `discarded`, `deferred`
+or archived, the whole subtree and not one level. Closing the last child does not
+move the parent and the parent never looks at itself, so such a card sits on the
+board until somebody's context pays for it. The warning says how many descendants
+delivered, which `discarded` children name a still-open twin (work that moved,
+not work that got done), and the date of the parent's last note rather than
+`updated`. It stops there: measured on the board it was written for, a parent
+with 68 children `done` and a parent with one child `discarded` and three pieces
+of work never carded look identical from the count, and only the first should
+close.
+
+`duplicate-title` is the other finding about two cards rather than one: two open
+cards whose titles carry the same content words — lower-cased, accents and
+punctuation stripped, articles and prepositions dropped — with at most one word
+extra on one side. Reported once, on the card filed later, naming the earlier one.
+The distance is the one measured before the rule shipped: on a 1 510-open-card
+board, exact titles found nothing and this found five pairs, all of them real.
+Closed cards are out on both sides, because a new card repeating a finished one's
+title is a reopen, and that is a different question.
+
 That file is committed on purpose. A baseline under the cache would be
 per-clone and missing in CI, which is the one place a "nothing new" verdict has
 to hold, and keeping it in the tree puts newly accepted debt in the diff where a

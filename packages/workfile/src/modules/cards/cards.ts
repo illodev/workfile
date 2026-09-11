@@ -15,6 +15,7 @@ import {
     unreadableCriteria,
     verifyEntries
 } from "./acceptance.js";
+import { byCodeUnit } from "../health/duplicates.js";
 import { misplacedTrailEntries } from "./body.js";
 import { claimState, readAgentSessions } from "./claims.js";
 import { headCommit, isAncestorOfHead, isShallowRepository } from "./git.js";
@@ -84,7 +85,7 @@ function closed(card) {
 }
 
 export function cardIdPattern(prefix = "T") {
-    return new RegExp(`^${prefix.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}-\\d{4,}$`);
+    return new RegExp(`^${escapeRegExp(prefix)}-\\d{4,}$`);
 }
 
 export function parseCard(fileName, content, archived = false): any {
@@ -243,6 +244,123 @@ function hierarchyDepth(card, byId) {
         if (!current) break;
     }
     return { depth, cycle: false };
+}
+
+/**
+ * Statuses at which a card will not move again on its own. Wider than
+ * `CLOSED_STATUSES` on purpose, and only for the rule below: to the card
+ * *above* it, a child in `review` or `deferred` is as final as one `done` —
+ * none of the three will ever trigger anything on the parent. What they are
+ * not is delivered, and the finding says that separately. Measured on a
+ * 2 228-card board: with `CLOSED_STATUSES` instead, a parent with 3 `done`
+ * and 6 `review` descendants would not have been found.
+ */
+const RESTING_STATUSES = new Set(["done", "review", "discarded", "deferred"]);
+
+/** Work that exists. `discarded` and `deferred` are not it. */
+const DELIVERED_STATUSES = new Set(["done", "review"]);
+
+/** How a child's note says its work went somewhere else. */
+const DEDUP_HINT = /duplica|dedup|supersed/i;
+
+/**
+ * One `## Notes` entry: `- YYYY-MM-DD HH:MMZ actor — text`. The actor is
+ * optional because `appendCardNote` omits it when none was resolved, and a
+ * note without one is still a judgement somebody wrote.
+ */
+const NOTE_ENTRY = /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z)(?: \S+)? — /;
+
+function resting(card) {
+    return card.archived || RESTING_STATUSES.has(card.status);
+}
+
+function escapeRegExp(text: string) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Every card below `id`, at any depth. `seen` is the belt against `parent-cycle`. */
+function descendantsOf(id, children, seen = new Set()) {
+    const found: any[] = [];
+    for (const child of children.get(id) ?? []) {
+        if (seen.has(child.id)) continue;
+        seen.add(child.id);
+        found.push(child, ...descendantsOf(child.id, children, seen));
+    }
+    return found;
+}
+
+/**
+ * When somebody last wrote a judgement on the card. `updated` is not that:
+ * `patchFrontmatter` stamps it on every write, so a machine touching a child
+ * moves it. The last entry under `## Notes` is the exact signal.
+ *
+ * Read from the *last* `## Notes` heading to the end, because a note can carry
+ * `##` headings of its own; cut at `## Activity`, whose entries are stamped
+ * the same way and are transitions, not judgements.
+ */
+function lastNoteStamp(body: string) {
+    const lines = body.split("\n");
+    const heading = lines.lastIndexOf("## Notes");
+    if (heading === -1) return null;
+    let stamp: string | null = null;
+    for (const line of lines.slice(heading + 1)) {
+        if (line === "## Activity") break;
+        const match = line.match(NOTE_ENTRY);
+        if (match) stamp = match[1];
+    }
+    return stamp;
+}
+
+/**
+ * The cards a discarded child's own note names as where its work went.
+ * Excludes the child (a note cites itself) and its parent (context, not a
+ * destination).
+ */
+function twinsNamedBy(child, idRe: RegExp) {
+    const ids = new Set<string>();
+    for (const line of (child.body || "").split("\n")) {
+        if (!DEDUP_HINT.test(line)) continue;
+        for (const [id] of line.matchAll(idRe)) {
+            if (id !== child.id && id !== child.parent) ids.add(id);
+        }
+    }
+    return [...ids];
+}
+
+/**
+ * Words a title can drop without changing what it claims. Spanish and English,
+ * because those are the two languages the boards this was measured on are
+ * written in; a word in neither list is content.
+ */
+const TITLE_STOPWORDS = new Set([
+    "a", "al", "como", "con", "de", "del", "el", "en", "es", "la", "las", "lo",
+    "los", "o", "para", "por", "que", "se", "sin", "su", "un", "una", "y",
+    "an", "and", "as", "at", "be", "by", "for", "from", "in", "is", "it", "its",
+    "no", "not", "of", "on", "or", "that", "the", "this", "to", "with"
+]);
+
+/**
+ * The content words of a title: lower-cased, accents stripped, punctuation
+ * gone, stopwords dropped. "Añadir acción de domiciliar en el menú de la
+ * factura" and "Anadir accion 'Domiciliar factura' al menu de la factura" —
+ * a real pair, filed a day apart under two parents — reduce to the same set.
+ */
+function titleTokens(title: string): Set<string> {
+    const flat = title
+        .normalize("NFKD")
+        .replace(/\p{M}+/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+    return new Set(flat.split(" ").filter((word) => word && !TITLE_STOPWORDS.has(word)));
+}
+
+/** Filed later, by `created` and then by ID in code-unit order. */
+function filedAfter(card, other) {
+    const left = String(card.created || "");
+    const right = String(other.created || "");
+    if (left !== right) return left > right;
+    return byCodeUnit(String(card.id), String(other.id)) > 0;
 }
 
 async function pathExists(repoRoot, repoPath) {
@@ -825,6 +943,167 @@ export async function diagnoseCards({
                     "missing-source",
                     card,
                     `Source does not exist or is outside the repo: ${card.source}`
+                )
+            );
+        }
+    }
+    // A parent whose every descendant has come to rest, and that nobody will
+    // ever move: closing the last child does not touch the card above it, and
+    // the card above it never looks at itself. Every other hierarchy rule here
+    // reads from the child upwards; this is the one that reads down.
+    //
+    // A warning that `--fix` must never act on. Two opposite situations look
+    // identical from the count, measured on the board this was written for:
+    // one parent had 68 children `done` and was finished; another had one
+    // child `discarded` and a body naming four pieces of work of which only
+    // that one was ever carded — not finished, undecomposed. Transitioning is
+    // a decision, and the finding exists to put it in front of somebody.
+    //
+    // Three choices decide what it catches, all measured on the same board.
+    // The whole subtree, not one level: six `done` cards there had thirteen
+    // open children below them, so a one-level rule reports the cleanest-
+    // looking parent exactly while a grandchild is still open. No filter on
+    // `type: epic`: 11 of that board's 52 parents were not epics. And
+    // `discarded` is not delivered: 187 of its 233 discarded cards carried a
+    // duplicate note, and 125 of the twins they named were still open — the
+    // work moved to another parent, it did not get done, and the finding
+    // says which child and where.
+    const children = new Map<string, any[]>();
+    for (const card of byId.values()) {
+        if (!card.parent) continue;
+        if (!children.has(card.parent)) children.set(card.parent, []);
+        children.get(card.parent)!.push(card);
+    }
+    const idsIn = new RegExp(
+        `${escapeRegExp(workspace.config.cards.idPrefix)}-\\d{4,}`,
+        "g"
+    );
+    for (const [parentId, direct] of children) {
+        const parent = byId.get(parentId);
+        if (!parent || resting(parent)) continue;
+        const tree = descendantsOf(parentId, children);
+        if (tree.length === 0 || tree.some((card) => !resting(card))) continue;
+
+        const statuses: Record<string, number> = {};
+        for (const card of tree) {
+            const key = card.archived ? `${card.status} (archived)` : card.status;
+            statuses[key] = (statuses[key] ?? 0) + 1;
+        }
+        const moved: Array<{ child: string; twins: string[] }> = [];
+        let delivered = 0;
+        for (const card of tree) {
+            if (DELIVERED_STATUSES.has(card.status)) {
+                delivered += 1;
+                continue;
+            }
+            if (card.status !== "discarded") continue;
+            const twins = twinsNamedBy(card, idsIn)
+                .map((id) => byId.get(id))
+                .filter(Boolean);
+            const open = twins.filter((twin) => !resting(twin)).map((twin) => twin.id);
+            if (open.length) moved.push({ child: card.id, twins: open });
+            else if (twins.some((twin) => twin.status === "done")) delivered += 1;
+        }
+        const lastNote = lastNoteStamp(parent.body || "");
+        const spread = Object.entries(statuses)
+            .sort((left, right) => right[1] - left[1])
+            .map(([status, count]) => `${count} ${status}`)
+            .join(", ");
+        const parts = [
+            `Open ${parent.type} with ${tree.length} ` +
+                `${tree.length === 1 ? "descendant" : "descendants"} and none open ` +
+                `(${spread}); ${delivered} of ${tree.length} delivered.`
+        ];
+        if (delivered === 0) {
+            parts.push(
+                "Nothing reached `done` or `review`: this parent may be finished " +
+                    "or may never have been decomposed, and the count cannot tell."
+            );
+        }
+        for (const entry of moved) {
+            parts.push(
+                `${entry.child} was discarded as a duplicate of ${entry.twins.join(", ")}, ` +
+                    `still open — that work moved, it did not get done.`
+            );
+        }
+        parts.push(lastNote ? `Last note ${lastNote}.` : "No note has ever judged it.");
+        parts.push(
+            "Closing the last child does not move the parent; decide whether it is " +
+                "done, still undecomposed, or waiting — `doctor --fix` will not."
+        );
+        issues.push(
+            issue("warning", "parent-all-children-closed", parent, parts.join(" "), {
+                descendants: tree.length,
+                direct: direct.length,
+                statuses,
+                delivered,
+                moved,
+                lastNote
+            })
+        );
+    }
+    // Two open cards that claim the same job. `duplicate-id` sees two files
+    // with one ID; nothing saw two IDs with one title, and this repository
+    // carried a 202-byte frontmatter-only stub with T-0231's exact title —
+    // an aborted `card create`, linked from nowhere — that only reading found.
+    //
+    // Measured before adopting, because a rule built on one anecdote is a rule
+    // nobody trusts. On a 2 550-card board with 1 510 open (2026-09-11):
+    // exact normalised titles found **0** pairs, so the matcher this
+    // repository's own case suggested would have been silent on the largest
+    // board available. The same content words with at most one extra — a
+    // token-set overlap of 0.8 — found **5**, and every one was a real
+    // duplicate: the same feature filed a day apart under two parents, once
+    // with accents and once without. That is the rule, at the false-positive
+    // rate it was adopted at (0 of 5), and nothing looser was measured.
+    //
+    // Reported once, on the card filed later, naming the earlier one; a
+    // warning because which of the two survives is a judgement. Closed cards
+    // are out on both sides: a new card that repeats a finished one's title
+    // is a reopen, which is a different question.
+    const openTitled = [...byId.values()].filter((card) => !closed(card) && card.title);
+    const tokensOf = new Map<string, Set<string>>(
+        openTitled.map((card) => [card.id, titleTokens(card.title)])
+    );
+    const postings = new Map<string, any[]>();
+    for (const card of openTitled) {
+        for (const token of tokensOf.get(card.id)!) {
+            if (!postings.has(token)) postings.set(token, []);
+            postings.get(token)!.push(card);
+        }
+    }
+    for (const card of openTitled) {
+        const mine = tokensOf.get(card.id)!;
+        if (mine.size < 2) continue;
+        const shared = new Map<any, number>();
+        for (const token of mine) {
+            for (const other of postings.get(token) ?? []) {
+                if (other.id === card.id) continue;
+                shared.set(other, (shared.get(other) ?? 0) + 1);
+            }
+        }
+        for (const [other, count] of shared) {
+            if (!filedAfter(card, other)) continue;
+            const theirs = tokensOf.get(other.id)!;
+            if (theirs.size < 2) continue;
+            const overlap = count / (mine.size + theirs.size - count);
+            if (overlap < 0.8) continue;
+            const sameWords = count === mine.size && count === theirs.size;
+            issues.push(
+                issue(
+                    "warning",
+                    "duplicate-title",
+                    card,
+                    `Title says what ${other.id} says — “${other.title}” — ` +
+                        `${sameWords ? "the same words" : `${count} words shared`}. ` +
+                        `Two open cards for one job, or one is a stub of the other: ` +
+                        `merge or discard one, or write in a note why both stand.`,
+                    {
+                        other: other.id,
+                        otherTitle: other.title,
+                        shared: count,
+                        overlap: Number(overlap.toFixed(2))
+                    }
                 )
             );
         }
