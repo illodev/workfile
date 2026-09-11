@@ -1946,7 +1946,7 @@ test("a retired command is removed when it carries the marker, and kept when it 
         );
         assert.ok(reported, "the retired file has to be reported while it is there");
         assert.equal(reported.status, "stale");
-        assert.match(reported.reason, /retired, renamed to \.claude\/commands\/card-context\.md/);
+        assert.match(String(reported.reason), /retired, renamed to \.claude\/commands\/card-context\.md/);
         assert.equal(reported.version, "0.10.0");
 
         const result = await syncClaudeSurface(workspace);

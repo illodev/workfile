@@ -575,7 +575,12 @@ export async function planClaudeSurface(workspace) {
     const protocolText = (await exists(protocolPath))
         ? stripManagedMarkers(await readFile(protocolPath, "utf8"))
         : "See .project/agents/protocol.md.";
-    const files = [];
+    const files: Array<{
+        id: string;
+        path: string;
+        label: string;
+        block: ReturnType<typeof renderManagedBlock>;
+    }> = [];
 
     for (const command of commandDefinitions(workspace.cli)) {
         const block = renderManagedBlock({
@@ -643,7 +648,7 @@ export async function planClaudeSurface(workspace) {
 export async function syncClaudeSurface(workspace, options: any = {}) {
     if (!options.dryRun) ensureWritable(workspace);
     const plan = await planClaudeSurface(workspace);
-    const results = [];
+    const results: Array<{ path: string; status: string; digest?: string }> = [];
 
     for (const file of plan.files) {
         results.push(
