@@ -363,14 +363,14 @@ test("--axis round-trips through create and patch, repeated once per axis", asyn
                     "layer=api"
                 ])
             ).stdout
-        );
+        ).record;
         assert.equal(created.context, "treasury");
         assert.equal(created.layer, "api");
 
         const patched = JSON.parse(
             (await run(["card", "patch", created.id, "--json", "--axis", "context=billing"]))
                 .stdout
-        );
+        ).record;
         assert.equal(patched.context, "billing");
         assert.equal(patched.layer, "api", "one axis must not clear another");
 
@@ -621,7 +621,7 @@ test("card list --axis filters, combines and refuses a repeated axis", async () 
                     "--axis", "context=treasury", "--axis", "layer=api"
                 ])
             ).stdout
-        );
+        ).record;
         const b = JSON.parse(
             (
                 await run([
@@ -629,7 +629,7 @@ test("card list --axis filters, combines and refuses a repeated axis", async () 
                     "--axis", "context=billing", "--axis", "layer=web"
                 ])
             ).stdout
-        );
+        ).record;
 
         assert.deepEqual(await ids(["card", "list", "--axis", "context=treasury"]), [a.id]);
         // A comma list is an OR within one axis, exactly like --status and

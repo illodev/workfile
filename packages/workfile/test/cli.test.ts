@@ -130,7 +130,7 @@ test("CLI lists, creates and searches managed documentation", async () => {
             "current",
             "--json"
         ]);
-        const created = JSON.parse(createResult.stdout);
+        const created = JSON.parse(createResult.stdout).record;
         assert.equal(created.id, "DOC-0001");
         assert.equal(created.documentKind, "runbook");
         assert.equal(created.path, ".project/docs/runbook/DOC-0001-operations-runbook.md");
@@ -152,7 +152,7 @@ test("CLI lists, creates and searches managed documentation", async () => {
                     "--json"
                 ])
             ).stdout
-        );
+        ).record;
         assert.equal(
             foldered.path,
             ".project/docs/adr/2026/DOC-0002-rate-limiting.md"
@@ -189,7 +189,7 @@ test("CLI lists, creates and searches managed documentation", async () => {
                     "--json"
                 ])
             ).stdout
-        );
+        ).record;
         assert.equal(moved.id, "DOC-0001");
         assert.equal(moved.path, ".project/docs/DOC-0001-operations-runbook.md");
 
@@ -216,7 +216,7 @@ test("CLI lists, creates and searches managed documentation", async () => {
             changes,
             "--json"
         ]);
-        assert.deepEqual(JSON.parse(patchResult.stdout).tags, ["operations"]);
+        assert.deepEqual(JSON.parse(patchResult.stdout).record.tags, ["operations"]);
 
         const searchResult = await run([
             "search",
@@ -253,7 +253,7 @@ test("CLI manages changelog releases and typed workfile memory", async () => {
             "T-0001",
             "--json"
         ]);
-        const change = JSON.parse(changeResult.stdout);
+        const change = JSON.parse(changeResult.stdout).record;
         assert.equal(change.id, "CHG-0001");
         assert.equal(change.released, false);
 
@@ -278,7 +278,7 @@ test("CLI manages changelog releases and typed workfile memory", async () => {
             "History and memory",
             "--json"
         ]);
-        const release = JSON.parse(releaseResult.stdout);
+        const release = JSON.parse(releaseResult.stdout).record;
         assert.equal(release.id, "REL-0001");
         assert.equal(release.version, "0.4.0");
 
@@ -303,7 +303,7 @@ test("CLI manages changelog releases and typed workfile memory", async () => {
             "active",
             "--json"
         ]);
-        const convention = JSON.parse(conventionResult.stdout);
+        const convention = JSON.parse(conventionResult.stdout).record;
         assert.equal(convention.id, "CONV-0001");
 
         const learningResult = await run([
@@ -320,7 +320,7 @@ test("CLI manages changelog releases and typed workfile memory", async () => {
             "high",
             "--json"
         ]);
-        const learning = JSON.parse(learningResult.stdout);
+        const learning = JSON.parse(learningResult.stdout).record;
         assert.equal(learning.id, "LRN-0001");
 
         const graduateResult = await run([
@@ -333,7 +333,7 @@ test("CLI manages changelog releases and typed workfile memory", async () => {
             convention.id,
             "--json"
         ]);
-        const graduated = JSON.parse(graduateResult.stdout);
+        const graduated = JSON.parse(graduateResult.stdout).record;
         assert.equal(graduated.status, "graduated");
         assert.deepEqual(graduated.graduated_to, [convention.id]);
 
@@ -510,7 +510,7 @@ test("CLI initializer and legacy migration support non-interactive automation", 
                     "--json"
                 ])
             ).stdout
-        );
+        ).record;
         assert.equal(card.title, "CLI migrated card");
     } finally {
         await rm(root, { recursive: true, force: true });
@@ -1173,7 +1173,7 @@ test("card create reaches every field the mutation accepts", async () => {
                     "--json"
                 ])
             ).stdout
-        );
+        ).record;
 
         assert.equal(created.title, "Fully specified card");
         assert.equal(created.status, "next");
@@ -1231,7 +1231,7 @@ test("card create teaches the --json-input form and honours it", async () => {
                     "--json"
                 ])
             ).stdout
-        );
+        ).record;
         assert.equal(created.parent, "T-0001");
         assert.equal(created.source, "docs/architecture.md");
         assert.deepEqual(created.tags, ["x", "y"]);
@@ -1582,7 +1582,7 @@ test("doctor reports a filename that outlived its title, and --fix renames it", 
         );
         const shown = JSON.parse(
             (await run(["card", "show", "T-0001", "--root", root, "--json"])).stdout
-        );
+        ).record;
         assert.equal(shown.file, "T-0001-something-else-entirely.md");
         assert.equal(shown.title, "Something else entirely");
     } finally {
@@ -2088,7 +2088,7 @@ test("card reopen carries an actor into doing, resolved or given", async () => {
     };
     const status = async () => {
         const shown = await outcome(["card", "show", "T-0001", "--json", "--root", workspace]);
-        return JSON.parse(shown.stdout);
+        return JSON.parse(shown.stdout).record;
     };
     try {
         await park();
@@ -2388,7 +2388,7 @@ test("a --flag=value spelling is read, not only admitted", async () => {
 
         const shown = JSON.parse(
             (await run(["doc", "show", id, "--json", "--root", root])).stdout
-        );
+        ).record;
         const fresh = await run([
             "doc",
             "patch",
@@ -2400,7 +2400,7 @@ test("a --flag=value spelling is read, not only admitted", async () => {
             "--root",
             root
         ]);
-        assert.match(JSON.parse(fresh.stdout).body, /rewritten/);
+        assert.match(JSON.parse(fresh.stdout).record.body, /rewritten/);
 
         // Lists and numbers read through the same walk.
         const listed = JSON.parse(
@@ -2509,13 +2509,13 @@ test("doc write and doc note reach a document the way card write and card note r
                     "doc", "create", "--title", "Edited in conversation", "--json", "--root", root
                 ])
             ).stdout
-        );
+        ).record;
         const bodyFile = join(root, "body.md");
         await writeFile(bodyFile, "# Draft\n\nFirst paragraph.\n");
         const written = await run([
             "doc", "write", created.id, "--body-file", bodyFile, "--json", "--root", root
         ]);
-        const afterWrite = JSON.parse(written.stdout);
+        const afterWrite = JSON.parse(written.stdout).record;
         assert.match(afterWrite.body, /First paragraph\./);
         assert.equal(afterWrite.title, "Edited in conversation");
 
@@ -2531,7 +2531,7 @@ test("doc write and doc note reach a document the way card write and card note r
             "doc", "note", created.id, "--text", "Reviewed with the owner.",
             "--actor", "alice@studio", "--json", "--root", root
         ]);
-        const afterNote = JSON.parse(noted.stdout);
+        const afterNote = JSON.parse(noted.stdout).record;
         assert.match(afterNote.body, /First paragraph\.\n\n## Notes\n\n- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z alice@studio — Reviewed with the owner\.$/);
 
         const sectioned = await run([
@@ -2541,7 +2541,7 @@ test("doc write and doc note reach a document the way card write and card note r
         assert.equal(sectioned.stdout.trim(), `${created.id} noted`);
         const shown = JSON.parse(
             (await run(["doc", "show", created.id, "--json", "--root", root])).stdout
-        );
+        ).record;
         assert.match(shown.body, /## History\n\n- .* — Moved to runbooks\./);
 
         const empty = await outcome(["doc", "note", created.id, "--root", root]);
@@ -2584,7 +2584,7 @@ test("show --fields cuts a record of any kind down to the keys named", async () 
         });
 
         const shown = async (args: string[]) =>
-            JSON.parse((await run([...args, "--json", "--fields", "id,revision,body", "--root", root])).stdout);
+            JSON.parse((await run([...args, "--json", "--fields", "id,revision,body", "--root", root])).stdout).record;
 
         for (const [label, args, id] of [
             ["card", ["card", "show", card.id], card.id],
@@ -2604,11 +2604,11 @@ test("show --fields cuts a record of any kind down to the keys named", async () 
             );
         }
 
-        // Without the flag, `card show` is what it always was: the record
-        // with its derived acceptance, body included.
+        // Without the flag, `card show` is the whole record inside the
+        // envelope: derived acceptance, body included.
         const whole = JSON.parse(
             (await run(["card", "show", card.id, "--json", "--root", root])).stdout
-        );
+        ).record;
         assert.equal(whole.id, card.id);
         assert.ok("body" in whole);
     } finally {
@@ -2618,11 +2618,16 @@ test("show --fields cuts a record of any kind down to the keys named", async () 
 
 /**
  * The table in cli.md is the contract for every `--json` answer, and this is
- * what pins it: every command the table marks **record** is run here in both
- * shapes, and the keys are checked against what the table says. A row nobody
- * exercises fails, and so does a command whose answer moved without its row.
+ * what pins it: every command the table marks `{ record }` is run here and the
+ * keys are checked against what the table says. A row nobody exercises fails,
+ * and so does a command whose answer moved without its row.
+ *
+ * 0.13.0 is the cut (T-0250): the record rows answer the envelope by default,
+ * the stderr note 0.12.x printed is gone, and `WORKFILE_JSON_ENVELOPE=1` — the
+ * 0.12.x opt-in — changes nothing, which is the "accepted and ignored" the
+ * release notes promise for 0.13.x.
  */
-test("cli.md's --json table names the shape every record command answers, in both modes", async () => {
+test("cli.md's --json table names the shape every record command answers", async () => {
     const text = await readFile(new URL("../docs/cli.md", import.meta.url), "utf8");
     const section = text.slice(text.indexOf("## Machine-readable answers"));
     const table = section.slice(0, section.indexOf("\n## ", 1));
@@ -2632,6 +2637,10 @@ test("cli.md's --json table names the shape every record command answers, in bot
         for (const [, command] of cells[1].matchAll(/`([^`]+)`/g)) shapes.set(command, cells[2]);
     }
     assert.ok(shapes.size > 30, `the table lost its rows (${shapes.size})`);
+    assert.ok(
+        ![...shapes.values()].some((shape) => shape === "record" || shape.startsWith("record,")),
+        "no row answers the bare record any more; the Today column is gone"
+    );
 
     // Every command the table names is one the dispatcher knows, read from the
     // same source the dispatcher reads.
@@ -2644,106 +2653,111 @@ test("cli.md's --json table names the shape every record command answers, in bot
             `the table names \`${command}\`, which the dispatcher does not know`
         );
     }
+    assert.doesNotMatch(
+        source,
+        /process\.env\.WORKFILE_JSON_ENVELOPE/,
+        "the opt-in variable is not read: accepted and ignored means exactly that"
+    );
 
-    const NOTE = /changes shape in 0\.13\.0/;
-    for (const envelope of [false, true]) {
-        const { root, workspace, cleanup } = await createTestWorkspace();
-        try {
-            const {
-                createCard,
-                patchCard,
-                archiveCard,
-                createManagedDocument,
-                createMemoryRecord,
-                createChangeFragment
-            } = await import("../dist/src/index.js");
-            const env = { ...process.env, ...(envelope ? { WORKFILE_JSON_ENVELOPE: "1" } : {}) };
-            delete (env as any).WORKFILE_JSON_ENVELOPE_UNSET;
-            if (!envelope) delete (env as any).WORKFILE_JSON_ENVELOPE;
-            const cli$ = async (...args: string[]) =>
-                execute(process.execPath, [cli, ...args, "--json", "--root", root], {
-                    encoding: "utf8",
-                    maxBuffer: 1024 * 1024,
-                    env
-                });
+    const { root, workspace, cleanup } = await createTestWorkspace();
+    try {
+        const {
+            createCard,
+            patchCard,
+            archiveCard,
+            createManagedDocument,
+            createMemoryRecord,
+            createChangeFragment
+        } = await import("../dist/src/index.js");
+        const env = { ...process.env };
+        delete (env as any).WORKFILE_JSON_ENVELOPE;
+        const cli$ = async (args: string[], extraEnv: Record<string, string> = {}) =>
+            execute(process.execPath, [cli, ...args, "--json", "--root", root], {
+                encoding: "utf8",
+                maxBuffer: 1024 * 1024,
+                env: { ...env, ...extraEnv }
+            });
 
-            const a = await createCard(workspace, { title: "Shape probe A", area: "api" });
-            const b = await createCard(workspace, { title: "Shape probe B", area: "api" });
-            const c = await createCard(workspace, { title: "Shape probe C", area: "api" });
-            await patchCard(workspace, c.id, { status: "discarded" });
-            const d = await createCard(workspace, { title: "Shape probe D", area: "api" });
-            await patchCard(workspace, d.id, { status: "discarded" });
-            await archiveCard(workspace, d.id);
-            const doc = await createManagedDocument(workspace, { title: "Shape probe doc", body: "Body." });
-            const target = await createManagedDocument(workspace, { title: "Graduation target", body: "Body." });
-            const l1 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L1", body: "L." });
-            const l2 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L2", body: "L." });
-            const l3 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L3", body: "L." });
-            const change = await createChangeFragment(workspace, { title: "Shape probe change", type: "added", area: "api" });
-            await writeFile(join(root, "p.json"), JSON.stringify({ priority: "high" }));
-            await writeFile(join(root, "t.json"), JSON.stringify({ title: "Retitled" }));
-            await writeFile(join(root, "body.md"), "Rewritten body.\n");
-            await cli$("card", "claim", b.id, "--actor", "tester");
+        const a = await createCard(workspace, { title: "Shape probe A", area: "api" });
+        const b = await createCard(workspace, { title: "Shape probe B", area: "api" });
+        const c = await createCard(workspace, { title: "Shape probe C", area: "api" });
+        await patchCard(workspace, c.id, { status: "discarded" });
+        const d = await createCard(workspace, { title: "Shape probe D", area: "api" });
+        await patchCard(workspace, d.id, { status: "discarded" });
+        await archiveCard(workspace, d.id);
+        const doc = await createManagedDocument(workspace, { title: "Shape probe doc", body: "Body." });
+        const target = await createManagedDocument(workspace, { title: "Graduation target", body: "Body." });
+        const l1 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L1", body: "L." });
+        const l2 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L2", body: "L." });
+        const l3 = await createMemoryRecord(workspace, "learnings", { title: "Shape probe L3", body: "L." });
+        const change = await createChangeFragment(workspace, { title: "Shape probe change", type: "added", area: "api" });
+        await writeFile(join(root, "p.json"), JSON.stringify({ priority: "high" }));
+        await writeFile(join(root, "t.json"), JSON.stringify({ title: "Retitled" }));
+        await writeFile(join(root, "body.md"), "Rewritten body.\n");
 
-            const runnable: Record<string, string[]> = {
-                "card show": ["card", "show", a.id],
-                "card create": ["card", "create", "--title", "Shape probe E", "--area", "api", "--raised", "derived"],
-                "card patch": ["card", "patch", a.id, "--json-input", join(root, "p.json")],
-                "card transition": ["card", "transition", a.id, "next"],
-                "card release": ["card", "release", b.id, "--actor", "tester", "--status", "next"],
-                "card archive": ["card", "archive", c.id],
-                "card reopen": ["card", "reopen", d.id],
-                "card note": ["card", "note", a.id, "--text", "A note."],
-                "card write": ["card", "write", a.id, "--body-file", join(root, "body.md")],
-                "doc show": ["doc", "show", doc.id],
-                "doc create": ["doc", "create", "--title", "Shape probe doc two", "--body", "Body."],
-                "doc patch": ["doc", "patch", doc.id, "--json-input", join(root, "t.json")],
-                "doc write": ["doc", "write", doc.id, "--body-file", join(root, "body.md")],
-                "doc note": ["doc", "note", doc.id, "--text", "A note."],
-                "doc move": ["doc", "move", doc.id, "--folder", "guides"],
-                "changelog show": ["changelog", "show", change.id],
-                "changelog add": ["changelog", "add", "--title", "Shape probe change two", "--type", "added", "--area", "api"],
-                "changelog patch": ["changelog", "patch", change.id, "--json-input", join(root, "t.json")],
-                "changelog release": ["changelog", "release", "0.0.1", "--title", "Shape probe release"],
-                "memory show": ["memory", "show", l1.id],
-                "memory add": ["memory", "add", "learnings", "--title", "Shape probe L4"],
-                "memory patch": ["memory", "patch", l1.id, "--json-input", join(root, "t.json")],
-                "memory graduate": ["memory", "graduate", l1.id, "--to", target.id],
-                "memory supersede": ["memory", "supersede", l2.id, "--by", l3.id]
-            };
-            for (const [command, shape] of shapes) {
-                if (shape !== "record" && !shape.startsWith("record,")) continue;
-                assert.ok(runnable[command], `the table marks \`${command}\` as record and nothing here runs it`);
-            }
-            for (const [command, args] of Object.entries(runnable)) {
-                const { stdout, stderr } = await cli$(...args);
-                const answer = JSON.parse(stdout);
-                if (envelope) {
-                    assert.equal(typeof answer.record?.id, "string", `${command}: envelope carries the record`);
-                    assert.doesNotMatch(stderr, NOTE, `${command}: no note once the caller opted in`);
-                } else {
-                    assert.equal(typeof answer.id, "string", `${command}: legacy answer is the record itself`);
-                    assert.ok(!("record" in answer), `${command}: legacy answer has no envelope`);
-                    assert.match(stderr, NOTE, `${command}: the legacy answer says what changes in 0.13.0`);
-                    assert.equal(stderr.match(/note: this --json answer/g)?.length, 1, `${command}: once per process`);
-                }
-            }
+        // `card claim` was already the envelope in 0.12.x and stays it.
+        const claimed = JSON.parse((await cli$(["card", "claim", b.id, "--actor", "tester"])).stdout);
+        assert.equal(claimed.record.id, b.id);
+        assert.ok(Array.isArray(claimed.warnings));
 
-            // `--fields` on a mutation: the answer without the body, either way.
-            const trimmed = JSON.parse(
-                (await cli$("card", "transition", a.id, "doing", "--fields", "id,status,revision")).stdout
-            );
-            const inner = envelope ? trimmed.record : trimmed;
-            assert.deepEqual(Object.keys(inner).sort(), ["id", "revision", "status"]);
-            assert.equal(inner.status, "doing");
-
-            // Listings and claim keep their shapes in both modes.
-            const list = JSON.parse((await cli$("card", "list")).stdout);
-            assert.deepEqual(Object.keys(list).sort(), ["offset", "records", "total", "truncated"]);
-            const docs = JSON.parse((await cli$("doc", "list")).stdout);
-            assert.deepEqual(Object.keys(docs).sort(), ["records", "total"]);
-        } finally {
-            await cleanup();
+        const runnable: Record<string, string[]> = {
+            "card show": ["card", "show", a.id],
+            "card create": ["card", "create", "--title", "Shape probe E", "--area", "api", "--raised", "derived"],
+            "card patch": ["card", "patch", a.id, "--json-input", join(root, "p.json")],
+            "card transition": ["card", "transition", a.id, "next"],
+            "card release": ["card", "release", b.id, "--actor", "tester", "--status", "next"],
+            "card archive": ["card", "archive", c.id],
+            "card reopen": ["card", "reopen", d.id],
+            "card note": ["card", "note", a.id, "--text", "A note."],
+            "card write": ["card", "write", a.id, "--body-file", join(root, "body.md")],
+            "doc show": ["doc", "show", doc.id],
+            "doc create": ["doc", "create", "--title", "Shape probe doc two", "--body", "Body."],
+            "doc patch": ["doc", "patch", doc.id, "--json-input", join(root, "t.json")],
+            "doc write": ["doc", "write", doc.id, "--body-file", join(root, "body.md")],
+            "doc note": ["doc", "note", doc.id, "--text", "A note."],
+            "doc move": ["doc", "move", doc.id, "--folder", "guides"],
+            "changelog show": ["changelog", "show", change.id],
+            "changelog add": ["changelog", "add", "--title", "Shape probe change two", "--type", "added", "--area", "api"],
+            "changelog patch": ["changelog", "patch", change.id, "--json-input", join(root, "t.json")],
+            "changelog release": ["changelog", "release", "0.0.1", "--title", "Shape probe release"],
+            "memory show": ["memory", "show", l1.id],
+            "memory add": ["memory", "add", "learnings", "--title", "Shape probe L4"],
+            "memory patch": ["memory", "patch", l1.id, "--json-input", join(root, "t.json")],
+            "memory graduate": ["memory", "graduate", l1.id, "--to", target.id],
+            "memory supersede": ["memory", "supersede", l2.id, "--by", l3.id]
+        };
+        for (const [command, shape] of shapes) {
+            if (!/^`\{ record\b/.test(shape) || command === "card claim") continue;
+            assert.ok(runnable[command], `the table marks \`${command}\` as { record } and nothing here runs it`);
         }
+        for (const [command, args] of Object.entries(runnable)) {
+            const { stdout, stderr } = await cli$(args);
+            const answer = JSON.parse(stdout);
+            assert.equal(typeof answer.record?.id, "string", `${command}: the envelope carries the record`);
+            assert.ok(!("id" in answer), `${command}: nothing of the record leaks to the top level`);
+            assert.doesNotMatch(stderr, /changes shape in 0\.13\.0/, `${command}: the 0.12.x note is gone`);
+        }
+
+        // The 0.12.x opt-in is accepted and ignored: same bytes, nothing said.
+        const plain = await cli$(["card", "show", a.id]);
+        const legacyOptIn = await cli$(["card", "show", a.id], { WORKFILE_JSON_ENVELOPE: "1" });
+        assert.equal(legacyOptIn.stdout, plain.stdout, "WORKFILE_JSON_ENVELOPE=1 changes nothing in 0.13.x");
+        assert.equal(legacyOptIn.stderr, "", "and says nothing");
+
+        // `--fields` on a mutation: the answer without the body, inside the envelope.
+        const trimmed = JSON.parse(
+            (await cli$(["card", "transition", a.id, "doing", "--fields", "id,status,revision"])).stdout
+        );
+        assert.deepEqual(Object.keys(trimmed).sort(), ["record"]);
+        assert.deepEqual(Object.keys(trimmed.record).sort(), ["id", "revision", "status"]);
+        assert.equal(trimmed.record.status, "doing");
+
+        // Listings keep their shapes.
+        const list = JSON.parse((await cli$(["card", "list"])).stdout);
+        assert.deepEqual(Object.keys(list).sort(), ["offset", "records", "total", "truncated"]);
+        const docs = JSON.parse((await cli$(["doc", "list"])).stdout);
+        assert.deepEqual(Object.keys(docs).sort(), ["records", "total"]);
+    } finally {
+        await cleanup();
     }
 });

@@ -303,7 +303,7 @@ test("document ids account for records nested in folders", async () => {
                     "--root",
                     root
                 ])
-                    .then(({ stdout }) => JSON.parse(stdout).id)
+                    .then(({ stdout }) => JSON.parse(stdout).record.id)
                     .catch((error: any) => String(error?.stderr || error))
             )
         );

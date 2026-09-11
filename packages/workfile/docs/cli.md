@@ -91,47 +91,49 @@ rather than arriving undocumented.
 
 ## Machine-readable answers
 
-`--json` answers one of four shapes, and the table says which for every
+`--json` answers one of three shapes, and the table says which for every
 subcommand that has one. It is pinned by a test that runs each record-answering
-command in both modes and checks the keys, so the table and the binary cannot
-drift apart. The vocabulary:
+command and checks the keys, so the table and the binary cannot drift apart.
+The vocabulary:
 
-- **record** — the record itself at the top level: `{ "id": "T-0042", "status": … }`.
 - **`{ record }`** — the record under one key, the shape every MCP tool answers
   (`project_get_record`, `project_card_patch`, …), with named extras beside it
   when there are any.
 - **`{ records, total }`** — a listing; `card list` adds `offset` and `truncated`.
-- **report** — a shape of the command's own, unchanged by any of this: doctor's
-  issues, a verify run, a schema.
+- **report** — a shape of the command's own: doctor's issues, a verify run, a
+  schema.
 
-| Command | Today (0.12.x) | 0.13.0 |
-| --- | --- | --- |
-| `card show`, `doc show`, `changelog show`, `memory show` | record | `{ record }` |
-| `card create`, `card patch`, `card transition`, `card release`, `card archive`, `card reopen`, `card note` | record | `{ record }` |
-| `card write` | record, plus `ignored` when a protocol section was dropped | `{ record, ignored? }` |
-| `card claim` | `{ record, warnings, verify? }` | `{ record, warnings, verify? }` |
-| `doc create`, `doc patch`, `doc write`, `doc note`, `doc move` | record | `{ record }` |
-| `changelog add`, `changelog patch`, `changelog release` | record | `{ record }` |
-| `memory add`, `memory patch`, `memory graduate`, `memory supersede` | record | `{ record }` |
-| `card list` | `{ records, total, offset, truncated }` | same |
-| `doc list`, `changelog list`, `memory list`, `card reap` | `{ records, total }` (`reap`: `records` only) | same |
-| `card ac`, `card verify`, `changelog preview`, `changelog render`, `changelog verify`, `memory verify` | report | same |
-| `doctor`, `schema`, `next`, `search`, `upgrade`, `init` | report | same |
-| `agents context`, `agents whoami`, `agents sync`, `agents check`, `agents status`, `claude install`, `claude sync`, `claude check`, `ci sync`, `ci check`, `ci status`, `mcp inspect`, `mcp config`, `migrate plan`, `migrate schema`, `migrate apply` | report | same |
+| Command | Shape |
+| --- | --- |
+| `card show`, `doc show`, `changelog show`, `memory show` | `{ record }` |
+| `card create`, `card patch`, `card transition`, `card release`, `card archive`, `card reopen`, `card note` | `{ record }` |
+| `card write` | `{ record, ignored? }` — `ignored` names a protocol section that was dropped |
+| `card claim` | `{ record, warnings, verify? }` |
+| `doc create`, `doc patch`, `doc write`, `doc note`, `doc move` | `{ record }` |
+| `changelog add`, `changelog patch`, `changelog release` | `{ record }` |
+| `memory add`, `memory patch`, `memory graduate`, `memory supersede` | `{ record }` |
+| `card list` | `{ records, total, offset, truncated }` |
+| `doc list`, `changelog list`, `memory list`, `card reap` | `{ records, total }` (`reap`: `records` only) |
+| `card ac`, `card verify`, `changelog preview`, `changelog render`, `changelog verify`, `memory verify` | report |
+| `doctor`, `schema`, `next`, `search`, `upgrade`, `init` | report |
+| `agents context`, `agents whoami`, `agents sync`, `agents check`, `agents status`, `claude install`, `claude sync`, `claude check`, `ci sync`, `ci check`, `ci status`, `mcp inspect`, `mcp config`, `migrate plan`, `migrate schema`, `migrate apply` | report |
 
-The CLI converges on the MCP envelope in **0.13.0** — the owner's decision of
-2026-09-11 on T-0246, taken over the alternative of documenting the divergence
-and living with it. Every **record** row becomes **`{ record }`**; nothing else
-moves. Callers are told three ways: this table; a `changed` entry in the
-changelog of every 0.12.x release and the 0.13.0 release; and, on every
-**record** answer today, one line on stderr per process naming the version and
-the new shape. `WORKFILE_JSON_ENVELOPE=1` opts a caller into the envelope now, so
-a script can move ahead of the cut and stop seeing the note.
+Until 0.12.x the record rows answered the record itself at the top level, and
+the CLI and the MCP tools disagreed on every record — a caller ended up reading
+everything with `d.get("record", d)`, which works until a command returns
+`{ records }`. The CLI converged on the MCP envelope in **0.13.0**, the owner's
+decision of 2026-09-11 on T-0246, taken over documenting the divergence and
+living with it. The one-line fix for a caller that read the top level is
+`.record`. 0.12.x announced the cut on stderr on every record answer and
+offered `WORKFILE_JSON_ENVELOPE=1` to move early; in 0.13.x that variable is
+accepted and ignored, so a script that set it does not break twice, and 0.14.0
+refuses it as unknown.
 
-`--fields a,b` applies to every **record** answer, in either shape: `card
-transition T-0042 next --json --fields id,status,revision` is the answer without
-the body that a caller wanted from `--quiet`. Keys the record does not carry are
-left out rather than reported null.
+`--fields a,b` applies to every **`{ record }`** answer and cuts the record
+inside the envelope: `card transition T-0042 next --json --fields
+id,status,revision` is the answer without the body that a caller wanted from
+`--quiet`. Keys the record does not carry are left out rather than reported
+null.
 
 ## Workspace
 

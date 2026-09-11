@@ -1437,33 +1437,25 @@ function print(value) {
  * `{ records, total }` on a list — so a caller ended up reading every answer
  * with `d.get("record", d)`, which works until a command returns `{ records }`
  * (DOC-0006, T-0246). The owner decided on 2026-09-11 that the CLI converges
- * on the MCP envelope in 0.13.0.
- *
- * Until then this prints the legacy shape and says so on stderr, once per
- * process, naming the version and the new shape. `WORKFILE_JSON_ENVELOPE=1`
- * opts a caller into the envelope today, so a script can move ahead of the cut
- * instead of breaking on it. `--fields` cuts the record down either way, which
- * is what makes `transition --json --fields id,status,revision` an answer
- * without the body.
+ * on the MCP envelope in 0.13.0, and this is the cut (T-0250): every record
+ * answer is `{ record, …extras }`, the shape every MCP tool has always given,
+ * and the one-line fix for a caller that read the record at the top level is
+ * `.record`. 0.12.x said so on stderr on every record answer. `--fields` cuts
+ * the record down inside the envelope, which is what makes
+ * `transition --json --fields id,status,revision` an answer without the body.
  */
-const JSON_ENVELOPE = process.env.WORKFILE_JSON_ENVELOPE === "1";
-let envelopeNoted = false;
+/**
+ * `WORKFILE_JSON_ENVELOPE` is not read. It opted a 0.12.x caller into this
+ * shape early; in 0.13.x it is accepted and ignored, so a script that set it
+ * does not break twice, and from 0.14.0 it is refused as unknown — the
+ * release notes say so. Nothing here should start reading it again.
+ */
 // No `= {}` default in this signature on purpose: the flag-table test finds a
 // function's body as the first balanced `{…}` after its name, and a default
 // object parameter is exactly that — it read this helper as empty and reported
 // every caller's `--fields` as accepted but ignored.
 function recordAnswer(record, extras?: Record<string, unknown>) {
-    const shown = projectShown(record);
-    if (JSON_ENVELOPE) return { record: shown, ...(extras ?? {}) };
-    if (!envelopeNoted) {
-        envelopeNoted = true;
-        console.error(
-            "note: this --json answer changes shape in 0.13.0 — it becomes " +
-                '{ "record": … } like the MCP tools. Set WORKFILE_JSON_ENVELOPE=1 ' +
-                "to read the new shape now."
-        );
-    }
-    return { ...shown, ...(extras ?? {}) };
+    return { record: projectShown(record), ...(extras ?? {}) };
 }
 
 async function askInitOptions(root) {

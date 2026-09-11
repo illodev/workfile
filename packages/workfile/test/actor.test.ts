@@ -146,7 +146,7 @@ test("release and transition refuse another actor's claim instead of silently ta
             ["card", "create", "--title", "Held by someone else", "--area", "api", "--json", "--root", root],
             { env: mine }
         );
-        const id = JSON.parse(created.stdout).id;
+        const id = JSON.parse(created.stdout).record.id;
 
         await runCli(
             ["card", "claim", id, "--actor", "agent-other", "--root", root],
@@ -183,9 +183,9 @@ test("release and transition refuse another actor's claim instead of silently ta
             { env: mine }
         );
         assert.equal(forced.code, 0, forced.stderr);
-        assert.equal(JSON.parse(forced.stdout).status, "review");
+        assert.equal(JSON.parse(forced.stdout).record.status, "review");
         assert.match(
-            JSON.parse(forced.stdout).body,
+            JSON.parse(forced.stdout).record.body,
             /· doing → review \(forced past agent-other's claim: agent-other stopped answering\)/
         );
     } finally {
