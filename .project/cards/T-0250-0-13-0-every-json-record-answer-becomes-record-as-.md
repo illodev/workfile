@@ -12,7 +12,7 @@ raised: reported
 created: 2026-09-11
 updated: 2026-09-11
 produced_by:
-  model: undeclared
+  model: claude-fable-5-1
   reasoning: xhigh
   basis: self-reported
 scope: [packages/workfile/bin/workfile.ts, packages/workfile/docs/cli.md, packages/workfile/test/cli.test.ts]
@@ -29,7 +29,7 @@ What flips: every row the table marks **record** answers `{ record, …extras }`
 
 What goes: the stderr note, and the variable — accepted and ignored for one more minor so a script that set it does not break twice, then refused as unknown.
 
-Who has to be told: the changelog entry is `changed` and says **breaking** in its first line; the release notes name `d["record"]` as the one-line fix; the scratch consumer scripts and Fube's `scripts/` that parse `--json` are the known callers.
+Who has to be told: the changelog entry is `changed` and says **breaking** in its first line; the release notes name `d["record"]` as the one-line fix; the scratch consumer scripts and the consuming repository's own scripts that parse `--json` are the known callers.
 
 ## Acceptance criteria
 
@@ -37,7 +37,7 @@ Who has to be told: the changelog entry is `changed` and says **breaking** in it
 - [x] The pinned shape test runs against the default and passes with the envelope expected
 - [x] The stderr note is gone; `WORKFILE_JSON_ENVELOPE=1` is accepted and ignored for 0.13.x and the release notes say when it is refused
 - [x] The 0.13.0 changelog entry opens with the word breaking and names the one-line fix for a caller
-- [x] Fube's scripts that parse `--json` are found by grep and updated, or the note on this card says which ones were left and why
+- [x] The consuming repository's scripts that parse `--json` are found by grep and updated, or the note on this card says which ones were left and why
 
 ## Notes
 
