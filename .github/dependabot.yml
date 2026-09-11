@@ -4,16 +4,25 @@ updates:
     # pnpm-workspace.yaml itself and the root lockfile covers every
     # packages/* manifest. Listing the subdirectories as extra entries makes
     # the updater fail ("Updating workspaces from inside a workspace
-    # subdirectory is not supported"). Published packages declare @types/node
-    # and @huggingface/transformers; everything else is a devDependency, so
-    # an update can break the build but never a consumer.
+    # subdirectory is not supported").
+    #
+    # Two groups, split by what a bump reaches. `runtime` is whatever the
+    # published packages declare under `dependencies` in packages/*/package.json
+    # — read the manifests, not a list here: the previous comment named
+    # @huggingface/transformers a month after T-0221 had replaced it, and a
+    # 0.x minor of its successor shipped to every consumer of the search
+    # package inside a PR titled "dev" (T-0249). A `runtime` PR reaches
+    # consumers and is reviewed as a release would be; a `tooling` PR can
+    # break the build and nothing else.
     - package-ecosystem: npm
       directory: "/"
       schedule:
           interval: monthly
       groups:
-          dev:
-              patterns: ["*"]
+          runtime:
+              dependency-type: production
+          tooling:
+              dependency-type: development
     - package-ecosystem: github-actions
       directory: "/"
       schedule:
