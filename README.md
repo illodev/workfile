@@ -383,7 +383,10 @@ Regular builds tree-shake the demo layer and snapshot out of the bundle.
 ## Releasing
 
 Releases publish from CI via npm [trusted publishing](https://docs.npmjs.com/trusted-publishers)
-(OIDC) — no npm token is stored in the repository. The circuit:
+(OIDC) — no npm token is stored in the repository. Before cutting, if any UI change
+shipped since the last tag, run `pnpm run screenshots`: it recaptures every view and
+publishes the README and landing-page stills itself, and they belong in the commit that
+moved the shell, not in the version bump. The circuit:
 
 1. Cut the changelog: `workfile changelog release <version>` and `workfile changelog render --write`.
 2. Bump and tag: `npm version <version>` then `git push && git push --tags`.
