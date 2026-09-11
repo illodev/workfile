@@ -1038,12 +1038,18 @@ Rules:
    `[A-Za-z0-9._:+-]`. Anything else is refused and reported to the caller,
    never written. This is what keeps the field from carrying a prompt, a key
    or a path into a committed record.
-5. **Last writer, plus history.** The frontmatter block holds the newest
-   writer, so it can be counted over without parsing prose; the trail keeps
-   every earlier one. It is not patchable and cannot be declared as an axis.
+5. **Last declared writer, plus history.** The frontmatter block holds the
+   newest writer *that declared a producer*, so it can be counted over without
+   parsing prose; the trail keeps every earlier one. A write that declares
+   nothing puts no token on its line and leaves the block as it was — the
+   line without a token is the record of that write, and a human's note after
+   an agent's close does not erase which model closed it. The block is not
+   patchable and cannot be declared as an axis.
 6. **Nothing declared, nothing written.** A workspace where no writer declares
    a producer produces records byte-identical to those of a protocol without
-   this section.
+   this section. A writer that declared something the record refused is not
+   that case: its write records `undeclared` on both halves, because it said
+   it was something.
 
 `doctor` reports `produced-by-invalid`, a warning, for a block that does not
 read as a producer: the protocol cannot write one, so it is a hand edit.

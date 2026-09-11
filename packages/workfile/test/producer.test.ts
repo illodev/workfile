@@ -103,6 +103,14 @@ test("a declared producer lands beside the actor on the trail and in frontmatter
         assert.match(after, /via:claude-opus-4-1\/high · claimed$/m, "history kept on the trail");
         assert.match(after, /via:gpt-5\/medium — Second opinion\.$/m);
 
+        // Last *declared* writer: a write with nothing declared puts no token
+        // on its line and leaves the block alone, so a human's note after an
+        // agent's close does not erase which model closed it.
+        await appendCardNote(workspace, created.id, { actor, text: "Plain follow-up." });
+        const afterPlain = await cardFile(root, created.id);
+        assert.match(afterPlain, /^produced_by:\n {2}model: gpt-5/m, "the block stands");
+        assert.match(afterPlain, /^- \d{4}-\d{2}-\d{2} \d{2}:\d{2}Z solo@box#feedface — Plain follow-up\.$/m, "and the line carries no token");
+
         // Not patchable by hand: the field is the protocol's to write.
         await assert.rejects(
             patchCard(workspace, created.id, { produced_by: { model: "x", reasoning: "y", basis: "self-reported" } }, { actor }),
@@ -177,7 +185,11 @@ test("a half nobody declared is written as undeclared, and a value that is not a
             }
         });
         assert.deepEqual(refused.ignored, ["WORKFILE_MODEL", "WORKFILE_REASONING"]);
-        assert.equal(refused.producer, undefined, "two refusals declare nothing");
+        assert.deepEqual(
+            refused.producer,
+            { model: UNDECLARED, reasoning: UNDECLARED, basis: "self-reported" },
+            "a writer that declared something the record refused said it was something: the write records undeclared, not silence"
+        );
         const halfRefused = await resolveProducer(workspace, {
             env: { WORKFILE_MODEL: "has space", WORKFILE_REASONING: "high" }
         });

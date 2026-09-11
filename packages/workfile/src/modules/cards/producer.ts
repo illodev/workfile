@@ -117,8 +117,12 @@ async function sessionHalves(workspace, sessionId: string | undefined) {
  * Resolve what produced this process's writes.
  *
  * `undefined` when nothing declares anything, which is what makes a workspace
- * with no declaration behave exactly as it did. Never throws: a producer that
- * could fail a write would be the wrong trade for a statistic.
+ * with no declaration behave exactly as it did — and what makes the
+ * frontmatter block the **last declared writer**: a write that declares
+ * nothing puts no token on its trail line and leaves the block alone, so a
+ * human's note after an agent's close does not erase which model closed it.
+ * The trail line without a token is the record of that write. Never throws: a
+ * producer that could fail a write would be the wrong trade for a statistic.
  */
 export async function resolveProducer(
     workspace?,
@@ -138,7 +142,12 @@ export async function resolveProducer(
         model = model ?? halves.model;
         reasoning = reasoning ?? halves.effort;
     }
-    if (!model && !reasoning) return { producer: undefined, ignored };
+    // Nothing declared, nothing written — unless something was declared and
+    // refused. A writer that set a value the record cannot hold has said it is
+    // something; the honest record of that write is `undeclared` on both
+    // halves, not silence that leaves the previous writer's block standing as
+    // if it had made this write too.
+    if (!model && !reasoning && !ignored.length) return { producer: undefined, ignored };
     return {
         producer: {
             model: model ?? UNDECLARED,

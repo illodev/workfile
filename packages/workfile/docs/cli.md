@@ -723,10 +723,13 @@ writer chose, never as an attestation. The halves come from, in order,
 which carries `model` when a `SessionStart` payload included it and
 `effort.level` from every tool call. A half nobody declared is written as
 `undeclared`. A value that is not a label — more than 64 characters, or outside
-`[A-Za-z0-9._:+-]` — is refused with a note on stderr rather than written,
-which is what keeps the field from carrying anything but a name. With nothing
-declared the record is byte-identical to today. `claimed_by` and the guard's
-actor comparison are untouched either way.
+`[A-Za-z0-9._:+-]` — is refused with a note on stderr and the write records
+`undeclared` instead, which is what keeps the field from carrying anything but
+a name. With nothing declared the record is byte-identical to today, and the
+block is the last writer *that declared*: a write with no declaration puts no
+token on its trail line and leaves the block alone, so a human's note after an
+agent's close does not erase which model closed it. `claimed_by` and the
+guard's actor comparison are untouched either way.
 
 ## Docs
 
