@@ -239,6 +239,25 @@ whose stamp is old, which the staleness checks deliberately ignore. Managed
 blocks whose kind no configured target owns are reported instead of silently
 fossilizing.
 
+`upgrade` is also the one command that asks whether the *package* is behind,
+because nothing else did: the installed version was only ever compared against
+the stamps inside the workspace, so a repository could sit two releases behind
+with every check green. It sends one `GET` to the npm registry —
+`<registry>/@illodev%2Fworkfile/latest`, no body, nothing that names the
+workspace — honouring `npm_config_registry` and using
+`https://registry.npmjs.org` otherwise. A newer published version prints a
+`BEHIND` line with the install command for the package manager the workspace
+uses; the current one prints a `latest` line saying when the registry was
+asked. The answer is cached for 24 hours in
+`.project/.cache/update-check.json`, a failed attempt for one hour, and the
+directory is gitignored. The request starts before the surfaces are compared
+and its line is printed after them, so it delays nothing; with no network, or
+a registry answering anything but a version, the command prints nothing about
+it at all. `upgrade.check: false` in `project.config.mjs` removes the request
+entirely. `doctor`, the generated CI and every other command never reach the
+network — the interface's footer is the only other place that asks, once per
+page load, from the same cache.
+
 ### Query grammar
 
 One grammar, shared by the CLI, the HTTP API, MCP and the interface — the same

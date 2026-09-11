@@ -12,6 +12,7 @@ import {
     type ReactNode
 } from "react";
 import {
+    ArrowUp,
     Book,
     Calendar,
     ChevronUp,
@@ -103,6 +104,7 @@ import {
     type DocsFilters,
     type Filters,
     type HealthReport,
+    type UpdateCheck,
     type HistoryFilters,
     type MemoryFilters,
     type RecordFilters,
@@ -532,6 +534,22 @@ function App() {
         }
     });
     const [health, setHealth] = useState<HealthReport | null>(null);
+    const [update, setUpdate] = useState<UpdateCheck | null>(null);
+    // Once per page load and never polled: the server keeps the registry's
+    // answer for a day, and a board that is behind stays behind until someone
+    // upgrades it — there is nothing to watch. A failure leaves the footer
+    // saying nothing, which is what an offline machine must look like.
+    useEffect(() => {
+        let cancelled = false;
+        api.update()
+            .then((result) => {
+                if (!cancelled) setUpdate(result);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
     const [activity, setActivity] = useState<ActivitySnapshot | null>(null);
     const [moduleCounts, setModuleCounts] = useState<{
         docs: number | null;
@@ -1976,6 +1994,29 @@ function App() {
                                 {health.counts.warning}W · {health.counts.info}
                                 I
                             </button>
+                        </Badge>
+                    ) : null}
+                    {update?.status === "behind" && update.latest ? (
+                        // Only when behind. `current` is the footer's normal
+                        // state and needs no badge; `unknown` is an offline
+                        // machine or a registry that said nothing, and a
+                        // warning about the warning is the noise the card
+                        // rules out. Says what is installed, what is
+                        // published and the command that closes the gap.
+                        <Badge
+                            asChild
+                            variant="outline"
+                            className="shrink-0 cursor-pointer font-mono text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <a
+                                href={`https://github.com/illodev/workfile/releases/tag/v${update.latest}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`v${update.installed} installed, v${update.latest} published — update @illodev/workfile, then run workfile upgrade`}
+                            >
+                                <ArrowUp className="size-3" aria-hidden="true" />
+                                v{update.latest} available
+                            </a>
                         </Badge>
                     ) : null}
                     {import.meta.env.VITE_DEMO !== "1" ? (

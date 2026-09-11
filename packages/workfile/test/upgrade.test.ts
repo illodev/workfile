@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,11 +9,16 @@ import {
     checkAgentInstructions,
     checkCiTemplates,
     checkClaudeSurface,
+    checkForUpdate,
+    compareVersions,
     loadWorkspace,
     runUpgrade,
     syncAgentInstructions,
     syncCiTemplates,
-    syncClaudeSurface
+    syncClaudeSurface,
+    upgradeHint,
+    UPDATE_CHECK_TTL_MS,
+    UPDATE_RETRY_MS
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -220,4 +225,177 @@ test("managed blocks no target owns are reported, not skipped", async () => {
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+/**
+ * Nothing told a workspace the package itself was behind. The installed
+ * version was only ever compared against the stamps inside the workspace, so a
+ * repository could sit two releases behind with every check green (T-0208).
+ *
+ * Where the check runs was decided, not assumed: `upgrade` and the footer, and
+ * nowhere else. So the test is about what a check that must never fail a
+ * command does at its edges — the cache, the wire going away, a registry that
+ * answers nonsense, and the switch — rather than about the happy path alone.
+ */
+test("the registry is asked once a day, and never when it cannot be", async () => {
+    const { root, workspace } = await makeWorkspace();
+    try {
+        const calls: string[] = [];
+        const registry = "https://registry.example.test";
+        const answering =
+            (version: string | null, ok = true) =>
+            async (url: string) => {
+                calls.push(url);
+                return { ok, json: async () => (version ? { version } : {}) } as any;
+            };
+        const t0 = new Date("2026-09-11T12:00:00Z");
+        const at = (offsetMs: number) => new Date(t0.getTime() + offsetMs);
+        const ask = (now: Date, fetch, extra = {}) =>
+            checkForUpdate(workspace, {
+                now,
+                fetch,
+                installed: "0.12.0",
+                registry,
+                ...extra
+            });
+        const listing = async () =>
+            (await readdir(join(root, ".project"), { recursive: true }))
+                .map(String)
+                .filter((path) => !path.replaceAll("\\", "/").startsWith(".cache"))
+                .sort();
+        const recordsBefore = await listing();
+
+        // Behind, from the wire: one GET for the latest manifest and nothing else.
+        const behind = await ask(t0, answering("9.9.9"));
+        assert.equal(behind.status, "behind");
+        assert.equal(behind.latest, "9.9.9");
+        assert.equal(behind.source, "registry");
+        assert.deepEqual(calls, [`${registry}/@illodev%2Fworkfile/latest`]);
+        assert.equal(
+            behind.nextCheckAt,
+            at(UPDATE_CHECK_TTL_MS).toISOString(),
+            "the interval is stated, not implied"
+        );
+
+        // The cache lives under the gitignored cache directory and touches no record.
+        const cached = JSON.parse(
+            await readFile(join(root, ".project/.cache/update-check.json"), "utf8")
+        );
+        assert.equal(cached.latest, "9.9.9");
+        assert.deepEqual(await listing(), recordsBefore, "nothing under .project but the cache changed");
+
+        // Within the day the registry is not asked again, whatever it would say now.
+        const later = await ask(at(60 * 60_000), answering("0.0.1"));
+        assert.equal(later.source, "cache");
+        assert.equal(later.latest, "9.9.9");
+        assert.equal(calls.length, 1);
+
+        // Past the day it is, and a matching version is `current`.
+        const nextDay = await ask(at(UPDATE_CHECK_TTL_MS + 1), answering("0.12.0"));
+        assert.equal(nextDay.status, "current");
+        assert.equal(calls.length, 2);
+
+        // A different registry is a different question: the cache does not answer it.
+        const mirror = await ask(at(UPDATE_CHECK_TTL_MS + 2), answering("0.12.0"), {
+            registry: "https://mirror.example.test"
+        });
+        assert.equal(mirror.source, "registry");
+        assert.equal(calls.length, 3);
+
+        // The wire goes away: `unknown`, nothing thrown, and the failure is
+        // itself cached — for an hour, not a day — so an offline machine pays
+        // the timeout once rather than on every command.
+        const offlineAt = at(2 * UPDATE_CHECK_TTL_MS);
+        const offline = await ask(offlineAt, async () => {
+            throw new Error("getaddrinfo ENOTFOUND registry.example.test");
+        });
+        assert.equal(offline.status, "unknown");
+        assert.equal(offline.latest, null);
+        assert.equal(
+            offline.nextCheckAt,
+            new Date(offlineAt.getTime() + UPDATE_RETRY_MS).toISOString()
+        );
+        const stillOffline = await ask(
+            new Date(offlineAt.getTime() + UPDATE_RETRY_MS / 2),
+            answering("9.9.9")
+        );
+        assert.equal(stillOffline.status, "unknown");
+        assert.equal(stillOffline.source, "cache");
+        assert.equal(calls.length, 3, "a cached failure asks nothing");
+        const backOnline = await ask(
+            new Date(offlineAt.getTime() + UPDATE_RETRY_MS + 1),
+            answering("9.9.9")
+        );
+        assert.equal(backOnline.status, "behind");
+        assert.equal(calls.length, 4);
+
+        // A registry that answers anything but a version is no answer. Past
+        // the day `backOnline` bought, or the cache would answer first.
+        const garbageAt = at(4 * UPDATE_CHECK_TTL_MS);
+        assert.equal((await ask(garbageAt, answering("latest"))).status, "unknown");
+        assert.equal(
+            (
+                await ask(
+                    new Date(garbageAt.getTime() + UPDATE_RETRY_MS + 1),
+                    answering(null, false)
+                )
+            ).status,
+            "unknown",
+            "a 404 is no answer either"
+        );
+
+        // A development build past the registry is `ahead`, not `behind`.
+        const ahead = await ask(at(5 * UPDATE_CHECK_TTL_MS), answering("0.12.0"), {
+            installed: "0.13.0-dev.1"
+        });
+        assert.equal(ahead.status, "ahead");
+
+        // The switch removes the request, not the message.
+        const before = calls.length;
+        const off = await checkForUpdate(
+            { ...workspace, config: { ...workspace.config, upgrade: { check: false } } },
+            { now: at(6 * UPDATE_CHECK_TTL_MS), fetch: answering("9.9.9"), installed: "0.12.0", registry }
+        );
+        assert.equal(off.status, "disabled");
+        assert.equal(off.source, "config");
+        assert.equal(calls.length, before, "off means no request");
+
+        // `upgrade` carries the answer, asked alongside the surfaces.
+        const result = await runUpgrade(workspace, {
+            dryRun: true,
+            updateCheck: {
+                now: at(7 * UPDATE_CHECK_TTL_MS),
+                fetch: answering("9.9.9"),
+                installed: "0.12.0",
+                registry
+            }
+        });
+        assert.equal(result.update.status, "behind");
+        assert.equal(result.update.latest, "9.9.9");
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("versions compare the way `behind` needs, and the hint names the manager in use", () => {
+    assert.equal(compareVersions("0.12.0", "0.13.0"), -1);
+    assert.equal(compareVersions("0.13.0", "0.12.0"), 1);
+    assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
+    assert.equal(compareVersions("v1.2.3", "1.2.3"), 0);
+    assert.equal(compareVersions("1.0.0-rc.1", "1.0.0"), -1, "a prerelease sorts under its release");
+    assert.equal(compareVersions("1.0.0", "1.0.0-rc.1"), 1);
+    assert.equal(compareVersions("0.9.9", "0.10.0"), -1, "numeric, not lexical");
+    assert.equal(compareVersions("latest", "1.0.0"), null, "not a version is not an answer");
+    assert.equal(compareVersions("1.2", "1.2.0"), null);
+
+    assert.match(upgradeHint("pnpm"), /^pnpm add -D @illodev\/workfile@latest, then run `workfile upgrade` again$/);
+    assert.match(upgradeHint("yarn"), /^yarn add -D /);
+    assert.match(upgradeHint("bun"), /^bun add -d /);
+    assert.match(upgradeHint("npm"), /^npm install -D /);
+    assert.match(upgradeHint("something-else"), /^npm install -D /);
+    assert.match(
+        upgradeHint("pnpm", { local: false }),
+        /^npm install -g @illodev\/workfile@latest/,
+        "a workspace with no local copy runs the global binary, so that is what it updates"
+    );
 });

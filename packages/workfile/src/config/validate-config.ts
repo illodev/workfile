@@ -743,6 +743,20 @@ export function validateProjectConfig(config: any) {
         }
     }
 
+    if (!config.upgrade || typeof config.upgrade !== "object") {
+        issues.push(
+            issue("CONFIG_UPGRADE_REQUIRED", "upgrade", "upgrade must be an object")
+        );
+    } else if (typeof config.upgrade.check !== "boolean") {
+        issues.push(
+            issue(
+                "CONFIG_UPGRADE_CHECK_INVALID",
+                "upgrade.check",
+                "upgrade.check must be a boolean"
+            )
+        );
+    }
+
     if (
         !config.ui ||
         !Number.isInteger(config.ui.port) ||

@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import {
     loadWorkspace,
     resolveActor,
-    startProjectServer
+    startProjectServer,
+    type UpdateCheck
 } from "../dist/src/index.js";
 
 const fixture = resolve(
@@ -883,5 +884,73 @@ test("a taken default port moves aside; a taken explicit one is refused", async 
         await held.close();
         await rm(first, { recursive: true, force: true });
         await rm(second, { recursive: true, force: true });
+    }
+});
+
+/**
+ * The footer's one question to the outside world goes through the server, so
+ * the interface never reaches the registry itself and a board that is behind
+ * says so from the same day-old cache `upgrade` reads. Tests inject `fetch`:
+ * a suite that touched the real registry would fail on every offline runner
+ * and prove nothing on the others.
+ */
+test("/api/v2/update answers from the registry once, then from the cache, and not at all when off", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-update-"));
+    await cp(fixture, root, { recursive: true });
+    const workspace = await loadWorkspace({ root });
+    const calls: string[] = [];
+    const running = await startProjectServer(workspace, {
+        port: 0,
+        updateCheck: {
+            installed: "0.12.0",
+            registry: "https://registry.example.test",
+            fetch: async (url: string) => {
+                calls.push(url);
+                return { ok: true, json: async () => ({ version: "9.9.9" }) };
+            }
+        }
+    });
+    try {
+        const first = await fetch(`${running.url}/api/v2/update`);
+        assert.equal(first.status, 200);
+        const behind = (await first.json()) as UpdateCheck;
+        assert.equal(behind.status, "behind");
+        assert.equal(behind.installed, "0.12.0");
+        assert.equal(behind.latest, "9.9.9");
+        assert.deepEqual(calls, ["https://registry.example.test/@illodev%2Fworkfile/latest"]);
+
+        const second = (await (await fetch(`${running.url}/api/v2/update`)).json()) as UpdateCheck;
+        assert.equal(second.source, "cache", "a second page load asks the file, not the wire");
+        assert.equal(calls.length, 1);
+    } finally {
+        await running.close();
+    }
+
+    // The switch: no request is made, and the route says why there is no answer.
+    await writeFile(
+        join(root, "project.config.mjs"),
+        `export default {
+    schemaVersion: 2,
+    name: "Golden workspace",
+    cards: { areas: ["api", "web", "infra", "docs"] },
+    upgrade: { check: false }
+};
+`
+    );
+    const quiet = await startProjectServer(await loadWorkspace({ root }), {
+        port: 0,
+        updateCheck: {
+            fetch: async () => {
+                throw new Error("the switch is off; nothing may ask");
+            }
+        }
+    });
+    try {
+        const off = (await (await fetch(`${quiet.url}/api/v2/update`)).json()) as UpdateCheck;
+        assert.equal(off.status, "disabled");
+        assert.equal(off.source, "config");
+    } finally {
+        await quiet.close();
+        await rm(root, { recursive: true, force: true });
     }
 });

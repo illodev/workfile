@@ -167,6 +167,16 @@ export interface ProjectUiConfig {
     open: boolean;
 }
 
+export interface ProjectUpgradeConfig {
+    /**
+     * Whether `workfile upgrade` and the interface's footer may ask the npm
+     * registry for the latest published version. `false` removes the request
+     * entirely rather than hiding its answer; nothing else in the package
+     * reaches the network.
+     */
+    check: boolean;
+}
+
 export interface ProjectConfig {
     schemaVersion: 2;
     name: string;
@@ -180,6 +190,7 @@ export interface ProjectConfig {
     mcp: ProjectMcpConfig;
     search: ProjectSearchConfig;
     ui: ProjectUiConfig;
+    upgrade: ProjectUpgradeConfig;
 }
 
 export type DeepPartial<T> = T extends readonly (infer Item)[]

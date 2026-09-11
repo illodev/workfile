@@ -108,6 +108,26 @@ memory record to anyone who can reach it, so put something that authenticates
 in front of it — the deployment shape this was built for is a reverse proxy
 with HTTP basic auth, with the board itself on an internal network.
 
+## The one outbound request
+
+Nothing in this package reaches the network, with one exception stated here so
+it can be judged rather than discovered. `workfile upgrade` and the interface's
+footer ask the npm registry whether a newer `@illodev/workfile` is published:
+
+- **What is sent.** One `GET` to `<registry>/@illodev%2Fworkfile/latest` with
+  `accept: application/json`, no body, and no header beyond what Node's `fetch`
+  adds on its own — measured against a local registry: `user-agent: node` and
+  nothing else. Nothing names the workspace, the repository or the machine.
+- **To whom.** `npm_config_registry` when npm has set it — a mirror or a
+  corporate proxy — and `https://registry.npmjs.org` otherwise.
+- **When.** At most once a day: the answer is cached in
+  `.project/.cache/update-check.json` (gitignored) and a failed attempt for an
+  hour, so an offline machine pays the three-second timeout once, not per
+  command. `doctor`, the generated CI and every other command never ask.
+- **Off.** `upgrade: { check: false }` in `project.config.mjs` removes the
+  request; it does not hide the message. The MCP server's promise that no
+  repository data leaves the machine holds either way, because none is sent.
+
 ## What is deliberately out of scope
 
 - **Multi-user authorisation.** There are no accounts and no roles. A workspace

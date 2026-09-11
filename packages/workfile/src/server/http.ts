@@ -53,6 +53,7 @@ import {
 } from "../modules/records/public.js";
 import { resolveActor } from "../core/actor.js";
 import { runDoctor } from "../modules/health/doctor.js";
+import { checkForUpdate } from "../modules/upgrade/index.js";
 import { searchProjectRecordsHybrid } from "../modules/search/index.js";
 import { createIntegrationRegistry } from "../modules/integrations/registry.js";
 import { inspectMcpServer, mcpClientConfiguration } from "../modules/mcp/index.js";
@@ -938,6 +939,16 @@ export function createProjectServer(
             }
             if (method === "GET" && url.pathname === "/api/v2/workspace") {
                 return sendJson(response, 200, workspacePayload(workspace));
+            }
+            // The footer's one question to the outside world, answered from
+            // the day-old cache when there is one. Nothing else the server
+            // does reaches the network; `checkForUpdate` says what this sends.
+            if (method === "GET" && url.pathname === "/api/v2/update") {
+                return sendJson(
+                    response,
+                    200,
+                    await checkForUpdate(workspace, options.updateCheck ?? {})
+                );
             }
             if (method === "GET" && url.pathname === "/api/v2/schema") {
                 return sendJson(response, 200, workspace.schema);
@@ -1883,7 +1894,9 @@ export async function startProjectServer(
          * before a later subscriber tries again. Worth raising on a filesystem
          * known to be silent, where every retry buys a probe and nothing else.
          */
-        watchRetryMs
+        watchRetryMs,
+        /** Options for the registry check behind `/api/v2/update`; tests inject `fetch`. */
+        updateCheck
     }: any = {}
 ) {
     // Binding to a non-loopback address is deliberate, so that address has to
@@ -1900,7 +1913,8 @@ export async function startProjectServer(
         uiDir,
         allowedHosts: resolvedHosts,
         verbose,
-        watchRetryMs
+        watchRetryMs,
+        updateCheck
     });
     // A malformed request or a socket that dies mid-response must not be able
     // to end the process. `clientError` in particular fires outside the request

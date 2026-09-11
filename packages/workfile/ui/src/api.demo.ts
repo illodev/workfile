@@ -10,6 +10,7 @@ import type {
     DocumentRecord,
     GraphRecord,
     HealthReport,
+    UpdateCheck,
     SearchHit,
     HistoryRecord,
     MemoryRecord,
@@ -190,6 +191,17 @@ export const demoApi: ProjectApi = {
         await wait();
         return clone(state.health);
     },
+    // A snapshot has no registry to ask; the demo is current by definition.
+    update: async (): Promise<UpdateCheck> => ({
+        status: "current",
+        package: "@illodev/workfile",
+        installed: "demo",
+        latest: "demo",
+        registry: null,
+        checkedAt: null,
+        nextCheckAt: null,
+        source: "config"
+    }),
     activity: async () => {
         await wait();
         return clone(state.activity);

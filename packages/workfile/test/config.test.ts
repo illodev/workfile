@@ -81,3 +81,28 @@ test("configuration rejects unsupported agent and CI targets", () => {
         }
     );
 });
+
+test("upgrade.check is a boolean switch that defaults to on", () => {
+    const merged = defineProject({ schemaVersion: 2, name: "Switch", cards: { areas: ["api"] } });
+    assert.equal(merged.upgrade.check, true, "on by default: the check is what the card exists for");
+    assert.equal(
+        defineProject({
+            schemaVersion: 2,
+            name: "Switch",
+            cards: { areas: ["api"] },
+            upgrade: { check: false }
+        }).upgrade.check,
+        false
+    );
+    assert.throws(
+        () =>
+            defineProject({
+                schemaVersion: 2,
+                name: "Switch",
+                cards: { areas: ["api"] },
+                upgrade: { check: "yes" } as any
+            }),
+        (error: any) =>
+            error instanceof ConfigError && error.code === "CONFIG_UPGRADE_CHECK_INVALID"
+    );
+});

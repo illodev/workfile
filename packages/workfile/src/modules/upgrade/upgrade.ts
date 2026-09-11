@@ -10,6 +10,7 @@ import {
 import { CI_TARGETS, checkCiTemplates, syncCiTemplates } from "../ci/index.js";
 import { checkClaudeSurface, syncClaudeSurface } from "../claude/index.js";
 import { findManagedBlock } from "../generated/managed-files.js";
+import { checkForUpdate } from "./update-check.js";
 
 const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../../../package.json", import.meta.url), "utf8")
@@ -92,8 +93,18 @@ async function orphanBlocks(workspace) {
  * bumps and ended up with three different stamps at once; the checks stayed
  * green throughout, which is exactly why this is a command and not a warning.
  */
-export async function runUpgrade(workspace, { dryRun = false }: any = {}) {
+export async function runUpgrade(
+    workspace,
+    { dryRun = false, updateCheck = {} }: any = {}
+) {
     const installed = PACKAGE_VERSION;
+    // Asked first and read last. The registry answers while the surfaces are
+    // compared, so the check costs the command nothing it was not already
+    // spending — and its line lands after the report, never in front of it.
+    // `checkForUpdate` never rejects; the catch is for the promise's sake.
+    const update = checkForUpdate(workspace, { installed, ...updateCheck }).catch(
+        () => null
+    );
     const surfaces: any[] = [];
 
     if (workspace.config.agents.enabled) {
@@ -186,7 +197,8 @@ export async function runUpgrade(workspace, { dryRun = false }: any = {}) {
         dryRun: Boolean(dryRun),
         surfaces,
         orphans: await orphanBlocks(workspace),
-        binary: await binaryAgreement(workspace, installed)
+        binary: await binaryAgreement(workspace, installed),
+        update: await update
     };
 }
 

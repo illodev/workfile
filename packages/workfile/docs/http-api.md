@@ -142,10 +142,19 @@ script (`.html`, `.svg`, `.mjs`, …) are refused with
 GET  /api/v2/workspace
 GET  /api/v2/schema
 GET  /api/v2/health
+GET  /api/v2/update
 GET  /api/v2/records?q=&kind=&limit=&offset=
 GET  /api/v2/search?q=&kind=&limit=&offset=&mode=
 GET  /api/v2/records/:id
 ```
+
+`/update` answers whether a newer `@illodev/workfile` is published:
+`{ status, installed, latest, checkedAt, nextCheckAt, source }` with `status`
+one of `behind`, `current`, `ahead`, `unknown` (no network, or no version in
+the answer) or `disabled` (`upgrade.check: false`). It is the one route that
+can reach outside the machine — a single `GET` to the npm registry, cached for
+24 hours under `.project/.cache` — and the footer calls it once per page load.
+The security model states exactly what is sent.
 
 Search responses carry `mode` (`"lexical"`, `"hybrid"` or `"regex"`) and
 `provider` (the semantic provider's id, else `null`), so a client can show

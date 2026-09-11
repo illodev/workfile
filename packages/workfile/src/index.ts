@@ -163,7 +163,18 @@ export {
     readDoctorBaseline,
     writeDoctorBaseline
 } from "./modules/health/baseline.js";
-export { runUpgrade } from "./modules/upgrade/index.js";
+export {
+    runUpgrade,
+    checkForUpdate,
+    checkedAgo,
+    compareVersions,
+    registryUrl,
+    upgradeHint,
+    UPDATE_CHECK_TTL_MS,
+    UPDATE_RETRY_MS,
+    type UpdateCheck,
+    type UpdateStatus
+} from "./modules/upgrade/index.js";
 
 export {
     createProjectServer,

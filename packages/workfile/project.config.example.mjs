@@ -148,6 +148,13 @@ export default {
         provider: null,
         semanticWeight: 0.35,
         maxProviderRecords: 500
+    },
+    upgrade: {
+        // `workfile upgrade` and the interface's footer ask the npm registry
+        // for the latest published version — one GET, nothing about the
+        // workspace — cached for a day under .project/.cache. false removes
+        // the request entirely; nothing else in the package reaches the network.
+        check: true
     }
 };
 

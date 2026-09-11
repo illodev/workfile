@@ -200,6 +200,18 @@ export interface HealthIssue {
     message: string;
 }
 
+/** `/api/v2/update`: whether a newer package is published. Mirrors the server's `UpdateCheck`. */
+export interface UpdateCheck {
+    status: "disabled" | "current" | "behind" | "ahead" | "unknown";
+    package: string;
+    installed: string;
+    latest: string | null;
+    registry: string | null;
+    checkedAt: string | null;
+    nextCheckAt: string | null;
+    source: "config" | "cache" | "registry";
+}
+
 export interface HealthReport {
     generatedAt: string;
     cards: number;

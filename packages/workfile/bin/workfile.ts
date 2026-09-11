@@ -91,8 +91,11 @@ import {
     ValidationError,
     wholeNumber,
     CARD_TITLE_MAX_LENGTH,
-    DOC_TITLE_MAX_LENGTH
+    DOC_TITLE_MAX_LENGTH,
+    checkedAgo,
+    upgradeHint
 } from "../src/index.js";
+import { detectPackageManager } from "../src/core/package-manager.js";
 
 const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../package.json", import.meta.url), "utf8")
@@ -3296,6 +3299,23 @@ async function main() {
         if (result.binary.mismatched) {
             console.log(
                 `  MISMATCH      this binary is v${result.binary.running}, node_modules has v${result.binary.local} — the hooks and the MCP server run the local copy, so install v${result.binary.running} there or upgrade with the local binary`
+            );
+        }
+        // Last, because it was asked first: the registry answered while the
+        // surfaces were compared. `unknown` and `disabled` print nothing — an
+        // offline machine behaves exactly as it did, and a switched-off check
+        // is not a warning about the warning.
+        const update = result.update;
+        if (update?.status === "behind") {
+            console.log(
+                `  BEHIND        v${update.installed} installed, v${update.latest} published — ${upgradeHint(
+                    await detectPackageManager(workspace.root),
+                    { local: Boolean(result.binary.local) }
+                )}`
+            );
+        } else if (update?.status === "current") {
+            console.log(
+                `  latest        v${update.installed} is the newest published version (${checkedAgo(update.checkedAt)})`
             );
         }
         return;

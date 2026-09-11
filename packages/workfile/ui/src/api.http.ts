@@ -5,6 +5,7 @@ import type {
     BaseRecord,
     GraphRecord,
     HealthReport,
+    UpdateCheck,
     SearchResponse,
     HistoryRecord,
     MemoryRecord,
@@ -105,6 +106,7 @@ export const httpApi = {
         };
     },
     health: () => request<HealthReport>("/api/v2/health"),
+    update: () => request<UpdateCheck>("/api/v2/update"),
     activity: () => request<ActivitySnapshot>("/api/v2/activity"),
     // The query goes through untouched: the server itself detects the
     // `/pattern/flags` regex form and answers with the mode it ranked by.
