@@ -8,7 +8,7 @@ area: core
 tags: [protocol, agents]
 raised: reported
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-09-11
 scope: [packages/workfile/src/modules/agents/agents.ts, packages/workfile/test/agents.test.ts, .project/agents]
 ---
 
@@ -59,6 +59,7 @@ A card closed **6 of 6** while the client it fed did not compile. All six criter
 - 2026-09-04 08:26Z illodev@local#2a219b74 — 2026-09-04 — **Las cinco reglas escritas, y el protocolo pasa de 89 a 92 líneas.**
 
 Ese número es el coste real: el protocolo se carga entero en cada sesión de cada consumidor, así que cinco reglas por tres líneas sólo se justifica si cada una evita un fallo medido. Las cinco lo son, y la medición va **dentro de la regla**, no en la ficha — que es lo que hace que alguien que la lea dentro de seis meses sepa por qué está ahí.
+- 2026-09-11 15:40Z illodev@local#597ecdc9 — 2026-09-11: doctor reported .project/agents/protocol.md stale (body) — the generator carried this card's four additions and the repository's own copy had not been re-synced after 5fb85af/90c0a50. Ran agents sync (protocol.md updated, 6 insertions) and claude install so the skill embeds the same text. No text changed; only the repository caught up with its generator.
 
 ## Dónde cayó cada una
 
