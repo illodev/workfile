@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0 — 2026-09-11
+
+**Breaking.** Every `--json` command that answers a record now answers `{ "record": … }`, the shape every MCP tool has always given — `show`, `create`, `patch`, `transition`, `release`, `archive`, `reopen`, `note` and `write` on cards; `create`, `patch`, `write`, `note` and `move` on docs; `add`, `patch` and `release` on the changelog; `add`, `patch`, `graduate` and `supersede` on memory — with named extras beside the record where there are any. The one-line fix for a caller that read the record at the top level is `.record` (`d["record"]` in Python). Listings keep `{ records, total }` and reports keep their own shapes; `--fields` still cuts the record down, inside the envelope. The stderr note 0.12.x printed on every record answer is gone. `WORKFILE_JSON_ENVELOPE=1`, the 0.12.x opt-in, is accepted and ignored throughout 0.13.x so a script that set it does not break twice; **0.14.0 refuses it as unknown**. The owner's decision of 2026-09-11 on T-0246, cut as T-0250.
+
+### Changed
+
+- Breaking: every --json record answer is { record }, as the MCP tools answer (T-0250)
+
 ## 0.12.1 — 2026-09-11
 
 Three silences in the protocol, each measured before it was named. An edit made through `sed` inside another actor's scope was asked nothing — the PostToolUse hook now reports it after the fact, with the card and its holder, and never joins the guard's hot path. Nothing said a newer Workfile existed while every check stayed green — `upgrade` and the footer now ask the registry once a day, and the security model states exactly what is sent and to whom. The trail said who closed a card and never what closed it — `produced_by` now rides beside the actor, self-reported and labelled so, on the trail line and as a countable field. Around them: every `--json` answer has a written shape, with the MCP envelope one variable away ahead of 0.13.0; `show --fields` reads one key of any record; and the stills and the Workflow picture show the shell that ships.
