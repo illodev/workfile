@@ -11,6 +11,10 @@ tags: [breaking, 0.13.0]
 raised: reported
 created: 2026-09-11
 updated: 2026-09-11
+produced_by:
+  model: claude-fable-5-1
+  reasoning: xhigh
+  basis: self-reported
 ---
 
 The owner decided on 2026-09-11 ([[T-0246]]) that the CLI converges on the MCP envelope in 0.13.0. 0.12.x ships the table of shapes in `docs/cli.md`, a stderr line on every **record** answer naming the version and the new shape, and `WORKFILE_JSON_ENVELOPE=1` to opt into the envelope early. This card is the cut itself, and it is a separate card because it is a separate release: a card has to stay closeable against the thing that shipped, and 0.12.x cannot ship a breaking default.
@@ -28,3 +32,7 @@ Who has to be told: the changelog entry is `changed` and says **breaking** in it
 - [ ] The stderr note is gone; `WORKFILE_JSON_ENVELOPE=1` is accepted and ignored for 0.13.x and the release notes say when it is refused
 - [ ] The 0.13.0 changelog entry opens with the word breaking and names the one-line fix for a caller
 - [ ] Fube's scripts that parse `--json` are found by grep and updated, or the note on this card says which ones were left and why
+
+## Notes
+
+- 2026-09-11 18:47Z illodev@local#597ecdc9 via:claude-fable-5-1/xhigh — Order, recorded on 2026-09-11 after T-0227, T-0208 and T-0209 closed: this card must not start before a 0.12.x release ships what T-0246 promised for 0.12.x (the shape table, the stderr note, the WORKFILE_JSON_ENVELOPE opt-in) together with the additive work now on main — otherwise the 0.12.x half of the decision never reaches a consumer and the four cards in review (T-0246, T-0247, T-0249, T-0214) have no published package to close against. Cutting that release is the owner's call; the flip is the release after it.
