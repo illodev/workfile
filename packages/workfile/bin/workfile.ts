@@ -153,7 +153,7 @@ const USAGE: Record<string, string[]> = {
     ],
     card: [
         "workfile card list [--json] [--axis context=treasury]   # repeatable, once per axis",
-        "workfile card show ID [--json]",
+        "workfile card show ID [--json] [--fields a,b]",
         `workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]   # TITLE up to ${CARD_TITLE_MAX_LENGTH} characters`,
         "workfile card create --title TITLE --raised reported|derived   # a person asked, or you inferred it",
         "workfile card create --json-input FILE   # recommended: body, parent, source, tags in one call",
@@ -178,7 +178,7 @@ const USAGE: Record<string, string[]> = {
     ],
     doc: [
         "workfile doc list [--query TEXT] [--managed] [--json]",
-        "workfile doc show ID [--json]",
+        "workfile doc show ID [--json] [--fields a,b]",
         `workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]   # TITLE up to ${DOC_TITLE_MAX_LENGTH} characters`,
         "workfile doc create --json-input FILE   # recommended: body and metadata in one call",
         "workfile doc move ID --folder PATH [--expected-revision REV]",
@@ -188,7 +188,7 @@ const USAGE: Record<string, string[]> = {
     ],
     changelog: [
         "workfile changelog list [--unreleased] [--visibility public|internal] [--json]",
-        "workfile changelog show ID [--json]",
+        "workfile changelog show ID [--json] [--fields a,b]",
         "workfile changelog add --title TITLE [--type fixed] [--area AREA]",
         "workfile changelog add --json-input FILE   # recommended: body and metadata in one call",
         "workfile changelog patch ID --json-input FILE [--expected-revision REV]",
@@ -200,7 +200,7 @@ const USAGE: Record<string, string[]> = {
     ],
     memory: [
         "workfile memory list [--collection learnings] [--status active] [--json]",
-        "workfile memory show ID [--json]",
+        "workfile memory show ID [--json] [--fields a,b]",
         "workfile memory add COLLECTION --title TITLE [--status STATUS]",
         "workfile memory add COLLECTION --json-input FILE   # recommended: body and metadata in one call",
         "workfile memory patch ID --json-input FILE [--expected-revision REV]",
@@ -420,7 +420,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--expected-revision",
         "--status"
     ],
-    "card show": [],
+    "card show": ["--fields"],
     "card transition": [
         "--actor",
         "--evidence",
@@ -497,7 +497,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--visibility",
         "--write"
     ],
-    "changelog show": [],
+    "changelog show": ["--fields"],
     "changelog verify": [],
     "ci check": [
         "--targets"
@@ -547,7 +547,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--expected-revision",
         "--json-input"
     ],
-    "doc show": [],
+    "doc show": ["--fields"],
     "doc write": [
         "--body-file",
         "--expected-revision"
@@ -639,7 +639,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--expected-revision",
         "--json-input"
     ],
-    "memory show": [],
+    "memory show": ["--fields"],
     "memory supersede": [
         "--by",
         "--expected-revision"
@@ -1173,6 +1173,24 @@ function paginate(records) {
  * The Markdown body is omitted unless asked for: a list is a list, and reading
  * one card's prose is what `card show` is for.
  */
+/**
+ * `show --fields id,revision`: the record cut down to the keys named.
+ *
+ * A patch guarded by `--expected-revision` used to cost a `show` of the whole
+ * record first, and on a long document that is the body over the wire to read
+ * one hash (T-0247). The same flag `list` already takes, on the one-record
+ * read: keys the record does not carry are left out rather than reported as
+ * null, so a caller can ask for `revision` on every kind without knowing which
+ * ones compute it.
+ */
+function projectShown(record) {
+    const fields = listOption("--fields");
+    if (!fields) return record;
+    return Object.fromEntries(
+        fields.filter((key) => key in record).map((key) => [key, record[key]])
+    );
+}
+
 function projectCard(card) {
     const fields = listOption("--fields");
     if (fields) {
@@ -1556,7 +1574,7 @@ async function cardCommand(workspace, action) {
         // every body to answer a question nobody asked of a listing.
         const acceptance = parseAcceptance(card.body);
         return print(
-            acceptance.present ? { ...card, acceptance } : card
+            projectShown(acceptance.present ? { ...card, acceptance } : card)
         );
     }
     if (action === "reap") {
@@ -2042,7 +2060,7 @@ async function documentCommand(workspace, action) {
         if (!document) {
             throw new NotFoundError("DOC_NOT_FOUND", `Document not found: ${id}`);
         }
-        return print(document);
+        return print(projectShown(document));
     }
     if (action === "create") {
         const fileInput = (await jsonInput()) || {};
@@ -2184,7 +2202,7 @@ async function changelogCommand(workspace, action) {
                 `Changelog record not found: ${id}`
             );
         }
-        return print(record);
+        return print(projectShown(record));
     }
     if (action === "add" || action === "create") {
         const fileInput = (await jsonInput()) || {};
@@ -2364,7 +2382,7 @@ async function memoryCommand(workspace, action) {
                 `Memory record not found: ${argument}`
             );
         }
-        return print(record);
+        return print(projectShown(record));
     }
     if (action === "add" || action === "create") {
         const collection = memoryCollection(argument);

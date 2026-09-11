@@ -600,6 +600,13 @@ AND. `--json` omits the Markdown body and reports `bodyBytes` instead; ask for
 it with `--with-body`, or pick exactly what you need with `--fields`. Responses
 carry `total`, `offset` and `truncated`.
 
+`show` takes `--fields` too, on every record kind: `card show T-0042 --json
+--fields id,revision` is how a caller obtains the revision a guarded patch needs
+without reading the body first. Keys the record does not carry are left out
+rather than reported as null. A patch without `--expected-revision` applies and
+says nothing — the guard is optional by design, and the patch's own `--json`
+answer already carries the new revision.
+
 Options are validated per **subcommand**, not per command word. `card show
 --status doing` and `card patch ID --json-input p.json --title "..."` are
 refused with `CLI_ARGUMENT_UNKNOWN`, and the message names the subcommand the

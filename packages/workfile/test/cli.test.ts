@@ -17,6 +17,8 @@ import { promisify } from "node:util";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createTestWorkspace } from "./support/workspace.ts";
+
 const execute = promisify(execFile);
 const cli = resolve(fileURLToPath(new URL("../dist/bin/workfile.js", import.meta.url)));
 const fixture = resolve(
@@ -2553,5 +2555,63 @@ test("doc write and doc note reach a document the way card write and card note r
         assert.notEqual(indexed.code, 0);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * `show --fields` on every record kind, for the one read a guarded patch
+ * needs: the revision. Before this, obtaining one hash meant `show --json` of
+ * the whole record, body included (T-0247).
+ */
+test("show --fields cuts a record of any kind down to the keys named", async () => {
+    const { root, workspace, cleanup } = await createTestWorkspace();
+    try {
+        const { createCard, createManagedDocument, createMemoryRecord, createChangeFragment } =
+            await import("../dist/src/index.js");
+        const card = await createCard(workspace, { title: "Fields probe", area: "api" });
+        const doc = await createManagedDocument(workspace, {
+            title: "Fields probe doc",
+            body: "A body long enough to be worth not reading."
+        });
+        const memory = await createMemoryRecord(workspace, "learnings", {
+            title: "Fields probe learning",
+            body: "Learned."
+        });
+        const change = await createChangeFragment(workspace, {
+            title: "Fields probe change",
+            type: "added",
+            area: "api"
+        });
+
+        const shown = async (args: string[]) =>
+            JSON.parse((await run([...args, "--json", "--fields", "id,revision,body", "--root", root])).stdout);
+
+        for (const [label, args, id] of [
+            ["card", ["card", "show", card.id], card.id],
+            ["doc", ["doc", "show", doc.id], doc.id],
+            ["memory", ["memory", "show", memory.id], memory.id],
+            ["changelog", ["changelog", "show", change.id], change.id]
+        ] as const) {
+            const projected = await shown([...args]);
+            assert.equal(projected.id, id, `${label}: the id survives`);
+            assert.match(String(projected.revision), /^sha256:[0-9a-f]{64}$/, `${label}: revision named`);
+            // Three keys asked for; a key the record does not carry is left out
+            // rather than reported null, and nothing else comes along.
+            assert.deepEqual(
+                Object.keys(projected).filter((key) => key !== "body").sort(),
+                ["id", "revision"],
+                `${label}: only the keys asked for`
+            );
+        }
+
+        // Without the flag, `card show` is what it always was: the record
+        // with its derived acceptance, body included.
+        const whole = JSON.parse(
+            (await run(["card", "show", card.id, "--json", "--root", root])).stdout
+        );
+        assert.equal(whole.id, card.id);
+        assert.ok("body" in whole);
+    } finally {
+        await cleanup();
     }
 });
