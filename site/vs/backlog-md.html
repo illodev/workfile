@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Workfile vs Backlog.md — Markdown task tracking for AI agents, compared</title>
+<meta name="description" content="Both keep tasks as Markdown in git, with a CLI, a board and an MCP server. Backlog.md ships a compiled binary and a terminal board; Workfile enforces claims and a done gate.">
+<link rel="canonical" href="https://workfile.illodev.com/vs/backlog-md">
+<link rel="alternate" type="text/markdown" href="/vs/backlog-md.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Workfile vs Backlog.md — Markdown task tracking for AI agents, compared">
+<meta property="og:description" content="Both keep tasks as Markdown in git, with a CLI, a board and an MCP server. Backlog.md ships a compiled binary and a terminal board; Workfile enforces claims and a done gate.">
+<meta property="og:url" content="https://workfile.illodev.com/vs/backlog-md">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","headline":"Workfile vs Backlog.md — Markdown task tracking for AI agents, compared","description":"Both keep tasks as Markdown in git, with a CLI, a board and an MCP server. Backlog.md ships a compiled binary and a terminal board; Workfile enforces claims and a done gate.","url":"https://workfile.illodev.com/vs/backlog-md","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Compare","item":"https://workfile.illodev.com/vs/backlog-md"},{"@type":"ListItem","position":3,"name":"Workfile vs Backlog.md — Markdown task tracking for AI agents, compared","item":"https://workfile.illodev.com/vs/backlog-md"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started">docs</a><a href="/vs/backlog-md" aria-current="page">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md" aria-current="page">vs Backlog.md</a><ol><li><a href="#side-by-side">Side by side</a></li><li><a href="#where-backlogmd-is-stronger">Where Backlog.md is stronger</a></li><li><a href="#where-workfile-is-stronger">Where Workfile is stronger</a></li><li><a href="#which-to-choose">Which to choose</a></li></ol></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /vs/backlog-md</span><span>Accept: text/markdown</span><span>→ <a href="/vs/backlog-md.md">/vs/backlog-md.md</a></span><span>≈1,820 tokens</span></p>
+<article class="prose">
+<h1 id="workfile-vs-backlogmd">Workfile vs Backlog.md</h1>
+<p class="checked">Every claim about a third party below links its source and was checked on <time datetime="2026-09-14">2026-09-14</time>.</p>
+<p>Backlog.md is the closest thing to Workfile there is: tasks as Markdown files with frontmatter, git as the database, a CLI, a web board and an MCP server. The difference is what happens when an agent does not follow the rules. In Backlog.md an assignee is a field and acceptance criteria are guidance; in Workfile a claim refuses another actor&#39;s transition, and <code>done</code> is refused while a criterion is unchecked. Backlog.md is far more widely used, ships as a compiled binary, and has a terminal board Workfile does not.</p>
+<p>Read against Backlog.md <a href="https://registry.npmjs.org/backlog.md">1.52.0</a> at commit <a href="https://github.com/MrLesk/Backlog.md/tree/39912b864053dcdd1fafc458aacde43ffd616a0c"><code>39912b8</code></a> and <code>@illodev/workfile</code> 0.13.2.</p>
+<h2 id="side-by-side"><a class="hash" href="#side-by-side" aria-hidden="true" tabindex="-1">##</a> Side by side</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th>Workfile 0.13.2</th>
+<th>Backlog.md 1.52.0</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Records</td>
+<td>Markdown with frontmatter in <code>.project/</code>: cards, docs, changelog fragments and releases, memory</td>
+<td>Markdown with frontmatter in <code>backlog/</code>: tasks, drafts, documents, decisions, milestones (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/constants/index.ts#L4-L29">source</a>)</td>
+</tr>
+<tr>
+<td>Who holds a task</td>
+<td>A claim over paths; a transition or release by another actor is refused with <code>CARD_CLAIM_OWNER_MISMATCH</code></td>
+<td><code>assignee</code> is a list used for filtering (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/types/index.ts#L50">type</a>); per-task write locks stop two writes colliding but record no owner (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/file-system/operations.ts#L637-L711">locks</a>)</td>
+</tr>
+<tr>
+<td>Done with criteria unchecked</td>
+<td>Refused with <code>CARD_ACCEPTANCE_UNMET</code>; forcing it requires a reason, which the card keeps</td>
+<td>Allowed. <code>task_edit</code> sets the status without reading the checklists (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/core/backlog.ts#L2014-L2020">source</a>); <code>task_complete</code> checks the status and branch, not the criteria (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/mcp/tools/tasks/handlers.ts#L493-L520">handler</a>); checking criteria first is guidance to the agent (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/guidelines/mcp/task-finalization.md#L21-L22">guideline</a>)</td>
+</tr>
+<tr>
+<td>Changelog</td>
+<td>Fragments linked to cards, cut into releases, rendered to <code>CHANGELOG.md</code></td>
+<td>None as a feature (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/backlog/drafts/draft-13%20-%20Create-CHANGELOG.md">their own draft</a>)</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>Decisions, learnings, incidents, conventions and expiring context, each a typed record</td>
+<td>Decisions as records; no learnings, incidents or conventions</td>
+</tr>
+<tr>
+<td>MCP server</td>
+<td><code>workfile mcp</code>, stdio, <!-- generated:tool-count -->32<!-- /generated:tool-count --> tools, <code>--read-only</code></td>
+<td><code>backlog mcp start</code>, stdio, 20 tools (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/mcp/server.ts#L545-L550">registration</a>)</td>
+</tr>
+<tr>
+<td>Validation</td>
+<td><code>workfile doctor</code></td>
+<td><code>backlog doctor</code>, with <code>--fix</code> for duplicate task IDs (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/cli.ts#L5490-L5635">source</a>)</td>
+</tr>
+<tr>
+<td>Board</td>
+<td>Local web UI</td>
+<td>Local web board and a terminal board (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/cli.ts#L4454-L4587">terminal</a>, <a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/cli.ts#L5779-L5781">web</a>)</td>
+</tr>
+<tr>
+<td>Network by default</td>
+<td>One npm version check a day, removed by <code>upgrade: { check: false }</code></td>
+<td>No telemetry; <code>git fetch origin</code>, when a remote exists and <code>remoteOperations</code> is on (the default), before allocating an ID and at most once a minute while reading tasks across branches (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/constants/index.ts#L69">default</a>, <a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/git/operations.ts#L572-L615">fetch</a>, <a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/src/core/backlog.ts#L711-L766">reads</a>)</td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td>Node.js ≥ 22</td>
+<td>A compiled binary per platform through Homebrew, npm or Bun (a small Node launcher picks it); the Nix flake runs a bundled build on Bun (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/README.md#L78-L83">README</a>, <a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/scripts/build.ts#L20-L36">build</a>, <a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/flake.nix#L89-L91">flake</a>)</td>
+</tr>
+<tr>
+<td>License</td>
+<td>MIT</td>
+<td>MIT (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/LICENSE">LICENSE</a>)</td>
+</tr>
+</tbody></table></div>
+<h2 id="where-backlogmd-is-stronger"><a class="hash" href="#where-backlogmd-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Backlog.md is stronger</h2>
+<ul>
+<li><strong>Adoption.</strong> 6,726 GitHub stars and 12,847 npm downloads in the week to 2026-09-11 (<a href="https://api.github.com/repos/MrLesk/Backlog.md">GitHub</a>, <a href="https://api.npmjs.org/downloads/point/last-week/backlog.md">npm</a>), with 17 npm releases between May and September 2026. Workfile is a young project with a fraction of that.</li>
+<li><strong>No Node.js required.</strong> Homebrew installs a compiled binary, and the npm and Bun packages wrap the same binary; Workfile needs Node.js 22.</li>
+<li><strong>A terminal board.</strong> <code>backlog board</code>. Workfile&#39;s board is a web UI only.</li>
+<li><strong>Cross-branch awareness.</strong> It shows task state from recently active branches, and checks IDs on other branches and worktrees before allocating one. Workfile reads records only from the checkout it runs in.</li>
+<li><strong>A versioned JSON contract</strong> with <code>schemaVersion</code>, and <code>--watch</code> streaming for <code>task list --json</code> (<a href="https://github.com/MrLesk/Backlog.md/blob/39912b864053dcdd1fafc458aacde43ffd616a0c/CLI-INSTRUCTIONS.md#L95-L136">spec</a>).</li>
+<li><strong>Shell completions</strong> for bash, zsh, fish and PowerShell 7.</li>
+<li><strong>A smaller agent surface.</strong> 20 MCP tools against Workfile&#39;s <!-- generated:tool-count -->32<!-- /generated:tool-count -->.</li>
+</ul>
+<h2 id="where-workfile-is-stronger"><a class="hash" href="#where-workfile-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Workfile is stronger</h2>
+<ul>
+<li><strong>Claims that refuse.</strong> A second agent cannot move or release a card the first one holds, and in Claude Code the plugin&#39;s hook asks before an edit inside a claimed scope.</li>
+<li><strong>A done gate.</strong> Criteria under <code>## Acceptance criteria</code> must be checked before <code>done</code>, and a forced close keeps its reason on the card.</li>
+<li><strong>History.</strong> Changelog fragments linked to cards, cut into releases.</li>
+<li><strong>Typed memory.</strong> <code>workfile agents context --card ID</code> hands an agent the card and every accepted decision and convention in force.</li>
+<li><strong>An HTTP API and a read-only MCP mode</strong> over the same core.</li>
+</ul>
+<h2 id="which-to-choose"><a class="hash" href="#which-to-choose" aria-hidden="true" tabindex="-1">##</a> Which to choose</h2>
+<ul>
+<li><strong>Backlog.md</strong> if one person or one agent drives the work, you want a binary with no runtime, or you live in the terminal.</li>
+<li><strong>Workfile</strong> if several agents share a checkout, &quot;done&quot; has to mean proven, or the decisions and changelog belong beside the tasks.</li>
+</ul>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/site/vs/backlog-md.md">site/vs/backlog-md.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

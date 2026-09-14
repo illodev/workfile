@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>The interface — Workfile docs</title>
+<meta name="description" content="The UI is a React application in ui/, compiled by Vite into dist/ui and served by the same node:http server that answers the API. It ships precompiled:…">
+<link rel="canonical" href="https://workfile.illodev.com/docs/ui">
+<link rel="alternate" type="text/markdown" href="/docs/ui.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="The interface — Workfile docs">
+<meta property="og:description" content="The UI is a React application in ui/, compiled by Vite into dist/ui and served by the same node:http server that answers the API. It ships precompiled:…">
+<meta property="og:url" content="https://workfile.illodev.com/docs/ui">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"The interface","description":"The UI is a React application in ui/, compiled by Vite into dist/ui and served by the same node:http server that answers the API. It ships precompiled:…","url":"https://workfile.illodev.com/docs/ui","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"The interface","item":"https://workfile.illodev.com/docs/ui"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui" aria-current="page">The interface</a><ol><li><a href="#zero-runtime-dependencies-is-a-published-guarantee">Zero runtime dependencies is a published guarantee</a></li><li><a href="#shadcnui-is-the-design-system">shadcn/ui is the design system</a></li><li><a href="#demo-builds">Demo builds</a></li></ol></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/ui</span><span>Accept: text/markdown</span><span>→ <a href="/docs/ui.md">/docs/ui.md</a></span><span>≈3,750 tokens</span></p>
+<article class="prose">
+<h1 id="the-interface">The interface</h1>
+<p>The UI is a React application in <code>ui/</code>, compiled by Vite into <code>dist/ui</code> and
+served by the same <code>node:http</code> server that answers the API. It ships
+precompiled: <code>files</code> publishes <code>dist</code>, so nothing the interface is built with
+reaches a consumer&#39;s <code>node_modules</code>.</p>
+<h2 id="zero-runtime-dependencies-is-a-published-guarantee"><a class="hash" href="#zero-runtime-dependencies-is-a-published-guarantee" aria-hidden="true" tabindex="-1">##</a> Zero runtime dependencies is a published guarantee</h2>
+<p><code>dependencies</code> is empty. <code>@types/node</code> is an optional peer dependency —
+unpinned, and never installed for you — because two of the published <code>.d.ts</code>
+files name Node types, and a consumer type-checking them with
+<code>skipLibCheck: false</code> needs them. React, Radix, Tailwind, Lucide and the
+shadcn tooling are all <code>devDependencies</code>.</p>
+<p>This is enforced, not documented and hoped for. <code>test/dependencies.test.ts</code>
+asserts that <code>dependencies</code> is empty and that the only peer is the optional
+<code>@types/node</code>, and also that there are no <code>optionalDependencies</code>,
+<code>bundleDependencies</code>, or install hooks that would smuggle a tree in past that
+check. <code>test/design-system.test.ts</code> asserts the empty list a second time, from
+the other direction.</p>
+<p>The guard matters because <code>shadcn add</code> writes its imports into
+<code>dependencies</code> by default. One un-corrected run would publish Radix, Lucide
+and CVA into every consumer&#39;s install, and nothing about the repository
+would look wrong. Install what a component needs yourself, with <code>-D</code>,
+before running <code>add</code> — then check the test still passes.</p>
+<p><code>pnpm run smoke:package</code> goes further: it packs the tarball, installs it in
+a clean consumer, and checks that React is absent from the resulting tree.</p>
+<h2 id="shadcnui-is-the-design-system"><a class="hash" href="#shadcnui-is-the-design-system" aria-hidden="true" tabindex="-1">##</a> shadcn/ui is the design system</h2>
+<p>The third migration (<code>ADR-0005</code>) put shadcn/ui on Tailwind v4 underneath
+the interface — wholesale, zinc as published, after two reverted attempts
+taught that adopting a framework means adopting its look. The bespoke
+stylesheet is gone; <code>ui/src/styles.css</code> is now the token bridge:</p>
+<ul>
+<li><code>@import &quot;tailwindcss&quot;</code>, the registry&#39;s shared utilities from
+<code>shadcn/tailwind.css</code> (scroll-fade and friends), and <code>typeset.css</code> — the
+styling system for rendered Markdown.</li>
+<li>The zinc palettes for <code>:root</code> and <code>[data-theme=&quot;dark&quot;]</code>. Themes still
+switch on the <code>data-theme</code> attribute the app stamps; a <code>@custom-variant</code>
+bridges the registry&#39;s <code>dark:</code> utilities to it.</li>
+<li>The three semantic namespaces — <code>--status-*</code>, <code>--priority-*</code>, <code>--sev-*</code> —
+ported byte-for-byte from the system they outlived. They are the first
+named exception ADR-0005 allows, applied through the helpers in
+<code>ui/src/theme.ts</code> or the mapped utilities (<code>text-status-doing</code>).</li>
+<li><code>--primary</code> and <code>--primary-foreground</code>, the second and last exception:
+the landing&#39;s brand blue rather than zinc&#39;s near-black (<code>ADR-0009</code>).
+Everything that means &quot;the primary action&quot; follows the token, so no
+component knows about it.</li>
+<li><code>--row-h</code>, the single density token: 40px compact by default, 48px under
+<code>:root[data-density=&quot;comfortable&quot;]</code>. Tables key their row height off it.</li>
+<li>Scrollbars, styled once on <code>*</code> in <code>@layer base</code> from <code>--border</code> and
+<code>--muted-foreground</code>. Declared there rather than as a class because a
+scroller that forgets the class is exactly the one that looks wrong.</li>
+</ul>
+<p><code>test/design-system.test.ts</code> enforces the direction: the framework imports
+must be present, the registry must exist and stay free of application
+imports, no component may speak the dead bespoke vocabulary or name a
+colour literal, every <code>var()</code> referenced must be declared, and the dark
+palette must follow <code>data-theme</code>. <code>test/tokens.test.ts</code> walks the theme
+blocks with a real parser and fails if the dark palette drops a token the
+light one declares.</p>
+<h3 id="where-components-live"><a class="hash" href="#where-components-live" aria-hidden="true" tabindex="-1">###</a> Where components live</h3>
+<ul>
+<li><code>ui/src/components/ui/</code> is the registry — generated by <code>shadcn add</code> and
+replaced wholesale on regeneration. Hand-edited only where a comment in the
+file says why; the control scale below is the one standing amendment.</li>
+<li><code>ui/src/components/domain/</code> holds the virtual table, the kanban and the
+Gantt: Workfile&#39;s own decisions about how work is displayed, composed
+from registry parts.</li>
+<li>Everything else in <code>ui/src/components/</code> is application glue — the
+inspector, the editors, the palette, the settings dialog. <code>RecordDrawer</code>
+is the overlay a record is read in, and both the card inspector and the
+memory record go through it: one drawer, one set of dismissal rules.</li>
+<li><code>ui/src/lib/utils.ts</code> carries <code>cn()</code>; <code>ui/src/hooks/</code> the registry hooks.</li>
+</ul>
+<h3 id="adding-a-component"><a class="hash" href="#adding-a-component" aria-hidden="true" tabindex="-1">###</a> Adding a component</h3>
+<pre class="code" data-lang="sh"><code>pnpm dlx shadcn@latest add &lt;component&gt;
+node --test test/dependencies.test.ts     # nothing reached dependencies
+node --test test/design-system.test.ts    # registry discipline holds</code></pre>
+<p>The CLI resolves <code>@/</code> from the <strong>root</strong> <code>tsconfig.json</code> — its <code>paths</code> entry
+exists solely for this, and removing it makes <code>shadcn add</code> write into a
+literal <code>@/</code> directory beside <code>package.json</code>. App code resolves the same
+alias through <code>ui/tsconfig.json</code> and the matching <code>resolve.alias</code> in
+<code>vite.config.mjs</code>; the two must stay in sync. Note <code>ui/tsconfig.json</code>
+declares <code>paths</code> without <code>baseUrl</code> — TypeScript 7 removed <code>baseUrl</code>, and
+reintroducing it aborts the whole typecheck with TS5102 before a single
+file is checked.</p>
+<h3 id="conventions-the-framework-does-not-decide"><a class="hash" href="#conventions-the-framework-does-not-decide" aria-hidden="true" tabindex="-1">###</a> Conventions the framework does not decide</h3>
+<ul>
+<li><p><strong>Native selects in table rows</strong> — never a portal select mid-row. The
+registry&#39;s NativeSelect restyles the real <code>&lt;select&gt;</code> the Explorer rows
+depend on.</p>
+</li>
+<li><p><strong>Density is one token.</strong> Components never hardcode a row height; they
+read <code>var(--row-h)</code>. The comfortable/compact switch is the <code>data-density</code>
+attribute on the root element, flipped from the settings dialog alongside
+the theme. Both are browser preferences the shell owns and persists in
+<code>localStorage</code>; <code>components/Settings.tsx</code> renders them and stores nothing,
+because a theme that needed a dialog mounted to exist would be worse than
+the two header buttons it replaced.</p>
+</li>
+<li><p><strong>Controls share one height scale.</strong>
+<code>ui/src/components/ui/control-size.ts</code> holds four rungs, 4px apart, and
+<code>Button</code>, <code>Input</code>, <code>InputGroup</code> and <code>NativeSelect</code> compose their variants
+from it — so <code>size=&quot;sm&quot;</code> is 28px whichever of them you wrote it on, and a
+toolbar that mixes them cannot sit crooked. <code>default</code> is 32px, the second
+rung from the foot: this is a record tool, and before the scale existed
+twenty-one hand-written heights had already patched the registry&#39;s 36px
+down, which is exactly how the Memory field ended up one rung taller than
+the chips beside it. Filter strips ride <code>sm</code>; the shell header and the
+dialogs ride the default; Triage&#39;s decision row is the one deliberate
+<code>lg</code>, because it is the only place you sit and hit the same seven buttons
+card after card. A height class written onto a call site is the bug —
+<code>test/control-size.test.ts</code> fails on any rung height applied to a control,
+while arbitrary values are left alone, because <code>h-[22px]</code> on the Explorer&#39;s
+row select is how a view says &quot;deliberately off the scale&quot; rather than &quot;I
+could not reach it&quot;.</p>
+<p>This is the one place the registry is deliberately not kept as generated;
+all four files carry a comment saying so, and the amendment has to be
+re-applied if <code>shadcn add</code> is ever run over them. Sizing is precisely the
+change you want to take every component at once — the mirror image of the
+chip&#39;s pointer rule below, which is kept <em>out</em> of <code>components/ui/</code> for the
+same reason read the other way.</p>
+</li>
+<li><p><strong>Colours are tokens.</strong> Status, priority and severity ride the semantic
+namespaces via <code>theme.ts</code>; everything else is a shadcn token utility. A
+literal colour anywhere in <code>ui/src</code> fails the suite — the brand mark in
+the sidebar strokes <code>currentColor</code> for exactly that reason.</p>
+</li>
+<li><p><strong>Free text is one control that says what it matches.</strong> Every filter bar
+renders <code>ui/src/components/FilterSearch.tsx</code>, and its two placeholders are
+the only place the match rule is written down. The record collections
+search on the server over id, title, metadata and body — the body by whole
+token, the title by substring — while the card views filter in the browser
+over identity and metadata, reaching prose only through <code>body:</code>. Two
+corpora, so two sentences, neither promising what the other does. The term
+rides the address bar like every other filter (<code>?q=</code> for cards, <code>?find=</code>
+for docs, history and memory). <code>test/filter-search.test.ts</code> fails if a view
+grows a box of its own or a wording of its own.</p>
+</li>
+<li><p><strong>A filter that is not in the URL is a filter that dies on reload.</strong> Every
+one of them is state the shell owns and <code>ui/src/query.ts</code> serialises — the
+card axes flat (<code>?status=</code>, <code>?area=</code>, …), the record collections&#39; axes
+namespaced by view (<code>?docs-managed=1</code>, <code>?history-state=</code>,
+<code>?memory-collection=</code>, <code>?memory-status=</code>). The prefix is a rule and not a
+case-by-case choice: the obvious name for Memory&#39;s is <code>status</code>, which the
+card filter already owns, and the loser of a clash like that filters by
+nothing without saying so. A record view therefore takes its filters as a
+prop and reports changes as a patch, so its coupled pairs — picking a Memory
+collection clears the status that belonged to it — reach the address bar in
+one write. Same suite: it fails on a view that takes one back into a
+<code>useState</code>, and on a parameter that collides with a card axis.</p>
+</li>
+<li><p><strong>A record opened from a list can be read as a sequence.</strong> Every panel that
+reads a record — the card inspector, the memory panel, the generic record
+panel, and the readers Docs and History own themselves — renders
+<code>ui/src/record-cursor.tsx</code>, and the rule for where previous and next go is
+<code>recordNeighbours</code> in <code>navigation.ts</code>, beside the other navigation rules. The
+list is whatever the view was showing, in the order it was showing it, so it
+narrows when the filters do; each view publishes its own as the second
+argument to <code>onSelect</code>. <strong>Absent, not guessed, where there is no list:</strong> a
+<code>[[LRN-0004]]</code> in a body, a <code>related</code> row, the command palette, and a node of
+the Workflow graph all open a record with nothing behind it, and a force
+layout is not an order. At the ends of a real list the control renders with
+one half disabled, which is how a reader tells &quot;no next&quot; from &quot;there was
+never a sequence here&quot;. It is a context rather than a prop for the reason
+<code>read-only.tsx</code> gives: the panels sit in three different places, and all
+three have to reach it.</p>
+</li>
+<li><p><strong>The filter bar is one container, and it decides what may scroll away.</strong>
+<code>ui/src/components/FilterBar.tsx</code> owns the whole bar in every view that has
+one — the shell, Docs, History, Memory, Workflow and the Gantt toolbar — and
+<code>FilterChip</code> and <code>FilterToggle</code> are declared there once rather than in each
+of them. Controls go in the strip, which keeps to a single line and scrolls
+sideways; the free-text field (<code>before</code>) and anything you have to reach in a
+hurry (<code>after</code>, the graph&#39;s Fit) stay outside it, because everything in the
+strip may scroll out of sight. That split is what T-0193 and T-0195
+disagreed about: <code>FilterSearch</code> is a control the bar positions, not a second
+container. The bleed classes cancel the bar&#39;s own gutter so the strip runs
+to the screen edge, which is why they are a written-out pair per gutter
+rather than a computed one — Tailwind reads class names as literals.</p>
+</li>
+<li><p><strong>A chip in a strip opens on the click, not on the press.</strong> Radix opens
+menus from a <code>pointerdown</code> handler, so on a phone a drag that started on a
+chip opened the menu instead of scrolling the strip. <code>FilterChip</code> cancels
+that press for touch and pen — the primitive composes its handler after the
+one it is passed and skips a default-prevented event — and opens from the
+<code>click</code>, which the browser withholds once the finger has scrolled. A mouse
+keeps the primitive&#39;s behaviour, where press-drag-release onto an item is a
+real way to use a menu. <code>touch-action: pan-x</code> on the scroller was the other
+candidate and it is neither necessary nor sufficient: measured in Chromium
+at 390 points with touch emulation, on its own the menu still opened and the
+strip still did not move. The rule lives in application code, never in
+<code>components/ui/</code> — that file is regenerated, and the change would take every
+menu in the application with it. <code>test/filter-bar.test.ts</code> pins the
+mechanism; only a browser can prove the behaviour.</p>
+</li>
+<li><p><strong>The footer&#39;s claim area is one control.</strong> The ledger strip and the
+compact badge beside the doctor chip are two triggers for the same popover,
+because the strip is <code>lg:</code> only and a narrower window would otherwise have
+no way in. What the popover says about staleness is <code>claim.state</code>, computed
+on the server from <code>cards.claimLeaseHours</code> — the interface never carries a
+second copy of that threshold, and <code>RuntimeSchema</code> deliberately does not
+publish the number. Its scope overlaps come from <code>activity.conflicts</code>
+(claimed cards, different actors, shared paths), not from <code>main.tsx</code>&#39;s
+<code>scopeConflicts</code>, which pairs in-progress cards whether or not anybody
+claimed them and stays on its own work-view alert. Rows are ordered worst
+first in the ladder the Overview&#39;s verdict sentence already uses, so the two
+surfaces cannot disagree about which claim matters;
+<code>test/claim-ledger.test.ts</code> pins that order.</p>
+</li>
+<li><p><strong>A collapsed rail names itself; an expanded one stays quiet.</strong>
+<code>SidebarMenuButton</code> takes a <code>tooltip</code> prop for this and <code>main.tsx</code> does not
+use it. The prop renders the tooltip in both states and only marks it
+<code>hidden</code> while the rail is expanded, and hidden is not unmounted: Radix
+still opens it on hover, and an open tooltip is a dismissable layer that
+answers Escape in the capture phase — so a hovered rail would take the key
+off the shell for no reason the reader can see. <code>NavTooltip</code> mounts the
+content only while the labels are hidden, and keeps the <code>Tooltip</code> around
+the button in both states, because a wrapper that came and went would
+change the element type at that position and have React rebuild the button
+underneath, dropping keyboard focus on every toggle.
+<code>test/shell.test.ts</code> holds both halves.</p>
+</li>
+<li><p><strong>Escape belongs to the topmost overlay.</strong> The shell&#39;s global Escape
+handler is the floor under the Radix layers and skips a key one of them
+already consumed (<code>event.defaultPrevented</code>). Asking the DOM which dialog
+is open does not work: the layer that handled the key has already
+unmounted by the time a bubble-phase listener runs.</p>
+</li>
+</ul>
+<h2 id="demo-builds"><a class="hash" href="#demo-builds" aria-hidden="true" tabindex="-1">##</a> Demo builds</h2>
+<p><code>pnpm run build:demo</code> produces <code>dist/demo</code>, a static bundle that replays a
+snapshot of this repository&#39;s own workspace with in-memory mutations. It has no
+server behind it, so <strong>every view must reach the network through <code>ui/src/api.ts</code></strong>.
+A component calling <code>fetch</code> directly gets a 404 that its own catch swallows, and
+the feature is simply absent from the hosted demo — which is how the presence
+strip and the command palette were both silently dead there.
+<code>test/demo-parity.test.ts</code> fails if any view does this.</p>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/ui.md">packages/workfile/docs/ui.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

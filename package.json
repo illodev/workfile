@@ -28,7 +28,7 @@
     "build:plugin": "node ./scripts/build-plugin.ts",
     "strict": "pnpm --filter @illodev/workfile run strict",
     "test": "pnpm --filter @illodev/workfile run test && pnpm --filter @illodev/workfile-search-local run test",
-    "check": "pnpm run build && pnpm run build:plugin && pnpm run strict && pnpm run test",
+    "check": "pnpm run build && pnpm run build:plugin && pnpm run strict && pnpm run test && node ./scripts/build-site.ts --check",
     "smoke:package": "pnpm --filter @illodev/workfile run smoke:package",
     "audit:consumer": "node ./scripts/audit-consumer.ts",
     "check:release": "pnpm run check && pnpm audit --audit-level=moderate && pnpm run audit:consumer && pnpm run smoke:package",
@@ -40,7 +40,8 @@
     "project": "workfile ui",
     "project:doctor": "workfile doctor",
     "project:agents": "workfile agents sync",
-    "project:mcp": "workfile mcp"
+    "project:mcp": "workfile mcp",
+    "site": "node ./scripts/build-site.ts"
   },
   "engines": {
     "node": ">=22"
@@ -50,6 +51,7 @@
     "@commitlint/cli": "^21.2.2",
     "@illodev/workfile": "workspace:*",
     "husky": "^9.1.7",
+    "marked": "18.0.13",
     "playwright": "^1.63.0"
   },
   "pnpm": {

@@ -1,0 +1,31 @@
+# Workfile
+
+> Tasks, docs, changelog and decisions as Markdown files in a repository's `.project/`, shared by humans and AI coding agents. A CLI, a local web UI, an HTTP API and an MCP server with 32 tools read and write them. MIT, Node.js 22 or later.
+
+Every HTML page on this site has a Markdown twin: request the page with `Accept: text/markdown`, or add `.md` to its path (`/index.md` for the home page).
+
+## Start here
+
+- [Workfile, addressed to the agent evaluating it](https://workfile.illodev.com/index.md): what it stores, what it refuses, how to install it and when not to
+
+## Docs
+
+- [Getting started](https://workfile.illodev.com/docs/getting-started.md): Workfile coordinates Work, Docs, History and durable Memory as markdown files inside your repository. This guide takes you from zero to a working…
+- [CLI reference](https://workfile.illodev.com/docs/cli.md): Every command accepts the global options and returns stable machine-readable errors with --json.
+- [MCP server](https://workfile.illodev.com/docs/mcp.md): Workfile includes a local, dependency-free MCP server speaking UTF-8, newline-delimited JSON-RPC over stdio. Every operation delegates to the same core…
+- [HTTP API](https://workfile.illodev.com/docs/http-api.md): workfile ui starts the local server (default http://127.0.0.1:4747). The same core services back the CLI, the MCP server and the UI — the API is a thin…
+- [The interface](https://workfile.illodev.com/docs/ui.md): The UI is a React application in ui/, compiled by Vite into dist/ui and served by the same node:http server that answers the API. It ships precompiled:…
+- [Security model](https://workfile.illodev.com/docs/security.md): Workfile is a local tool. Its threat model is small but not empty, and the parts that matter are not obvious, so they are written down here.
+- [Spec — Repository Workfile](https://workfile.illodev.com/docs/spec.md): Projects accumulate operational knowledge in several incompatible places:
+
+## Comparisons
+
+- [Workfile vs Backlog.md — Markdown task tracking for AI agents, compared](https://workfile.illodev.com/vs/backlog-md.md): Both keep tasks as Markdown in git, with a CLI, a board and an MCP server. Backlog.md ships a compiled binary and a terminal board; Workfile enforces claims and a done gate.
+- [Workfile vs Beads — issue tracking for AI coding agents, compared](https://workfile.illodev.com/vs/beads.md): Beads is a Go issue tracker on Dolt with a dependency graph and atomic claims. Workfile keeps Markdown in git, scopes claims to paths and refuses done with open criteria.
+- [Workfile vs Task Master — task tracking for AI coding agents, compared](https://workfile.illodev.com/vs/task-master.md): Task Master turns a PRD into tasks with a model and ships 44 MCP tools. Workfile never calls a model, keeps Markdown in the repository and refuses done with open criteria.
+
+## Optional
+
+- [Every page above in one file](https://workfile.illodev.com/llms-full.txt)
+- [Source code](https://github.com/illodev/workfile)
+- [npm package](https://www.npmjs.com/package/@illodev/workfile)
