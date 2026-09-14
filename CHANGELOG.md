@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.13.2 — 2026-09-14
+
+The rest of what a consuming agent reported on 0.13.0 (DOC-0007). A fragment cut into a release by mistake no longer needs git to undo: `changelog release VERSION --amend --drop CHG-…` moves it back to `unreleased/`, and `--amend` refuses the `--fragments` it used to accept and ignore. A `doctor` report past fifty warnings ends by naming `--accept-baseline` and `--new`. The Bash detector no longer calls a change "most likely yours" when the claim belongs to a hand-typed `--actor` that no session signals as, and ledger lines written by a subagent now name it. And a move to `review` says which acceptance criteria it leaves unchecked, without refusing it.
+
+### Added
+
+- changelog release --amend --drop returns a fragment cut by mistake to unreleased (T-0253)
+
+### Changed
+
+- A doctor report past fifty warnings names --accept-baseline and --new (T-0254)
+- A move to review names the acceptance criteria it leaves unchecked (T-0255)
+
+### Fixed
+
+- The Bash detector stops calling a hand-typed holder silent, and names the agent (T-0256)
+
 ## 0.13.1 — 2026-09-14
 
 Two things a consuming agent reported on 0.13.0 (DOC-0007). `changelog verify` and `memory verify` read an index nobody had diagnosed and answered `0 errors` on any tree, a deleted release fragment included — they now diagnose, name what `doctor` names, and exit 1 on an error, with `--json` as well. And `@types/node` leaves `dependencies`: pinned there, it went into every consumer's tree and re-keyed 79 lockfile entries in one of them. It is now an optional, unpinned peer, which a TypeScript consumer type-checking the declarations with `skipLibCheck: false` installs itself.
