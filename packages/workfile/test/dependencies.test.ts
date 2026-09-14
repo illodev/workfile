@@ -9,9 +9,13 @@ const pkg = JSON.parse(
 /**
  * The package's central claim: installing it adds nothing to your tree.
  *
- * `@types/node` is the sole entry, and it is there because the published `.d.ts`
- * files reference `node:` types — a consumer type-checking against them needs
- * it, so it is a real dependency rather than an oversight.
+ * `dependencies` is empty. `@types/node` sat in it, pinned, until 0.13.0, and a
+ * consuming repository moving to 0.13.0 saw 79 lockfile entries re-keyed to the
+ * version this package pinned (T-0251). The need behind it is real but narrow:
+ * `server/http.d.ts` and `upgrade/update-check.d.ts` name Node types, which is
+ * 3 errors for a consumer type-checking with `skipLibCheck: false` and no node
+ * types, and none otherwise. So it is declared as an optional peer — nothing
+ * installed, nothing pinned, and a strict TypeScript consumer told what to bring.
  *
  * This exists specifically ahead of the shadcn work. `shadcn add` writes its
  * imports into `dependencies` by default, and a single un-corrected run would
@@ -20,9 +24,14 @@ const pkg = JSON.parse(
  * the interface is built with belongs here — the failure is invisible from the
  * repository and only shows up in somebody else's install.
  */
-test("the published package depends on nothing but node types", () => {
-    assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ["@types/node"]);
-    assert.deepEqual(pkg.peerDependencies ?? {}, {});
+test("the published package installs nothing and asks only for node types", () => {
+    assert.deepEqual(pkg.dependencies ?? {}, {});
+    // Unpinned and optional: a peer the consumer resolves to its own version,
+    // or leaves out, rather than one this package chooses for it.
+    assert.deepEqual(pkg.peerDependencies ?? {}, { "@types/node": "*" });
+    assert.deepEqual(pkg.peerDependenciesMeta ?? {}, {
+        "@types/node": { optional: true }
+    });
     assert.deepEqual(pkg.optionalDependencies ?? {}, {});
     // `bundleDependencies` would smuggle a tree in past the check above.
     assert.deepEqual(pkg.bundleDependencies ?? [], []);

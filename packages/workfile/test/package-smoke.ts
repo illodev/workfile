@@ -127,6 +127,27 @@ try {
         false,
         "precompiled UI dependencies must not be installed at runtime"
     );
+    // Node types are an optional peer (T-0251): the tarball brings none, and a
+    // consumer that type-checks against the declarations installs its own. This
+    // pilot used to get them for free from `dependencies`, which is the pin that
+    // re-keyed a consuming repository's lockfile.
+    assert.equal(
+        await exists(join(consumer, "node_modules", "@types", "node")),
+        false,
+        "@types/node must not arrive with the package: it is an optional peer"
+    );
+    await run(
+        npm,
+        [
+            "install",
+            `@types/node@${packageJson.devDependencies["@types/node"]}`,
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--package-lock=false"
+        ],
+        consumer
+    );
 
     await writeFile(
         join(consumer, "typed-consumer.ts"),

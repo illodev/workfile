@@ -146,8 +146,9 @@ test("the framework stack is build-only", () => {
     ]) {
         assert.ok(!declared.includes(name), `${name} is back in package.json`);
     }
-    // The runtime dependency surface of the published package is types only.
-    assert.deepEqual(Object.keys(pkg.dependencies), ["@types/node"]);
+    // The published package installs nothing at runtime; node types are an
+    // optional peer (T-0251).
+    assert.deepEqual(pkg.dependencies ?? {}, {});
 });
 
 /**

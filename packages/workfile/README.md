@@ -7,8 +7,9 @@ any tool.
 
 This package ships the complete surface: the `workfile` CLI, the programmatic
 core, a local HTTP API, a precompiled web interface and an MCP server for
-agents. It depends on nothing but `@types/node`; installing it adds no runtime
-tree to your project.
+agents. It has no runtime dependencies, so installing it adds nothing to your
+project's tree; `@types/node` is an optional peer, needed only to type-check
+against its declarations.
 
 ```bash
 npm install -D @illodev/workfile     # or pnpm add -D / yarn add -D / bun add -d

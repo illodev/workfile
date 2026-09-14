@@ -7,16 +7,18 @@ reaches a consumer's `node_modules`.
 
 ## Zero runtime dependencies is a published guarantee
 
-`dependencies` is exactly `@types/node`, and it is there only because the
-published `.d.ts` files reference `node:` types. React, Radix, Tailwind,
-Lucide and the shadcn tooling are all `devDependencies`.
+`dependencies` is empty. `@types/node` is an optional peer dependency —
+unpinned, and never installed for you — because two of the published `.d.ts`
+files name Node types, and a consumer type-checking them with
+`skipLibCheck: false` needs them. React, Radix, Tailwind, Lucide and the
+shadcn tooling are all `devDependencies`.
 
 This is enforced, not documented and hoped for. `test/dependencies.test.ts`
-asserts the exact contents of `dependencies`, and also that there are no
-`peerDependencies`, `optionalDependencies`, `bundleDependencies`, or install
-hooks that would smuggle a tree in past that check.
-`test/design-system.test.ts` asserts the same list a second time, from the
-other direction.
+asserts that `dependencies` is empty and that the only peer is the optional
+`@types/node`, and also that there are no `optionalDependencies`,
+`bundleDependencies`, or install hooks that would smuggle a tree in past that
+check. `test/design-system.test.ts` asserts the empty list a second time, from
+the other direction.
 
 The guard matters because `shadcn add` writes its imports into
 `dependencies` by default. One un-corrected run would publish Radix, Lucide
