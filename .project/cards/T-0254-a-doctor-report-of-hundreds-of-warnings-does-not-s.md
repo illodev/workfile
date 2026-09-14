@@ -1,7 +1,7 @@
 ---
 id: T-0254
 title: A doctor report of hundreds of warnings does not say --new exists
-status: review
+status: done
 type: task
 priority: medium
 area: core
@@ -15,6 +15,11 @@ produced_by:
 created: 2026-09-12
 updated: 2026-09-14
 scope: [packages/workfile/bin/workfile.ts, packages/workfile/test, packages/workfile/docs/cli.md]
+verified:
+  at: "2026-09-14T20:39:15.363Z"
+  method: manual
+  commit: fca9c8e415bdd59aaa7ce57c244fdcd4242f9327
+  digest: "sha256:9b4a235687cdb290f5cd23e9e0ebe7f88852213f942c5b1f857b65ec4de7a518"
 ---
 
 A consuming agent reads 592 warnings from `doctor`, almost all `filename-stale` on old records, and reports that any new warning is lost in there — asking for «a baseline, or only what is new since X». Both exist: `doctor --accept-baseline` writes the current issue set and `doctor --new` reports only what appeared after it, documented in `docs/cli.md` as «did I make it worse». The agent did not find them because nothing in the place it was looking says so: the 592-line report ends with a count and no hint, and the usage line `doctor --help` prints lists `--json`, `--severity`, `--max-issues`, `--rebuild-cache` and `--fix` — neither baseline flag.
@@ -33,9 +38,11 @@ Criterion 2's premise in the body is wrong, measured on 2026-09-14 before changi
 
 - 2026-09-14 19:41Z illodev@local#a112f2f3 via:undeclared/xhigh · claimed
 - 2026-09-14 19:46Z illodev@local#a112f2f3 via:undeclared/xhigh · doing → review
+- 2026-09-14 20:39Z illodev@local#a112f2f3 via:undeclared/xhigh · review → done
 
 ## Notes
 
 - 2026-09-14 19:44Z illodev@local#a112f2f3 via:undeclared/xhigh — Decided by the owner on 2026-09-14: the generated CI template stays on `doctor --json`. A red job keeps meaning 'there are errors now'; running `doctor --new` when a baseline exists would pass errors already accepted into it and turn any new warning red, which changes what red means, and what the consumer lacked was a way to read the report, which the footer gives.
 - 2026-09-14 19:45Z illodev@local#a112f2f3 via:undeclared/xhigh — Built and verified locally on 2026-09-14. A text doctor report whose warnings exceed fifty ends with one line naming both flags; with no baseline it reads how to record one and then read against it, and once a baseline exists it says so. On the fixture plus 51 cards whose filenames no longer match their titles, the built CLI answered 'Workfile doctor: 0 errors, 59 warnings' and ended '59 warnings. `doctor --accept-baseline` records them as known, and `doctor --new` then shows only what appears after.'; after --accept-baseline the last line became '59 warnings. A baseline exists: `doctor --new` shows only what appeared since it, and `doctor --accept-baseline` records the current state as known.' The fixture as it is (8 warnings) still ends on its rule counts. --severity error, --new and --json print no hint. Pinned by cli.test.ts 'a doctor report past fifty warnings names the baseline flags, and a short one does not'; the help and flag-table tests stay green, strict held. docs/cli.md says it beside the baseline paragraph.
 - 2026-09-14 19:46Z illodev@local#a112f2f3 via:undeclared/xhigh — Full suite on this build: typecheck:api and 535/535 tests (exit 0). Exit: review — all three criteria are met; the runtime evidence is the next published release carrying the footer.
+- 2026-09-14 20:39Z illodev@local#a112f2f3 — manual verification: Verified against @illodev/workfile@0.13.2 as published on npm, installed from the registry into a scratch consumer on 2026-09-14: on the fixture plus 51 cards whose filenames no longer match their titles, the published doctor answered 'Workfile doctor: 0 errors, 59 warnings' and ended '59 warnings. `doctor --accept-baseline` records them as known, and `doctor --new` then shows only what appears after.'
