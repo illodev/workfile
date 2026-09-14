@@ -151,6 +151,108 @@ video {
     color: var(--accent);
 }
 
+/* On a phone the bar is one row and the links fold into a panel under it.
+   Only when script runs: without it `.js` is never set, the button stays
+   hidden and the links wrap in the bar as before, so nothing is unreachable. */
+.menu-toggle {
+    display: none;
+}
+@media (max-width: 760px) {
+    .bar-in {
+        position: relative;
+        flex-wrap: nowrap;
+        gap: 10px;
+    }
+    .js .menu-toggle {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 34px;
+        padding: 0;
+        border: 1px solid var(--rule);
+        background: none;
+        color: var(--ink);
+        cursor: pointer;
+    }
+    .menu-icon,
+    .menu-icon::before,
+    .menu-icon::after {
+        display: block;
+        width: 16px;
+        height: 1.5px;
+        background: currentColor;
+        transition: transform 0.18s ease, background-color 0.18s ease;
+    }
+    .menu-icon {
+        position: relative;
+    }
+    .menu-icon::before,
+    .menu-icon::after {
+        content: "";
+        position: absolute;
+        left: 0;
+    }
+    .menu-icon::before {
+        top: -5px;
+    }
+    .menu-icon::after {
+        top: 5px;
+    }
+    .bar[data-menu="open"] .menu-icon {
+        background-color: transparent;
+    }
+    .bar[data-menu="open"] .menu-icon::before {
+        transform: translateY(5px) rotate(45deg);
+    }
+    .bar[data-menu="open"] .menu-icon::after {
+        transform: translateY(-5px) rotate(-45deg);
+    }
+    .js .bar-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        padding-inline: var(--gutter);
+        padding-block: 4px 12px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--paper);
+        box-shadow: 0 18px 32px -22px rgb(0 0 0 / 0.35);
+        font-size: 15px;
+    }
+    .js .bar[data-menu="open"] .bar-nav {
+        display: flex;
+    }
+    .js .bar-nav a {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--rule);
+        color: var(--ink);
+    }
+    .js .bar-nav a:last-child {
+        border-bottom: 0;
+    }
+    .js .bar-nav a::after {
+        content: "→";
+        color: var(--accent);
+    }
+    .js .bar-nav a[aria-current] {
+        color: var(--accent);
+    }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+    .menu-icon,
+    .menu-icon::before,
+    .menu-icon::after {
+        transition: none;
+    }
+}
+
 /* Docs and comparison pages --------------------------------------------- */
 .page-grid {
     display: grid;

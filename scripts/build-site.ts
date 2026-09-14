@@ -330,6 +330,22 @@ for (const name of (await listIfExists(join(site, "vs"))).filter((entry) => entr
 const MARK = `<svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg>`;
 const FAVICON = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>`;
 
+/**
+ * The phone menu on docs and comparison pages; the landing carries the same
+ * lines in its own script. Closed by a link, by Escape, and by growing past
+ * the width where the links fit in the bar again.
+ */
+const MENU_SCRIPT = `(() => {
+const bar = document.querySelector(".bar");
+const toggle = bar && bar.querySelector(".menu-toggle");
+if (!toggle) return;
+const setMenu = (open) => { bar.dataset.menu = open ? "open" : ""; toggle.setAttribute("aria-expanded", String(open)); };
+toggle.addEventListener("click", () => setMenu(toggle.getAttribute("aria-expanded") !== "true"));
+bar.querySelectorAll(".bar-nav a").forEach((link) => link.addEventListener("click", () => setMenu(false)));
+addEventListener("keydown", (event) => { if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") { setMenu(false); toggle.focus(); } });
+matchMedia("(min-width: 761px)").addEventListener("change", (event) => { if (event.matches) setMenu(false); });
+})();`;
+
 const SOFTWARE = {
     "@type": "SoftwareApplication",
     "@id": `${ORIGIN}/#software`,
@@ -404,13 +420,15 @@ function shell(page: Page, options: { kind: "docs" | "compare"; body: string; ou
 <link rel="icon" href="${FAVICON}">
 <link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
+<script>document.documentElement.classList.add("js")</script>
 <script type="application/ld+json">${jsonLd(graph)}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar"><div class="bar-in">
 <a class="brand" href="/">${MARK}<span>workfile</span></a>
-<nav class="bar-nav" aria-label="Site"><a href="${docs[0].path}"${options.kind === "docs" ? ' aria-current="page"' : ""}>docs</a>${compareLink.replace(">compare", options.kind === "compare" ? ' aria-current="page">compare' : ">compare")}<a href="${REPO}">github</a><a href="${NPM}">npm</a></nav>
+<button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span class="menu-icon" aria-hidden="true"></span></button>
+<nav class="bar-nav" id="site-nav" aria-label="Site"><a href="${docs[0].path}"${options.kind === "docs" ? ' aria-current="page"' : ""}>docs</a>${compareLink.replace(">compare", options.kind === "compare" ? ' aria-current="page">compare' : ">compare")}<a href="${REPO}">github</a><a href="${NPM}">npm</a></nav>
 </div></header>
 <div class="page-grid">
 <nav class="side" aria-label="Pages">${sideNav(page.path, options.outline)}</nav>
@@ -422,6 +440,7 @@ ${options.body}</article>
 </main>
 </div>
 <footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="${REPO}">github</a><a href="${NPM}">npm</a></div></footer>
+<script>${MENU_SCRIPT}</script>
 </body>
 </html>
 `;
