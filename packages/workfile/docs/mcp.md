@@ -136,6 +136,17 @@ with the *next* tool result: measured in a live session, each report arrived one
 call after the command it describes. That is what "after the fact" costs, and it
 is still before the agent's next edit lands.
 
+Silence is only evidence about a holder some session signals as. A claim made
+with a hand-typed `--actor` matches no session file, so its holder is silent in
+every window by construction; the report says so — "no session here signals as
+that name" — instead of calling the change "most likely yours", and the
+`collision` object carries `holderKnown: false` (T-0256). A subagent is not a
+separate session to the hook: measured in a live session, its tool calls fire
+the same hooks with the parent's `session_id`, plus `agent_id` and `agent_type`,
+and the CLI inside it resolves the parent's actor. A scope the parent session
+holds is therefore the subagent's own, and each ledger line a subagent's call
+writes carries `agentId` and `agentType`.
+
 The hook runtime (`dist/src/runtime/claude/hooks.mjs`) imports nothing from this
 package. `src/index.js` re-exports thirteen modules and several read
 `package.json` at load, and `PreToolUse` runs before *every* tool call in the

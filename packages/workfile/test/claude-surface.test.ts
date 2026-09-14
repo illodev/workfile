@@ -1354,7 +1354,15 @@ test("an edit made through Bash inside another actor's scope is reported after t
             /src\/api\/legacy\/ \(an entry added, removed or renamed\)/,
             "a deletion shows as the directory that lost the entry"
         );
-        assert.match(context, /silent in that window/, "no session of the holder signalled");
+        // `agent-other` is a name typed with --actor, and no session here has
+        // signalled as it yet — so "silent, so most likely yours" would be a
+        // verdict drawn from evidence that cannot exist (T-0256).
+        assert.match(
+            context,
+            /No session here signals as agent-other/,
+            "a holder no session names is not called silent"
+        );
+        assert.doesNotMatch(context, /most likely yours/);
         assert.match(context, /Nothing was blocked/, "a report, not a guard");
         assert.match(context, new RegExp(`/claim ${theirs.id}`));
         for (const quiet of ["typed.ts", "page.tsx", "free.ts"]) {
@@ -1442,6 +1450,116 @@ test("an edit made through Bash inside another actor's scope is reported after t
         assert.match(
             JSON.parse(ambiguous.stdout).hookSpecificOutput.additionalContext,
             /agent-other's session was also signalling in that window, so the change may be theirs/
+        );
+
+        // Once a session has signalled as the holder, the holder is somebody
+        // this machine knows, and a window it stayed silent in is evidence.
+        await sleep(30);
+        await writeFile(join(root, "src/api/billing.ts"), "and now?\n");
+        const silent = await runHook(
+            "post-tool-use",
+            { session_id: "feedface-0000", tool_name: "Bash", tool_input: { command: "make again" } },
+            root,
+            env
+        );
+        assert.match(
+            JSON.parse(silent.stdout).hookSpecificOutput.additionalContext,
+            /agent-other's session was silent in that window, so the change is most likely yours/
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * A subagent is its parent's session to the hook, and only `agent_id` says so.
+ *
+ * Measured in a live Claude Code session (T-0256): a subagent's tool calls fire
+ * the project's hooks with the parent's `session_id` and `transcript_path`,
+ * plus `agent_id` and `agent_type`, and the CLI inside it resolves the parent's
+ * actor. So a scope the parent session holds is the subagent's own, and a change
+ * the subagent makes there is not a collision — while the ledger keeps which
+ * agent ran the command, which is the one thing the session cannot say.
+ */
+test("a subagent's change inside its parent session's scope is not a collision, and the ledger names the agent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workfile-subagent-"));
+    const env = { USER: "solo", HOSTNAME: "box", WORKFILE_ACTOR: "" };
+    const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+    const subagent = {
+        session_id: "feedface-0000",
+        agent_id: "a5249dc6df7917243",
+        agent_type: "general-purpose"
+    };
+    try {
+        await cp(fixture, root, { recursive: true });
+        const workspace = await loadWorkspace({ root });
+        const own = await createCard(workspace, { title: "The parent's own", area: "web" });
+        await claimCard(workspace, own.id, { actor: "solo@box#feedface", scope: ["src/web"] });
+        const typed = await createCard(workspace, { title: "Claimed under a typed name", area: "api" });
+        await claimCard(workspace, typed.id, { actor: "hand-typed-holder", scope: ["src/api"] });
+        for (const path of ["src/web/page.tsx", "src/api/billing.ts"]) {
+            await mkdir(join(root, dirname(path)), { recursive: true });
+            await writeFile(join(root, path), "before\n");
+        }
+        await runHook("session-start", { session_id: "feedface-0000" }, root, env);
+        await sleep(30);
+
+        // Keyed on `agent_id`, the parent's claim would be foreign to its own
+        // subagent and this change a collision.
+        await writeFile(join(root, "src/web/page.tsx"), "after, by the subagent\n");
+        const inOwnScope = await runHook(
+            "post-tool-use",
+            { ...subagent, tool_name: "Bash", tool_input: { command: "sed -i s/before/after/ src/web/page.tsx" } },
+            root,
+            env
+        );
+        assert.equal(inOwnScope.stderr, "");
+        assert.equal(inOwnScope.stdout.trim(), "", "the parent session's scope is the subagent's own");
+
+        await sleep(30);
+        await runHook(
+            "post-tool-use",
+            { ...subagent, tool_name: "Read", tool_input: { file_path: join(root, "src/web/page.tsx") } },
+            root,
+            env
+        );
+
+        await sleep(30);
+        await writeFile(join(root, "src/api/billing.ts"), "after, by the subagent\n");
+        const reported = await runHook(
+            "post-tool-use",
+            { ...subagent, tool_name: "Bash", tool_input: { command: "sed -i s/before/after/ src/api/billing.ts" } },
+            root,
+            env
+        );
+        const context: string = JSON.parse(reported.stdout).hookSpecificOutput.additionalContext;
+        assert.match(context, new RegExp(`src/api/billing\\.ts — ${typed.id}, claimed by hand-typed-holder`));
+        assert.match(context, /No session here signals as hand-typed-holder/);
+        assert.doesNotMatch(context, /most likely yours/);
+
+        const ledger = (
+            await readFile(join(root, ".project/.cache/activity/events.jsonl"), "utf8")
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const read = ledger.find((event) => event.tool === "Read");
+        assert.equal(read.sessionId, "feedface-0000");
+        assert.equal(read.agentId, "a5249dc6df7917243");
+        assert.equal(read.agentType, "general-purpose");
+        const collisions = ledger.filter((event) => event.collision);
+        assert.deepEqual(
+            collisions.map((event) => event.path),
+            ["src/api/billing.ts"],
+            "the own-scope change never became a collision"
+        );
+        assert.equal(collisions[0].agentId, "a5249dc6df7917243");
+        assert.equal(collisions[0].collision.holderKnown, false);
+        assert.equal(collisions[0].collision.holderActive, false);
+        // One session file: the subagent signals as its parent.
+        assert.deepEqual(
+            await readdir(join(root, ".project/.cache/activity/sessions")),
+            ["feedface-0000.json"]
         );
     } finally {
         await rm(root, { recursive: true, force: true });

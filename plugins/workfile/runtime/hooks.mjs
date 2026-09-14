@@ -825,23 +825,36 @@ async function detectCollisions(root, input, since) {
     // already discounted through the ledger; this is about their `Bash` ones,
     // which nobody records — so it cannot settle the question, only inform it.
     const sessions = await readSessions(root);
+    const signalsAs = (claim, session) =>
+        session.actor === claim.claimedBy ||
+        (claim.session && discriminatorOf(session.sessionId) === claim.session);
     const active = new Set(
         foreign
             .filter((claim) =>
                 sessions.some(
                     (session) =>
-                        (session.actor === claim.claimedBy ||
-                            (claim.session &&
-                                discriminatorOf(session.sessionId) === claim.session)) &&
+                        signalsAs(claim, session) &&
                         Date.parse(session.lastSignalAt || "") >= since
                 )
             )
+            .map((claim) => claim.id)
+    );
+    // And whether any session here signals as the holder at all. A claim made
+    // with a hand-typed `--actor` carries no session and matches no session
+    // file, so its holder is silent in every window by construction — and
+    // "silent, so most likely yours" was said about evidence that could never
+    // say anything. Both collisions in a consuming repository's ledger were
+    // exactly that, reported to the session that had made the claim (T-0256).
+    const unknown = new Set(
+        foreign
+            .filter((claim) => !sessions.some((session) => signalsAs(claim, session)))
             .map((claim) => claim.id)
     );
     return {
         since: new Date(since).toISOString(),
         hits,
         active,
+        unknown,
         truncated: budget.left <= 0,
         unscanned
     };
@@ -870,7 +883,9 @@ function collisionContext(report) {
         lines.push(
             report.active.has(card)
                 ? `${holder}'s session was also signalling in that window, so the change may be theirs.`
-                : `${holder}'s session was silent in that window, so the change is most likely yours.`
+                : report.unknown.has(card)
+                  ? `No session here signals as ${holder} — a name given with --actor, most likely — so its silence says nothing about whose change this was. If ${holder} is you, claim without --actor and the guard can tell your own scope from someone else's.`
+                  : `${holder}'s session was silent in that window, so the change is most likely yours.`
         );
     }
     lines.push(
@@ -925,13 +940,32 @@ async function postToolUse(input) {
 
     await mkdir(join(root, CACHE), { recursive: true });
     const at = new Date().toISOString();
+    // A subagent's payload carries its parent's `session_id` and adds `agent_id`
+    // and `agent_type`, which a parent's never has — measured in a live session
+    // (T-0256). The ledger keeps them, so a line can say which agent ran the
+    // command even though the session cannot.
+    const agent = input.agent_id
+        ? {
+              agentId: String(input.agent_id),
+              ...(input.agent_type ? { agentType: String(input.agent_type) } : {})
+          }
+        : {};
     // Append-only and one line per event: a file per event would exhaust inodes
     // and make the directory impossible to coalesce.
     const events = filePath
-        ? [{ at, sessionId: id, tool: input.tool_name, path: repoPathOf(root, filePath) }]
+        ? [
+              {
+                  at,
+                  sessionId: id,
+                  ...agent,
+                  tool: input.tool_name,
+                  path: repoPathOf(root, filePath)
+              }
+          ]
         : report.hits.map((hit) => ({
               at,
               sessionId: id,
+              ...agent,
               tool: input.tool_name,
               path: hit.path,
               collision: {
@@ -939,7 +973,8 @@ async function postToolUse(input) {
                   claimedBy: hit.claimedBy,
                   kind: hit.kind,
                   since: report.since,
-                  holderActive: report.active.has(hit.card)
+                  holderActive: report.active.has(hit.card),
+                  holderKnown: !report.unknown.has(hit.card)
               }
           }));
     await appendFile(
