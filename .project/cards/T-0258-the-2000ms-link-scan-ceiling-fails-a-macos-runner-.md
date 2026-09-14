@@ -36,3 +36,7 @@ This is the wall-clock shape [[T-0166]] and [[T-0179]] closed for other tests, a
 ## Activity
 
 - 2026-09-14 19:24Z illodev@local#a112f2f3 · renamed file to T-0258-the-2000ms-link-scan-ceiling-fails-a-macos-runner-.md
+
+## Notes
+
+- 2026-09-14 19:34Z illodev@local#a112f2f3 via:undeclared/xhigh — A third sample, from the green CI run 34886918447 on 187b5e0 (2026-09-14), every configuration, same 192,000-character bodies — labels / targets: macOS 22 343/375ms, macOS 24 392/1052ms, ubuntu 22 641/442ms, ubuntu 24 1268/404ms, windows 22 967/609ms, windows 24 946/473ms. With the two macOS 24 attempts above, labels on that one configuration have measured 2293, 788 and 392ms, and targets 1555, 1878 and 1052ms: a 5.8x spread for labels on one runner type, and the worst targets sample at 94% of the 2000ms ceiling.

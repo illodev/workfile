@@ -666,7 +666,10 @@ export async function previewRelease(workspace, options: any = {}) {
  *
  * Not `version`: it is the record's identity and its directory name. Not
  * `fragments`: which changes went into a release is what the cut decided, and
- * rewriting it detaches the record from the files it consumed.
+ * rewriting the list detaches the record from the files it consumed. The one
+ * correction to it is `drop`, which is not a field — it moves a fragment's file
+ * back to `unreleased/` together with its id, so record and files stay attached
+ * (T-0253).
  */
 const RELEASE_AMENDABLE = new Set(["title", "date", "commit", "body", "tags"]);
 
@@ -744,8 +747,18 @@ export async function amendRelease(
                     { id: release.id, expectedRevision, actualRevision }
                 );
             }
+            // `drop` is not a field: it moves fragments, so it is taken apart
+            // from the frontmatter changes before those are checked.
+            const { drop, ...fields } = changes || {};
+            const dropIds: string[] = [
+                ...new Set<string>(
+                    (Array.isArray(drop) ? drop : drop ? [drop] : [])
+                        .map((id) => String(id).trim())
+                        .filter(Boolean)
+                )
+            ];
             const safe: Record<string, any> = {};
-            for (const [key, value] of Object.entries(changes || {})) {
+            for (const [key, value] of Object.entries(fields)) {
                 // A field with nothing in it is a field that was not given.
                 // `patchFrontmatter` reads an explicit empty as "remove this
                 // key", so a caller spreading `{ title: option("--title") }`
@@ -757,16 +770,34 @@ export async function amendRelease(
                     throw new ValidationError(
                         "RELEASE_FIELD_NOT_AMENDABLE",
                         `Field cannot be amended: ${key}. Amendable: ` +
-                            `${[...RELEASE_AMENDABLE].join(", ")}.`
+                            `${[...RELEASE_AMENDABLE].join(", ")}; ` +
+                            "a fragment cut by mistake is dropped back to unreleased with drop."
                     );
                 }
                 safe[key] = value;
             }
-            if (!Object.keys(safe).length) {
+            if (!Object.keys(safe).length && !dropIds.length) {
                 throw new ValidationError(
                     "RELEASE_AMEND_EMPTY",
                     "An amendment must change something. Amendable: " +
-                        `${[...RELEASE_AMENDABLE].join(", ")}.`
+                        `${[...RELEASE_AMENDABLE].join(", ")}, or drop a fragment back to unreleased.`
+                );
+            }
+            const consumed: string[] = release.fragments || [];
+            const strangers = dropIds.filter((id) => !consumed.includes(id));
+            if (strangers.length) {
+                throw new ValidationError(
+                    "RELEASE_FRAGMENT_NOT_IN_RELEASE",
+                    `${release.version} did not consume ${strangers.join(", ")}; ` +
+                        `its fragments are ${consumed.join(", ")}.`
+                );
+            }
+            const kept = consumed.filter((id) => !dropIds.includes(id));
+            if (dropIds.length && !kept.length) {
+                throw new ValidationError(
+                    "RELEASE_FRAGMENTS_REQUIRED",
+                    `Dropping ${dropIds.join(", ")} would leave ${release.version} ` +
+                        "with no fragments, and a release consumes at least one."
                 );
             }
             if (safe.date !== undefined && !DATE_RE.test(safe.date)) {
@@ -776,6 +807,7 @@ export async function amendRelease(
                 );
             }
             const { body: nextBody, ...requested } = safe;
+            if (dropIds.length) requested.fragments = kept;
             // `updated` is not a release's field: `normalizeRelease` derives
             // both `created` and `updated` from `date`, so a stamp here is a
             // key that looks like it means something and is read by nothing.
@@ -804,7 +836,57 @@ export async function amendRelease(
                         `${lost.join(", ")}.`
                 );
             }
-            await writeFileAtomic(path, next);
+            // Each dropped fragment goes back to `unreleased/` with its file, so
+            // the record and the files it consumed stay attached — the reason
+            // `fragments` is not a field an amendment sets (T-0253). An id whose
+            // file is already gone is only taken off the list: that is the
+            // repair for `release-missing-fragment`.
+            const moves: Array<{ id: string; source: string; target: string }> = [];
+            const ownFragments = join(resolve(workspace.root, release.path), "..", "fragments");
+            for (const id of dropIds) {
+                // This release's own file only. An id consumed by two releases
+                // is already a doctor error, and the other release's file is
+                // not this amendment's to move.
+                const fragment = loaded.fragments.find(
+                    (candidate) =>
+                        candidate.id === id &&
+                        candidate.released &&
+                        resolve(workspace.root, candidate.path) ===
+                            join(ownFragments, candidate.file)
+                );
+                if (!fragment) continue;
+                const target = join(workspace.paths.changelogFragments, fragment.file);
+                try {
+                    await stat(target);
+                    throw new ConflictError(
+                        "CHANGE_FRAGMENT_EXISTS",
+                        `${id} cannot go back to unreleased: ` +
+                            `${relative(workspace.root, target)} already exists.`
+                    );
+                } catch (error) {
+                    if (error instanceof ConflictError) throw error;
+                    if (error?.code !== "ENOENT") throw error;
+                }
+                moves.push({ id, source: resolve(workspace.root, fragment.path), target });
+            }
+            const moved: typeof moves = [];
+            try {
+                if (moves.length) {
+                    await mkdir(workspace.paths.changelogFragments, { recursive: true });
+                }
+                for (const move of moves) {
+                    await rename(move.source, move.target);
+                    moved.push(move);
+                }
+                await writeFileAtomic(path, next);
+            } catch (error) {
+                // Put back what moved, so a failed write leaves the release as
+                // the cut made it rather than half-amended.
+                for (const move of moved.reverse()) {
+                    await rename(move.target, move.source).catch(() => undefined);
+                }
+                throw error;
+            }
             const amended = normalizeRelease({
                 file: release.file,
                 repoPath: release.path,
@@ -814,7 +896,16 @@ export async function amendRelease(
                 id: release.id,
                 path,
                 revision: amended.revision,
-                release: amended
+                release: amended,
+                dropped: dropIds.map((id) => {
+                    const move = moves.find((entry) => entry.id === id);
+                    return {
+                        id,
+                        movedTo: move
+                            ? relative(workspace.root, move.target).replaceAll("\\", "/")
+                            : null
+                    };
+                })
             };
         },
         { metadata: { module: "changelog", recordId: version } }

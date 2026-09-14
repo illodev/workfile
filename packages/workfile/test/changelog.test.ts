@@ -328,6 +328,109 @@ test("the newest release can be corrected, and nothing behind it can", async () 
 });
 
 /**
+ * A cut that consumed one fragment too many had no exit but git.
+ *
+ * A consuming agent released a duplicate fragment (DOC-0007): `changelog patch`
+ * refuses a released record, `--amend` could not touch `fragments`, and the
+ * recovery was undoing the cut by hand (T-0253). Dropping moves the fragment's
+ * file back to `unreleased/` with its id, so the record and the files it
+ * consumed stay attached — which is why `fragments` is still not a field an
+ * amendment sets.
+ */
+test("a fragment cut into the newest release can be dropped back to unreleased", async () => {
+    const root = await makeWorkspace();
+    try {
+        const workspace = await loadWorkspace({ root });
+        const kept = await createChangeFragment(workspace, {
+            title: "Keep this change",
+            type: "fixed",
+            area: "billing"
+        });
+        const duplicate = await createChangeFragment(workspace, {
+            title: "The same change twice",
+            type: "fixed",
+            area: "billing"
+        });
+        const gone = await createChangeFragment(workspace, {
+            title: "A fragment whose file was deleted",
+            type: "fixed",
+            area: "billing"
+        });
+        await createRelease(workspace, { version: "1.0.0", date: "2026-08-09" });
+
+        const amended = await amendRelease(workspace, "1.0.0", {
+            drop: [duplicate.id]
+        });
+        assert.deepEqual([...amended.release.fragments].sort(), [kept.id, gone.id].sort());
+        assert.equal(amended.dropped.length, 1);
+        assert.equal(amended.dropped[0].id, duplicate.id);
+        assert.match(amended.dropped[0].movedTo, /^\.project\/changelog\/unreleased\/CHG-/);
+
+        const back = (await loadChangelog(workspace)).fragments.find(
+            (fragment) => fragment.id === duplicate.id
+        );
+        assert.equal(back.released, false);
+        const preview = await previewRelease(workspace, {});
+        assert.deepEqual(
+            preview.fragments.map((fragment) => fragment.id),
+            [duplicate.id]
+        );
+        const rendered = await renderChangelog(workspace);
+        const section = rendered.slice(rendered.indexOf("## 1.0.0"));
+        assert.match(section, /Keep this change/);
+        assert.doesNotMatch(section, /The same change twice/);
+
+        // An id whose file is already gone is only taken off the list: the
+        // repair for the `release-missing-fragment` a deleted file leaves.
+        const goneRecord = (await loadChangelog(workspace)).fragments.find(
+            (fragment) => fragment.id === gone.id
+        );
+        await rm(join(root, goneRecord.path));
+        const broken = await buildProjectIndex(workspace, { diagnose: true });
+        assert.ok(
+            broken.reports.changelog.issues.some(
+                (issue) => issue.code === "release-missing-fragment"
+            )
+        );
+        const repaired = await amendRelease(workspace, "1.0.0", { drop: [gone.id] });
+        assert.deepEqual(repaired.release.fragments, [kept.id]);
+        assert.deepEqual(repaired.dropped, [{ id: gone.id, movedTo: null }]);
+        const whole = await buildProjectIndex(workspace, { diagnose: true });
+        assert.equal(whole.reports.changelog.counts.error, 0);
+
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", { drop: ["CHG-9999"] }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_FRAGMENT_NOT_IN_RELEASE");
+                assert.match(error.message, new RegExp(kept.id));
+                return true;
+            }
+        );
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", { drop: [kept.id] }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_FRAGMENTS_REQUIRED");
+                return true;
+            }
+        );
+        await assert.rejects(
+            amendRelease(workspace, "1.0.0", { fragments: [duplicate.id] }),
+            (error: any) => {
+                assert.equal(error.code, "RELEASE_FIELD_NOT_AMENDABLE");
+                return true;
+            }
+        );
+        // The refusals moved nothing.
+        const still = (await loadChangelog(workspace)).fragments.find(
+            (fragment) => fragment.id === kept.id
+        );
+        assert.equal(still.released, true);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+/**
  * "Not found" was the answer to four different questions.
  *
  * `changelog patch REL-0010` reported `CHANGE_FRAGMENT_NOT_FOUND` for a record

@@ -778,12 +778,23 @@ workfile changelog add --json-input FILE   # recommended: body and metadata in o
 workfile changelog patch ID --json-input FILE [--expected-revision REV]
 workfile changelog preview [--fragments CHG-0001,CHG-0002]
 workfile changelog release VERSION [--fragments CHG-0001,CHG-0002] [--title TITLE]
+workfile changelog release VERSION --amend [--title TITLE] [--date YYYY-MM-DD]   # newest release only
+workfile changelog release VERSION --amend --drop CHG-0002   # a fragment cut by mistake goes back to unreleased
 workfile changelog render [--visibility public|internal] [--write]
 workfile changelog verify
 ```
 
 Release version validation follows `changelog.releaseStrategy`: `semver`,
 `calendar` or `freeform`.
+
+`--amend` corrects the newest release only. It changes `--title`, `--date`,
+`--commit`, `--body` and `--tags`, and refuses `--fragments` rather than
+ignoring it. `--drop CHG-…` is the one change it makes to what a release
+consumed: the fragment's file moves back to `unreleased/`, its id leaves the
+release record, and a rendered changelog that exists is rewritten — so a
+duplicate cut into a release no longer needs git to undo (T-0253). An id whose
+file is already gone is only taken off the list, which repairs
+`release-missing-fragment`. A release keeps at least one fragment.
 
 `changelog verify` diagnoses the changelog the way `doctor` does — the same
 issues under the same codes, `release-missing-fragment` included — and exits 1

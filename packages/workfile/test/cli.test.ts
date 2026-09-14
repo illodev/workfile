@@ -2820,3 +2820,48 @@ test("changelog verify and memory verify answer what doctor finds on the same tr
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("changelog release --amend drops a fragment back to unreleased and refuses --fragments", async () => {
+    // T-0253: a consuming agent cut a duplicate fragment into a release and had
+    // no exit but git, and --amend accepted --fragments and dropped it silently.
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-drop-"));
+    await cp(fixture, root, { recursive: true });
+    const inRoot = (args: string[]) => outcome([...args, "--root", root]);
+    try {
+        for (const title of ["The change", "The same change again"]) {
+            const added = await inRoot(["changelog", "add", "--title", title, "--type", "fixed", "--area", "infra"]);
+            assert.equal(added.code, 0, added.stderr);
+        }
+        const cut = await inRoot(["changelog", "release", "0.1.0", "--title", "First"]);
+        assert.equal(cut.code, 0, cut.stderr);
+        const written = await inRoot(["changelog", "render", "--write", "--json"]);
+        assert.equal(written.code, 0, written.stderr);
+        const renderedPath = JSON.parse(written.stdout).path;
+
+        const refused = await inRoot(["changelog", "release", "0.1.0", "--amend", "--fragments", "CHG-0001"]);
+        assert.equal(refused.code, 1, refused.stdout);
+        assert.match(refused.stderr, /RELEASE_FIELD_NOT_AMENDABLE/);
+        assert.match(refused.stderr, /--drop/);
+
+        const withoutAmend = await inRoot(["changelog", "release", "0.1.0", "--drop", "CHG-0002"]);
+        assert.equal(withoutAmend.code, 1, withoutAmend.stdout);
+        assert.match(withoutAmend.stderr, /RELEASE_DROP_REQUIRES_AMEND/);
+
+        const dropped = await inRoot(["changelog", "release", "0.1.0", "--amend", "--drop", "CHG-0002", "--json"]);
+        assert.equal(dropped.code, 0, dropped.stderr);
+        const answer = JSON.parse(dropped.stdout);
+        assert.deepEqual(answer.record.fragments, ["CHG-0001"]);
+        assert.equal(answer.dropped[0].id, "CHG-0002");
+        assert.match(answer.dropped[0].movedTo, /^\.project\/changelog\/unreleased\/CHG-0002/);
+        assert.ok(answer.rendered, "an existing rendered changelog is rewritten");
+
+        const changelog = await readFile(renderedPath, "utf8");
+        const section = changelog.slice(changelog.indexOf("## 0.1.0"));
+        assert.match(section, /The change/);
+        assert.doesNotMatch(section, /The same change again/);
+        const verify = await inRoot(["changelog", "verify"]);
+        assert.equal(verify.code, 0, verify.stdout);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

@@ -200,6 +200,7 @@ const USAGE: Record<string, string[]> = {
         "workfile changelog preview [--fragments CHG-0001,CHG-0002]",
         "workfile changelog release VERSION [--title TITLE] [--date YYYY-MM-DD] [--fragments CHG-0001,CHG-0002]",
         "workfile changelog release VERSION --amend [--title TITLE] [--date YYYY-MM-DD]   # newest release only",
+        "workfile changelog release VERSION --amend --drop CHG-0002   # a fragment cut by mistake goes back to unreleased",
         "workfile changelog render [--visibility public|internal] [--write]",
         "workfile changelog verify [--json]"
     ],
@@ -504,6 +505,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
         "--body",
         "--commit",
         "--date",
+        "--drop",
         "--expected-revision",
         "--fields",
         "--fragments",
@@ -2357,6 +2359,16 @@ async function changelogCommand(workspace, action) {
             );
         }
         if (has("--amend")) {
+            // `--fragments` chooses what a cut consumes, and an amendment cannot
+            // add to a release. This branch used to accept the flag and drop it
+            // without a word, which reads as done (T-0253).
+            if (listOption("--fragments")) {
+                throw new ValidationError(
+                    "RELEASE_FIELD_NOT_AMENDABLE",
+                    "--amend cannot set --fragments: which fragments a release consumed is what the cut decided. " +
+                        "--amend changes --title, --date, --commit, --body and --tags, and --drop CHG-… moves a fragment back to unreleased."
+                );
+            }
             const amended = await amendRelease(
                 workspace,
                 version,
@@ -2370,14 +2382,47 @@ async function changelogCommand(workspace, action) {
                     ...(option("--commit") ? { commit: option("--commit") } : {}),
                     ...(option("--body") ? { body: option("--body") } : {}),
                     ...(listOption("--tags") ? { tags: listOption("--tags") } : {}),
+                    ...(listOption("--drop") ? { drop: listOption("--drop") } : {}),
                     ...((await jsonInput()) || {})
                 },
                 { expectedRevision: option("--expected-revision") || undefined }
             );
-            return print(
-                has("--json")
-                    ? recordAnswer(amended.release)
-                    : `${amended.id} amended (${amended.release.version})`
+            // A dropped fragment stays in the rendered changelog until it is
+            // rendered again. One that exists is rewritten; one nobody renders
+            // is not created by an amendment.
+            const output = resolve(workspace.root, workspace.config.changelog.output);
+            const rendered =
+                amended.dropped.length &&
+                (await readFile(output).then(
+                    () => true,
+                    () => false
+                ))
+                    ? await writeRenderedChangelog(workspace)
+                    : null;
+            if (has("--json")) {
+                return print(
+                    recordAnswer(amended.release, {
+                        dropped: amended.dropped,
+                        ...(rendered ? { rendered: workspace.config.changelog.output } : {})
+                    })
+                );
+            }
+            const lines = [`${amended.id} amended (${amended.release.version})`];
+            for (const entry of amended.dropped) {
+                lines.push(
+                    entry.movedTo
+                        ? `  dropped ${entry.id} → ${entry.movedTo}`
+                        : `  dropped ${entry.id} (its file was already gone)`
+                );
+            }
+            if (rendered) lines.push(`  rewrote ${workspace.config.changelog.output}`);
+            return print(lines.join("\n"));
+        }
+        if (listOption("--drop")) {
+            throw new ValidationError(
+                "RELEASE_DROP_REQUIRES_AMEND",
+                "--drop corrects the newest release, so it needs --amend: " +
+                    "workfile changelog release VERSION --amend --drop CHG-…"
             );
         }
         const fileInput = (await jsonInput()) || {};
