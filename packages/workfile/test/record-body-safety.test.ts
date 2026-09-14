@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { diagnoseDocuments, normalizeDocumentFolder } from "../dist/src/modules/docs/index.js";
+import { normalizeDocumentFolder } from "../dist/src/modules/docs/index.js";
+import { MAX_LINK_TARGET, markdownLinks } from "../dist/src/core/markdown.js";
 import { safeUrl } from "../ui/src/safe-url.ts";
 
 /**
@@ -23,37 +24,24 @@ import { safeUrl } from "../ui/src/safe-url.ts";
  * |--------|-------|----------|---------|---------|----------|---------|
  * | folder |   3ms |      6ms |  2846ms |   500ms |      83× |    5.7× |
  *
- * The link scan is not. Its fix bounds each destination at 1024 characters and
- * each label at 512, which makes it linear with a large constant — about 65
- * million steps over the 192,000-character body this test used — so its time
- * measured the runner more than the code. Against a 2000ms ceiling one macOS
- * configuration took 2293ms, and then 788ms and 392ms on the same commit
- * (T-0258). So it is asserted by how it scales: the fastest of several runs
- * over N and 2N characters. A linear scan doubles and a quadratic one
- * quadruples, and a slow runner slows both sides of the ratio alike. The
- * fastest run, because a pause can only ever slow one down. Measured on this
- * machine on 2026-09-14:
- *
- * | scan               | N → 2N    | ratio |
- * |--------------------|-----------|-------|
- * | bounded, targets   | 32k → 64k | 2.08× |
- * | bounded, labels    | 32k → 64k | 2.01× |
- * | unbounded, targets |  8k → 16k | 3.98× |
- * | unbounded, labels  |  8k → 16k | 3.94× |
- *
- * The unbounded rows are a control the test runs beside the assertion, with the
- * spelling the fix replaced, so a machine whose timings cannot tell the two
- * apart fails there instead of passing the scan unexamined.
+ * The link scan is not timed at all. Its fix bounds each label at 512
+ * characters and each destination at `MAX_LINK_TARGET`, which makes it linear
+ * with a large constant, and every clock put on that constant measured the
+ * runner instead (T-0258). A 2000ms ceiling failed a macOS configuration at
+ * 2293ms that passed the same commit at 392ms; a scaling ratio then failed CI
+ * both ways, a bounded scan reaching 4.18× over twice the body under the
+ * suite's parallel load while an unbounded one fell to 3.14×. So the bound is
+ * asserted, and counted rather than timed: the destination scanner reads its
+ * body through a proxy that tallies every character read by index, which is
+ * the same number on every machine. The label half has no reads to count — its
+ * bound lives in a regular expression — so that bound is pinned by what it
+ * refuses to match. `docs/validation.ts` and the record index both read links
+ * through the same `markdownLinks`, so the doctor's scan is this scan.
  */
 const REPETITIONS = 64_000;
 const FOLDER_CEILING_MS = 500;
-/** Characters in the smaller body of each pair; the larger holds twice as many. */
-const SCAN_BASE = 32_000;
-const CONTROL_BASE = 8_000;
-/** Between a linear scan's doubling and a quadratic scan's quadrupling. */
-const LINEAR_RATIO_CEILING = 3;
-const SCAN_RUNS = 5;
-const CONTROL_RUNS = 3;
+/** Characters in the smaller body of the counted pair; the larger holds twice as many. */
+const COUNT_BASE = 16_000;
 
 function elapsed(work: () => void): number {
     const started = process.hrtime.bigint();
@@ -61,120 +49,83 @@ function elapsed(work: () => void): number {
     return Number(process.hrtime.bigint() - started) / 1e6;
 }
 
-/** The fastest of `runs` timings of `work`, which may be async. */
-async function fastest(work: () => unknown, runs: number): Promise<number> {
-    let best = Infinity;
-    for (let run = 0; run < runs; run += 1) {
-        const started = process.hrtime.bigint();
-        await work();
-        best = Math.min(best, Number(process.hrtime.bigint() - started) / 1e6);
-    }
-    return best;
-}
-
 /**
- * How much longer `scan` takes over a body twice as long: about 2× when it is
- * linear, about 4× when it is quadratic.
+ * A body that tallies how many of its characters are read by index.
  *
- * Bodies are built to a common *length*, not a common count. `[` is one
- * character and `[](` is three, so counting repetitions fed the label shape a
- * body a third the size, which is how the first version of this file gave one
- * shape five times the margin of the other.
+ * The destination scanner walks with `body[index]`, so a `String` object behind
+ * a proxy sees each of those reads; the label pattern converts the body to a
+ * primitive first and is not charged. Everything else passes straight through,
+ * so the scan finds exactly the links it finds in a plain string.
  */
-async function doubling(
-    scan: (body: string) => unknown,
-    unit: string,
-    base: number,
-    runs: number
-) {
-    const bodyOf = (length: number) => unit.repeat(Math.round(length / unit.length));
-    const small = bodyOf(base);
-    const large = bodyOf(base * 2);
-    // Warm the path first, so the smaller body does not also pay for the JIT.
-    await scan(small);
-    const smallMs = await fastest(() => scan(small), runs);
-    const largeMs = await fastest(() => scan(large), runs);
-    return { smallMs, largeMs, ratio: largeMs / smallMs };
+function countedBody(text: string) {
+    const tally = { reads: 0 };
+    const body = new Proxy(new String(text), {
+        get(_target, property) {
+            if (
+                property === Symbol.toPrimitive ||
+                property === "toString" ||
+                property === "valueOf"
+            ) {
+                return () => text;
+            }
+            if (property === "length") return text.length;
+            if (typeof property === "string" && /^\d+$/.test(property)) {
+                tally.reads += 1;
+                return text[Number(property)];
+            }
+            const value = (text as any)[property];
+            return typeof value === "function" ? value.bind(text) : value;
+        }
+    }) as unknown as string;
+    return { body, tally };
 }
 
 /**
  * Both halves, because the first fix only bounded one.
  *
- * `[](` exercises the target: every `](` opens a target the scan looks for a
- * closing paren for, and there is never one. `[` exercises the label, which
- * has the identical shape one bracket earlier — and which the first version of
- * this fix left unbounded, so the analyser reported it again against the input
- * it had actually named. Fixing one half of a quadratic leaves a quadratic.
+ * `[](` exercises the destination: every `](` opens one the scan looks for a
+ * closing paren for, and there is never one. `[` exercises the label, which has
+ * the identical shape one bracket earlier — and which the first version of the
+ * fix left unbounded, so the analyser reported it again against the input it
+ * had actually named. Fixing one half of a quadratic leaves a quadratic.
  */
-const SHAPES = [
-    ["unclosed targets", "[]("],
-    ["unclosed labels", "["]
-] as const;
-
-/** The doctor's own path over one adversarial document. */
-function diagnose(body: string) {
-    return diagnoseDocuments({
-        documents: [
-            {
-                id: "DOC-0001",
-                path: ".project/docs/reference/DOC-0001-x.md",
-                file: "DOC-0001-x.md",
-                title: "Adversarial",
-                kind: "reference",
-                status: "draft",
-                created: "2026-08-05",
-                updated: "2026-08-05",
-                body
-            }
-        ],
-        // Enough workspace for the rules that run before the link scan. The
-        // filesystem stays out of the measurement on its own: not one of these
-        // links closes, so the scan matches nothing and there is no path to check.
-        workspace: {
-            root: "/w",
-            config: {
-                docs: {
-                    kinds: ["reference"],
-                    statuses: ["draft"],
-                    reviewIntervalDays: 90
-                }
-            }
-        }
-    });
-}
-
-/**
- * The spelling `core/markdown.ts` replaced: a label and a destination that each
- * run to the end of the body looking for a bracket or a paren that never comes.
- */
-function unboundedScan(body: string) {
-    let links = 0;
-    for (const _ of body.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) links += 1;
-    return links;
-}
-
-test("a document body of unclosed links does not stall the doctor", async (t) => {
-    for (const [name, unit] of SHAPES) {
-        // The control first: this machine's timings have to be able to see a
-        // quadratic before a linear verdict from them means anything.
-        const control = await doubling(unboundedScan, unit, CONTROL_BASE, CONTROL_RUNS);
-        t.diagnostic(
-            `unbounded ${name}: ${control.smallMs.toFixed(1)}ms → ${control.largeMs.toFixed(1)}ms, ${control.ratio.toFixed(2)}×`
-        );
+test("an unclosed destination costs the scan a bounded read per link, however long the body", () => {
+    const measure = (length: number) => {
+        const text = "[](".repeat(Math.round(length / 3));
+        const { body, tally } = countedBody(text);
+        const found = [...markdownLinks(body)].length;
+        // What the label pattern matches is where the scanner starts reading.
+        const opened = text.match(/\[[^\]\n]{0,512}\]\(/g)?.length ?? 0;
+        return { found, opened, reads: tally.reads };
+    };
+    const small = measure(COUNT_BASE);
+    const large = measure(COUNT_BASE * 2);
+    assert.ok(small.reads > 0, "the tally cannot see the scanner's reads");
+    assert.equal(small.found + large.found, 0, "not one of these links closes");
+    for (const run of [small, large]) {
+        // One read of the opening byte, then at most MAX_LINK_TARGET + 1 more.
         assert.ok(
-            control.ratio > LINEAR_RATIO_CEILING,
-            `the unbounded ${name} scan grew only ${control.ratio.toFixed(2)}× over twice the body, so this machine cannot tell linear from quadratic`
-        );
-
-        const scan = await doubling(diagnose, unit, SCAN_BASE, SCAN_RUNS);
-        t.diagnostic(
-            `link scan, ${name}: ${scan.smallMs.toFixed(1)}ms → ${scan.largeMs.toFixed(1)}ms over ${SCAN_BASE} → ${SCAN_BASE * 2} chars, ${scan.ratio.toFixed(2)}×`
-        );
-        assert.ok(
-            scan.ratio < LINEAR_RATIO_CEILING,
-            `${name} took ${scan.ratio.toFixed(2)}× as long over twice the body, which is not linear`
+            run.reads <= run.opened * (MAX_LINK_TARGET + 2),
+            `${run.reads} reads for ${run.opened} opened destinations is past the bound`
         );
     }
+    // Linear, and exactly so: an unbounded scan reads to the end of the body
+    // from every `](`, which is about four times as much over twice the body.
+    const ratio = large.reads / small.reads;
+    assert.ok(ratio > 1.9 && ratio < 2.1, `reads grew ${ratio.toFixed(3)}× over twice the body`);
+});
+
+test("the scan reads no label past 512 characters and no destination past MAX_LINK_TARGET", () => {
+    const targets = (text: string) => [...markdownLinks(text)].map((link) => link.target);
+    // The bounds are what keep both halves linear, so removing either fails here.
+    assert.deepEqual(targets(`[${"a".repeat(512)}](x.md)`), ["x.md"]);
+    assert.deepEqual(targets(`[${"a".repeat(513)}](x.md)`), []);
+    const longest = "b".repeat(MAX_LINK_TARGET);
+    assert.deepEqual(targets(`[a](${longest})`), [longest]);
+    assert.deepEqual(targets(`[a](${longest}b)`), []);
+    // Neither half crosses a line, which bounds an unclosed `[` per line too.
+    assert.deepEqual(targets("[a\nb](x.md)"), []);
+    assert.deepEqual(targets("[a](x\n.md)"), []);
 });
 
 test("a folder of separators does not stall document creation", (t) => {
