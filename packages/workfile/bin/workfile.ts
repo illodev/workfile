@@ -97,6 +97,7 @@ import {
     resolveProducer
 } from "../src/index.js";
 import { detectPackageManager } from "../src/core/package-manager.js";
+import { diagnosedReport } from "../src/modules/records/index.js";
 
 const PACKAGE_VERSION = JSON.parse(
     await readFile(new URL("../../package.json", import.meta.url), "utf8")
@@ -2414,24 +2415,37 @@ async function changelogCommand(workspace, action) {
         return print(content);
     }
     if (action === "verify") {
-        const index = await buildProjectIndex(workspace);
-        const report = index.reports.changelog;
-        if (has("--json")) return print(report);
-        console.log(
-            `Changelog: ${report.counts.error} errors, ${report.counts.warning} warnings`
-        );
-        for (const issue of report.issues) {
-            console.log(
-                `${issue.severity.toUpperCase()} ${issue.code} ${issue.id || issue.file || ""}: ${issue.message}`
-            );
-        }
-        process.exitCode = report.ok ? 0 : 1;
-        return;
+        return verifyModule(workspace, "changelog", "Changelog");
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",
         `Unknown changelog command: ${action}`
     );
+}
+
+/**
+ * `changelog verify` and `memory verify`: one module's verdict, and the exit
+ * code that goes with it.
+ *
+ * Both used to build the index without asking for diagnosis, and an
+ * undiagnosed index carries an empty report per module — so both answered
+ * "0 errors" whatever the tree held, and an agent that had deleted a released
+ * fragment's file believed it (T-0252). The exit code is set before `--json`
+ * returns, which it was not: a JSON caller got 0 on a failing verdict.
+ */
+async function verifyModule(workspace, module, label) {
+    const index = await buildProjectIndex(workspace, { diagnose: true });
+    const report = diagnosedReport(index.reports[module], module);
+    process.exitCode = report.ok ? 0 : 1;
+    if (has("--json")) return print(report);
+    console.log(
+        `${label}: ${report.counts.error} errors, ${report.counts.warning} warnings`
+    );
+    for (const issue of report.issues) {
+        console.log(
+            `${issue.severity.toUpperCase()} ${issue.code} ${issue.id || issue.file || ""}: ${issue.message}`
+        );
+    }
 }
 
 async function memoryCommand(workspace, action) {
@@ -2579,19 +2593,7 @@ async function memoryCommand(workspace, action) {
         );
     }
     if (action === "verify") {
-        const index = await buildProjectIndex(workspace);
-        const report = index.reports.memory;
-        if (has("--json")) return print(report);
-        console.log(
-            `Memory: ${report.counts.error} errors, ${report.counts.warning} warnings`
-        );
-        for (const issue of report.issues) {
-            console.log(
-                `${issue.severity.toUpperCase()} ${issue.code} ${issue.id || issue.file || ""}: ${issue.message}`
-            );
-        }
-        process.exitCode = report.ok ? 0 : 1;
-        return;
+        return verifyModule(workspace, "memory", "Memory");
     }
     throw new ValidationError(
         "CLI_COMMAND_UNKNOWN",

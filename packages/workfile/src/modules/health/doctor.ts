@@ -5,6 +5,7 @@ import { diagnoseCards } from "../cards/index.js";
 import { checkCiTemplates } from "../ci/index.js";
 import { createIntegrationRegistry } from "../integrations/registry.js";
 import { buildProjectIndex } from "../records/public.js";
+import { diagnosedReport } from "../records/index.js";
 import { classifyDuplicates, duplicateIssueMessage } from "./duplicates.js";
 import { staleFilenameIssue, staleFilenames } from "./filenames.js";
 import { exists } from "../../core/fs-utils.js";
@@ -101,9 +102,13 @@ export async function runDoctor(workspace, options: any = {}) {
             })
         );
     }
-    if (workspace.config.docs.enabled) from("docs", index.reports.docs);
-    if (workspace.config.changelog.enabled) from("changelog", index.reports.changelog);
-    if (workspace.config.memory.enabled) from("memory", index.reports.memory);
+    // A caller's index is checked, not trusted: an undiagnosed one carries
+    // empty reports by construction and would pass here as a clean bill.
+    if (workspace.config.docs.enabled) from("docs", diagnosedReport(index.reports.docs, "docs"));
+    if (workspace.config.changelog.enabled) {
+        from("changelog", diagnosedReport(index.reports.changelog, "changelog"));
+    }
+    if (workspace.config.memory.enabled) from("memory", diagnosedReport(index.reports.memory, "memory"));
     if (workspace.config.agents.enabled) {
         from("agents", await checkAgentInstructions(workspace));
     }

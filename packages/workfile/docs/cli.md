@@ -785,6 +785,11 @@ workfile changelog verify
 Release version validation follows `changelog.releaseStrategy`: `semver`,
 `calendar` or `freeform`.
 
+`changelog verify` diagnoses the changelog the way `doctor` does — the same
+issues under the same codes, `release-missing-fragment` included — and exits 1
+when any of them is an error, with `--json` as well as without. It used to read
+an index nobody had diagnosed and answer `0 errors` on any tree (T-0252).
+
 ## Memory
 
 ```bash
@@ -795,7 +800,7 @@ workfile memory add COLLECTION --json-input FILE   # recommended: body and metad
 workfile memory patch ID --json-input FILE [--expected-revision REV]
 workfile memory graduate ID --to CONV-0001,DOC-0001
 workfile memory supersede ID --by ID
-workfile memory verify
+workfile memory verify   # the same verdict and exit code as changelog verify, for memory
 ```
 
 `add` accepts singular aliases (`learning`, `decision`, `incident`, `convention`,

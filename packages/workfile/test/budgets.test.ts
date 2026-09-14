@@ -19,9 +19,11 @@ import {
     loadCards,
     loadWorkspace,
     releaseCard,
+    runDoctor,
     searchProjectRecords,
     transitionCard
 } from "../dist/src/index.js";
+import { diagnosedReport } from "../dist/src/modules/records/index.js";
 
 
 // Byte budgets, not timings. Times drift with the machine; bytes do not, and
@@ -140,7 +142,23 @@ test("diagnosis is opt-in and its absence is visible", async () => {
 
         const diagnosed = await buildProjectIndex(workspace, { diagnose: true });
         assert.equal(diagnosed.diagnosed, true);
-        assert.notEqual(diagnosed.reports.docs.diagnosed, false);
+        for (const module of ["docs", "changelog", "memory"]) {
+            assert.equal(diagnosed.reports[module].diagnosed, true, module);
+            assert.equal(diagnosedReport(diagnosed.reports[module], module), diagnosed.reports[module]);
+            // Visible is not enough: `changelog verify` and `memory verify` saw
+            // the flag and printed "0 errors" anyway (T-0252). A verdict read
+            // from an undiagnosed report is refused.
+            assert.throws(
+                () => diagnosedReport(plain.reports[module], module),
+                (error: any) => error.code === "REPORT_NOT_DIAGNOSED" && error.message.includes(module)
+            );
+        }
+        // And a caller that hands the doctor an undiagnosed index gets the
+        // refusal, not a clean bill for three modules it never checked.
+        await assert.rejects(
+            runDoctor(workspace, { index: plain, checkPaths: false, checkGit: false }),
+            (error: any) => error.code === "REPORT_NOT_DIAGNOSED"
+        );
 
         // Records are identical either way: only the reports differ.
         assert.equal(plain.records.length, diagnosed.records.length);

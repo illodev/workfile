@@ -2761,3 +2761,62 @@ test("cli.md's --json table names the shape every record command answers", async
         await cleanup();
     }
 });
+
+test("changelog verify and memory verify answer what doctor finds on the same tree", async () => {
+    // T-0252: both built the index without asking for diagnosis, read the empty
+    // report an undiagnosed index carries, and answered "0 errors" on a tree
+    // where doctor named the broken reference. An agent believed it.
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-verify-"));
+    await cp(fixture, root, { recursive: true });
+    const inRoot = (args: string[]) => outcome([...args, "--root", root]);
+    const missing = (issues: any[]) =>
+        issues
+            .filter((issue) => issue.code === "release-missing-fragment")
+            .map((issue) => `${issue.id}: ${issue.message}`);
+    try {
+        for (const title of ["First change to verify", "Second change to verify"]) {
+            const added = await inRoot(["changelog", "add", "--title", title, "--type", "added", "--area", "infra"]);
+            assert.equal(added.code, 0, added.stderr);
+        }
+        const cut = await inRoot(["changelog", "release", "0.1.0", "--title", "Verified"]);
+        assert.equal(cut.code, 0, cut.stderr);
+        const intact = await inRoot(["changelog", "verify"]);
+        assert.equal(intact.code, 0, intact.stdout + intact.stderr);
+
+        // The consumer's move: the fragment's file gone, its id still listed.
+        const releases = join(root, ".project", "changelog", "releases");
+        const second = (await readdir(releases, { recursive: true })).find((path) =>
+            /CHG-0002[^/\\]*\.md$/.test(path)
+        );
+        assert.ok(second, "the cut moved CHG-0002 under releases/");
+        await rm(join(releases, second));
+
+        const text = await inRoot(["changelog", "verify"]);
+        assert.equal(text.code, 1, text.stdout);
+        assert.match(text.stdout, /Changelog: [1-9]\d* errors/);
+        assert.match(text.stdout, /ERROR release-missing-fragment REL-0001: Release fragment does not exist: CHG-0002/);
+
+        const json = await inRoot(["changelog", "verify", "--json"]);
+        assert.equal(json.code, 1, "--json exits on the verdict as text does");
+        const report = JSON.parse(json.stdout);
+        assert.equal(report.diagnosed, true);
+        const doctor = JSON.parse((await inRoot(["doctor", "--json"])).stdout);
+        assert.deepEqual(missing(report.issues), ["REL-0001: Release fragment does not exist: CHG-0002"]);
+        assert.deepEqual(missing(report.issues), missing(doctor.issues));
+
+        const learning = await inRoot(["memory", "add", "learning", "--title", "A learning to verify", "--status", "active", "--confidence", "high"]);
+        assert.equal(learning.code, 0, learning.stderr);
+        const sound = await inRoot(["memory", "verify"]);
+        assert.equal(sound.code, 0, sound.stdout + sound.stderr);
+        // A record with no id is unreadable: an error only diagnosis reports.
+        await writeFile(
+            join(root, ".project", "memory", "learnings", "LRN-0002-no-id.md"),
+            "---\ntitle: A learning with no id\nstatus: active\n---\n\nBody.\n"
+        );
+        const memory = await inRoot(["memory", "verify"]);
+        assert.equal(memory.code, 1, memory.stdout);
+        assert.match(memory.stdout, /ERROR unreadable-memory-record/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

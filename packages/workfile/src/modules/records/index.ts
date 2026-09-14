@@ -2,6 +2,7 @@ import { posix, resolve } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
+import { ProtocolError } from "../../core/errors.js";
 import { discoverFiles, normalizeRepoPath } from "../../core/glob.js";
 import { localLinkTarget, markdownLinks } from "../../core/markdown.js";
 import { mapWithConcurrency } from "../../core/concurrency.js";
@@ -425,6 +426,25 @@ export function createDefaultCollectionRegistry() {
 }
 
 /**
+ * The report, refused when nobody diagnosed it.
+ *
+ * An undiagnosed index still carries a report per module — `{ ok: true,
+ * issues: [] }` — so that listings and searches do not pay for the checks. Read
+ * as a verdict it says "0 errors" whatever the tree holds: `changelog verify`
+ * and `memory verify` printed exactly that for as long as they built the index
+ * without asking, and an agent believed them (T-0252). Every caller that turns
+ * a report into a verdict goes through here, so the next one cannot repeat it.
+ */
+export function diagnosedReport(report, module) {
+    if (report?.diagnosed === true) return report;
+    throw new ProtocolError(
+        "REPORT_NOT_DIAGNOSED",
+        `The ${module} report was built without diagnosis, so its empty issue list means nothing was checked; build the index with { diagnose: true } before reading a verdict from it`,
+        { status: 500, exitCode: 2 }
+    );
+}
+
+/**
  * Builds the index, reusing a persisted one when the corpus has not moved.
  *
  * The CLI starts a process per command, so without this every invocation pays
@@ -518,29 +538,40 @@ async function buildProjectIndexUncached(workspace, options: any = {}) {
         counts: { error: 0, warning: 0, info: 0 },
         issues: []
     };
+    // And `diagnosed: true` on the real ones, so the flag is a claim rather than
+    // an absence: `diagnosedReport` accepts only a report that says it was.
     const documentReport = diagnose
-        ? await diagnoseDocuments({
-              ...loadedDocs,
-              workspace,
-              knownRecords: byId,
-              now
-          })
+        ? {
+              ...(await diagnoseDocuments({
+                  ...loadedDocs,
+                  workspace,
+                  knownRecords: byId,
+                  now
+              })),
+              diagnosed: true
+          }
         : { ...empty, module: "docs" };
     const changelogReport = diagnose
-        ? diagnoseChangelog({
-              ...loadedChangelog,
-              workspace,
-              knownRecords: byId,
-              now
-          })
+        ? {
+              ...diagnoseChangelog({
+                  ...loadedChangelog,
+                  workspace,
+                  knownRecords: byId,
+                  now
+              }),
+              diagnosed: true
+          }
         : { ...empty, module: "changelog" };
     const memoryReport = diagnose
-        ? diagnoseMemory({
-              ...loadedMemory,
-              workspace,
-              knownRecords: byId,
-              now
-          })
+        ? {
+              ...diagnoseMemory({
+                  ...loadedMemory,
+                  workspace,
+                  knownRecords: byId,
+                  now
+              }),
+              diagnosed: true
+          }
         : { ...empty, module: "memory" };
     const reports = {
         docs: documentReport,
