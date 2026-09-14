@@ -9,7 +9,7 @@
     "url": "git+https://github.com/illodev/workfile.git",
     "directory": "packages/workfile"
   },
-  "homepage": "https://github.com/illodev/workfile/tree/main/packages/workfile#readme",
+  "homepage": "https://workfile.illodev.com",
   "bugs": {
     "url": "https://github.com/illodev/workfile/issues"
   },

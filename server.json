@@ -4,7 +4,7 @@
   "title": "Workfile",
   "description": "Repository-native protocol and local MCP server for Work, Docs, History and durable project Memory.",
   "version": "0.13.2",
-  "websiteUrl": "https://workfiledemo.illodev.com",
+  "websiteUrl": "https://workfile.illodev.com",
   "repository": {
     "url": "https://github.com/illodev/workfile",
     "source": "github"
