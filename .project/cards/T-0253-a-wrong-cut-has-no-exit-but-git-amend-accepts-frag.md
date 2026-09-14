@@ -9,11 +9,11 @@ source: .project/docs/research/DOC-0007-field-report-a-consuming-agent-on-0-13-0
 related: [DOC-0007]
 raised: derived
 produced_by:
-  model: claude-fable-5-1
+  model: undeclared
   reasoning: xhigh
   basis: self-reported
 created: 2026-09-12
-updated: 2026-09-12
+updated: 2026-09-14
 ---
 
 A consuming agent cut a release with a duplicate fragment in it (two fragments for one change). `changelog patch` on the release refuses by design, `changelog release --amend` does not touch `fragments`, and the only recovery was undoing the cut with git and cutting again — which works for an operator holding the repository and not for an agent, the exact situation `amendRelease` was written to end for `date` and `title`.
@@ -26,3 +26,7 @@ What has to be decided, by the owner: (a) `changelog release VERSION --amend --d
 
 - [ ] `changelog release VERSION --amend --fragments …` is refused with a message naming what `--amend` can change, instead of being accepted and ignored
 - [ ] The owner's decision on dropping a fragment from the newest release is recorded on this card, and if it is (a) the command moves the file back to `unreleased/` and the rendered changelog no longer lists it
+
+## Notes
+
+- 2026-09-14 18:48Z illodev@local#a112f2f3 via:undeclared/xhigh — Decided by the owner on 2026-09-14: option (a). `changelog release VERSION --amend --drop CHG-…` moves the fragment's file back to `unreleased/`, removes the id from the release record and re-renders — on the newest release only, like every amendment. `--amend` must still refuse any flag it does not act on, `--fragments` included.
