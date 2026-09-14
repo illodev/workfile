@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.1 — 2026-09-14
+
+Two things a consuming agent reported on 0.13.0 (DOC-0007). `changelog verify` and `memory verify` read an index nobody had diagnosed and answered `0 errors` on any tree, a deleted release fragment included — they now diagnose, name what `doctor` names, and exit 1 on an error, with `--json` as well. And `@types/node` leaves `dependencies`: pinned there, it went into every consumer's tree and re-keyed 79 lockfile entries in one of them. It is now an optional, unpinned peer, which a TypeScript consumer type-checking the declarations with `skipLibCheck: false` installs itself.
+
+### Changed
+
+- @types/node is an optional peer, no longer a runtime dependency (T-0251)
+
+### Fixed
+
+- changelog verify and memory verify report what doctor finds (T-0252)
+
 ## 0.13.0 — 2026-09-11
 
 **Breaking.** Every `--json` command that answers a record now answers `{ "record": … }`, the shape every MCP tool has always given — `show`, `create`, `patch`, `transition`, `release`, `archive`, `reopen`, `note` and `write` on cards; `create`, `patch`, `write`, `note` and `move` on docs; `add`, `patch` and `release` on the changelog; `add`, `patch`, `graduate` and `supersede` on memory — with named extras beside the record where there are any. The one-line fix for a caller that read the record at the top level is `.record` (`d["record"]` in Python). Listings keep `{ records, total }` and reports keep their own shapes; `--fields` still cuts the record down, inside the envelope. The stderr note 0.12.x printed on every record answer is gone. `WORKFILE_JSON_ENVELOPE=1`, the 0.12.x opt-in, is accepted and ignored throughout 0.13.x so a script that set it does not break twice; **0.14.0 refuses it as unknown**. The owner's decision of 2026-09-11 on T-0246, cut as T-0250.
