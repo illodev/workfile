@@ -62,7 +62,18 @@ jobs:
                   # The root is a private workspace shell; everything
                   # publishable lives under packages/, in version lockstep.
                   # Each needs this repo registered as its trusted publisher.
+                  #
+                  # A version npm already serves is skipped, not republished:
+                  # npm refuses to publish over it, so a job that failed after
+                  # this loop could never be finished by "Re-run failed jobs" —
+                  # the re-run died here before reaching the step that failed
+                  # (0.13.1, whose MCP Registry step lost a race with npm).
                   for package in packages/*/; do
+                      NAME="$(node -p "require('./${package}package.json').name")"
+                      if npm view "$NAME@$VERSION" version --prefer-online >/dev/null 2>&1; then
+                          echo "$NAME@$VERSION is already on npm; skipping"
+                          continue
+                      fi
                       (cd "$package" && npm publish --tag latest)
                   done
             # The MCP Registry stores metadata, never artifacts, and validates
@@ -82,6 +93,23 @@ jobs:
                   # nicer string is only reachable with an Ed25519 private key
                   # in repository secrets, and this workflow was built to hold
                   # none.
+                  #
+                  # npm accepting a publish is not npm serving it. On 0.13.1 the
+                  # registry validated two seconds after `+ @illodev/workfile`,
+                  # got a 404 and failed the release; the version was served
+                  # about fifteen seconds later. So wait for it, bounded.
+                  VERSION="$(node -p "require('./package.json').version")"
+                  NAME="$(node -p "require('./packages/workfile/package.json').name")"
+                  for attempt in $(seq 1 30); do
+                      if npm view "$NAME@$VERSION" version --prefer-online >/dev/null 2>&1; then
+                          break
+                      fi
+                      if [ "$attempt" -eq 30 ]; then
+                          echo "npm still does not serve $NAME@$VERSION after five minutes" >&2
+                          exit 1
+                      fi
+                      sleep 10
+                  done
                   ./mcp-publisher login github-oidc
                   ./mcp-publisher publish
 
