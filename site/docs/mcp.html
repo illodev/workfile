@@ -18,13 +18,15 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
 <link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
+<script>document.documentElement.classList.add("js")</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"MCP server","description":"Workfile includes a local, dependency-free MCP server speaking UTF-8, newline-delimited JSON-RPC over stdio. Every operation delegates to the same core…","url":"https://workfile.illodev.com/docs/mcp","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"MCP server","item":"https://workfile.illodev.com/docs/mcp"}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar"><div class="bar-in">
 <a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
-<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+<button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span class="menu-icon" aria-hidden="true"></span></button>
+<nav class="bar-nav" id="site-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
 </div></header>
 <div class="page-grid">
 <nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp" aria-current="page">MCP server</a><ol><li><a href="#reading-the-workspace">Reading the workspace</a></li><li><a href="#claude-code-integration">Claude Code integration</a></li><li><a href="#protocol-revisions">Protocol revisions</a></li><li><a href="#tools-32">Tools (32)</a></li><li><a href="#resources-and-prompts">Resources and prompts</a></li><li><a href="#limits">Limits</a></li><li><a href="#process-hygiene">Process hygiene</a></li></ol></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
@@ -392,5 +394,15 @@ drift into being unrunnable again.</p>
 </main>
 </div>
 <footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+<script>(() => {
+const bar = document.querySelector(".bar");
+const toggle = bar && bar.querySelector(".menu-toggle");
+if (!toggle) return;
+const setMenu = (open) => { bar.dataset.menu = open ? "open" : ""; toggle.setAttribute("aria-expanded", String(open)); };
+toggle.addEventListener("click", () => setMenu(toggle.getAttribute("aria-expanded") !== "true"));
+bar.querySelectorAll(".bar-nav a").forEach((link) => link.addEventListener("click", () => setMenu(false)));
+addEventListener("keydown", (event) => { if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") { setMenu(false); toggle.focus(); } });
+matchMedia("(min-width: 761px)").addEventListener("change", (event) => { if (event.matches) setMenu(false); });
+})();</script>
 </body>
 </html>

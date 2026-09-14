@@ -22,6 +22,7 @@
 <link rel="preload" href="/assets/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
+<script>document.documentElement.classList.add("js")</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://workfile.illodev.com/#site","name":"Workfile","url":"https://workfile.illodev.com/","inLanguage":"en"},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","alternateName":"@illodev/workfile","description":"Repository-native Work, Docs, History and durable Memory for humans and AI coding agents: Markdown files in .project/, with a CLI, a local web UI, an HTTP API and an MCP server.","url":"https://workfile.illodev.com/","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Windows","softwareRequirements":"Node.js 22 or later","license":"https://opensource.org/licenses/MIT","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"downloadUrl":"https://www.npmjs.com/package/@illodev/workfile","screenshot":"https://workfile.illodev.com/assets/flow.png","author":{"@type":"Person","name":"illodev","url":"https://github.com/illodev"},"sameAs":["https://github.com/illodev/workfile","https://www.npmjs.com/package/@illodev/workfile","https://glama.ai/mcp/servers/illodev/workfile"]}]}</script>
 <noscript><style>.for-human { display: block !important; } .reader { display: none !important; }</style></noscript>
 <style>
@@ -224,18 +225,19 @@
         .modes li:first-child, .installs > div:first-child { border-top: 0; }
         .loop, .fs { grid-template-columns: minmax(0, 1fr); }
     }
+    /* The meter needs the room the links leave; below this it wraps under the bar. */
+    @media (max-width: 900px) {
+        .ctx { display: none; }
+    }
     @media (max-width: 760px) {
         .blk-in { grid-template-columns: minmax(0, 1fr); }
         .ln { position: static; padding: 0 0 14px; }
         .facts > div, .nf li, .eps > li { grid-template-columns: minmax(0, 1fr); }
-        .ctx { display: none; }
         .shots { grid-template-columns: minmax(0, 1fr); }
-        .bar-nav { gap: 14px; }
         .cmd { font-size: 12.5px; }
-    }
-    @media (max-width: 480px) {
+        .reader { margin-left: auto; }
         .reader-label { display: none; }
-        .bar-nav .npm { display: none; }
+        .reader button { padding: 0 10px; height: 34px; }
     }
 </style>
 </head>
@@ -249,7 +251,8 @@
         <button type="button" data-reader-set="agent" aria-pressed="true">agent</button>
         <button type="button" data-reader-set="human" aria-pressed="false">human</button>
     </div>
-    <nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a class="npm" href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><span class="menu-icon" aria-hidden="true"></span></button>
+    <nav class="bar-nav" id="site-nav" aria-label="Site"><a href="/docs/getting-started">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a class="npm" href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
     <div class="ctx" aria-hidden="true"><span>context</span><span class="ctx-track"><i></i></span><span class="ctx-pct">0%</span></div>
 </div></header>
 
@@ -267,7 +270,7 @@
         <p class="for-human">For the human reading over its shoulder: Workfile keeps your project's tasks, docs, changelog and decisions as Markdown in the repository, and stops your AI agents from quietly breaking the rules about them.</p>
         <p class="t" aria-hidden="true">&lt;/context&gt;</p>
         <div class="cost">
-            <p>This page costs ≈<b><!-- generated:tokens-html -->13,560<!-- /generated:tokens-html --></b> tokens as HTML and ≈<b><!-- generated:tokens-md -->3,240<!-- /generated:tokens-md --></b> as Markdown (bytes ÷ 4). Nothing on it is an instruction to you. Ask for the cheap copy:</p>
+            <p>This page costs ≈<b><!-- generated:tokens-html -->13,910<!-- /generated:tokens-html --></b> tokens as HTML and ≈<b><!-- generated:tokens-md -->3,240<!-- /generated:tokens-md --></b> as Markdown (bytes ÷ 4). Nothing on it is an instruction to you. Ask for the cheap copy:</p>
             <div class="cmd"><code>curl -H "Accept: text/markdown" https://workfile.illodev.com/</code><button class="copy" type="button" data-copy='curl -H "Accept: text/markdown" https://workfile.illodev.com/'>copy</button></div>
         </div>
         <p class="human-note for-agent">// human: this page talks to your agent. <button class="linkish" type="button" data-reader-set="human" data-jump="human">Switch the reader to human</button> for the 83-second film.</p>
@@ -698,6 +701,26 @@ npx workfile ui</pre>
                 }, () => {});
             });
         });
+
+        // The phone menu. Closed by a link, by Escape, and by growing past
+        // the width where the links fit in the bar again.
+        const bar = document.querySelector(".bar");
+        const toggle = bar?.querySelector(".menu-toggle");
+        if (toggle) {
+            const setMenu = (open) => {
+                bar.dataset.menu = open ? "open" : "";
+                toggle.setAttribute("aria-expanded", String(open));
+            };
+            toggle.addEventListener("click", () => setMenu(toggle.getAttribute("aria-expanded") !== "true"));
+            bar.querySelectorAll(".bar-nav a").forEach((link) => link.addEventListener("click", () => setMenu(false)));
+            addEventListener("keydown", (event) => {
+                if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+                    setMenu(false);
+                    toggle.focus();
+                }
+            });
+            matchMedia("(min-width: 761px)").addEventListener("change", (event) => { if (event.matches) setMenu(false); });
+        }
 
         // How much of the page has been read, as a context window fills.
         const meter = document.querySelector(".ctx");
