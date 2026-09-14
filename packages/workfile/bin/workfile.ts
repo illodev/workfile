@@ -3217,6 +3217,20 @@ async function main() {
                             : "")
                 );
             }
+            // A consuming agent read 592 warnings, asked for "a baseline, or only
+            // what is new since X", and never learned both existed: the report
+            // ended on its counts, and a report that long is exactly where the
+            // question comes up and nobody goes looking in the help (T-0254). So
+            // past a count nobody reads line by line, the report names them.
+            const BASELINE_HINT_WARNINGS = 50;
+            if (!against && counts.warning > BASELINE_HINT_WARNINGS) {
+                const baseline = await readDoctorBaseline(workspace);
+                console.log(
+                    baseline
+                        ? `\n${counts.warning} warnings. A baseline exists: \`doctor --new\` shows only what appeared since it, and \`doctor --accept-baseline\` records the current state as known.`
+                        : `\n${counts.warning} warnings. \`doctor --accept-baseline\` records them as known, and \`doctor --new\` then shows only what appears after.`
+                );
+            }
         }
         process.exitCode = against ? (against.new.length ? 1 : 0) : report.ok ? 0 : 1;
         return;

@@ -2865,3 +2865,43 @@ test("changelog release --amend drops a fragment back to unreleased and refuses 
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a doctor report past fifty warnings names the baseline flags, and a short one does not", async () => {
+    // T-0254: a consuming agent read 592 warnings, asked for "a baseline, or only
+    // what is new since X", and never learned both existed — the report ended on
+    // its counts.
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-hint-"));
+    await cp(fixture, root, { recursive: true });
+    const doctor = async (...args: string[]) =>
+        (await outcome(["doctor", "--root", root, ...args])).stdout;
+    const hint = /doctor --new.*doctor --accept-baseline|doctor --accept-baseline.*doctor --new/;
+    try {
+        assert.doesNotMatch(await doctor(), hint, "a short report stays as it was");
+
+        // Fifty-one cards whose filenames no longer match their titles: one
+        // `filename-stale` warning each, the shape the consumer's 592 had.
+        for (let n = 100; n <= 150; n += 1) {
+            await writeFile(
+                join(root, ".project", "cards", `T-0${n}-stale.md`),
+                `---\nid: T-0${n}\ntitle: Card number ${n}\nstatus: backlog\ntype: task\npriority: medium\narea: api\nraised: derived\ncreated: 2026-07-30\nupdated: 2026-07-30\n---\n\nBody.\n`
+            );
+        }
+        const long = (await doctor()).trimEnd().split("\n");
+        const warnings = Number(/(\d+) warnings/.exec(long[0])?.[1]);
+        assert.ok(warnings > 50, `the workspace reached only ${warnings} warnings`);
+        assert.match(long.at(-1) ?? "", hint, "the report ends on the flags");
+        assert.match(long.at(-1) ?? "", /`doctor --accept-baseline` records them as known/);
+
+        // Filtered to errors, there are no warnings for a baseline to quiet.
+        assert.doesNotMatch(await doctor("--severity", "error"), hint);
+
+        const accepted = await outcome(["doctor", "--root", root, "--accept-baseline"]);
+        assert.equal(accepted.code, 0, accepted.stderr);
+        const known = (await doctor()).trimEnd().split("\n");
+        assert.match(known.at(-1) ?? "", /A baseline exists: `doctor --new`/);
+        // `--new` is the answer, so it does not repeat the question.
+        assert.doesNotMatch(await doctor("--new"), hint);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

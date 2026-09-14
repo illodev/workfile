@@ -182,7 +182,9 @@ low. Every row carries the reason it was offered. It is the same ranking the
 repository carries inherited debt: a clean run and an unchanged dirty one look
 alike, so nobody can require it. `--accept-baseline` writes the current issue set
 to `.project/doctor-baseline.json`, and `--new` then reports only what appeared
-afterwards, exiting `1` on anything new and `0` otherwise.
+afterwards, exiting `1` on anything new and `0` otherwise. A text report carrying
+more than fifty warnings ends by naming both flags: a report that long is where
+the question comes up, and the last place anyone opens the help (T-0254).
 
 `doctor --fix` repairs the three findings a repair can be derived from: a
 duplicate ID on any record kind, a filename whose slug no longer matches the
