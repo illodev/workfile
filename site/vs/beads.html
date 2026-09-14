@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Workfile vs Beads — issue tracking for AI coding agents, compared</title>
+<meta name="description" content="Beads is a Go issue tracker on Dolt with a dependency graph and atomic claims. Workfile keeps Markdown in git, scopes claims to paths and refuses done with open criteria.">
+<link rel="canonical" href="https://workfile.illodev.com/vs/beads">
+<link rel="alternate" type="text/markdown" href="/vs/beads.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Workfile vs Beads — issue tracking for AI coding agents, compared">
+<meta property="og:description" content="Beads is a Go issue tracker on Dolt with a dependency graph and atomic claims. Workfile keeps Markdown in git, scopes claims to paths and refuses done with open criteria.">
+<meta property="og:url" content="https://workfile.illodev.com/vs/beads">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","headline":"Workfile vs Beads — issue tracking for AI coding agents, compared","description":"Beads is a Go issue tracker on Dolt with a dependency graph and atomic claims. Workfile keeps Markdown in git, scopes claims to paths and refuses done with open criteria.","url":"https://workfile.illodev.com/vs/beads","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Compare","item":"https://workfile.illodev.com/vs/backlog-md"},{"@type":"ListItem","position":3,"name":"Workfile vs Beads — issue tracking for AI coding agents, compared","item":"https://workfile.illodev.com/vs/beads"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started">docs</a><a href="/vs/backlog-md" aria-current="page">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads" aria-current="page">vs Beads</a><ol><li><a href="#side-by-side">Side by side</a></li><li><a href="#where-beads-is-stronger">Where Beads is stronger</a></li><li><a href="#where-workfile-is-stronger">Where Workfile is stronger</a></li><li><a href="#which-to-choose">Which to choose</a></li></ol></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /vs/beads</span><span>Accept: text/markdown</span><span>→ <a href="/vs/beads.md">/vs/beads.md</a></span><span>≈1,900 tokens</span></p>
+<article class="prose">
+<h1 id="workfile-vs-beads">Workfile vs Beads</h1>
+<p class="checked">Every claim about a third party below links its source and was checked on <time datetime="2026-09-14">2026-09-14</time>.</p>
+<p>Beads (<code>bd</code>) is an issue tracker built for coding agents: one Go binary, issues in a Dolt database, a ready queue computed from its blocking dependencies (four of its nineteen dependency types), and a claim that refuses an issue someone else holds. Workfile keeps its records as Markdown files in the repository instead of a database, scopes a claim to paths and keeps enforcing it after the claim, and refuses <code>done</code> while an acceptance criterion is unchecked. Beads is far more widely used and has the richer dependency model; it also sends usage metrics unless they are turned off.</p>
+<p>Read against Beads <a href="https://github.com/gastownhall/beads/releases/tag/v1.2.2">v1.2.2</a> — its latest stable release, from 2026-08-15 — at commit <a href="https://github.com/gastownhall/beads/tree/6c124203e771433a3550c348771a5b5e27fd3c21"><code>6c12420</code></a>, and <code>@illodev/workfile</code> 0.13.2. The metrics were also observed in the released binary, not only read in the source. The repository has moved from <code>steveyegge/beads</code> to <code>gastownhall/beads</code>.</p>
+<h2 id="side-by-side"><a class="hash" href="#side-by-side" aria-hidden="true" tabindex="-1">##</a> Side by side</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th>Workfile 0.13.2</th>
+<th>Beads 1.2.2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Records live in</td>
+<td>Markdown files in <code>.project/</code>, versioned by git</td>
+<td>A Dolt database, embedded by default under <code>.beads/embeddeddolt/</code>; <code>issues.jsonl</code> is an export (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/README.md#L118-L132">README</a>, <a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/docs/SYNC_CONCEPTS.md#L3">sync</a>)</td>
+</tr>
+<tr>
+<td>Record types</td>
+<td>Cards, docs, changelog fragments and releases, typed memory</td>
+<td>Issues of twelve built-in types, including epic, decision and gate (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/internal/types/types.go#L524-L535">types</a>); nineteen dependency types (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/internal/types/types.go#L781-L811">dependencies</a>); key-value memories (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/memory.go#L56-L59">memory</a>)</td>
+</tr>
+<tr>
+<td>Who holds work</td>
+<td>A claim over paths; another actor&#39;s transition or release is refused; Claude Code asks before an edit in the scope</td>
+<td>Claiming an issue someone else holds is refused (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/internal/storage/issueops/claim.go#L50-L92">claim</a>); afterwards <code>bd update --assignee</code> overwrites the holder (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/update.go#L107-L109">update</a>) and <code>bd close</code> does not check it</td>
+</tr>
+<tr>
+<td>Done with criteria unchecked</td>
+<td>Refused with <code>CARD_ACCEPTANCE_UNMET</code></td>
+<td>Allowed: <code>acceptance_criteria</code> is free text that <code>bd close</code> does not read. Close does refuse epics with open children, unresolved gates and open blockers, unless <code>--force</code> is given (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/close.go#L117-L150">close</a>)</td>
+</tr>
+<tr>
+<td>Changelog</td>
+<td>Fragments cut into releases</td>
+<td>None for projects; per-issue history from Dolt (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/history.go#L16-L18">history</a>)</td>
+</tr>
+<tr>
+<td>MCP server</td>
+<td><code>workfile mcp</code>, in the same package, <!-- generated:tool-count -->32<!-- /generated:tool-count --> tools</td>
+<td><code>beads-mcp</code>, a separate Python ≥ 3.10 package that calls the <code>bd</code> CLI, 15 tools (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/integrations/beads-mcp/src/beads_mcp/server.py">server</a>, <a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/integrations/beads-mcp/pyproject.toml#L6">package</a>)</td>
+</tr>
+<tr>
+<td>UI</td>
+<td>Local web UI</td>
+<td>None built in; <code>bd graph --html</code> and community UIs (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/docs/COMMUNITY_TOOLS.md#L10-L43">list</a>)</td>
+</tr>
+<tr>
+<td>Usage data by default</td>
+<td>None; one npm version check a day, removed by <code>upgrade: { check: false }</code></td>
+<td>Usage metrics on unless disabled: each command&#39;s name with the bd version, OS, timestamps and an HMAC-hashed machine ID; <code>bd metrics off</code> or <code>BD_DISABLE_METRICS=1</code> (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/metrics.go#L189-L206">payload</a>, <a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/main.go#L1510-L1518">default</a>, <a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/metrics.go#L75-L96">off</a>)</td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td>Node.js ≥ 22</td>
+<td>A single Go binary through Homebrew, npm, <code>go install</code>, AUR or an install script (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/README.md#L86-L93">README</a>)</td>
+</tr>
+<tr>
+<td>License</td>
+<td>MIT</td>
+<td>MIT</td>
+</tr>
+</tbody></table></div>
+<h2 id="where-beads-is-stronger"><a class="hash" href="#where-beads-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Beads is stronger</h2>
+<ul>
+<li><strong>Adoption.</strong> 27,150 GitHub stars (<a href="https://api.github.com/repos/gastownhall/beads">GitHub</a>), packages on Homebrew, npm and AUR, and more than ten community UIs and editor extensions.</li>
+<li><strong>No runtime to install.</strong> A single Go binary; Workfile needs Node.js 22.</li>
+<li><strong>Claim the next ready issue in one step.</strong> <code>bd ready --claim</code> picks and claims in one transaction (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/internal/storage/dolt/issues.go#L243-L251">issues.go</a>); <code>bd close --claim-next</code> closes, then claims the top ready issue (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/close.go#L224-L251">close</a>).</li>
+<li><strong>The dependency graph.</strong> Nineteen dependency types, four of which gate the ready queue (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/internal/types/types.go#L845-L847">types</a>), templates that create whole graphs, and an HTML graph.</li>
+<li><strong>Gates that check themselves.</strong> A CI run, a pull request, a timer or another issue; <code>bd close</code> refuses until they resolve, unless <code>--force</code> is given or the check cannot run (<a href="https://github.com/gastownhall/beads/blob/6c124203e771433a3550c348771a5b5e27fd3c21/cmd/bd/close.go#L424-L485">close</a>).</li>
+<li><strong>Merging from Dolt.</strong> Field-level merges, branches, push and pull between machines, and hash IDs, so issues created on different machines don&#39;t collide.</li>
+<li><strong>Integrations</strong> with Linear, Jira, GitHub, GitLab, Azure DevOps and Notion.</li>
+</ul>
+<h2 id="where-workfile-is-stronger"><a class="hash" href="#where-workfile-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Workfile is stronger</h2>
+<ul>
+<li><strong>Plain files.</strong> Every record is a Markdown file a reviewer reads in the pull request, with no database beside the code.</li>
+<li><strong>Claims scoped to paths, enforced after the claim.</strong> Another actor cannot move or release the card, and Claude Code asks before an edit inside its scope.</li>
+<li><strong>A done gate</strong> on acceptance criteria, with a forced close keeping its reason.</li>
+<li><strong>History and typed memory.</strong> Changelog fragments cut into releases; decisions, learnings, incidents and conventions that <code>workfile agents context</code> hands to the next agent.</li>
+<li><strong>One package</strong> for the CLI, the web UI, the HTTP API and the MCP server, and no usage data sent.</li>
+</ul>
+<h2 id="which-to-choose"><a class="hash" href="#which-to-choose" aria-hidden="true" tabindex="-1">##</a> Which to choose</h2>
+<ul>
+<li><strong>Beads</strong> if many agents drain a large dependency graph, gates on CI and pull requests matter, and a database beside the code is acceptable.</li>
+<li><strong>Workfile</strong> if the records should be plain files reviewed in pull requests, &quot;done&quot; must mean the criteria are checked, and nothing should be sent by default.</li>
+</ul>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/site/vs/beads.md">site/vs/beads.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

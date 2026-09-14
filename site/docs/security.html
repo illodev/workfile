@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Security model — Workfile docs</title>
+<meta name="description" content="Workfile is a local tool. Its threat model is small but not empty, and the parts that matter are not obvious, so they are written down here.">
+<link rel="canonical" href="https://workfile.illodev.com/docs/security">
+<link rel="alternate" type="text/markdown" href="/docs/security.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Security model — Workfile docs">
+<meta property="og:description" content="Workfile is a local tool. Its threat model is small but not empty, and the parts that matter are not obvious, so they are written down here.">
+<meta property="og:url" content="https://workfile.illodev.com/docs/security">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Security model","description":"Workfile is a local tool. Its threat model is small but not empty, and the parts that matter are not obvious, so they are written down here.","url":"https://workfile.illodev.com/docs/security","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"Security model","item":"https://workfile.illodev.com/docs/security"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security" aria-current="page">Security model</a><ol><li><a href="#what-the-local-server-is">What the local server is</a></li><li><a href="#boundaries-the-server-enforces">Boundaries the server enforces</a></li><li><a href="#uploaded-assets">Uploaded assets</a></li><li><a href="#rendering-repository-content">Rendering repository content</a></li><li><a href="#binding-to-a-non-loopback-address">Binding to a non-loopback address</a></li><li><a href="#publishing-a-board-people-only-read">Publishing a board people only read</a></li><li><a href="#the-one-outbound-request">The one outbound request</a></li><li><a href="#what-is-deliberately-out-of-scope">What is deliberately out of scope</a></li><li><a href="#reporting">Reporting</a></li></ol></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/security</span><span>Accept: text/markdown</span><span>→ <a href="/docs/security.md">/docs/security.md</a></span><span>≈1,740 tokens</span></p>
+<article class="prose">
+<h1 id="security-model">Security model</h1>
+<p>Workfile is a local tool. Its threat model is small but not empty, and
+the parts that matter are not obvious, so they are written down here.</p>
+<h2 id="what-the-local-server-is"><a class="hash" href="#what-the-local-server-is" aria-hidden="true" tabindex="-1">##</a> What the local server is</h2>
+<p><code>workfile ui</code> starts an HTTP server that has <strong>unauthenticated read and write
+access to the repository</strong>. There is no login, no token and no per-user
+permission: if a request reaches the handler, it can read every record body and
+write every managed file.</p>
+<p>That is a deliberate trade — it is a developer tool bound to loopback — but it
+means the browser&#39;s own origin rules <em>are</em> the security model. Everything below
+exists to make sure they actually apply.</p>
+<h2 id="boundaries-the-server-enforces"><a class="hash" href="#boundaries-the-server-enforces" aria-hidden="true" tabindex="-1">##</a> Boundaries the server enforces</h2>
+<p><strong>Origin.</strong> Requests are checked before routing. <code>Host</code> must be in the
+allowlist and its port must match the port actually being listened on;
+<code>Sec-Fetch-Site</code> must be <code>same-origin</code> or <code>none</code>; <code>Origin</code>, when present, must
+be in the allowlist. See <a href="/docs/http-api.md#request-guard"><code>http-api.md</code></a> for the
+exact codes.</p>
+<p>The <code>Host</code> check is not redundant with the <code>Origin</code> check. Without it, DNS
+rebinding puts an attacker&#39;s page on the <em>same</em> origin as the server, which
+means it can read responses rather than only writing blind.</p>
+<p><strong>Preflight.</strong> Mutating methods must declare a <code>Content-Type</code> that is not
+CORS-simple. <code>text/plain</code>, <code>application/x-www-form-urlencoded</code>,
+<code>multipart/form-data</code> and <em>no content type at all</em> are simple: a cross-origin
+page can send them without a preflight, and the browser only hides the
+response. Requiring anything else forces a preflight, which this server never
+answers.</p>
+<p><strong>Path containment.</strong> Every repository-relative path resolves through
+<code>containedPath</code>, which is the single containment criterion for configured
+paths, asset names and document scopes. Asset names are reduced to a
+<code>basename</code> and stripped of separators.</p>
+<p><strong>Read-only workspaces.</strong> <code>ensureWritable</code> lives in <code>src/core/guards.ts</code> and is
+called from the mutation layer of every module plus the three surface-level
+write paths (agent instructions, CI templates, asset uploads). It is one
+function on purpose: while it was four private copies, the three paths that
+never got one silently ignored <code>readOnly</code>.</p>
+<p><strong>Body limits.</strong> JSON bodies are capped at 1 MiB and asset uploads at 25 MiB.
+Individual record files are rejected above <code>docs.maxFileBytes</code> before being
+read.</p>
+<h2 id="uploaded-assets"><a class="hash" href="#uploaded-assets" aria-hidden="true" tabindex="-1">##</a> Uploaded assets</h2>
+<p>Assets attached to cards are repository content supplied by whoever can reach
+the server, and they are served from the same origin as the API. Two rules keep
+them inert:</p>
+<ul>
+<li>Only a narrow allowlist (<code>png</code>, <code>jpg</code>, <code>jpeg</code>, <code>gif</code>, <code>webp</code>, <code>pdf</code>, <code>txt</code>,
+<code>md</code>, <code>csv</code>) is served inline. Everything else is
+<code>application/octet-stream</code> with <code>Content-Disposition: attachment</code>.</li>
+<li>Types that can execute script — <code>.html</code>, <code>.htm</code>, <code>.xhtml</code>, <code>.xml</code>, <code>.svg</code>,
+<code>.js</code>, <code>.mjs</code>, <code>.cjs</code>, <code>.wasm</code> — are refused <strong>at upload time</strong> with
+<code>ASSET_TYPE_NOT_ALLOWED</code>, not merely at serve time. Blocking them at rest
+means a future change to the serving rules cannot resurrect the vector on
+files already on disk.</li>
+</ul>
+<p>Responses carry <code>X-Content-Type-Options: nosniff</code> and a
+<code>default-src &#39;none&#39;; sandbox</code> content security policy.</p>
+<p><code>image/svg+xml</code> is excluded on purpose even though SVG is an image: it executes
+script.</p>
+<h2 id="rendering-repository-content"><a class="hash" href="#rendering-repository-content" aria-hidden="true" tabindex="-1">##</a> Rendering repository content</h2>
+<p>The UI renders Markdown bodies into React elements and never uses
+<code>dangerouslySetInnerHTML</code>. Combined with React&#39;s own <code>href</code> sanitisation, there
+is no XSS vector from record content.</p>
+<p><strong>This property is load-bearing.</strong> Any future editor or renderer must keep
+generating elements rather than raw HTML. Introducing a Markdown pipeline that
+emits an HTML string would reopen a hole that is currently closed.</p>
+<h2 id="binding-to-a-non-loopback-address"><a class="hash" href="#binding-to-a-non-loopback-address" aria-hidden="true" tabindex="-1">##</a> Binding to a non-loopback address</h2>
+<p><code>workfile ui --host</code> accepts an address other than loopback. Doing so exposes
+unauthenticated read and write access to the repository to everyone who can
+reach that interface. The bind address is added to the <code>Host</code> allowlist so the
+server is usable, but no authentication is added — because there is none to
+add.</p>
+<p>Treat <code>--host</code> as equivalent to publishing the repository, and prefer an SSH
+tunnel.</p>
+<p>A wildcard bind (<code>--host 0.0.0.0</code>, which is what serving from a container
+needs) contributes nothing to the allowlist, so the board also needs
+<code>--allowed-host</code> to name the address people will reach it by. Both flags are
+about reachability; neither adds authentication.</p>
+<h2 id="publishing-a-board-people-only-read"><a class="hash" href="#publishing-a-board-people-only-read" aria-hidden="true" tabindex="-1">##</a> Publishing a board people only read</h2>
+<p><code>workfile ui --read-only</code> loads the workspace read-only, so every mutating
+route answers <code>409 WORKSPACE_READ_ONLY</code> — the same <code>ensureWritable</code> guard the
+MCP server uses, applied in the one place all writes pass through, not per
+route. The UI reads the flag and stands its editing affordances down.</p>
+<p>This narrows what a reader can do; it does not decide who the readers are. A
+published board still serves every card, document, changelog fragment and
+memory record to anyone who can reach it, so put something that authenticates
+in front of it — the deployment shape this was built for is a reverse proxy
+with HTTP basic auth, with the board itself on an internal network.</p>
+<h2 id="the-one-outbound-request"><a class="hash" href="#the-one-outbound-request" aria-hidden="true" tabindex="-1">##</a> The one outbound request</h2>
+<p>Nothing in this package reaches the network, with one exception stated here so
+it can be judged rather than discovered. <code>workfile upgrade</code> and the interface&#39;s
+footer ask the npm registry whether a newer <code>@illodev/workfile</code> is published:</p>
+<ul>
+<li><strong>What is sent.</strong> One <code>GET</code> to <code>&lt;registry&gt;/@illodev%2Fworkfile/latest</code> with
+<code>accept: application/json</code>, no body, and no header beyond what Node&#39;s <code>fetch</code>
+adds on its own — measured against a local registry: <code>user-agent: node</code> and
+nothing else. Nothing names the workspace, the repository or the machine.</li>
+<li><strong>To whom.</strong> <code>npm_config_registry</code> when npm has set it — a mirror or a
+corporate proxy — and <code>https://registry.npmjs.org</code> otherwise.</li>
+<li><strong>When.</strong> At most once a day: the answer is cached in
+<code>.project/.cache/update-check.json</code> (gitignored) and a failed attempt for an
+hour, so an offline machine pays the three-second timeout once, not per
+command. <code>doctor</code>, the generated CI and every other command never ask.</li>
+<li><strong>Off.</strong> <code>upgrade: { check: false }</code> in <code>project.config.mjs</code> removes the
+request; it does not hide the message. The MCP server&#39;s promise that no
+repository data leaves the machine holds either way, because none is sent.</li>
+</ul>
+<h2 id="what-is-deliberately-out-of-scope"><a class="hash" href="#what-is-deliberately-out-of-scope" aria-hidden="true" tabindex="-1">##</a> What is deliberately out of scope</h2>
+<ul>
+<li><strong>Multi-user authorisation.</strong> There are no accounts and no roles. A workspace
+is trusted as a whole.</li>
+<li><strong>Protecting the repository from its own agents.</strong> An agent with shell access
+can edit <code>.project/</code> directly. Claims and scopes are coordination, not
+security.</li>
+<li><strong>Secrets in records.</strong> Nothing encrypts record bodies. Markdown in
+<code>.project/</code> is as public as the repository it lives in.</li>
+</ul>
+<h2 id="reporting"><a class="hash" href="#reporting" aria-hidden="true" tabindex="-1">##</a> Reporting</h2>
+<p>Please report suspected vulnerabilities privately through the repository&#39;s
+security advisory form rather than a public issue.</p>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/security.md">packages/workfile/docs/security.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Workfile vs Task Master — task tracking for AI coding agents, compared</title>
+<meta name="description" content="Task Master turns a PRD into tasks with a model and ships 44 MCP tools. Workfile never calls a model, keeps Markdown in the repository and refuses done with open criteria.">
+<link rel="canonical" href="https://workfile.illodev.com/vs/task-master">
+<link rel="alternate" type="text/markdown" href="/vs/task-master.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="Workfile vs Task Master — task tracking for AI coding agents, compared">
+<meta property="og:description" content="Task Master turns a PRD into tasks with a model and ships 44 MCP tools. Workfile never calls a model, keeps Markdown in the repository and refuses done with open criteria.">
+<meta property="og:url" content="https://workfile.illodev.com/vs/task-master">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","headline":"Workfile vs Task Master — task tracking for AI coding agents, compared","description":"Task Master turns a PRD into tasks with a model and ships 44 MCP tools. Workfile never calls a model, keeps Markdown in the repository and refuses done with open criteria.","url":"https://workfile.illodev.com/vs/task-master","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Compare","item":"https://workfile.illodev.com/vs/backlog-md"},{"@type":"ListItem","position":3,"name":"Workfile vs Task Master — task tracking for AI coding agents, compared","item":"https://workfile.illodev.com/vs/task-master"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started">docs</a><a href="/vs/backlog-md" aria-current="page">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master" aria-current="page">vs Task Master</a><ol><li><a href="#side-by-side">Side by side</a></li><li><a href="#where-task-master-is-stronger">Where Task Master is stronger</a></li><li><a href="#where-workfile-is-stronger">Where Workfile is stronger</a></li><li><a href="#which-to-choose">Which to choose</a></li></ol></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /vs/task-master</span><span>Accept: text/markdown</span><span>→ <a href="/vs/task-master.md">/vs/task-master.md</a></span><span>≈1,990 tokens</span></p>
+<article class="prose">
+<h1 id="workfile-vs-task-master">Workfile vs Task Master</h1>
+<p class="checked">Every claim about a third party below links its source and was checked on <time datetime="2026-09-14">2026-09-14</time>.</p>
+<p>Task Master (<code>task-master-ai</code>) and Workfile answer different questions. Task Master plans: it hands a PRD to a model, gets back a tree of tasks, then expands, scopes and researches them. Workfile records: it keeps the tasks, decisions and changelog that people and agents produce as Markdown in the repository, and refuses the writes that would make them untrue. Task Master has many times the users. It also keeps every task in one JSON file, lets an agent mark a task done without checks, and turns on Sentry reporting unless <code>anonymousTelemetry</code> is set to <code>false</code>.</p>
+<p>Read against Task Master <a href="https://registry.npmjs.org/task-master-ai">0.43.1</a> — its latest release, from 2026-03-31 — at commit <a href="https://github.com/eyaltoledano/claude-task-master/tree/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e"><code>1c7365c</code></a>, and <code>@illodev/workfile</code> 0.13.2. The telemetry was also read in the published npm tarball, not only in the source.</p>
+<h2 id="side-by-side"><a class="hash" href="#side-by-side" aria-hidden="true" tabindex="-1">##</a> Side by side</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th>Workfile 0.13.2</th>
+<th>Task Master 0.43.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Records</td>
+<td>One Markdown file per record in <code>.project/</code></td>
+<td>One <code>.taskmaster/tasks/tasks.json</code>; <code>parse-prd</code> and the tag commands keep each tag as a top-level key (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/scripts/modules/task-manager/parse-prd/parse-prd-helpers.js#L229-L257">parse-prd</a>); <code>task_NNN.md</code> files are generated from it (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/tasks/services/task-file-generator.service.ts#L130-L138">generator</a>)</td>
+</tr>
+<tr>
+<td>Hosted storage</td>
+<td>None</td>
+<td>Optional Hamster storage, used automatically in the default <code>auto</code> mode when API credentials are configured or when logged in with a brief selected (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/storage/services/storage-factory.ts#L109-L153">factory</a>)</td>
+</tr>
+<tr>
+<td>Record types</td>
+<td>Cards with parents and dependencies, docs, changelog, memory</td>
+<td>Tasks, one level of subtasks, dependencies, tags, complexity reports (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/common/types/index.ts#L131-L176">types</a>)</td>
+</tr>
+<tr>
+<td>Who holds a task</td>
+<td>A claim over paths; other actors&#39; transitions refused</td>
+<td><code>assignee</code> is a list filter (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/tasks/services/task-service.ts#L455-L460">source</a>); a file lock prevents lost writes (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/storage/adapters/file-storage/file-operations.ts#L1-L27">lock</a>)</td>
+</tr>
+<tr>
+<td>Done without verification</td>
+<td>Refused with <code>CARD_ACCEPTANCE_UNMET</code></td>
+<td>Allowed: <code>set_task_status</code> writes the status (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/storage/adapters/file-storage/file-storage.ts#L451-L494">storage</a>). The opt-in autopilot refuses to leave GREEN unless the agent reports zero failing tests; it does not run the tests itself (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/packages/tm-core/src/modules/workflow/orchestrators/workflow-orchestrator.ts#L222-L230">orchestrator</a>, <a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/apps/mcp/src/tools/autopilot/complete.tool.ts#L15-L22">tool</a>)</td>
+</tr>
+<tr>
+<td>Model calls</td>
+<td>None</td>
+<td><code>parse-prd</code>, <code>expand</code>, <code>add-task</code> (unless title and description are given by hand), <code>update</code>, <code>analyze-complexity</code>, <code>scope-up</code>/<code>scope-down</code> and <code>research</code> send content to the configured provider (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/scripts/modules/ai-services-unified.js#L498">AI service</a>)</td>
+</tr>
+<tr>
+<td>API key</td>
+<td>None</td>
+<td>Required for API providers; not for Claude Code, Codex, Gemini CLI, Ollama or MCP sampling (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/scripts/modules/ai-services-unified.js#L390-L410">source</a>)</td>
+</tr>
+<tr>
+<td>Usage data by default</td>
+<td>None; one npm version check a day, removed by <code>upgrade: { check: false }</code></td>
+<td>Sentry, on by default and turned off only by <code>anonymousTelemetry: false</code> in <code>.taskmaster/config.json</code>; the MCP server looks for that file from its working directory. Initialised with <code>sendDefaultPii: true</code>, full trace sampling, and AI input and output recording (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/src/telemetry/sentry.js#L43-L94">sentry</a>, <a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/scripts/modules/config-manager.js#L744-L747">default</a>)</td>
+</tr>
+<tr>
+<td>MCP server</td>
+<td><code>workfile mcp</code>, stdio, <!-- generated:tool-count -->32<!-- /generated:tool-count --> tools</td>
+<td><code>npx -y task-master-ai</code>, stdio, 44 tools; 7 load unless <code>TASK_MASTER_TOOLS</code> says otherwise (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/mcp-server/src/tools/tool-registry.js#L59-L118">registry</a>, <a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/mcp-server/src/tools/index.js#L20-L26">default</a>)</td>
+</tr>
+<tr>
+<td>Changelog</td>
+<td>Fragments cut into releases</td>
+<td>None for projects</td>
+</tr>
+<tr>
+<td>UI</td>
+<td>Local web UI</td>
+<td>A VS Code Kanban extension; no local web UI (Hamster, the optional hosted storage, is a web app)</td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td>Node.js ≥ 22</td>
+<td>Node.js ≥ 20 (<a href="https://registry.npmjs.org/task-master-ai">npm</a>)</td>
+</tr>
+<tr>
+<td>License</td>
+<td>MIT</td>
+<td>MIT with the Commons Clause, which withholds the right to sell the software; GitHub reports it as <code>NOASSERTION</code> (<a href="https://github.com/eyaltoledano/claude-task-master/blob/1c7365cab1f1d8ee5b0ecc2292a9ba9cf5efea2e/LICENSE">LICENSE</a>, <a href="https://api.github.com/repos/eyaltoledano/claude-task-master/license">GitHub</a>)</td>
+</tr>
+</tbody></table></div>
+<h2 id="where-task-master-is-stronger"><a class="hash" href="#where-task-master-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Task Master is stronger</h2>
+<ul>
+<li><strong>From a document to a plan.</strong> <code>parse_prd</code> builds a task tree in one call, backed by <code>expand</code>, complexity analysis, scoping and <code>research</code>. Workfile has nothing like it; it does not call a model.</li>
+<li><strong>Adoption.</strong> 28,071 GitHub stars and 9,868 npm downloads in the week to 2026-09-11 (<a href="https://api.github.com/repos/eyaltoledano/claude-task-master">GitHub</a>, <a href="https://api.npmjs.org/downloads/point/last-week/task-master-ai">npm</a>).</li>
+<li><strong>A small default MCP surface.</strong> 7 tools unless configured, against Workfile&#39;s <!-- generated:tool-count -->32<!-- /generated:tool-count --> always.</li>
+<li><strong>Provider breadth,</strong> including routes that need no API key.</li>
+<li><strong>Execution automation.</strong> An autopilot TDD state machine that commits, and a loop that re-runs Claude Code.</li>
+<li><strong>Editor integration.</strong> A VS Code Kanban extension and rule files for many editors.</li>
+<li><strong>Node.js 20</strong> is enough.</li>
+</ul>
+<h2 id="where-workfile-is-stronger"><a class="hash" href="#where-workfile-is-stronger" aria-hidden="true" tabindex="-1">##</a> Where Workfile is stronger</h2>
+<ul>
+<li><strong>Nothing leaves the machine</strong> but a daily version check you can turn off, and no model is ever called.</li>
+<li><strong>One file per record.</strong> Two branches that touch different cards touch different files, and each change is read in the pull request.</li>
+<li><strong>Claims that refuse</strong> and <strong>a done gate</strong> that holds whichever surface writes — CLI, HTTP or MCP.</li>
+<li><strong>History and typed memory</strong> beside the work.</li>
+<li><strong>Plain MIT.</strong></li>
+</ul>
+<h2 id="which-to-choose"><a class="hash" href="#which-to-choose" aria-hidden="true" tabindex="-1">##</a> Which to choose</h2>
+<ul>
+<li><strong>Task Master</strong> if the hard part is turning a spec into tasks and a model doing it is welcome.</li>
+<li><strong>Workfile</strong> if the hard part is several agents executing without stepping on each other and proving the result, with nothing sent anywhere.</li>
+</ul>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/site/vs/task-master.md">site/vs/task-master.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

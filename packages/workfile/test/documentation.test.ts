@@ -880,12 +880,26 @@ test("the README's stated MCP inventory matches the server's", async () => {
             new URL("site/index.html", repoRoot),
             "utf8"
         );
-        const headline = landing.match(/<span class="k">(\d+) tools<\/span>/);
+        const headline = landing.match(/<!-- generated:tool-count -->(\d+)<!-- \/generated:tool-count -->/);
         assert.ok(headline, "site/index.html no longer headlines the tool count");
         assert.equal(
             Number(headline[1]),
             actual.tools,
             "site/index.html headlines a tool count the server does not have"
+        );
+
+        // docs/mcp.md heads its inventory with the count, and said 30 for the
+        // same two releases the landing did.
+        const mcpDoc = await readFile(
+            new URL("packages/workfile/docs/mcp.md", repoRoot),
+            "utf8"
+        );
+        const heading = mcpDoc.match(/^## Tools \((\d+)\)\r?$/m);
+        assert.ok(heading, "docs/mcp.md no longer heads its inventory with the tool count");
+        assert.equal(
+            Number(heading[1]),
+            actual.tools,
+            "docs/mcp.md heads its inventory with a tool count the server does not have"
         );
     } finally {
         await cleanup();

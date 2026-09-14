@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>HTTP API — Workfile docs</title>
+<meta name="description" content="workfile ui starts the local server (default http://127.0.0.1:4747). The same core services back the CLI, the MCP server and the UI — the API is a thin…">
+<link rel="canonical" href="https://workfile.illodev.com/docs/http-api">
+<link rel="alternate" type="text/markdown" href="/docs/http-api.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="HTTP API — Workfile docs">
+<meta property="og:description" content="workfile ui starts the local server (default http://127.0.0.1:4747). The same core services back the CLI, the MCP server and the UI — the API is a thin…">
+<meta property="og:url" content="https://workfile.illodev.com/docs/http-api">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"HTTP API","description":"workfile ui starts the local server (default http://127.0.0.1:4747). The same core services back the CLI, the MCP server and the UI — the API is a thin…","url":"https://workfile.illodev.com/docs/http-api","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"HTTP API","item":"https://workfile.illodev.com/docs/http-api"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api" aria-current="page">HTTP API</a><ol><li><a href="#conventions">Conventions</a></li><li><a href="#events">Events</a></li><li><a href="#diagnostics">Diagnostics</a></li><li><a href="#activity">Activity</a></li><li><a href="#request-guard">Request guard</a></li><li><a href="#workspace-and-index">Workspace and index</a></li><li><a href="#work">Work</a></li><li><a href="#docs">Docs</a></li><li><a href="#history">History</a></li><li><a href="#memory">Memory</a></li><li><a href="#agents-and-ci">Agents and CI</a></li><li><a href="#mcp-inspection">MCP inspection</a></li><li><a href="#legacy-routes">Legacy routes</a></li></ol></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/http-api</span><span>Accept: text/markdown</span><span>→ <a href="/docs/http-api.md">/docs/http-api.md</a></span><span>≈2,610 tokens</span></p>
+<article class="prose">
+<h1 id="http-api">HTTP API</h1>
+<p><code>workfile ui</code> starts the local server (default <code>http://127.0.0.1:4747</code>). The same
+core services back the CLI, the MCP server and the UI — the API is a thin layer.</p>
+<h2 id="conventions"><a class="hash" href="#conventions" aria-hidden="true" tabindex="-1">##</a> Conventions</h2>
+<ul>
+<li>Managed record reads expose an <code>ETag</code>; mutations accept <code>If-Match</code> and reject
+stale writes with a conflict error.</li>
+<li>Errors use stable codes:</li>
+</ul>
+<pre class="code" data-lang="json"><code>{
+    &quot;error&quot;: {
+        &quot;code&quot;: &quot;MEMORY_WRITE_CONFLICT&quot;,
+        &quot;message&quot;: &quot;The memory record changed after it was loaded.&quot;,
+        &quot;details&quot;: {}
+    }
+}</code></pre>
+<ul>
+<li>List endpoints accept <code>q</code>, <code>limit</code> and <code>offset</code>; responses carry <code>total</code>.</li>
+<li>List endpoints also accept <code>view=full|summary|list</code> and <code>fields=a,b,c</code>.
+<code>summary</code> replaces the Markdown body with <code>bodyBytes</code> and a 200-character
+<code>excerpt</code> and reduces the link arrays to ids and relations; <code>list</code> drops the
+excerpt too. <code>fields</code> overrides the view and returns exactly those keys.
+Measured on 100 records: 169 KB full, 70 KB summary, 43 KB list, 6.7 KB for
+three fields.
+<code>full</code> is the default deliberately — the packaged UI still renders record
+bodies out of its list responses — so narrowing is opt-in until it fetches
+what it displays.</li>
+<li>Collection reads carry an <code>ETag</code> over the page they return, and honour
+<code>If-None-Match</code> with a <code>304</code>. Cards are the corpus a polling client re-fetches
+most, so this is where it matters: the steady state costs a header exchange.</li>
+<li>JSON responses above ~1.4 KB are gzipped when <code>Accept-Encoding</code> allows it,
+with <code>Vary: Accept-Encoding</code>. Brotli is not offered: ~14% smaller for roughly
+an order of magnitude more CPU on a single-threaded server.</li>
+<li><code>Cache-Control</code> is <code>no-cache</code> — revalidate every time, but a revalidation may
+answer <code>304</code>. It is deliberately not <code>no-store</code>, which would forbid that.</li>
+</ul>
+<h2 id="events"><a class="hash" href="#events" aria-hidden="true" tabindex="-1">##</a> Events</h2>
+<p><code>GET /api/v2/events</code> is a Server-Sent Events stream of workspace changes.</p>
+<pre class="code"><code>event: hello
+data: {&quot;serverId&quot;:&quot;aec9c77abfc871ec&quot;,&quot;lastEventId&quot;:0}
+
+id: 1
+event: records.changed
+data: {&quot;epoch&quot;:1,&quot;count&quot;:1,&quot;paths&quot;:[&quot;.project/cards/T-0042-example.md&quot;]}</code></pre>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hello</code></td>
+<td>Sent on connect. <code>serverId</code> distinguishes a reconnection to the same process from one to a restarted process whose ids began again.</td>
+</tr>
+<tr>
+<td><code>records.changed</code></td>
+<td>Files changed. Carries the paths and the new index <code>epoch</code>.</td>
+</tr>
+<tr>
+<td><code>activity.changed</code></td>
+<td>A card write may have changed who is working on what. A separate event so a presence view need not refetch records.</td>
+</tr>
+<tr>
+<td><code>sync.reset</code></td>
+<td>Too many paths at once (a <code>git checkout</code>, a release), or the client&#39;s <code>Last-Event-ID</code> fell off the ring buffer. Refetch rather than applying a delta.</td>
+</tr>
+</tbody></table></div>
+<p>Events are <strong>invalidations, not payloads</strong>: no record body ever travels down the
+channel. The client fetches what the view it has mounted actually needs.</p>
+<p>The source is a file watcher over the protocol corpus, so it sees every writer —
+the CLI, an agent over MCP, git, an editor — not only mutations made through
+this server. <code>.project/.cache</code> is excluded: it holds the locks that churn on
+every write, the persisted index and agent activity, so watching it would feed
+back into itself.</p>
+<p><code>EventSource</code> reconnects on its own and resumes with <code>Last-Event-ID</code>. The
+watcher is a fast path and not the source of truth — <code>fs.watch</code> is silent on
+network filesystems and its queue is bounded — so the index still revalidates
+against the filesystem. A dropped event costs latency, never correctness.</p>
+<h2 id="diagnostics"><a class="hash" href="#diagnostics" aria-hidden="true" tabindex="-1">##</a> Diagnostics</h2>
+<p><code>GET /api/v2/metrics</code> reports request counts per route, p50/p95 latency over the
+last thousand requests, the index epoch, connected event clients and the
+watcher&#39;s mode. <code>workfile ui --verbose</code> (or <code>PROJECT_LOG=1</code>) also writes one line
+per request to stderr, and any 5xx logs its stack — which nothing did before, so
+an error shown in the interface had no counterpart anywhere to diagnose it from.</p>
+<h2 id="activity"><a class="hash" href="#activity" aria-hidden="true" tabindex="-1">##</a> Activity</h2>
+<p><code>GET /api/v2/activity</code> answers who is working on what, combining three signals
+that already existed and that nothing joined up:</p>
+<ul>
+<li>the lock files <code>withFileLock</code> writes, which exist exactly as long as a write
+does — the most precise &quot;right now&quot; the system has;</li>
+<li>the durable claims in card frontmatter (<code>claimed_by</code>, <code>claimed_at</code>, <code>scope</code>);</li>
+<li>session heartbeats under <code>.project/.cache/activity/sessions/</code>.</li>
+</ul>
+<p>Each claim carries a derived <code>state</code>: <code>live</code> (a session is signalling),
+<code>held</code>, <code>stale</code> (past <code>cards.claimLeaseHours</code>) or <code>orphaned</code> (a session that
+stopped signalling). That distinction is the point — a claim from four minutes
+ago and one from a process that died three days ago looked identical before.</p>
+<p><code>conflicts</code> lists claims by <em>different</em> actors whose scopes overlap. This is the
+situation claims exist to prevent, and it was computed inside <code>claimCard</code> and
+then thrown away with the response.</p>
+<h2 id="request-guard"><a class="hash" href="#request-guard" aria-hidden="true" tabindex="-1">##</a> Request guard</h2>
+<p>The server holds unauthenticated read and write access to the repository, so the
+browser&#39;s own origin rules are the entire security model. Every request is
+checked before routing:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Response</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Host</code> outside the allowlist, or its port is not the listening port</td>
+<td><code>403 REQUEST_HOST_FORBIDDEN</code></td>
+</tr>
+<tr>
+<td><code>Sec-Fetch-Site</code> present and not <code>same-origin</code> / <code>none</code></td>
+<td><code>403 REQUEST_ORIGIN_FORBIDDEN</code></td>
+</tr>
+<tr>
+<td><code>Origin</code> present and outside the allowlist</td>
+<td><code>403 REQUEST_ORIGIN_FORBIDDEN</code></td>
+</tr>
+<tr>
+<td><code>POST</code>/<code>PUT</code>/<code>PATCH</code>/<code>DELETE</code> with a CORS-simple or missing <code>Content-Type</code></td>
+<td><code>415 REQUEST_CONTENT_TYPE_INVALID</code></td>
+</tr>
+</tbody></table></div>
+<p>The allowlist is <code>127.0.0.1</code>, <code>localhost</code> and <code>::1</code>, plus the bind address when
+<code>--host</code> names a specific non-wildcard interface.</p>
+<p>The last rule matters as much as the others: <code>text/plain</code>,
+<code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code> and <em>no</em> content type
+at all are CORS-simple, so a cross-origin page could send them without a
+preflight. Requiring anything else forces a preflight, which this server never
+answers.</p>
+<p>Practical consequence for clients: <strong>mutations must set an explicit
+<code>Content-Type</code></strong>. Use <code>application/json</code> for the JSON API and
+<code>application/octet-stream</code> (or any concrete binary type) for asset uploads. A
+<code>fetch</code> that passes a <code>File</code> or an <code>ArrayBuffer</code> without setting the header will
+be refused.</p>
+<p>Non-browser clients are unaffected — <code>curl</code> sends no <code>Origin</code> and no
+<code>Sec-Fetch-Site</code>, and its <code>Host</code> is the loopback address it dialled.</p>
+<p>Assets are served with <code>X-Content-Type-Options: nosniff</code>, a
+<code>default-src &#39;none&#39;; sandbox</code> CSP, and <code>Content-Disposition: attachment</code> for
+anything outside a narrow inline allowlist. Uploads of types that can execute
+script (<code>.html</code>, <code>.svg</code>, <code>.mjs</code>, …) are refused with
+<code>400 ASSET_TYPE_NOT_ALLOWED</code>.</p>
+<h2 id="workspace-and-index"><a class="hash" href="#workspace-and-index" aria-hidden="true" tabindex="-1">##</a> Workspace and index</h2>
+<pre class="code" data-lang="text"><code>GET  /api/v2/workspace
+GET  /api/v2/schema
+GET  /api/v2/health
+GET  /api/v2/update
+GET  /api/v2/records?q=&amp;kind=&amp;limit=&amp;offset=
+GET  /api/v2/search?q=&amp;kind=&amp;limit=&amp;offset=&amp;mode=
+GET  /api/v2/records/:id</code></pre>
+<p><code>/update</code> answers whether a newer <code>@illodev/workfile</code> is published:
+<code>{ status, installed, latest, checkedAt, nextCheckAt, source }</code> with <code>status</code>
+one of <code>behind</code>, <code>current</code>, <code>ahead</code>, <code>unknown</code> (no network, or no version in
+the answer) or <code>disabled</code> (<code>upgrade.check: false</code>). It is the one route that
+can reach outside the machine — a single <code>GET</code> to the npm registry, cached for
+24 hours under <code>.project/.cache</code> — and the footer calls it once per page load.
+The security model states exactly what is sent.</p>
+<p>Search responses carry <code>mode</code> (<code>&quot;lexical&quot;</code>, <code>&quot;hybrid&quot;</code> or <code>&quot;regex&quot;</code>) and
+<code>provider</code> (the semantic provider&#39;s id, else <code>null</code>), so a client can show
+which search actually ran.</p>
+<p><code>/search</code> consults the semantic provider declared in <code>project.config.mjs</code>
+(when there is one) and returns <code>mode: &quot;hybrid&quot;</code> with per-record
+<code>semanticScore</code>; <code>?mode=lexical</code> opts out. <code>/records</code> is always lexical. A <code>q</code>
+of the full <code>/pattern/flags</code> form (flags from <code>imsu</code>) runs as a regular
+expression over id, title and body, bypasses the provider and returns
+<code>mode: &quot;regex&quot;</code>; an invalid pattern is <code>400 SEARCH_REGEX_INVALID</code>.</p>
+<h2 id="work"><a class="hash" href="#work" aria-hidden="true" tabindex="-1">##</a> Work</h2>
+<pre class="code" data-lang="text"><code>GET/POST  /api/v2/cards
+PATCH     /api/v2/cards/:id
+POST      /api/v2/cards/:id/claim
+POST      /api/v2/cards/:id/transition
+POST      /api/v2/cards/:id/archive
+POST      /api/v2/cards/:id/reopen
+POST      /api/v2/cards/bulk</code></pre>
+<p><code>PATCH /api/v2/cards/:id</code>, <code>POST /api/v2/cards/:id/transition</code> and
+<code>POST /api/v2/cards/bulk</code> accept <code>method</code>, <code>run</code> and <code>evidence</code> beside <code>actor</code>,
+<code>force</code> and <code>reason</code>. They describe the write rather than the card, so they are
+lifted out of the flat body the same way <code>force</code> is, and a client that sends
+<code>{&quot;status&quot;: &quot;done&quot;, &quot;method&quot;: &quot;ci&quot;, &quot;run&quot;: &quot;https://…&quot;}</code> gets a card whose
+<code>verified</code> block says so. Sending any of them on a write that does not move the
+card into <code>done</code> is <code>400 CARD_VERIFICATION_NOT_APPLICABLE</code> rather than a silent
+drop; <code>method: &quot;forced&quot;</code> is <code>400 CARD_VERIFICATION_METHOD_CONFLICT</code>, since it is
+derived from what <code>force</code> waived. The legacy <code>PATCH /api/tasks/:id</code> accepts the
+same three.</p>
+<p>A method the card&#39;s area does not accept is <code>409 CARD_VERIFICATION_METHOD_REFUSED</code>,
+and the body&#39;s details carry the accepted list. Omitting <code>method</code> is not a way
+around it — a close with none records <code>local</code>, which is judged like any other.
+<code>GET /api/v2/schema</code> reports the policy under <code>cards.verification.methods</code>, so a
+client can read it before it writes. <code>force</code> with a <code>reason</code> waives it, and the
+card then records <code>forced</code>.</p>
+<h2 id="docs"><a class="hash" href="#docs" aria-hidden="true" tabindex="-1">##</a> Docs</h2>
+<pre class="code" data-lang="text"><code>GET/POST   /api/v2/docs
+GET/PATCH  /api/v2/docs/:id</code></pre>
+<h2 id="history"><a class="hash" href="#history" aria-hidden="true" tabindex="-1">##</a> History</h2>
+<pre class="code" data-lang="text"><code>GET/POST   /api/v2/changelog
+GET/PATCH  /api/v2/changelog/:id
+POST       /api/v2/changelog/releases/preview
+POST       /api/v2/changelog/releases
+GET/POST   /api/v2/changelog/render</code></pre>
+<h2 id="memory"><a class="hash" href="#memory" aria-hidden="true" tabindex="-1">##</a> Memory</h2>
+<pre class="code" data-lang="text"><code>GET/POST   /api/v2/memory
+GET/PATCH  /api/v2/memory/:id
+POST       /api/v2/memory/:id/graduate
+POST       /api/v2/memory/:id/supersede</code></pre>
+<h2 id="agents-and-ci"><a class="hash" href="#agents-and-ci" aria-hidden="true" tabindex="-1">##</a> Agents and CI</h2>
+<pre class="code" data-lang="text"><code>GET   /api/v2/agents
+POST  /api/v2/agents/sync
+GET   /api/v2/agents/context?card=T-0001
+GET   /api/v2/ci
+POST  /api/v2/ci/sync</code></pre>
+<h2 id="mcp-inspection"><a class="hash" href="#mcp-inspection" aria-hidden="true" tabindex="-1">##</a> MCP inspection</h2>
+<pre class="code" data-lang="text"><code>GET  /api/v2/mcp
+GET  /api/v2/mcp/config</code></pre>
+<h2 id="legacy-routes"><a class="hash" href="#legacy-routes" aria-hidden="true" tabindex="-1">##</a> Legacy routes</h2>
+<p><code>/api/tasks</code>, <code>/api/health</code> and <code>/api/knowledge</code> remain for existing callers.
+The packaged UI no longer uses the first two: it boots from
+<code>/api/v2/workspace</code> (identity plus the runtime schema) and reads
+<code>/api/v2/cards</code>, which — unlike <code>/api/tasks</code> — honours <code>q</code>, <code>limit</code>, <code>offset</code>
+and <code>view</code>, and carries an ETag.</p>
+<p>Asset upload is still <code>POST /api/tasks/:id/assets</code>; it has no v2 equivalent yet.</p>
+<p>New integrations should target <code>/api/v2/*</code>.</p>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/http-api.md">packages/workfile/docs/http-api.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

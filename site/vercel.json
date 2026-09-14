@@ -3,5 +3,52 @@
     "framework": null,
     "buildCommand": null,
     "installCommand": null,
-    "outputDirectory": "."
+    "outputDirectory": ".",
+    "cleanUrls": true,
+    "routes": [
+        {
+            "src": "/",
+            "headers": {
+                "Link": "</index.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\"; type=\"text/plain\"",
+                "Vary": "Accept"
+            },
+            "continue": true
+        },
+        {
+            "src": "/(docs|vs)/([a-z0-9-]+)",
+            "headers": {
+                "Link": "</$1/$2.md>; rel=\"alternate\"; type=\"text/markdown\"",
+                "Vary": "Accept"
+            },
+            "continue": true
+        },
+        {
+            "src": "/(docs|vs)/([a-z0-9-]+)\\.md",
+            "headers": {
+                "Content-Type": "text/markdown; charset=utf-8",
+                "Link": "<https://workfile.illodev.com/$1/$2>; rel=\"canonical\""
+            },
+            "continue": true
+        },
+        {
+            "src": "/index\\.md",
+            "headers": {
+                "Content-Type": "text/markdown; charset=utf-8",
+                "Link": "<https://workfile.illodev.com/>; rel=\"canonical\""
+            },
+            "continue": true
+        },
+        {
+            "src": "/",
+            "has": [{ "type": "header", "key": "accept", "value": { "re": "text/(x-)?markdown" } }],
+            "dest": "/index.md",
+            "headers": { "Content-Type": "text/markdown; charset=utf-8" }
+        },
+        {
+            "src": "/(docs|vs)/([a-z0-9-]+)",
+            "has": [{ "type": "header", "key": "accept", "value": { "re": "text/(x-)?markdown" } }],
+            "dest": "/$1/$2.md",
+            "headers": { "Content-Type": "text/markdown; charset=utf-8" }
+        }
+    ]
 }

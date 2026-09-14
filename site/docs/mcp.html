@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>MCP server — Workfile docs</title>
+<meta name="description" content="Workfile includes a local, dependency-free MCP server speaking UTF-8, newline-delimited JSON-RPC over stdio. Every operation delegates to the same core…">
+<link rel="canonical" href="https://workfile.illodev.com/docs/mcp">
+<link rel="alternate" type="text/markdown" href="/docs/mcp.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="MCP server — Workfile docs">
+<meta property="og:description" content="Workfile includes a local, dependency-free MCP server speaking UTF-8, newline-delimited JSON-RPC over stdio. Every operation delegates to the same core…">
+<meta property="og:url" content="https://workfile.illodev.com/docs/mcp">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"MCP server","description":"Workfile includes a local, dependency-free MCP server speaking UTF-8, newline-delimited JSON-RPC over stdio. Every operation delegates to the same core…","url":"https://workfile.illodev.com/docs/mcp","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"MCP server","item":"https://workfile.illodev.com/docs/mcp"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli">CLI reference</a></li><li><a href="/docs/mcp" aria-current="page">MCP server</a><ol><li><a href="#reading-the-workspace">Reading the workspace</a></li><li><a href="#claude-code-integration">Claude Code integration</a></li><li><a href="#protocol-revisions">Protocol revisions</a></li><li><a href="#tools-32">Tools (32)</a></li><li><a href="#resources-and-prompts">Resources and prompts</a></li><li><a href="#limits">Limits</a></li><li><a href="#process-hygiene">Process hygiene</a></li></ol></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/mcp</span><span>Accept: text/markdown</span><span>→ <a href="/docs/mcp.md">/docs/mcp.md</a></span><span>≈4,300 tokens</span></p>
+<article class="prose">
+<h1 id="mcp-server">MCP server</h1>
+<p>Workfile includes a local, dependency-free MCP server speaking UTF-8,
+newline-delimited JSON-RPC over stdio. Every operation delegates to the same core
+services used by the CLI and HTTP API.</p>
+<pre class="code" data-lang="bash"><code>workfile mcp                    # serve over stdio
+workfile-mcp --root /path/to/repository
+workfile mcp --read-only        # mutation tools removed from tools/list
+workfile mcp inspect --json     # tool/resource/prompt inventory
+workfile mcp config --json      # portable client process configuration</code></pre>
+<h2 id="reading-the-workspace"><a class="hash" href="#reading-the-workspace" aria-hidden="true" tabindex="-1">##</a> Reading the workspace</h2>
+<p><code>project_card_list</code>, <code>project_doc_list</code>, <code>project_changelog_list</code> and
+<code>project_memory_list</code> answer &quot;what is in here&quot; without needing a search query.
+They take filters (<code>status</code>, <code>area</code>, <code>type</code>, <code>priority</code>, <code>parent</code>, <code>claimedBy</code>,
+<code>unclaimed</code>, <code>tags</code>, <code>updatedSince</code>) and return a compact row per record — no
+Markdown body, no <code>revision</code>. <code>updatedSince</code> takes <code>YYYY-MM-DD</code>, or an RFC 3339
+timestamp read as its date; anything else is refused with
+<code>MCP_ARGUMENT_INVALID</code> rather than applied as a filter that matches nothing.</p>
+<p><code>project_next</code> answers the question an agent actually has: which cards can be
+started now. It excludes epics and anything with unmet dependencies, puts work
+already claimed by the caller first, and attaches the reason each candidate
+qualified.</p>
+<p>Listings deliberately omit <code>revision</code>. Writing needs a read-then-write —
+<code>project_get_record</code> returns the current revision, which <code>expectedRevision</code>
+then guards — and carrying a possibly-stale one in a list only invites a
+conflict.</p>
+<p>Every result carries the data once, in <code>structuredContent</code>; <code>content</code> is a
+one-line summary rather than a second copy of the payload. When a result would
+exceed <code>maxToolResultBytes</code> the server degrades it rather than failing the call,
+because a get-by-id has no query to narrow — and says so with
+<strong><code>resultTruncated</code></strong>: <code>{ records: &lt;rows dropped&gt; }</code>, or
+<code>{ bodyBytes: &lt;original size&gt; }</code> when a single record&#39;s body was clipped.</p>
+<p>That marker is the transport speaking, and it is deliberately not called
+<code>truncated</code>. A tool may declare a <code>truncated</code> of its own meaning something else
+entirely: <code>project_agent_context</code> returns <code>truncated: boolean</code> for relations
+dropped to respect <code>limit</code>, and the two used to be one key — so a large bundle
+replaced the boolean with an object, a caller checking <code>=== true</code> survived by
+accident because an object is truthy, and a caller reading <code>truncated.records</code> on
+any other tool got <code>true</code> from that one.</p>
+<h2 id="claude-code-integration"><a class="hash" href="#claude-code-integration" aria-hidden="true" tabindex="-1">##</a> Claude Code integration</h2>
+<pre class="code" data-lang="bash"><code>workfile claude install     # generate the surface into the repository
+workfile claude check       # report drift, exit 1 when anything is stale</code></pre>
+<p><code>install</code> writes, as managed blocks that a resync updates without touching
+anything around them:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.mcp.json</code></td>
+<td>Registers the server, exactly as below</td>
+</tr>
+<tr>
+<td><code>.claude/commands/{next,claim,done,context}.md</code></td>
+<td>Slash commands over one CLI call each</td>
+</tr>
+<tr>
+<td><code>.claude/skills/workfile/SKILL.md</code></td>
+<td>Projects <code>.project/agents/protocol.md</code> rather than restating it</td>
+</tr>
+<tr>
+<td><code>.claude/settings.json</code></td>
+<td>Three hooks</td>
+</tr>
+</tbody></table></div>
+<pre class="code" data-lang="json"><code>{
+  &quot;mcpServers&quot;: {
+    &quot;workfile&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@illodev/workfile&quot;, &quot;mcp&quot;]
+    }
+  }
+}</code></pre>
+<p>That is the form for a workspace with no local install. Where the package is a
+dependency, <code>install</code> registers the copy in <code>node_modules</code> instead — the same
+one the hooks already run — so the server and the hooks are the same build. The
+two used to differ: <code>.mcp.json</code> fetched whatever npm published today while
+<code>.claude/settings.json</code> ran whatever the repository had, and a workspace pinned
+to 0.5.2 spoke to a 0.5.4 server. The two halves disagreeing about what the
+protocol is produces symptoms that look like anything else. Re-running
+<code>install</code> follows the dependency in either direction.</p>
+<p><code>upgrade</code> reports it when the binary doing the upgrading is not the one the
+workspace will run — the shape <code>pnpm i -g @illodev/workfile</code> produces against a
+repository that pins an older release.</p>
+<p>It registers the package and the <code>mcp</code> subcommand, not the <code>workfile-mcp</code> bin.
+That bin exists and parses its own flags — <code>workfile mcp config</code> emits it, for
+hosts building a configuration themselves — but <code>npx</code> cannot select a named bin
+from a package spec, so registering it that way started the CLI instead of the
+server and every request was answered with the help text on stdout. T-0116
+changed it in 0.4.0; this table went on describing the old behaviour until it
+was corrected.</p>
+<p><strong><code>SessionStart</code></strong> injects the board once — cards in flight, who holds them,
+which paths they cover — so a session begins informed without reading a record.
+Once per session, not per prompt: per-prompt injection accumulates in the
+window.</p>
+<p><strong><code>PreToolUse</code></strong> on <code>Edit|Write|NotebookEdit</code> compares the target path against
+the scope of cards claimed by <em>other</em> actors and answers <code>ask</code> with the card and
+the actor named. It also asks when something writes a <code>.project/</code> record
+directly, because that skips the lock, the revision check and validation.</p>
+<p>It asks; it never denies. A guard rail that blocks too much gets switched off,
+and then it protects nothing.</p>
+<p><strong><code>PostToolUse</code></strong> refreshes the session heartbeat under
+<code>.project/.cache/activity/sessions/</code> and appends one line to
+<code>.project/.cache/activity/events.jsonl</code>, asynchronously. The heartbeat is what
+makes a claim <code>live</code> rather than merely <code>held</code>: a hook is the only thing that
+fires repeatedly for as long as an agent is working, and a one-shot CLI process
+that signalled once would decay into a false <code>orphaned</code> ninety seconds later.</p>
+<p>After a <code>Bash</code> call the same hook also looks at what the guard could not see. A
+<code>Bash</code> payload carries <code>command</code>, not <code>file_path</code>, so an edit made with <code>sed</code>, a
+heredoc or <code>tee</code> inside another actor&#39;s scope was asked nothing — measured on a
+consuming board with eight panels live, a file inside a held scope changed with
+zero events in the ledger. The hook walks the scopes <em>other</em> actors hold, bounded
+to 4000 entries and never into <code>.git</code>, <code>node_modules</code> or <code>.project</code>, and takes
+every file whose mtime falls after this session&#39;s previous signal and that no
+typed-tool edit in the ledger accounts for. Each one is appended to
+<code>events.jsonl</code> with a <code>collision</code> object naming the card and its holder, and the
+agent is told in <code>additionalContext</code>: the paths, the card, and whether the
+holder&#39;s session was signalling in that window — the window is the whole
+command, so a neighbour writing to their own scope through <code>Bash</code> at the same
+moment lands in it too, and the text says &quot;changed while your command ran&quot;,
+never &quot;you changed&quot;. It reports; it prevents nothing, and it never joins the
+<code>PreToolUse</code> matcher, whose budget is built on not spawning node for a <code>Bash</code>.
+The hook stays asynchronous, and Claude Code delivers an async hook&#39;s output
+with the <em>next</em> tool result: measured in a live session, each report arrived one
+call after the command it describes. That is what &quot;after the fact&quot; costs, and it
+is still before the agent&#39;s next edit lands.</p>
+<p>Silence is only evidence about a holder some session signals as. A claim made
+with a hand-typed <code>--actor</code> matches no session file, so its holder is silent in
+every window by construction; the report says so — &quot;no session here signals as
+that name&quot; — instead of calling the change &quot;most likely yours&quot;, and the
+<code>collision</code> object carries <code>holderKnown: false</code> (T-0256). A subagent is not a
+separate session to the hook: measured in a live session, its tool calls fire
+the same hooks with the parent&#39;s <code>session_id</code>, plus <code>agent_id</code> and <code>agent_type</code>,
+and the CLI inside it resolves the parent&#39;s actor. A scope the parent session
+holds is therefore the subagent&#39;s own, and each ledger line a subagent&#39;s call
+writes carries <code>agentId</code> and <code>agentType</code>.</p>
+<p>The hook runtime (<code>dist/src/runtime/claude/hooks.mjs</code>) imports nothing from this
+package. <code>src/index.js</code> re-exports thirteen modules and several read
+<code>package.json</code> at load, and <code>PreToolUse</code> runs before <em>every</em> tool call in the
+session — not only the ones it might block. A test pins its p95.</p>
+<p>Generated files grant permissions in someone else&#39;s repository, so
+<code>allowed-tools</code> names the exact subcommand (<code>Bash(workfile card claim *)</code>), never
+<code>Bash(project *)</code>. <code>.claude/settings.json</code> and <code>.mcp.json</code> are merged, not
+replaced: a ledger in <code>.project/generated/claude-code.json</code> records which keys
+are generated so removing one later actually removes it.</p>
+<h3 id="installing-as-a-plugin"><a class="hash" href="#installing-as-a-plugin" aria-hidden="true" tabindex="-1">###</a> Installing as a plugin</h3>
+<p>The same surface is distributed as a Claude Code plugin, for repositories that
+would rather not have generated files committed:</p>
+<pre class="code"><code>/plugin marketplace add illodev/workfile
+/plugin install workfile@illodev</code></pre>
+<p>The plugin registers the MCP server with <code>--root ${CLAUDE_PROJECT_DIR}</code> and
+resolves its hooks through <code>${CLAUDE_PLUGIN_ROOT}</code>, so it works without the
+package being a dependency of the repository at all.</p>
+<p>The server is only half of it; the rest is session-side:</p>
+<ul>
+<li><strong>Slash commands</strong> — <code>/claim</code> (claim a card with an honest scope),
+<code>/card-context</code> (the bounded context bundle for a card), <code>/next</code> (unclaimed
+candidates worth starting) and <code>/done</code> (verify, record, release). The
+context command was <code>/context</code> until 0.10.0, where it shadowed Claude Code&#39;s
+own <code>/context</code>; <code>claude install</code> retires a generated <code>context.md</code> it finds.</li>
+<li><strong>A skill</strong> that teaches the session the one non-negotiable rule: records
+under <code>.project/</code> change through the CLI or MCP tools, never through a raw
+file edit that would skip the lock, the revision check and validation.</li>
+<li><strong>Hooks</strong> that make claims an executable guard rail rather than prose:
+<code>SessionStart</code> rebuilds the claims board and announces which cards are
+being worked on and by whom; <code>PreToolUse</code> asks — never denies — before an
+edit that lands inside another actor&#39;s claimed scope or touches a protocol
+record directly; an async <code>PostToolUse</code> refreshes the session heartbeat under
+<code>.project/.cache/activity/sessions/</code>, which is what the UI&#39;s presence
+indicators read, appends the edit to <code>.project/.cache/activity/events.jsonl</code>,
+and after a <code>Bash</code> call reports any file that changed inside another actor&#39;s
+scope while the command ran — the edit the guard cannot see.</li>
+</ul>
+<p>Both forms exist on purpose. A plugin&#39;s <code>settings.json</code> accepts only <code>agent</code> and
+<code>subagentStatusLine</code>, so anything else has to be generated locally; and a
+generator alone means every version bump leaves the written files behind, which
+is the trap <code>T-0018</code> recorded. <code>scripts/build-plugin.ts</code> assembles the plugin
+from the same functions <code>workfile claude install</code> uses, and a test asserts the
+packaged runtime is byte-identical to the source — a hook that behaves
+differently depending on how it was installed is a bug nobody would find.</p>
+<h2 id="protocol-revisions"><a class="hash" href="#protocol-revisions" aria-hidden="true" tabindex="-1">##</a> Protocol revisions</h2>
+<p>The server is dual-era:</p>
+<ul>
+<li><strong>Modern <code>2026-07-28</code></strong> — stateless per-request <code>_meta</code>, <code>server/discover</code>,
+<code>resultType</code> and cache metadata.</li>
+<li><strong>Legacy <code>2025-11-25</code></strong> and earlier declared revisions — the
+<code>initialize</code> / <code>notifications/initialized</code> lifecycle for existing hosts.</li>
+</ul>
+<h2 id="tools-32"><a class="hash" href="#tools-32" aria-hidden="true" tabindex="-1">##</a> Tools (32)</h2>
+<p>Read-only:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>project_workspace</code></td>
+<td>Workspace, config and module overview</td>
+</tr>
+<tr>
+<td><code>project_search</code></td>
+<td>Unified weighted search across all collections</td>
+</tr>
+<tr>
+<td><code>project_get_record</code></td>
+<td>Any record by stable ID</td>
+</tr>
+<tr>
+<td><code>project_doctor</code></td>
+<td>Full health diagnostics</td>
+</tr>
+<tr>
+<td><code>project_agent_context</code></td>
+<td>Bounded, prioritized context for a card</td>
+</tr>
+<tr>
+<td><code>project_next</code></td>
+<td>Unclaimed, prioritized candidates to start now</td>
+</tr>
+<tr>
+<td><code>project_card_list</code></td>
+<td>Cards filtered by status, area, type or claim</td>
+</tr>
+<tr>
+<td><code>project_doc_list</code></td>
+<td>Documents with status and folder</td>
+</tr>
+<tr>
+<td><code>project_changelog_list</code></td>
+<td>Change fragments and cut releases</td>
+</tr>
+<tr>
+<td><code>project_memory_list</code></td>
+<td>Memory records per collection</td>
+</tr>
+<tr>
+<td><code>project_changelog_preview</code></td>
+<td>What a release would consume, without cutting it</td>
+</tr>
+</tbody></table></div>
+<p>Mutations (absent in <code>--read-only</code> mode; rejected with <code>MCP_SERVER_READ_ONLY</code>):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Tools</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Work</td>
+<td><code>project_card_create</code>, <code>project_card_patch</code>, <code>project_card_write</code>, <code>project_card_note</code>, <code>project_card_claim</code>, <code>project_card_release</code>, <code>project_card_transition</code>, <code>project_card_archive</code>, <code>project_card_reopen</code></td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><code>project_doc_create</code>, <code>project_doc_move</code>, <code>project_doc_patch</code>, <code>project_doc_write</code>, <code>project_doc_note</code></td>
+</tr>
+<tr>
+<td>History</td>
+<td><code>project_changelog_add</code>, <code>project_changelog_patch</code>, <code>project_changelog_release</code></td>
+</tr>
+<tr>
+<td>Memory</td>
+<td><code>project_memory_add</code>, <code>project_memory_patch</code>, <code>project_memory_graduate</code>, <code>project_memory_supersede</code></td>
+</tr>
+</tbody></table></div>
+<p>Tool descriptions carry read-only, destructive and idempotency annotations.</p>
+<h3 id="what-each-tool-declares"><a class="hash" href="#what-each-tool-declares" aria-hidden="true" tabindex="-1">###</a> What each tool declares</h3>
+<p>Every tool declares its full contract, so a caller never has to infer one:</p>
+<ul>
+<li><strong>Every input property carries a <code>description</code>.</strong> Names do not survive
+inference — <code>scope</code> is filesystem paths on a card and subject matter on a
+document, and <code>source</code> is provenance on both while meaning different things.</li>
+<li><strong>Closed vocabularies declare <code>enum</code>.</strong> Card <code>status</code>, <code>type</code>, <code>priority</code> and
+<code>effort</code> come from frozen protocol constants, so they are enumerated in the
+schema itself. Areas, document kinds, changelog types and memory statuses are
+declared per project and accept any string, so they are <em>not</em> enumerated —
+their descriptions point at <code>project_workspace</code>, which reports what this
+project actually accepts.</li>
+<li><strong>Defaults are declared where the implementation has one</strong>, rather than left
+for the caller to discover by omitting the field.</li>
+<li><strong>Every tool declares an <code>outputSchema</code></strong> matching the <code>structuredContent</code> it
+returns, including <code>resultTruncated</code> — declared rather than merely allowed, so
+a caller reads it from the schema instead of meeting it the first time a
+payload gets large. None of them is a closed object either: the degradation
+path adds a field, and a schema that forbade it would invalidate the server&#39;s
+own answer.</li>
+</ul>
+<p><code>project_card_release</code> is the one place where an enum is narrower than the
+protocol&#39;s: a released card cannot stay <code>doing</code>, so that value is refused as an
+explicit target and omitted from the schema.</p>
+<p><code>method</code> is the second. <code>project_card_transition</code>, <code>project_card_patch</code> and
+<code>project_card_release</code> each take <code>method</code>, <code>run</code> and <code>evidence</code>, which say how a
+close was proved — but the enum offers <code>local</code>, <code>ci</code> and <code>manual</code> only. <code>forced</code>
+is derived from what the acceptance gate waived and is refused as an input, and
+in any case no MCP tool can force a transition today: <code>project_card_transition</code>
+declares neither <code>force</code> nor <code>reason</code> and reads neither, so a close through this
+surface is always a proven one. Passing any of the three on a call that does not
+move the card into <code>done</code> is refused rather than ignored.</p>
+<p>That last point has a consequence worth stating, now that a project can declare
+which methods an area accepts. <code>CARD_VERIFICATION_METHOD_REFUSED</code> is <strong>final on
+this surface</strong>: the waiver every other surface offers is <code>force</code> with a reason,
+and no MCP tool carries either. An agent that meets it has to prove the card the
+way the project asks — read <code>project_workspace</code> first, under
+<code>cards.verification.methods</code>, rather than discovering the rule by being refused.
+Omitting <code>method</code> is not the way around it: a close with none records <code>local</code>.</p>
+<p><code>project_doctor</code> takes <code>checkGit</code> beside <code>checkPaths</code>. It gates the one check
+that leaves the process — whether a done card&#39;s commit is still an ancestor of
+HEAD — and nothing is spawned unless some card carries a commit.</p>
+<h2 id="resources-and-prompts"><a class="hash" href="#resources-and-prompts" aria-hidden="true" tabindex="-1">##</a> Resources and prompts</h2>
+<ul>
+<li><strong>Resources:</strong> <code>project://workspace</code>, <code>project://health</code>, <code>project://protocol</code>,
+<code>project://record/{id}</code>.</li>
+<li><strong>Prompts:</strong> <code>start-work</code>, <code>finish-work</code>, <code>record-knowledge</code>.</li>
+</ul>
+<h2 id="limits"><a class="hash" href="#limits" aria-hidden="true" tabindex="-1">##</a> Limits</h2>
+<p>Two, both from <code>project.config.mjs</code>, and they guard opposite directions.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mcp.maxMessageBytes</code></td>
+<td>1 MiB</td>
+<td>An incoming JSON-RPC line larger than this is refused with <code>-32600</code> before it is parsed.</td>
+</tr>
+<tr>
+<td><code>mcp.maxToolResultBytes</code></td>
+<td>512 KiB</td>
+<td>A result larger than this is truncated with a <code>truncated</code> marker rather than failing the call.</td>
+</tr>
+</tbody></table></div>
+<p>Both accept 1 KiB to 16 MiB. The asymmetry between them is deliberate: an
+oversized <em>request</em> is a client defect and failing it early is the honest
+answer, while an oversized <em>result</em> is usually a get-by-id with no query to
+narrow, so degrading beats refusing.</p>
+<p><code>mcp.resourcePageSize</code> (default 100, range 1–500) bounds how many records one
+resource read returns.</p>
+<h2 id="process-hygiene"><a class="hash" href="#process-hygiene" aria-hidden="true" tabindex="-1">##</a> Process hygiene</h2>
+<p>stdout is reserved exclusively for MCP messages; diagnostics go to stderr.
+<code>workfile mcp config</code> emits the Node executable, the <strong><code>workfile-mcp</code> binary</strong>,
+workspace root, preferred protocol revision and optional <code>--read-only</code> flag, so
+hosts can build their own client configuration — client-specific files stay
+outside the canonical repository protocol.</p>
+<p>It names the dedicated binary rather than <code>workfile mcp</code> on purpose: the
+multiplexed CLI takes the third argument as a subcommand, so a <code>--root</code> in that
+position is not a flag it can parse. <code>test/mcp.test.ts</code> spawns exactly what the
+helper returns and drives a handshake through it, so the emitted command cannot
+drift into being unrunnable again.</p>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/mcp.md">packages/workfile/docs/mcp.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>

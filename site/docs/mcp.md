@@ -1,3 +1,5 @@
+<!-- https://workfile.illodev.com/docs/mcp · generated from packages/workfile/docs/mcp.md -->
+
 # MCP server
 
 Workfile includes a local, dependency-free MCP server speaking UTF-8,

