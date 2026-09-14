@@ -274,6 +274,20 @@ function listing(what) {
 
 const RECORD_RESULT = output({ record: RECORD_FULL }, ["record"]);
 
+/**
+ * A status move: the record, and what a move to `review` left unchecked when it
+ * left anything (T-0255) — the notice the CLI prints, never a refusal.
+ */
+const MOVE_RESULT = output(
+    {
+        record: RECORD_FULL,
+        warnings: strings(
+            "Present when a move to review left acceptance criteria unchecked: one notice naming how many and which. The move itself was made."
+        )
+    },
+    ["record"]
+);
+
 function annotations({ readOnly = false, destructive = false, idempotent = false }: any = {}) {
     return {
         readOnlyHint: readOnly,
@@ -1019,7 +1033,7 @@ const TOOL_DEFINITIONS = [
             },
             ["id"]
         ),
-        outputSchema: RECORD_RESULT,
+        outputSchema: MOVE_RESULT,
         annotations: annotations({ idempotent: true }),
         async execute(args, context) {
             const result = await releaseCard(
@@ -1038,7 +1052,10 @@ const TOOL_DEFINITIONS = [
                 }
             );
             invalidate(context);
-            return recordResult(recordFromCard(context.workspace, result.card));
+            return recordResult(
+                recordFromCard(context.workspace, result.card),
+                result.warnings?.length ? { warnings: result.warnings } : {}
+            );
         }
     }),
     tool({
@@ -1138,7 +1155,7 @@ const TOOL_DEFINITIONS = [
             },
             ["id", "status"]
         ),
-        outputSchema: RECORD_RESULT,
+        outputSchema: MOVE_RESULT,
         annotations: annotations(),
         readOnly: false,
         async execute(args, context) {
@@ -1158,7 +1175,11 @@ const TOOL_DEFINITIONS = [
                 }
             );
             invalidate(context);
-            return recordResult(recordFromCard(context.workspace, result.card));
+            return recordResult(
+                recordFromCard(context.workspace, result.card),
+                // A move to doing is a claim, whose warnings are scope overlaps.
+                args.status !== "doing" && result.warnings?.length ? { warnings: result.warnings } : {}
+            );
         }
     }),
     tool({
@@ -1183,7 +1204,7 @@ const TOOL_DEFINITIONS = [
             },
             ["id", "changes"]
         ),
-        outputSchema: RECORD_RESULT,
+        outputSchema: MOVE_RESULT,
         annotations: annotations({ idempotent: true }),
         readOnly: false,
         async execute(args, context) {
@@ -1203,7 +1224,10 @@ const TOOL_DEFINITIONS = [
                 }
             );
             invalidate(context);
-            return recordResult(recordFromCard(context.workspace, result.card));
+            return recordResult(
+                recordFromCard(context.workspace, result.card),
+                result.warnings?.length ? { warnings: result.warnings } : {}
+            );
         }
     }),
     tool({

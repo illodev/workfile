@@ -106,7 +106,8 @@ The vocabulary:
 | Command | Shape |
 | --- | --- |
 | `card show`, `doc show`, `changelog show`, `memory show` | `{ record }` |
-| `card create`, `card patch`, `card transition`, `card release`, `card archive`, `card reopen`, `card note` | `{ record }` |
+| `card create`, `card archive`, `card reopen`, `card note` | `{ record }` |
+| `card patch`, `card transition`, `card release` | `{ record, warnings? }` — `warnings` names the criteria a move to `review` left unchecked; it never refuses the move |
 | `card write` | `{ record, ignored? }` — `ignored` names a protocol section that was dropped |
 | `card claim` | `{ record, warnings, verify? }` |
 | `doc create`, `doc patch`, `doc write`, `doc note`, `doc move` | `{ record }` |

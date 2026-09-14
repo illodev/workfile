@@ -634,6 +634,31 @@ function assertAcceptanceMet(id, current, status, force) {
 }
 
 /**
+ * What a move to `review` leaves unchecked — said, never refused.
+ *
+ * `assertAcceptanceMet` answers for `done` alone, by construction: `review` is
+ * where a card waits for the runtime evidence only `done` can carry, so a
+ * criterion that *is* that evidence is legitimately open there. But the
+ * protocol defines `review` as every criterion met but the evidence, and a card
+ * moved there with three open is usually the "my turn ended" exit under the
+ * wrong name. A consuming agent made the legitimate move and asked the gate to
+ * say "1 left unchecked" anyway (T-0255). So every door that can set `review`
+ * names the count and the texts, and lets the move through.
+ */
+function reviewNotices(id, current, status): string[] {
+    if (status !== "review" || current.status === "review") return [];
+    const pending = parseAcceptance(current.body).unchecked;
+    if (!pending.length) return [];
+    return [
+        `${id} moved to review with ${pending.length} unchecked acceptance ${
+            pending.length === 1 ? "criterion" : "criteria"
+        }: ${pending.map((item) => `#${item.index} ${item.text}`).join("; ")}. ` +
+            "Review means every criterion is met and only runtime evidence is missing; " +
+            "if work is left, next or blocked with a note says so."
+    ];
+}
+
+/**
  * `done` is proved the way the project says its work is proved.
  *
  * The sibling of `assertAcceptanceMet`, answering what that one cannot. A
@@ -962,8 +987,10 @@ export async function patchCard(
     // the guard knows what the acceptance gate let through, and it knows it
     // under the lock.
     let waived: string | null = null;
+    // What a move to `review` left unchecked, filled by the guard under the lock.
+    let notices: string[] = [];
     const head = await commitForClose(workspace, wanted, commit);
-    return mutateCard(workspace, id, changes, {
+    const result = await mutateCard(workspace, id, changes, {
         ...options,
         producer,
         verification: {
@@ -989,6 +1016,7 @@ export async function patchCard(
                 wanted && wanted !== current.status
                     ? assertAcceptanceMet(id, current, wanted, force)
                     : null;
+            notices = wanted ? reviewNotices(id, current, wanted) : [];
             // Asked only when nothing has been waived yet. A close that walked
             // past the acceptance gate is about to record `forced`, and no
             // policy names `forced` — putting it in front of one would be
@@ -1040,6 +1068,7 @@ export async function patchCard(
             });
         }
     });
+    return { ...result, warnings: notices };
 }
 
 function claimIsStale(card, leaseHours, now) {
@@ -1217,8 +1246,9 @@ export async function releaseCard(
             "A released card cannot remain doing."
         );
     }
+    let notices: string[] = [];
     const head = await commitForClose(workspace, status, commit);
-    return mutateCard(
+    const result = await mutateCard(
         workspace,
         id,
         // Without an explicit target the card keeps the status it already has:
@@ -1266,6 +1296,7 @@ export async function releaseCard(
                     status && status !== current.status
                         ? assertAcceptanceMet(id, current, status, force)
                         : null;
+                notices = status ? reviewNotices(id, current, status) : [];
                 // See `patchCard`: only asked when the close has not already
                 // been forced past something.
                 const policy = acceptance
@@ -1291,6 +1322,7 @@ export async function releaseCard(
             }
         }
     );
+    return { ...result, warnings: notices };
 }
 
 export async function transitionCard(
@@ -1330,8 +1362,9 @@ export async function transitionCard(
         : undefined;
     let forced = "";
     let waived: string | null = null;
+    let notices: string[] = [];
     const head = await commitForClose(workspace, status, commit);
-    return mutateCard(
+    const result = await mutateCard(
         workspace,
         id,
         {
@@ -1383,6 +1416,7 @@ export async function transitionCard(
                 // criteria did not anticipate. Documented, and now recorded:
                 // what it waived goes on the same line as the move it allowed.
                 const acceptance = assertAcceptanceMet(id, current, status, force);
+                notices = reviewNotices(id, current, status);
                 // See `patchCard`: only asked when the close has not already
                 // been forced past something.
                 const policy = acceptance
@@ -1405,6 +1439,7 @@ export async function transitionCard(
             }
         }
     );
+    return { ...result, warnings: notices };
 }
 
 /**

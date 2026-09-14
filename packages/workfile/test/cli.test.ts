@@ -2905,3 +2905,68 @@ test("a doctor report past fifty warnings names the baseline flags, and a short 
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test("a move to review names the criteria it leaves unchecked, on every door, and never refuses it", async () => {
+    // T-0255: the acceptance gate answers only `done`, so a card moved to
+    // `review` with every criterion still open said nothing at all.
+    const root = await mkdtemp(join(tmpdir(), "workfile-cli-review-"));
+    await cp(fixture, root, { recursive: true });
+    const inRoot = (args: string[]) => outcome([...args, "--root", root]);
+    const cardWith = async (title: string, criteria: string) => {
+        const input = join(root, `${title.replace(/\W+/g, "-")}.json`);
+        await writeFile(
+            input,
+            JSON.stringify({
+                title,
+                area: "api",
+                raised: "derived",
+                body: `Body.\n\n## Acceptance criteria\n\n${criteria}\n`
+            })
+        );
+        const created = await inRoot(["card", "create", "--json-input", input, "--json"]);
+        assert.equal(created.code, 0, created.stderr);
+        return JSON.parse(created.stdout).record.id as string;
+    };
+    const warningLines = (stderr: string) =>
+        stderr.split("\n").filter((line) => line.startsWith("warning: "));
+    const open = "- [x] The part that is done\n- [ ] The part that is not\n- [ ] The runtime evidence";
+    try {
+        const viaTransition = await cardWith("Reviewed by transition", open);
+        const moved = await inRoot(["card", "transition", viaTransition, "review"]);
+        assert.equal(moved.code, 0, moved.stderr);
+        assert.match(moved.stdout, new RegExp(`${viaTransition} → review`));
+        const notices = warningLines(moved.stderr);
+        assert.equal(notices.length, 1, moved.stderr);
+        assert.match(
+            notices[0],
+            /moved to review with 2 unchecked acceptance criteria: #2 The part that is not; #3 The runtime evidence/
+        );
+
+        const viaPatch = await cardWith("Reviewed by patch", open);
+        const toReview = join(root, "to-review.json");
+        await writeFile(toReview, JSON.stringify({ status: "review" }));
+        const patched = await inRoot(["card", "patch", viaPatch, "--json-input", toReview, "--json"]);
+        assert.equal(patched.code, 0, patched.stderr);
+        const patchAnswer = JSON.parse(patched.stdout);
+        assert.equal(patchAnswer.record.status, "review");
+        assert.equal(patchAnswer.warnings.length, 1);
+        assert.match(patchAnswer.warnings[0], new RegExp(`${viaPatch} moved to review with 2 unchecked`));
+        assert.deepEqual(warningLines(patched.stderr), [], "--json says it once, in the answer");
+
+        const viaRelease = await cardWith("Reviewed by release", open);
+        const released = await inRoot(["card", "release", viaRelease, "--status", "review", "--json"]);
+        assert.equal(released.code, 0, released.stderr);
+        const releaseAnswer = JSON.parse(released.stdout);
+        assert.equal(releaseAnswer.record.status, "review");
+        assert.match(releaseAnswer.warnings[0], new RegExp(`${viaRelease} moved to review with 2 unchecked`));
+
+        // Nothing unchecked, nothing said — and the answer keeps its old shape.
+        const met = await cardWith("Every criterion met", "- [x] One\n- [x] Two");
+        const clean = await inRoot(["card", "transition", met, "review", "--json"]);
+        assert.equal(clean.code, 0, clean.stderr);
+        assert.deepEqual(Object.keys(JSON.parse(clean.stdout)), ["record"]);
+        assert.deepEqual(warningLines(clean.stderr), []);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

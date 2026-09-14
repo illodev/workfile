@@ -1461,6 +1461,23 @@ function recordAnswer(record, extras?: Record<string, unknown>) {
     return { record: projectShown(record), ...(extras ?? {}) };
 }
 
+/**
+ * A move's answer, with what it left unchecked beside it (T-0255).
+ *
+ * Under `--json` the notices ride as `warnings` next to the record, the key
+ * `card claim` already answers with, and only when there are any — a move with
+ * nothing to say keeps the `{ record }` it always had. Otherwise each notice is
+ * one stderr line and stdout keeps the one line it always printed.
+ */
+function moveAnswer(result, text: string) {
+    const warnings: string[] = result.warnings || [];
+    if (has("--json")) {
+        return print(recordAnswer(result.card, warnings.length ? { warnings } : undefined));
+    }
+    for (const warning of warnings) console.error(`warning: ${warning}`);
+    return print(text);
+}
+
 async function askInitOptions(root) {
     const detected = await inspectRepository(root);
     const defaults = {
@@ -2017,7 +2034,7 @@ async function cardCommand(workspace, action) {
             run: option("--run"),
             evidence: option("--evidence")
         });
-        return print(has("--json") ? recordAnswer(result.card) : `${id} updated`);
+        return moveAnswer(result, `${id} updated`);
     }
     if (action === "claim") {
         warnActorMismatch(option("--actor"));
@@ -2063,9 +2080,7 @@ async function cardCommand(workspace, action) {
             evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(
-            has("--json") ? recordAnswer(result.card) : `${id} released to ${result.card.status}`
-        );
+        return moveAnswer(result, `${id} released to ${result.card.status}`);
     }
     if (action === "transition") {
         const status = positional(5);
@@ -2096,7 +2111,12 @@ async function cardCommand(workspace, action) {
             evidence: option("--evidence"),
             expectedRevision: option("--expected-revision") || undefined
         });
-        return print(has("--json") ? recordAnswer(result.card) : `${id} → ${result.card.status}`);
+        // A move to `doing` is a claim, whose warnings are scope overlaps with a
+        // shape of their own, reported by `card claim`.
+        if (status === "doing") {
+            return print(has("--json") ? recordAnswer(result.card) : `${id} → ${result.card.status}`);
+        }
+        return moveAnswer(result, `${id} → ${result.card.status}`);
     }
     if (action === "archive") {
         const result = await archiveCard(workspace, id, {

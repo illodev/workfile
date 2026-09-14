@@ -761,3 +761,75 @@ test("done refuses a card whose criteria it cannot read, and force gets through"
         await rm(root, { recursive: true, force: true });
     }
 });
+
+/**
+ * `review` is never refused, and no longer silent.
+ *
+ * The gate answers `done` alone, by construction — `review` is where a card
+ * waits for the evidence only `done` carries. A consuming agent moved a card
+ * there with its runtime-evidence criterion open, which was right, and asked
+ * for "1 left unchecked" anyway (T-0255). Every door that can set the status
+ * says it, in process and over MCP, and none of them refuses.
+ */
+test("a move to review returns what it left unchecked, on every door and over MCP", async () => {
+    const { workspace, cleanup } = await createTestWorkspace({ prefix: "workfile-review-notice-" });
+    try {
+        const unproven = async (title) => {
+            const { id } = await createCard(workspace, { title, area: "api" });
+            await patchCardBody(workspace, id, { body: BODY });
+            return id;
+        };
+        const pending = parseAcceptance(BODY).unchecked.length;
+        assert.ok(pending > 0, "the shared body has something unchecked");
+        const notice = (id) =>
+            new RegExp(`^${id} moved to review with ${pending} unchecked acceptance criteri`);
+
+        const transitioned = await transitionCard(workspace, await unproven("By transition"), "review", { actor: "tester" });
+        assert.equal(transitioned.card.status, "review");
+        assert.equal(transitioned.warnings.length, 1);
+        assert.match(transitioned.warnings[0], notice(transitioned.card.id));
+
+        const patched = await patchCard(workspace, await unproven("By patch"), { status: "review" }, { actor: "tester" });
+        assert.equal(patched.card.status, "review");
+        assert.match(patched.warnings[0], notice(patched.card.id));
+
+        const released = await releaseCard(workspace, await unproven("By release"), { actor: "tester", status: "review" });
+        assert.equal(released.card.status, "review");
+        assert.match(released.warnings[0], notice(released.card.id));
+
+        // Already in review, or bound elsewhere: nothing to say.
+        const again = await transitionCard(workspace, transitioned.card.id, "review", { actor: "tester" });
+        assert.deepEqual(again.warnings, []);
+        const elsewhere = await transitionCard(workspace, await unproven("To next"), "next", { actor: "tester" });
+        assert.deepEqual(elsewhere.warnings, []);
+
+        const server = createMcpProtocolServer(workspace, { version: "0.0.0" });
+        await server.handle({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
+                capabilities: {},
+                clientInfo: { name: "test-client", version: "1.0.0" }
+            }
+        });
+        await server.handle({ jsonrpc: "2.0", method: "notifications/initialized" });
+        const overMcp = await unproven("Over MCP");
+        const called = await server.handle({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+                name: "project_card_transition",
+                arguments: { id: overMcp, status: "review", actor: "tester" }
+            }
+        });
+        assert.ok("result" in called, JSON.stringify(called));
+        const answer = called.result.structuredContent;
+        assert.equal(answer.record.status, "review");
+        assert.match(answer.warnings[0], notice(overMcp));
+    } finally {
+        await cleanup();
+    }
+});
