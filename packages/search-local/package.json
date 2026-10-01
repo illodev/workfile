@@ -46,6 +46,6 @@
   },
   "dependencies": {
     "@huggingface/tokenizers": "^0.2.0",
-    "onnxruntime-web": "^1.29.0"
+    "onnxruntime-web": "^1.30.0"
   }
 }
